@@ -33,7 +33,8 @@ const COLLECTIONS = {
     SECTORES: 'sectores',
     PROCESOS: 'procesos',
     PROVEEDORES: 'proveedores',
-    UNIDADES: 'unidades'
+    UNIDADES: 'unidades',
+    USUARIOS: 'usuarios'
 };
 
 // =================================================================================
@@ -47,63 +48,59 @@ const viewConfig = {
     flujograma: { title: 'Flujograma de Procesos', singular: 'Flujograma' },
     arboles: { title: 'Árboles de Producto', singular: 'Árbol' },
     profile: { title: 'Mi Perfil', singular: 'Mi Perfil' },
-    productos: { 
-        title: 'Productos', 
-        singular: 'Producto', 
-        dataKey: COLLECTIONS.PRODUCTOS, 
-        columns: [ 
-            { key: 'id', label: 'Código' }, 
-            { key: 'descripcion', label: 'Descripción' }
+    productos: {
+        title: 'Productos',
+        singular: 'Producto',
+        dataKey: COLLECTIONS.PRODUCTOS,
+        columns: [
+            { key: 'codigo', label: 'Código' },
+            { key: 'descripcion', label: 'Descripción' },
+            { key: 'codigo_cliente', label: 'Cód. Cliente' }
         ],
-        fields: [ 
-            { key: 'id', label: 'Código Interno', type: 'text', required: true }, 
-            { key: 'codigo_cliente', label: 'Código de Cliente', type: 'text' }, 
-            { key: 'clienteId', label: 'Cliente', type: 'search-select', searchKey: COLLECTIONS.CLIENTES, required: true }, 
-            { key: 'descripcion', label: 'Descripción', type: 'text', required: true }, 
-            { key: 'version', label: 'Versión', type: 'text' }, 
-            { key: 'pzas_vh', label: 'Pzas/Vh', type: 'number' },
-            { key: 'peso_gr', label: 'Peso (gr)', type: 'number' },
-            { key: 'dimensiones_xyz', label: 'Dimensiones (X*Y*Z)', type: 'text' }
+        fields: [
+            { key: 'codigo', label: 'Código Interno', type: 'text', required: true },
+            { key: 'codigo_cliente', label: 'Código de Cliente', type: 'text' },
+            { key: 'descripcion', label: 'Descripción', type: 'textarea', required: true },
+            { key: 'version', label: 'Versión', type: 'text' },
+            // Aquí irían más campos si los necesitas
         ]
     },
-    subproductos: { 
-        title: 'Subproductos', 
-        singular: 'Subproducto', 
-        dataKey: COLLECTIONS.SUBPRODUCTOS, 
-        columns: [ 
-            { key: 'id', label: 'Código' }, 
-            { key: 'descripcion', label: 'Descripción' }, 
+    subproductos: {
+        title: 'Subproductos',
+        singular: 'Subproducto',
+        dataKey: COLLECTIONS.SUBPRODUCTOS,
+        columns: [
+            { key: 'codigo', label: 'Código' },
+            { key: 'nombre', label: 'Nombre' },
+            { key: 'peso', label: 'Peso' }
         ],
-        fields: [ 
-            { key: 'id', label: 'Código', type: 'text', required: true }, 
-            { key: 'descripcion', label: 'Descripción', type: 'text', required: true }, 
-            { key: 'peso_gr', label: 'Peso (gr)', type: 'number' }, 
-            { key: 'tolerancia_peso_gr', label: 'Tolerancia Peso (gr)', type: 'number' }, 
-            { key: 'dimensiones_xyz', label: 'Dimensiones (X*Y*Z)', type: 'text' }, 
-            { key: 'tiempo_ciclo_seg', label: 'Tiempo de Ciclo (seg)', type: 'number' }, 
-            { key: 'materiales_componentes', label: 'Materiales que lo componen', type: 'textarea' },
-            { key: 'sourcing', label: 'Sourcing [LC/KD]', type: 'text' }
-        ] 
+        fields: [
+            { key: 'codigo', label: 'Código', type: 'text', required: true },
+            { key: 'nombre', label: 'Nombre', type: 'text', required: true },
+            { key: 'descripcion', label: 'Descripción', type: 'textarea' },
+            { key: 'peso', label: 'Peso (ej: 150kg)', type: 'text' },
+            { key: 'medidas', label: 'Medidas (ej: 10x20x5 cm)', type: 'text' },
+        ]
     },
-    insumos: { 
-        title: 'Insumos', 
-        singular: 'Insumo', 
-        dataKey: COLLECTIONS.INSUMOS, 
-        columns: [ 
-            { key: 'id', label: 'Código' }, 
-            { key: 'descripcion', label: 'Descripción' }, 
+    insumos: {
+        title: 'Insumos',
+        singular: 'Insumo',
+        dataKey: COLLECTIONS.INSUMOS,
+        columns: [
+            { key: 'codigo', label: 'Código' },
+            { key: 'descripcion', label: 'Descripción' },
+            { key: 'material', label: 'Material' }
         ],
-        fields: [ 
-            { key: 'id', label: 'Código', type: 'text', required: true }, 
-            { key: 'descripcion', label: 'Descripción', type: 'text', required: true },
-            { key: 'material', label: 'Material', type: 'text' }, 
-            { key: 'proveedorId', label: 'Proveedor', type: 'search-select', searchKey: COLLECTIONS.PROVEEDORES, required: true },
-            { key: 'unidadMedidaId', label: 'Unidad de Medida', type: 'search-select', searchKey: COLLECTIONS.UNIDADES, required: true },
-            { key: 'costo', label: 'Costo por Unidad de Medida', type: 'number' },
-            { key: 'stock_minimo', label: 'Stock Mínimo', type: 'number' }, 
-            { key: 'observaciones', label: 'Observaciones', type: 'textarea' },
-            { key: 'sourcing', label: 'Sourcing [LC/KD]', type: 'text' }
-        ] 
+        fields: [
+            { key: 'codigo', label: 'Código', type: 'text', required: true },
+            { key: 'descripcion', label: 'Descripción', type: 'textarea', required: true },
+            { key: 'unidad_medida', label: 'Unidad de Medida', type: 'select', options: ['m', 'ml', 'm2', 'm3', 'kg', 'g', 'l', 'un', 'cj', 'pq'], required: true },
+            { key: 'material', label: 'Material', type: 'text' },
+            { key: 'codigo_proveedor', label: 'Código Proveedor', type: 'text' },
+            { key: 'piezas_por_vehiculo', label: 'Piezas por Vehículo', type: 'number' },
+            { key: 'proceso', label: 'Proceso', type: 'text' },
+            { key: 'color', label: 'Color', type: 'text' },
+        ]
     },
     clientes: { title: 'Clientes', singular: 'Cliente', dataKey: COLLECTIONS.CLIENTES, columns: [ { key: 'id', label: 'Código' }, { key: 'descripcion', label: 'Descripción' } ], fields: [ { key: 'id', label: 'Código', type: 'text', required: true }, { key: 'descripcion', label: 'Descripción', type: 'text', required: true } ] },
     sectores: { title: 'Sectores', singular: 'Sector', dataKey: COLLECTIONS.SECTORES, columns: [ { key: 'id', label: 'Código' }, { key: 'descripcion', label: 'Descripción' } ], fields: [ { key: 'id', label: 'Código', type: 'text', required: true }, { key: 'descripcion', label: 'Descripción', type: 'text', required: true }, { key: 'icon', label: 'Icono (Lucide)', type: 'text', required: true } ] },
@@ -276,6 +273,39 @@ function deleteItem(docId) {
     );
 }
 
+async function seedDatabase() {
+    showToast('Iniciando carga de datos de prueba...', 'info');
+    const batch = writeBatch(db);
+
+    // Datos de ejemplo
+    const clientes = [
+        { id: 'C001', descripcion: 'Cliente Alfa' },
+        { id: 'C002', descripcion: 'Cliente Beta' },
+    ];
+    const proveedores = [
+        { id: 'P001', descripcion: 'Proveedor Omega' },
+        { id: 'P002', descripcion: 'Proveedor Gamma' },
+    ];
+    const unidades = [
+        { id: 'kg', descripcion: 'Kilogramos' },
+        { id: 'm', descripcion: 'Metros' },
+        { id: 'un', descripcion: 'Unidades' },
+    ];
+
+    // Añadir a batch
+    clientes.forEach(c => batch.set(doc(db, COLLECTIONS.CLIENTES, c.id), c));
+    proveedores.forEach(p => batch.set(doc(db, COLLECTIONS.PROVEEDORES, p.id), p));
+    unidades.forEach(u => batch.set(doc(db, COLLECTIONS.UNIDADES, u.id), u));
+
+    try {
+        await batch.commit();
+        showToast('Datos de prueba cargados exitosamente.', 'success');
+    } catch (error) {
+        console.error("Error al cargar datos de prueba: ", error);
+        showToast('Error al cargar datos de prueba.', 'error');
+    }
+}
+
 // =================================================================================
 // --- 4. LÓGICA PRINCIPAL DE LA APLICACIÓN (CORE) ---
 // =================================================================================
@@ -366,6 +396,7 @@ function handleViewContentActions(e) {
         'add-node': () => openComponentSearchModal(button.dataset.nodeId, button.dataset.childType),
         'delete-node': () => eliminarNodo(button.dataset.nodeId),
         'delete-account': handleDeleteAccount,
+        'seed-database': seedDatabase,
     };
     
     if (actions[action]) actions[action]();
@@ -896,6 +927,10 @@ function runDashboardLogic() {
                 `).join('') : `<li class="text-center text-gray-500 py-8">No hay actividad reciente.</li>`}
             </ul>
         </div>
+        <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-lg">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Acciones de Administrador</h3>
+            <button data-action="seed-database" class="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600">Cargar Datos de Prueba</button>
+        </div>
     </div>`;
     dom.viewContent.innerHTML = content;
     lucide.createIcons();
@@ -1075,6 +1110,14 @@ async function handleAuthForms(e) {
             }
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             await updateProfile(userCredential.user, { displayName: name });
+
+            // Crear documento de usuario en Firestore
+            await setDoc(doc(db, COLLECTIONS.USUARIOS, userCredential.user.uid), {
+                email: userCredential.user.email,
+                role: 'lector',
+                createdAt: new Date()
+            });
+
             await sendEmailVerification(userCredential.user);
             showToast('Registro exitoso. Se ha enviado un correo de verificación.', 'info');
             showAuthScreen('verify-email');
