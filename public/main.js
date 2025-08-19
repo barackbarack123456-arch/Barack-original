@@ -1399,6 +1399,43 @@ function eliminarNodo(id) {
 // --- LÓGICA DE VISTA SINÓPTICA ---
 // =================================================================================
 
+function renderCaratula(producto, cliente) {
+    const container = document.getElementById('caratula-container');
+    if (!container) return;
+
+    if (producto && cliente) {
+        container.innerHTML = `
+            <div class="bg-white p-6 rounded-xl shadow-lg animate-fade-in-up">
+                <div class="flex flex-col md:flex-row gap-6">
+                    <!-- Columna de Producto -->
+                    <div class="flex-1">
+                        <h3 class="text-sm font-bold uppercase text-blue-600 tracking-wider">Producto Principal del Árbol</h3>
+                        <p class="text-2xl font-bold text-slate-800 mt-1">${producto.descripcion}</p>
+                        <div class="flex items-center gap-4 mt-2 text-sm text-slate-500">
+                            <span>Código: <span class="font-semibold text-slate-700">${producto.id}</span></span>
+                            <span class="border-l pl-4">Versión: <span class="font-semibold text-slate-700">${producto.version || 'N/A'}</span></span>
+                        </div>
+                    </div>
+                    <!-- Columna de Cliente -->
+                    <div class="flex-1 md:border-l md:pl-6 border-slate-200">
+                         <h3 class="text-sm font-bold uppercase text-indigo-600 tracking-wider">Cliente</h3>
+                         <p class="text-2xl font-bold text-slate-800 mt-1">${cliente.descripcion}</p>
+                         <p class="text-sm text-slate-500 mt-2">Código: <span class="font-semibold text-slate-700">${cliente.id}</span></p>
+                    </div>
+                </div>
+            </div>`;
+    } else {
+        container.innerHTML = `
+            <div class="bg-white p-6 rounded-xl shadow-lg text-center animate-fade-in">
+                <p class="text-slate-500 flex items-center justify-center">
+                    <i data-lucide="info" class="inline-block mr-3 h-5 w-5 text-slate-400"></i>
+                    <span>La información del producto y cliente aparecerá aquí cuando selecciones un elemento del árbol.</span>
+                </p>
+            </div>`;
+    }
+    lucide.createIcons();
+}
+
 function runSinopticoLogic() {
     dom.viewContent.innerHTML = `<div class="animate-fade-in-up">${renderSinopticoLayout()}</div>`;
     lucide.createIcons();
@@ -1624,8 +1661,35 @@ function initSinoptico() {
     function renderDetailView(componentId) {
         const detailContainer = document.getElementById('detail-container');
         if (!detailContainer) return;
+
+        let targetNode = null;
+        let parentNode = null;
+        let activeTree = null;
+
+        // Find the active tree based on the selected component
+        if (componentId) {
+            for (const arbol of appState.collections[COLLECTIONS.ARBOLES]) {
+                targetNode = findNode(componentId, arbol.estructura);
+                if (targetNode) {
+                    activeTree = arbol;
+                    appState.sinopticoState.activeTreeDocId = arbol.docId;
+                    parentNode = findParentNode(componentId, arbol.estructura);
+                    break;
+                }
+            }
+        }
         
-        if (!componentId) {
+        // Render the "Carátula" based on the found tree
+        if (activeTree) {
+            const producto = appState.collectionsById[COLLECTIONS.PRODUCTOS].get(activeTree.productoPrincipalId);
+            const cliente = appState.collectionsById[COLLECTIONS.CLIENTES].get(activeTree.clienteId);
+            renderCaratula(producto, cliente);
+        } else {
+            renderCaratula(null, null);
+        }
+
+        // If no component is selected or found, show placeholder in details
+        if (!componentId || !targetNode) {
             detailContainer.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-center bg-white rounded-xl shadow-lg p-8">
                 <i data-lucide="layout-grid" class="w-16 h-16 text-slate-300 mb-4"></i>
                 <h2 class="text-xl font-bold">Seleccione un elemento</h2>
@@ -1634,22 +1698,6 @@ function initSinoptico() {
             lucide.createIcons();
             return;
         }
-    
-        let targetNode = null;
-        let parentNode = null;
-        let activeTree = null;
-
-        for (const arbol of appState.collections[COLLECTIONS.ARBOLES]) {
-            targetNode = findNode(componentId, arbol.estructura);
-            if (targetNode) {
-                activeTree = arbol;
-                appState.sinopticoState.activeTreeDocId = arbol.docId;
-                parentNode = findParentNode(componentId, arbol.estructura);
-                break;
-            }
-        }
-    
-        if (!targetNode) { return; }
     
         const collectionName = targetNode.tipo + 's';
         const item = appState.collectionsById[collectionName]?.get(targetNode.refId);
