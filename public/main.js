@@ -280,8 +280,8 @@ async function seedDatabase() {
     const batch = writeBatch(db);
 
     // Helper para crear un nuevo documento en el batch
-    const setInBatch = (collection, data) => {
-        const docRef = doc(collection(db, collection), data.id);
+    const setInBatch = (collectionName, data) => {
+        const docRef = doc(collection(db, collectionName), data.id);
         batch.set(docRef, data);
     };
 
