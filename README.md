@@ -11,10 +11,10 @@ Este proyecto sigue un flujo de trabajo colaborativo en el que el desarrollador 
 1.  **Requerimiento/Idea:** El desarrollador expone una necesidad, un bug o una nueva funcionalidad.
 2.  **Análisis y Propuesta:** El asistente de IA analiza el código, propone una o varias soluciones detalladas, explicando el impacto y la complejidad.
 3.  **Decisión:** El desarrollador, como director del proyecto, decide qué solución implementar.
-4.  **Implementación:** Siguiendo las instrucciones del desarrollador, el asistente de IA modifica los archivos de código que le son asignados (como `README.md` o `firestore.rules`). El desarrollador se encarga de las modificaciones en `index.html` y `main.js`.
+4.  **Implementación:** Siguiendo las directrices del desarrollador, el asistente de IA se encarga de la implementación técnica, modificando todos los archivos necesarios del proyecto (`index.html`, `main.js`, `style.css`, etc.) para llevar a cabo la tarea.
 5.  **Validación y Deploy:** El desarrollador revisa y valida todos los cambios antes de realizar el deploy.
 
-Este método asegura que el control creativo y técnico permanezca con el desarrollador, mientras se aprovecha la velocidad y capacidad de análisis del asistente para tareas específicas.
+Este método asegura que la dirección estratégica y la visión del producto permanezcan con el desarrollador, mientras que el asistente de IA se enfoca en la implementación y ejecución técnica para acelerar el desarrollo.
 
 ## Mejoras Clave Implementadas
 
