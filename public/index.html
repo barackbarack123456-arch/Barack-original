@@ -94,17 +94,6 @@
             animation: spin 1s ease-in-out infinite;
         }
 
-        /* --- Estilos de Nodos con Colores por Tipo --- */
-        .node-content[data-type="producto"], 
-        .sinoptico-tree-item-content[data-type="producto"] {
-            border-left: 4px solid #3b82f6; /* blue-500 */
-        }
-
-        .node-content[data-type="subproducto"], 
-        .sinoptico-tree-item-content[data-type="subproducto"] {
-            border-left: 4px solid #22c55e; /* green-500 */
-        }
-
         /* --- Mejora de Espaciado Visual en Árbol Sinóptico --- */
         .sinoptico-tree-container > li > ul > .sinoptico-tree-item:not(:last-child) {
             margin-bottom: 1rem; /* 16px de espacio entre productos principales */
@@ -132,6 +121,22 @@
         /* Aumento de sangría en el árbol sinóptico */
         .sinoptico-tree-container ul {
             padding-left: 1.75rem; /* 28px */
+        }
+
+        /* --- Estilos de Nodos con Colores por Tipo --- */
+        .node-content[data-type="producto"],
+        .sinoptico-tree-item-content[data-type="producto"] {
+            border-left: 4px solid #3b82f6 !important; /* blue-500 */
+        }
+
+        .node-content[data-type="subproducto"],
+        .sinoptico-tree-item-content[data-type="subproducto"] {
+            border-left: 4px solid #22c55e !important; /* green-500 */
+        }
+
+        .node-content[data-type="insumo"],
+        .sinoptico-tree-item-content[data-type="insumo"] {
+            border-left: 4px solid #f59e0b !important; /* amber-500 */
         }
     </style>
 </head>
@@ -264,7 +269,7 @@
     </aside>
 
     <!-- Contenido Principal -->
-    <main id="main-content" class="flex-1 ml-64 p-6 overflow-y-auto custom-scrollbar">
+    <main id="main-content" class="flex-1 ml-64 p-6 bg-slate-100 overflow-y-auto custom-scrollbar">
          <header id="main-header" class="flex justify-between items-center mb-6">
             <h2 id="view-title" class="text-3xl font-bold text-slate-800"></h2>
             <div class="flex items-center space-x-4">
@@ -278,7 +283,9 @@
             </div>
         </header>
         <!-- Contenedor de Vistas Dinámico -->
-        <div id="view-content"></div>
+        <div class="bg-white p-6 rounded-xl shadow-lg">
+            <div id="view-content"></div>
+        </div>
     </main>
 </div>
 
