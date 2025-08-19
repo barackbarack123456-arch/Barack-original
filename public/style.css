@@ -1,4 +1,3 @@
-
 body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e293b; -webkit-font-smoothing: antialiased; }
 .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: #e2e8f0; border-radius: 4px; }
@@ -13,12 +12,12 @@ body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e29
     0% { background-color: #dcfce7; } /* green-100 */
     100% { background-color: transparent; }
 }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
 .animate-fade-in-up { animation: fadeInUp 0.4s ease-out forwards; }
 .animate-scale-in { animation: scaleIn 0.3s ease-out forwards; }
 .highlight-new-node { animation: highlight 1.5s ease-out forwards; }
-
 .modal-backdrop { background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); }
 .modal-content { animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
@@ -30,6 +29,7 @@ body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e29
 /* --- Sidebar --- */
 #sidebar { transition: width 0.3s ease-in-out; }
 #main-content { transition: margin-left 0.3s ease-in-out; }
+#sidebar-toggle i { transition: transform 0.3s ease-in-out; }
 #sidebar.collapsed { width: 80px; }
 #sidebar.collapsed .sidebar-text, #sidebar.collapsed .app-title { display: none; }
 #sidebar.collapsed .nav-link { justify-content: center; padding-left: 0; padding-right: 0; }
@@ -51,7 +51,6 @@ body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e29
 /* Estilos Drag & Drop Mejorados */
 .sortable-ghost { background-color: #dbeafe; border-radius: 8px; border: 2px dashed #60a5fa; }
 .sortable-drag { opacity: 1 !important; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); transform: scale(1.02); background-color: white; }
-
 .sinoptico-sidebar-sticky { position: sticky; top: 1.5rem; height: calc(100vh - 9rem); }
 .sinoptico-tree-item-content.active { background-color: #dbeafe; color: #1e40af; font-weight: 600; }
 .sinoptico-tree-item .lucide-chevron-right { transition: transform 0.2s ease-in-out; }
@@ -67,9 +66,6 @@ body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e29
 
 @keyframes dropdown-show { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 .dropdown-menu { animation: dropdown-show 0.15s ease-out forwards; }
-
-/* --- Loading Spinner --- */
-@keyframes spin { to { transform: rotate(360deg); } }
 .loading-spinner {
     border: 4px solid rgba(0, 0, 0, 0.1);
     width: 48px;
@@ -79,17 +75,15 @@ body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e29
     animation: spin 1s ease-in-out infinite;
 }
 
-/* 
-  =================================================================
-  --- Separación visual para TODOS los árboles (Gestión y Sinóptico) ---
-  =================================================================
-  Añade un pequeño margen superior a los componentes para separarlos 
-  de su hermano anterior. Esto mejora la legibilidad en vistas anidadas.
-  Se aplica tanto al árbol de gestión como al sinóptico.
-*/
-.node-children-list > li + li,
-.sinoptico-tree-container ul > li + li {
-  margin-top: 8px; /* Ajusta este valor (ej. 5px, 10px) según tu preferencia */
+/* --- Mejora de Espaciado Visual en Árbol Sinóptico --- */
+.sinoptico-tree-container > li > ul > .sinoptico-tree-item:not(:last-child) {
+    margin-bottom: 1rem; /* 16px de espacio entre productos principales */
+}
+.sinoptico-tree-item[data-type="subproducto"] {
+    padding-top: 0.5rem; /* 8px de espacio sobre cada subproducto */
+}
+.sinoptico-tree-item[data-type="subproducto"] > .sinoptico-tree-item-content + ul {
+    padding-top: 0.5rem; /* Espacio entre un subproducto y sus hijos */
 }
 
 /* --- VISTA SINÓPTICA MEJORADA --- */
@@ -105,18 +99,109 @@ body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e29
     width: 33.33%;
 }
 
+/* Aumento de sangría en el árbol sinóptico */
+.sinoptico-tree-container ul {
+    padding-left: 1.75rem; /* 28px */
+}
+
 /* --- Estilos de Nodos con Colores por Tipo --- */
 .node-content[data-type="producto"],
 .sinoptico-tree-item-content[data-type="producto"] {
-    border-left: 4px solid #3b82f6; /* blue-500 */
+    border-left: 4px solid #3b82f6 !important; /* blue-500 */
 }
 
 .node-content[data-type="subproducto"],
 .sinoptico-tree-item-content[data-type="subproducto"] {
-    border-left: 4px solid #22c55e; /* green-500 */
+    border-left: 4px solid #22c55e !important; /* green-500 */
 }
 
 .node-content[data-type="insumo"],
 .sinoptico-tree-item-content[data-type="insumo"] {
-    border-left: 4px solid #f59e0b; /* amber-500 */
+    border-left: 4px solid #f59e0b !important; /* amber-500 */
+}
+
+/* --- Estilos de Modales Mejorados --- */
+.modal-content {
+    width: 100%;
+    max-width: 42rem; /* Aumentado para más espacio */
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+.modal-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid #e2e8f0; /* slate-200 */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+.modal-header h3 {
+    font-size: 1.25rem; /* text-xl */
+    font-weight: 600; /* font-semibold */
+    color: #1e293b; /* slate-800 */
+}
+.modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+.modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #e2e8f0; /* slate-200 */
+    background-color: #f8fafc; /* slate-50 */
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem; /* space-x-3 */
+    flex-shrink: 0;
+    border-bottom-left-radius: 0.75rem;
+    border-bottom-right-radius: 0.75rem;
+}
+
+/* --- Estilos de Tablas --- */
+.table-container {
+    overflow-x: auto;
+    border: 1px solid #e2e8f0; /* slate-200 */
+    border-radius: 0.75rem; /* rounded-xl */
+}
+table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem; /* text-sm */
+}
+table.data-table thead {
+    background-color: #f8fafc; /* slate-50 */
+}
+table.data-table th {
+    padding: 0.75rem 1.5rem; /* py-3 px-6 */
+    text-align: left;
+    font-weight: 600; /* font-semibold */
+    color: #475569; /* slate-600 */
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid #e2e8f0; /* slate-200 */
+}
+table.data-table tbody tr {
+    border-bottom: 1px solid #e2e8f0; /* slate-200 */
+}
+table.data-table tbody tr:last-child {
+    border-bottom: none;
+}
+table.data-table tbody tr:hover {
+    background-color: #f8fafc; /* slate-50 */
+}
+table.data-table td {
+    padding: 0.75rem 1.5rem; /* py-3 px-6 */
+    color: #334155; /* slate-700 */
+}
+table.data-table .actions-cell {
+    text-align: right;
+}
+table.data-table .actions-cell button {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    transition: background-color 0.2s;
+}
+table.data-table .actions-cell button:hover {
+    background-color: #e2e8f0; /* slate-200 */
 }

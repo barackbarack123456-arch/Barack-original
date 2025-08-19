@@ -534,7 +534,7 @@ async function runTableLogic(direction = 'first') {
 }
 
 function renderTable(data, config) {
-    let tableHTML = `<div class="bg-white p-4 rounded-xl shadow-lg animate-fade-in-up">
+    let tableHTML = `<div class="bg-white p-6 rounded-xl shadow-lg animate-fade-in-up">
         <div class="flex justify-end mb-4">
             <button data-action="export-pdf" class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 flex items-center text-sm shadow-sm"><i data-lucide="file-text" class="mr-2 h-4 w-4"></i>PDF</button>
             <button data-action="export-excel" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center text-sm ml-2 shadow-sm"><i data-lucide="file-spreadsheet" class="mr-2 h-4 w-4"></i>Excel</button>
@@ -886,20 +886,21 @@ function runDashboardLogic() {
     const recentActivity = [...productos, ...insumos]
         .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
         .slice(0, 5);
-    let content = `<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in-up">
-        <div class="bg-white p-6 rounded-xl shadow-lg flex items-center space-x-4">
+    let content = `<div class="bg-white p-6 rounded-xl shadow-lg animate-fade-in-up">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="border border-slate-200 p-6 rounded-xl flex items-center space-x-4">
             <div class="p-3 rounded-full bg-blue-100 text-blue-600"><i data-lucide="package" class="h-8 w-8"></i></div>
             <div><p class="text-3xl font-bold">${productos.length}</p><p class="text-sm font-semibold text-gray-600">Productos Totales</p></div>
         </div>
-        <div class="bg-white p-6 rounded-xl shadow-lg flex items-center space-x-4">
+        <div class="border border-slate-200 p-6 rounded-xl flex items-center space-x-4">
             <div class="p-3 rounded-full bg-green-100 text-green-600"><i data-lucide="beaker" class="h-8 w-8"></i></div>
             <div><p class="text-3xl font-bold">${insumos.length}</p><p class="text-sm font-semibold text-gray-600">Insumos Registrados</p></div>
         </div>
-        <div class="bg-white p-6 rounded-xl shadow-lg flex items-center space-x-4">
+        <div class="border border-slate-200 p-6 rounded-xl flex items-center space-x-4">
             <div class="p-3 rounded-full bg-indigo-100 text-indigo-600"><i data-lucide="users" class="h-8 w-8"></i></div>
             <div><p class="text-3xl font-bold">${clientes.length}</p><p class="text-sm font-semibold text-gray-600">Clientes Activos</p></div>
         </div>
-        <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg">
+        <div class="lg:col-span-2 border border-slate-200 p-6 rounded-xl">
             <h3 class="text-xl font-bold text-gray-800 mb-4">Productos por Cliente</h3>
             <div class="mt-6 flex items-end space-x-4 h-64 border-l border-b border-gray-200 pl-4 pb-1">
                 ${productsByClient.length > 0 ? productsByClient.map(item => `
@@ -911,7 +912,7 @@ function runDashboardLogic() {
                 `).join('') : `<div class="w-full h-full flex items-center justify-center text-gray-500">No hay datos de productos para mostrar.</div>`}
             </div>
         </div>
-        <div class="bg-white p-6 rounded-xl shadow-lg">
+        <div class="border border-slate-200 p-6 rounded-xl">
             <h3 class="text-xl font-bold text-gray-800 mb-4">Actividad Reciente</h3>
             <ul class="space-y-4">
                 ${recentActivity.length > 0 ? recentActivity.map(item => `
@@ -927,10 +928,11 @@ function runDashboardLogic() {
                 `).join('') : `<li class="text-center text-gray-500 py-8">No hay actividad reciente.</li>`}
             </ul>
         </div>
-        <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-lg">
+        <div class="lg:col-span-3 border border-slate-200 p-6 rounded-xl">
             <h3 class="text-xl font-bold text-gray-800 mb-4">Acciones de Administrador</h3>
             <button data-action="seed-database" class="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600">Cargar Datos de Prueba</button>
         </div>
+    </div>
     </div>`;
     dom.viewContent.innerHTML = content;
     lucide.createIcons();
@@ -1164,7 +1166,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function renderArbolesInitialView() {
-    dom.viewContent.innerHTML = `<div class="flex flex-col items-center justify-center h-full bg-white rounded-xl shadow-md p-10 text-center animate-fade-in-up"><i data-lucide="git-merge" class="h-24 w-24 text-gray-300 mb-6"></i><h3 class="text-2xl font-bold">Gestor de Árboles de Producto</h3><p class="text-gray-500 mt-2 mb-8 max-w-lg">Busque y seleccione el producto principal para cargar o crear su estructura de componentes.</p><button data-action="open-product-search-modal" class="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 text-lg font-semibold shadow-lg transition-transform transform hover:scale-105"><i data-lucide="search" class="inline-block mr-2 -mt-1"></i>Seleccionar Producto</button></div>`;
+    dom.viewContent.innerHTML = `<div class="flex flex-col items-center justify-center h-full bg-white rounded-xl shadow-lg p-6 text-center animate-fade-in-up"><i data-lucide="git-merge" class="h-24 w-24 text-gray-300 mb-6"></i><h3 class="text-2xl font-bold">Gestor de Árboles de Producto</h3><p class="text-gray-500 mt-2 mb-8 max-w-lg">Busque y seleccione el producto principal para cargar o crear su estructura de componentes.</p><button data-action="open-product-search-modal" class="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 text-lg font-semibold shadow-lg transition-transform transform hover:scale-105"><i data-lucide="search" class="inline-block mr-2 -mt-1"></i>Seleccionar Producto</button></div>`;
     lucide.createIcons();
 }
 
@@ -1455,7 +1457,7 @@ function runSinopticoLogic() {
 }
 
 function runFlujogramaLogic() {
-    dom.viewContent.innerHTML = `<div class="bg-white rounded-xl shadow-md p-10 text-center animate-fade-in-up">
+    dom.viewContent.innerHTML = `<div class="bg-white p-6 rounded-xl shadow-lg animate-fade-in-up">
         <i data-lucide="git-branch-plus" class="h-24 w-24 text-gray-300 mb-6"></i>
         <h3 class="text-2xl font-bold">Flujograma de Procesos</h3>
         <p class="text-gray-500 mt-2 max-w-lg mx-auto">Próximamente: Esta sección mostrará un diagrama interactivo del flujo de producción. Podrás seleccionar un producto para ver, editar y reorganizar su secuencia de procesos desde la materia prima hasta el ensamblaje final.</p>
