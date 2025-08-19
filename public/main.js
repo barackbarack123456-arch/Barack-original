@@ -277,32 +277,105 @@ async function seedDatabase() {
     showToast('Iniciando carga de datos de prueba...', 'info');
     const batch = writeBatch(db);
 
+    // Helper para crear un nuevo documento en el batch
+    const setInBatch = (collection, data) => {
+        const docRef = doc(collection(db, collection), data.id);
+        batch.set(docRef, data);
+    };
+
     // Datos de ejemplo
     const clientes = [
-        { id: 'C001', descripcion: 'Cliente Alfa' },
-        { id: 'C002', descripcion: 'Cliente Beta' },
+        { id: 'C001', descripcion: 'Cliente Automotriz Global' },
+        { id: 'C002', descripcion: 'Cliente Industrial Pesado' },
     ];
     const proveedores = [
-        { id: 'P001', descripcion: 'Proveedor Omega' },
-        { id: 'P002', descripcion: 'Proveedor Gamma' },
+        { id: 'P001', descripcion: 'Aceros del Norte S.A.' },
+        { id: 'P002', descripcion: 'Plásticos Industriales SRL' },
+        { id: 'P003', descripcion: 'Tornillos y Fijaciones Acme' },
     ];
     const unidades = [
         { id: 'kg', descripcion: 'Kilogramos' },
         { id: 'm', descripcion: 'Metros' },
         { id: 'un', descripcion: 'Unidades' },
+        { id: 'l', descripcion: 'Litros' },
+        { id: 'm2', descripcion: 'Metros Cuadrados' },
+    ];
+    const insumos = [
+        { id: 'INS001', descripcion: 'Chapa de Acero 2mm', material: 'Acero', proveedorId: 'P001', unidadMedidaId: 'm2', costo: 25.50 },
+        { id: 'INS002', descripcion: 'Polipropileno en Grano', material: 'Plástico', proveedorId: 'P002', unidadMedidaId: 'kg', costo: 3.20 },
+        { id: 'INS003', descripcion: 'Tornillo Allen M5', material: 'Acero Inox', proveedorId: 'P003', unidadMedidaId: 'un', costo: 0.15 },
+        { id: 'INS004', descripcion: 'Pintura Epoxi Negra', material: 'Químico', proveedorId: 'P002', unidadMedidaId: 'l', costo: 15.00 },
+    ];
+    const subproductos = [
+        { id: 'SUB001', descripcion: 'Soporte Metálico Principal', peso_gr: 1200, tiempo_ciclo_seg: 300 },
+        { id: 'SUB002', descripcion: 'Carcasa Plástica Superior', peso_gr: 450, tiempo_ciclo_seg: 180 },
+        { id: 'SUB003', descripcion: 'Carcasa Plástica Inferior', peso_gr: 480, tiempo_ciclo_seg: 185 },
+        { id: 'SUB004', descripcion: 'Ensamblaje Carcasas', peso_gr: 930, tiempo_ciclo_seg: 90 },
     ];
 
-    // Añadir a batch
-    clientes.forEach(c => batch.set(doc(db, COLLECTIONS.CLIENTES, c.id), c));
-    proveedores.forEach(p => batch.set(doc(db, COLLECTIONS.PROVEEDORES, p.id), p));
-    unidades.forEach(u => batch.set(doc(db, COLLECTIONS.UNIDADES, u.id), u));
+    // Producto final con su estructura de árbol
+    const productoPrincipal = {
+        id: 'PROD001',
+        descripcion: 'Ensamblaje de Soporte de Motor Delantero',
+        codigo_cliente: 'CLI-558-A',
+        clienteId: 'C001',
+        version: '3.1',
+        createdAt: new Date(),
+        estructura: [
+            {
+                id: 'comp_root_prod001',
+                refId: 'PROD001',
+                tipo: 'producto',
+                icon: 'package',
+                children: [
+                    {
+                        id: 'comp_sub001', refId: 'SUB001', tipo: 'subproducto', icon: 'box', quantity: 1,
+                        children: [
+                            { id: 'comp_ins001', refId: 'INS001', tipo: 'insumo', icon: 'beaker', quantity: 1.5, children: [] },
+                            { id: 'comp_ins004_1', refId: 'INS004', tipo: 'insumo', icon: 'beaker', quantity: 0.2, children: [] }
+                        ]
+                    },
+                    {
+                        id: 'comp_sub004', refId: 'SUB004', tipo: 'subproducto', icon: 'box', quantity: 1,
+                        children: [
+                             {
+                                id: 'comp_sub002', refId: 'SUB002', tipo: 'subproducto', icon: 'box', quantity: 1,
+                                children: [
+                                    { id: 'comp_ins002_1', refId: 'INS002', tipo: 'insumo', icon: 'beaker', quantity: 0.45, children: [] }
+                                ]
+                            },
+                            {
+                                id: 'comp_sub003', refId: 'SUB003', tipo: 'subproducto', icon: 'box', quantity: 1,
+                                children: [
+                                    { id: 'comp_ins002_2', refId: 'INS002', tipo: 'insumo', icon: 'beaker', quantity: 0.48, children: [] }
+                                ]
+                            },
+                            { id: 'comp_ins003', refId: 'INS003', tipo: 'insumo', icon: 'beaker', quantity: 8, children: [] }
+                        ]
+                    }
+                ]
+            }
+        ]
+    };
 
+    // Añadir todo al batch
     try {
+        clientes.forEach(c => setInBatch(COLLECTIONS.CLIENTES, c));
+        proveedores.forEach(p => setInBatch(COLLECTIONS.PROVEEDORES, p));
+        unidades.forEach(u => setInBatch(COLLECTIONS.UNIDADES, u));
+        insumos.forEach(i => setInBatch(COLLECTIONS.INSUMOS, i));
+        subproductos.forEach(s => setInBatch(COLLECTIONS.SUBPRODUCTOS, s));
+        setInBatch(COLLECTIONS.PRODUCTOS, productoPrincipal);
+
         await batch.commit();
         showToast('Datos de prueba cargados exitosamente.', 'success');
+        // Forzar actualización del dashboard y vistas
+        if (appState.currentView === 'dashboard') runDashboardLogic();
+        switchView('dashboard');
+
     } catch (error) {
         console.error("Error al cargar datos de prueba: ", error);
-        showToast('Error al cargar datos de prueba.', 'error');
+        showToast('Error al cargar datos de prueba. Verifique la consola.', 'error');
     }
 }
 
