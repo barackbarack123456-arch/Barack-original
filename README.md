@@ -37,3 +37,62 @@ El proyecto ha evolucionado desde un prototipo hasta convertirse en una aplicaci
 - **Vista Sinóptica Mejorada:** Una vista interactiva para explorar la estructura completa de todos los productos, con edición de cantidades en contexto y diferenciación visual de componentes.
 - **Exportación de BOM a PDF Profesional:** Se ha implementado una función de exportación que genera un listado de materiales (BOM) en formato PDF tabular. El reporte se presenta en formato horizontal e incluye columnas detalladas para Nivel, Descripción, Código, Cantidad y Unidad de Medida.
 - **Próximamente: Flujograma de Procesos:** Se está implementando una nueva vista dedicada que leerá la información de los árboles de producto para generar automáticamente un flujograma visual del proceso de fabricación completo.
+
+## Entorno de Desarrollo y CLI
+
+Esta sección contiene información técnica para desarrolladores sobre cómo interactuar con el backend de Firebase a través de la línea de comandos (CLI).
+
+### Información del Proyecto
+
+- **ID del Proyecto de Firebase:** `barack2-0-f81a6`
+
+### Uso de Firebase CLI en Entornos No Interactivos
+
+Para ejecutar comandos de Firebase CLI en un entorno no interactivo (como un servidor de integración continua o un entorno de desarrollo remoto como este), es necesario autenticarse usando una **cuenta de servicio (service account)**.
+
+#### Pasos para la autenticación:
+
+1.  **Generar una clave de cuenta de servicio:**
+    *   Ve a la [consola de Google Cloud para las cuentas de servicio de tu proyecto](https://console.cloud.google.com/iam-admin/serviceaccounts?project=barack2-0-f81a6).
+    *   Crea una nueva cuenta de servicio o usa una existente.
+    *   Asegúrate de que la cuenta de servicio tenga los permisos necesarios. El rol de **"Editor" (Editor)** es una buena opción para tener permisos amplios.
+    *   Genera una clave en formato **JSON** para la cuenta de servicio y descarga el archivo.
+
+2.  **Configurar la variable de entorno:**
+    *   Guarda el archivo JSON de la clave en un lugar seguro dentro del entorno.
+    *   Establece la variable de entorno `GOOGLE_APPLICATION_CREDENTIALS` para que apunte a la ruta de tu archivo de clave JSON.
+      ```bash
+      export GOOGLE_APPLICATION_CREDENTIALS="/ruta/a/tu/serviceAccountKey.json"
+      ```
+
+Una vez configurada esta variable, Firebase CLI se autenticará automáticamente usando esta cuenta de servicio.
+
+### Comandos Útiles
+
+#### Borrar todas las colecciones de Firestore
+
+Para borrar todas las colecciones y empezar desde cero, puedes usar el siguiente comando. **¡ADVERTENCIA! Esta acción es irreversible.**
+
+```bash
+# Primero, asegúrate de haber iniciado sesión o de haber configurado la cuenta de servicio
+firebase firestore:delete --all-collections --force --project barack2-0-f81a6
+```
+
+#### Nota sobre la ejecución de Firebase CLI
+
+En algunos entornos, el comando `firebase` puede no estar en el `PATH` del sistema, incluso después de instalar `firebase-tools` globalmente. Si esto ocurre, es necesario encontrar la ruta completa al ejecutable y usar `node` para invocarlo.
+
+**Ejemplo de cómo encontrar y ejecutar el comando:**
+1.  **Instalar `firebase-tools`:**
+    ```bash
+    npm install -g firebase-tools
+    ```
+2.  **Encontrar el directorio raíz de npm:**
+    ```bash
+    npm root -g
+    ```
+3.  **Construir y ejecutar la ruta completa:**
+    ```bash
+    # Ejemplo de ruta, puede variar en tu sistema
+    node <npm_root_g_output>/firebase-tools/lib/bin/firebase.js <comando>
+    ```
