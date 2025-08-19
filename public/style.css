@@ -91,3 +91,16 @@ body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e29
 .sinoptico-tree-container ul > li + li {
   margin-top: 8px; /* Ajusta este valor (ej. 5px, 10px) según tu preferencia */
 }
+
+/* --- VISTA SINÓPTICA MEJORADA --- */
+#sinoptico-layout-container {
+    display: flex;
+    gap: 1.5rem; /* 24px */
+    height: calc(100vh - 8rem);
+}
+#sinoptico-main-view {
+    width: 66.66%;
+}
+#sinoptico-details-container {
+    width: 33.33%;
+}

@@ -1416,8 +1416,9 @@ function runFlujogramaLogic() {
 
 function renderSinopticoLayout() {
     return `
+        <div id="caratula-container" class="mb-6"></div>
         <div id="sinoptico-layout-container">
-            <main id="sinoptico-main-view" class="overflow-y-auto custom-scrollbar bg-white p-6 rounded-xl shadow-lg">
+            <div id="sinoptico-main-view" class="overflow-y-auto custom-scrollbar bg-white p-6 rounded-xl shadow-lg">
                 <div class="flex flex-col md:flex-row gap-4 mb-4">
                     <div class="relative flex-grow">
                         <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
@@ -1445,7 +1446,7 @@ function renderSinopticoLayout() {
                     </div>
                 </div>
                 <ul id="sinoptico-tree-container" class="sinoptico-tree-container"></ul>
-            </main>
+            </div>
             <div id="sinoptico-details-container">
                 <aside id="sinoptico-details-panel">
                     <div id="detail-container" class="sinoptico-sidebar-sticky">
