@@ -45,6 +45,7 @@ const COLLECTIONS = {
 const viewConfig = {
     dashboard: { title: 'Dashboard', singular: 'Dashboard' },
     sinoptico: { title: 'Vista Sinóptica', singular: 'Vista Sinóptica' },
+    sinoptico_tabular: { title: 'Sinóptico Tabular', singular: 'Sinóptico Tabular' },
     flujograma: { title: 'Flujograma de Procesos', singular: 'Flujograma' },
     arboles: { title: 'Árboles de Producto', singular: 'Árbol' },
     profile: { title: 'Mi Perfil', singular: 'Mi Perfil' },
@@ -164,6 +165,7 @@ let appState = {
     },
     unsubscribeListeners: [],
     sinopticoState: null,
+    sinopticoTabularState: null,
     pagination: {
         lastVisibleDoc: null,
         firstVisibleDoc: null,
@@ -412,6 +414,7 @@ function switchView(viewName) {
         appState.currentViewCleanup = null;
     }
     if (appState.currentView === 'sinoptico') appState.sinopticoState = null;
+    if (appState.currentView === 'sinoptico_tabular') appState.sinopticoTabularState = null;
     appState.currentView = viewName;
     const config = viewConfig[viewName];
     dom.viewTitle.textContent = config.title;
@@ -426,6 +429,7 @@ function switchView(viewName) {
     
     if (viewName === 'dashboard') runDashboardLogic();
     else if (viewName === 'sinoptico') runSinopticoLogic();
+    else if (viewName === 'sinoptico_tabular') runSinopticoTabularLogic();
     else if (viewName === 'flujograma') runFlujogramaLogic();
     else if (viewName === 'arboles') renderArbolesInitialView();
     else if (viewName === 'profile') runProfileLogic();
@@ -1527,6 +1531,158 @@ function runSinopticoLogic() {
     dom.viewContent.innerHTML = `<div class="animate-fade-in-up">${renderSinopticoLayout()}</div>`;
     lucide.createIcons();
     initSinoptico();
+}
+
+function runSinopticoTabularLogic() {
+    if (!appState.sinopticoTabularState) {
+        appState.sinopticoTabularState = {
+            activeFilters: { clients: new Set() }
+        };
+    }
+
+    const render = () => {
+        const container = dom.viewContent;
+        container.innerHTML = `<div class="animate-fade-in-up">
+            <div class="bg-white p-6 rounded-xl shadow-lg">
+                <div class="flex items-center mb-4">
+                    <img src="logo.png" alt="Logo Barack" class="h-12 mr-4">
+                    <h3 class="text-2xl font-bold text-slate-800">Sinóptico Tabular</h3>
+                </div>
+                <div id="sinoptico-tabular-controls" class="mb-4"></div>
+                <div id="sinoptico-tabular-container" class="mt-6 overflow-x-auto"></div>
+            </div>
+        </div>`;
+
+        renderTabularFilters();
+        renderTabularTable();
+        lucide.createIcons();
+    };
+
+    const renderTabularFilters = () => {
+        const controlsContainer = document.getElementById('sinoptico-tabular-controls');
+        if (!controlsContainer) return;
+
+        controlsContainer.innerHTML = `
+            <div class="flex items-center gap-3 mb-4 p-2 bg-slate-50 rounded-lg">
+                <span class="text-sm font-semibold text-slate-600 flex-shrink-0">Filtros de Cliente:</span>
+                <div id="active-filters-bar-tabular" class="flex flex-wrap gap-2"></div>
+                <div class="relative ml-auto">
+                    <button id="add-client-filter-btn-tabular" class="flex items-center justify-center w-8 h-8 bg-slate-200 rounded-full hover:bg-slate-300"><i data-lucide="plus" class="w-4 h-4 pointer-events-none"></i></button>
+                    <div id="add-client-filter-dropdown-tabular" class="absolute z-10 right-0 mt-2 w-64 bg-white border rounded-lg shadow-xl hidden dropdown-menu"></div>
+                </div>
+            </div>`;
+
+        const activeFiltersBar = document.getElementById('active-filters-bar-tabular');
+        activeFiltersBar.innerHTML = appState.sinopticoTabularState.activeFilters.clients.size === 0
+            ? `<span class="text-xs text-slate-500 italic">Ningún cliente seleccionado</span>`
+            : [...appState.sinopticoTabularState.activeFilters.clients].map(clientId => {
+                const client = appState.collectionsById[COLLECTIONS.CLIENTES].get(clientId);
+                return client ? `<div class="flex items-center gap-2 bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full animate-fade-in"><span>${client.descripcion}</span><button data-id="${clientId}" class="remove-tabular-filter-btn p-0.5 hover:bg-blue-200 rounded-full"><i data-lucide="x" class="w-3.5 h-3.5 pointer-events-none"></i></button></div>` : '';
+            }).join('');
+    };
+
+    const populateTabularClientFilterDropdown = () => {
+        const dropdown = document.getElementById('add-client-filter-dropdown-tabular');
+        if(!dropdown) return;
+        const availableClients = appState.collections[COLLECTIONS.CLIENTES].filter(client => !appState.sinopticoTabularState.activeFilters.clients.has(client.id));
+        dropdown.innerHTML = availableClients.length === 0
+            ? `<span class="block px-4 py-2 text-sm text-slate-500">No hay más clientes.</span>`
+            : availableClients.map(client => `<a href="#" data-id="${client.id}" class="add-tabular-filter-link block px-4 py-2 text-sm hover:bg-slate-100">${client.descripcion}</a>`).join('');
+    };
+
+    const renderTabularTable = () => {
+        const tableContainer = document.getElementById('sinoptico-tabular-container');
+        if (!tableContainer) return;
+
+        const columns = [
+            { key: 'descripcion', label: 'Descripción' }, { key: 'nivel', label: 'Nivel' },
+            { key: 'codigo', label: 'Código' }, { key: 'tipo', label: 'Tipo' },
+            { key: 'cantidad', label: 'Cantidad' }, { key: 'unidad', label: 'Unidad' },
+            { key: 'proveedor', label: 'Proveedor' }, { key: 'material', label: 'Material' },
+            { key: 'costo', label: 'Costo' },
+        ];
+
+        const flattenedData = [];
+        function flattenTree(node, level) {
+            const collectionName = node.tipo + 's';
+            const item = appState.collectionsById[collectionName]?.get(node.refId);
+            if (!item) return;
+            flattenedData.push({ node, item, level });
+            if (node.children) node.children.forEach(child => flattenTree(child, level + 1));
+        }
+
+        const clientFilters = appState.sinopticoTabularState.activeFilters.clients;
+        const productsToRender = appState.collections[COLLECTIONS.PRODUCTOS]
+            .filter(p => p.estructura && p.estructura.length > 0 && (clientFilters.size === 0 || clientFilters.has(p.clienteId)));
+
+        if (productsToRender.length === 0) {
+            tableContainer.innerHTML = `<p class="text-slate-500 p-4 text-center">No hay productos para mostrar con los filtros seleccionados.</p>`;
+            return;
+        }
+
+        productsToRender.forEach(p => p.estructura.forEach(rootNode => flattenTree(rootNode, 0)));
+
+        let tableHTML = `<table class="w-full text-sm text-left text-gray-600">`;
+        tableHTML += `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>`;
+        columns.forEach(col => { tableHTML += `<th scope="col" class="px-4 py-3">${col.label}</th>`; });
+        tableHTML += `</tr></thead><tbody>`;
+
+        flattenedData.forEach(rowData => {
+            const { node, item, level } = rowData;
+            const indentStyle = `padding-left: ${level * 24 + 16}px;`;
+            const NA = '<span class="text-slate-400">N/A</span>';
+            const cantidad = node.tipo === 'producto' ? NA : (node.quantity ?? '');
+            let unidad = NA, proveedor = NA, material = NA, costo = NA;
+
+            if (node.tipo === 'insumo') {
+                const unidadData = item.unidadMedidaId ? appState.collectionsById[COLLECTIONS.UNIDADES].get(item.unidadMedidaId) : null;
+                unidad = unidadData ? unidadData.id : '';
+                const proveedorData = item.proveedorId ? appState.collectionsById[COLLECTIONS.PROVEEDORES].get(item.proveedorId) : null;
+                proveedor = proveedorData ? proveedorData.descripcion : '';
+                material = item.material || '';
+                if (typeof item.costo === 'number') costo = item.costo.toFixed(2);
+            }
+
+            tableHTML += `<tr class="bg-white border-b hover:bg-gray-50">
+                <td class="px-4 py-3 font-medium text-gray-900 whitespace-nowrap" style="${indentStyle}">${item.descripcion || item.nombre}</td>
+                <td class="px-4 py-3 text-center">${level}</td>
+                <td class="px-4 py-3">${item.id}</td>
+                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-700">${node.tipo}</span></td>
+                <td class="px-4 py-3 text-right">${cantidad}</td>
+                <td class="px-4 py-3 text-center">${unidad}</td>
+                <td class="px-4 py-3">${proveedor}</td>
+                <td class="px-4 py-3">${material}</td>
+                <td class="px-4 py-3 text-right">${costo}</td>
+            </tr>`;
+        });
+        tableHTML += `</tbody></table>`;
+        tableContainer.innerHTML = tableHTML;
+    };
+
+    const handleSinopticoTabularClick = (e) => {
+        const target = e.target;
+        if (target.closest('#add-client-filter-btn-tabular')) {
+            e.stopPropagation();
+            populateTabularClientFilterDropdown();
+            document.getElementById('add-client-filter-dropdown-tabular').classList.toggle('hidden');
+        } else if (target.closest('.add-tabular-filter-link')) {
+            e.preventDefault();
+            appState.sinopticoTabularState.activeFilters.clients.add(target.dataset.id);
+            document.getElementById('add-client-filter-dropdown-tabular').classList.add('hidden');
+            render();
+        } else if (target.closest('.remove-tabular-filter-btn')) {
+            appState.sinopticoTabularState.activeFilters.clients.delete(target.dataset.id);
+            render();
+        } else if (!target.closest('#add-client-filter-dropdown-tabular')) {
+            document.getElementById('add-client-filter-dropdown-tabular')?.classList.add('hidden');
+        }
+    };
+
+    render();
+    document.addEventListener('click', handleSinopticoTabularClick);
+    appState.currentViewCleanup = () => {
+        document.removeEventListener('click', handleSinopticoTabularClick);
+    };
 }
 
 function runFlujogramaLogic() {

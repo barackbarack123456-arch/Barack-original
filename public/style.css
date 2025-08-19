@@ -210,3 +210,23 @@ table.data-table .actions-cell button {
 table.data-table .actions-cell button:hover {
     background-color: #e2e8f0; /* slate-200 */
 }
+
+/* --- VISTA SINÓPTICO TABULAR --- */
+#sinoptico-tabular-container table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+#sinoptico-tabular-container th {
+    position: sticky;
+    top: 0;
+    background-color: #f1f5f9; /* slate-200 */
+}
+
+#sinoptico-tabular-container td, #sinoptico-tabular-container th {
+    border-bottom: 1px solid #e2e8f0; /* slate-200 */
+}
+
+#sinoptico-tabular-container .text-slate-400 {
+    font-style: italic;
+}
