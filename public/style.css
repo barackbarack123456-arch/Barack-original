@@ -104,3 +104,19 @@ body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e29
 #sinoptico-details-container {
     width: 33.33%;
 }
+
+/* --- Estilos de Nodos con Colores por Tipo --- */
+.node-content[data-type="producto"],
+.sinoptico-tree-item-content[data-type="producto"] {
+    border-left: 4px solid #3b82f6; /* blue-500 */
+}
+
+.node-content[data-type="subproducto"],
+.sinoptico-tree-item-content[data-type="subproducto"] {
+    border-left: 4px solid #22c55e; /* green-500 */
+}
+
+.node-content[data-type="insumo"],
+.sinoptico-tree-item-content[data-type="insumo"] {
+    border-left: 4px solid #f59e0b; /* amber-500 */
+}
