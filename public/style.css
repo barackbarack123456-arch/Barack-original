@@ -1,4 +1,4 @@
-body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e293b; -webkit-font-smoothing: antialiased; }
+body { font-family: 'Inter', sans-serif; background-color: #ffffff; color: #1e293b; -webkit-font-smoothing: antialiased; }
 .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: #e2e8f0; border-radius: 4px; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
@@ -36,6 +36,11 @@ body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e29
 #sidebar.collapsed .nav-link i { margin-right: 0; }
 #sidebar.collapsed .sidebar-footer { justify-content: center; }
 #sidebar.collapsed #sidebar-toggle i { transform: rotate(180deg); }
+
+.logo-img {
+    max-height: 80px;
+    width: auto;
+}
 
 /* --- Estilos de Árboles (Gestión y Sinóptico) --- */
 .tree ul { padding-left: 22px; position: relative; }
