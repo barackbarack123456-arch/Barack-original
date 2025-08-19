@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión PRO - App Integrada</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <!-- Dependencias -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; color: #1e293b; -webkit-font-smoothing: antialiased; }
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #e2e8f0; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        
+        /* --- Animaciones --- */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @keyframes highlight { 
+            0% { background-color: #dcfce7; } /* green-100 */
+            100% { background-color: transparent; }
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        .animate-fade-in-up { animation: fadeInUp 0.4s ease-out forwards; }
+        .animate-scale-in { animation: scaleIn 0.3s ease-out forwards; }
+        .highlight-new-node { animation: highlight 1.5s ease-out forwards; }
+        .modal-backdrop { background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); }
+        .modal-content { animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        
+        .toast { display: flex; align-items: center; padding: 12px 20px; border-radius: 8px; color: white; font-weight: 500; box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 1100; opacity: 0; transform: translateX(100%); transition: all 0.4s cubic-bezier(0.215, 0.610, 0.355, 1.000); }
+        .toast.show { opacity: 1; transform: translateX(0); }
+        .toast.success { background-color: #16a34a; } .toast.error { background-color: #dc2626; } .toast.info { background-color: #2563eb; }
+        .toast i { margin-right: 10px; }
+        
+        /* --- Sidebar --- */
+        #sidebar { transition: width 0.3s ease-in-out; }
+        #main-content { transition: margin-left 0.3s ease-in-out; }
+        #sidebar-toggle i { transition: transform 0.3s ease-in-out; }
+        #sidebar.collapsed { width: 80px; }
+        #sidebar.collapsed .sidebar-text, #sidebar.collapsed .app-title { display: none; }
+        #sidebar.collapsed .nav-link { justify-content: center; padding-left: 0; padding-right: 0; }
+        #sidebar.collapsed .nav-link i { margin-right: 0; }
+        #sidebar.collapsed .sidebar-footer { justify-content: center; }
+        #sidebar.collapsed #sidebar-toggle i { transform: rotate(180deg); }
+        
+        /* --- Estilos de Árboles (Gestión y Sinóptico) --- */
+        .tree ul { padding-left: 22px; position: relative; }
+        .tree li { list-style-type: none; position: relative; padding: 4px 0 4px 25px; }
+        .tree li::before, .tree li::after { content: ''; position: absolute; left: 0; }
+        .tree li::before { border-left: 1px solid #d1d5db; height: 100%; top: 0; width: 1px; }
+        .tree li:last-child::before { height: 22px; }
+        .tree li::after { border-top: 1px solid #d1d5db; height: 1px; top: 22px; width: 20px; }
+        .node-content { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 8px; transition: background-color 0.2s; cursor: grab; border: 1px solid transparent;}
+        .node-content:hover { background-color: #f3f4f6; }
+        .node-content:active { cursor: grabbing; }
+        
+        /* Estilos Drag & Drop Mejorados */
+        .sortable-ghost { background-color: #dbeafe; border-radius: 8px; border: 2px dashed #60a5fa; }
+        .sortable-drag { opacity: 1 !important; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); transform: scale(1.02); background-color: white; }
+        .sinoptico-sidebar-sticky { position: sticky; top: 1.5rem; height: calc(100vh - 9rem); }
+        .sinoptico-tree-item-content.active { background-color: #dbeafe; color: #1e40af; font-weight: 600; }
+        .sinoptico-tree-item .lucide-chevron-right { transition: transform 0.2s ease-in-out; }
+        .sinoptico-tree-item.expanded > .sinoptico-tree-item-content .lucide-chevron-right { transform: rotate(90deg); }
+        .sinoptico-tree-container ul { position: relative; padding-left: 1.25rem; }
+        .sinoptico-tree-container li { position: relative; list-style: none; }
+        .sinoptico-tree-container li::before { content: ''; position: absolute; top: 0; left: -0.625rem; width: 1px; height: 100%; background-color: #cbd5e1; }
+        .sinoptico-tree-container li::after { content: ''; position: absolute; top: 1.375rem; left: -0.625rem; width: 0.625rem; height: 1px; background-color: #cbd5e1; }
+        .sinoptico-tree-container li.is-last::before { height: 1.375rem; }
+        #sinoptico-tree-container > li { padding-left: 0; }
+        #sinoptico-tree-container > li::before, #sinoptico-tree-container > li::after { display: none; }
+        .sinoptico-detail-section-header { font-size: 0.75rem; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem; margin-top: 1.5rem; margin-bottom: 1rem; }
+        
+        @keyframes dropdown-show { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .dropdown-menu { animation: dropdown-show 0.15s ease-out forwards; }
+        .loading-spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border-left-color: #2563eb;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        /* --- Estilos de Nodos con Colores por Tipo --- */
+        .node-content[data-type="producto"], 
+        .sinoptico-tree-item-content[data-type="producto"] {
+            border-left: 4px solid #3b82f6; /* blue-500 */
+        }
+
+        .node-content[data-type="subproducto"], 
+        .sinoptico-tree-item-content[data-type="subproducto"] {
+            border-left: 4px solid #22c55e; /* green-500 */
+        }
+
+        /* --- Mejora de Espaciado Visual en Árbol Sinóptico --- */
+        .sinoptico-tree-container > li > ul > .sinoptico-tree-item:not(:last-child) {
+            margin-bottom: 1rem; /* 16px de espacio entre productos principales */
+        }
+        .sinoptico-tree-item[data-type="subproducto"] {
+            padding-top: 0.5rem; /* 8px de espacio sobre cada subproducto */
+        }
+        .sinoptico-tree-item[data-type="subproducto"] > .sinoptico-tree-item-content + ul {
+            padding-top: 0.5rem; /* Espacio entre un subproducto y sus hijos */
+        }
+
+        /* --- VISTA SINÓPTICA MEJORADA --- */
+        #sinoptico-layout-container {
+            display: flex;
+            gap: 1.5rem; /* 24px */
+            height: calc(100vh - 8rem);
+        }
+        #sinoptico-main-view {
+            width: 66.66%;
+        }
+        #sinoptico-details-container {
+            width: 33.33%;
+        }
+
+        /* Aumento de sangría en el árbol sinóptico */
+        .sinoptico-tree-container ul {
+            padding-left: 1.75rem; /* 28px */
+        }
+    </style>
+</head>
+<body class="bg-slate-100">
+
+<!-- Contenedor de Carga Global -->
+<div id="loading-overlay" class="fixed inset-0 bg-slate-100 flex flex-col items-center justify-center z-[9999]">
+    <div class="loading-spinner"></div>
+    <p class="mt-4 text-slate-600 font-semibold">Cargando aplicación...</p>
+</div>
+
+<!-- Contenedor de Autenticación -->
+<div id="auth-container" class="fixed inset-0 bg-slate-200 flex items-center justify-center z-50 hidden">
+    <div class="w-full max-w-md animate-scale-in">
+        <!-- Panel de Login -->
+        <div id="login-panel" class="p-8 bg-white shadow-2xl rounded-2xl">
+            <div class="text-center">
+                <i data-lucide="shield-check" class="mx-auto text-blue-600 h-16 w-16"></i>
+                <h1 class="text-4xl font-extrabold tracking-wider mt-4 text-slate-800">Gestión PRO</h1>
+                <p class="text-slate-500 mt-2 mb-8">Inicie sesión para continuar.</p>
+            </div>
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label for="login-email" class="block text-sm font-medium text-gray-700 mb-1">Correo electrónico</label>
+                    <input type="email" id="login-email" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required>
+                </div>
+                <div>
+                    <label for="login-password" class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+                    <input type="password" id="login-password" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required>
+                </div>
+                <div class="flex items-center justify-between pt-2">
+                    <a href="#" data-auth-screen="reset" class="text-sm text-blue-600 hover:underline">¿Olvidaste tu contraseña?</a>
+                    <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 font-semibold">Iniciar Sesión</button>
+                </div>
+            </form>
+            <div class="text-center mt-6 text-sm">
+                <p class="text-slate-500">¿No tienes cuenta? <a href="#" data-auth-screen="register" class="font-semibold text-blue-600 hover:underline">Regístrate</a></p>
+            </div>
+        </div>
+        <!-- Panel de Registro -->
+        <div id="register-panel" class="p-8 bg-white shadow-2xl rounded-2xl hidden">
+            <div class="text-center">
+                <i data-lucide="user-plus" class="mx-auto text-blue-600 h-16 w-16"></i>
+                <h1 class="text-4xl font-extrabold mt-4 text-slate-800">Crear Cuenta</h1>
+                <p class="text-slate-500 mt-2 mb-8">Solo se permiten correos del dominio de la empresa.</p>
+            </div>
+            <form id="register-form" class="space-y-4">
+                 <div>
+                    <label for="register-name" class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo</label>
+                    <input type="text" id="register-name" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required>
+                </div>
+                <div>
+                    <label for="register-email" class="block text-sm font-medium text-gray-700 mb-1">Correo de la empresa</label>
+                    <input type="email" id="register-email" placeholder="usuario@barackmercosul.com" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required>
+                </div>
+                <div>
+                    <label for="register-password" class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+                    <input type="password" id="register-password" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required>
+                </div>
+                <div class="pt-2">
+                    <button type="submit" class="w-full bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 font-semibold">Crear Cuenta y Verificar</button>
+                </div>
+            </form>
+            <div class="text-center mt-6 text-sm">
+                <p class="text-slate-500">¿Ya tienes una cuenta? <a href="#" data-auth-screen="login" class="font-semibold text-blue-600 hover:underline">Inicia Sesión</a></p>
+            </div>
+        </div>
+        
+        <!-- Panel de Olvidó Contraseña -->
+        <div id="reset-panel" class="p-8 bg-white shadow-2xl rounded-2xl hidden">
+             <div class="text-center">
+                <i data-lucide="key-round" class="mx-auto text-blue-600 h-16 w-16"></i>
+                <h1 class="text-4xl font-extrabold mt-4 text-slate-800">Restablecer Contraseña</h1>
+                <p class="text-slate-500 mt-2 mb-8">Ingresa tu correo y te enviaremos un enlace para recuperarla.</p>
+            </div>
+            <form id="reset-form" class="space-y-4">
+                <div>
+                    <label for="reset-email" class="block text-sm font-medium text-gray-700 mb-1">Correo electrónico</label>
+                    <input type="email" id="reset-email" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required>
+                </div>
+                <div class="pt-2">
+                    <button type="submit" class="w-full bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 font-semibold">Enviar Enlace</button>
+                </div>
+            </form>
+             <div class="text-center mt-6 text-sm">
+                <p class="text-slate-500">Volver a <a href="#" data-auth-screen="login" class="font-semibold text-blue-600 hover:underline">Iniciar Sesión</a></p>
+            </div>
+        </div>
+        <!-- Panel de Verificar Email -->
+        <div id="verify-email-panel" class="p-8 bg-white shadow-2xl rounded-2xl hidden">
+             <div class="text-center">
+                <i data-lucide="mail-check" class="mx-auto text-green-500 h-16 w-16"></i>
+                <h1 class="text-4xl font-extrabold mt-4 text-slate-800">¡Casi listo!</h1>
+                <p class="text-slate-500 mt-2 mb-8">Hemos enviado un enlace de verificación a tu correo. Por favor, haz clic en él para activar tu cuenta y luego inicia sesión.</p>
+                <a href="#" data-auth-screen="login" class="w-full block bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 font-semibold">Volver a Iniciar Sesión</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Vista Principal de la App (inicialmente oculta) -->
+<div id="app-view" class="flex h-screen hidden">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="w-64 bg-slate-800 text-white flex flex-col fixed h-full shadow-lg z-30">
+        <div class="h-20 flex items-center justify-center bg-slate-900 border-b border-slate-700 flex-shrink-0">
+            <i data-lucide="shield-check" class="text-blue-400 h-8 w-8 flex-shrink-0"></i>
+            <h1 class="text-2xl font-extrabold tracking-wider ml-2 sidebar-text app-title">Gestión PRO</h1>
+        </div>
+        <nav id="main-nav" class="flex-1 px-4 py-6 space-y-2 overflow-y-auto custom-scrollbar">
+            <a href="#" data-view="dashboard" class="nav-link flex items-center px-4 py-2.5 rounded-md text-slate-300 hover:bg-slate-700 hover:text-white"><i data-lucide="layout-dashboard" class="mr-3 h-5 w-5"></i><span class="sidebar-text">Dashboard</span></a>
+            <a href="#" data-view="sinoptico" class="nav-link flex items-center px-4 py-2.5 rounded-md text-slate-300 hover:bg-slate-700 hover:text-white"><i data-lucide="eye" class="mr-3 h-5 w-5"></i><span class="sidebar-text">Vista Sinóptica</span></a>
+            <a href="#" data-view="flujograma" class="nav-link flex items-center px-4 py-2.5 rounded-md text-slate-300 hover:bg-slate-700 hover:text-white"><i data-lucide="git-branch-plus" class="mr-3 h-5 w-5"></i><span class="sidebar-text">Flujograma</span></a>
+            <hr class="border-slate-700 my-4">
+            <p class="px-4 text-xs font-semibold uppercase text-slate-500 tracking-wider sidebar-text">Gestión</p>
+            <a href="#" data-view="arboles" class="nav-link flex items-center px-4 py-2.5 rounded-md text-slate-300 hover:bg-slate-700 hover:text-white"><i data-lucide="git-merge" class="mr-3 h-5 w-5"></i><span class="sidebar-text">Árboles de Producto</span></a>
+            <a href="#" data-view="productos" class="nav-link flex items-center px-4 py-2.5 rounded-md text-slate-300 hover:bg-slate-700 hover:text-white"><i data-lucide="package" class="mr-3 h-5 w-5"></i><span class="sidebar-text">Productos</span></a>
+            <a href="#" data-view="subproductos" class="nav-link flex items-center px-4 py-2.5 rounded-md text-slate-300 hover:bg-slate-700 hover:text-white"><i data-lucide="box" class="mr-3 h-5 w-5"></i><span class="sidebar-text">Subproductos</span></a>
+            <a href="#" data-view="insumos" class="nav-link flex items-center px-4 py-2.5 rounded-md text-slate-300 hover:bg-slate-700 hover:text-white"><i data-lucide="beaker" class="mr-3 h-5 w-5"></i><span class="sidebar-text">Insumos</span></a>
+            <hr class="border-slate-700 my-4">
+            <p class="px-4 text-xs font-semibold uppercase text-slate-500 tracking-wider sidebar-text">Configuración</p>
+            <a href="#" data-view="clientes" class="nav-link flex items-center px-4 py-2.5 rounded-md text-slate-300 hover:bg-slate-700 hover:text-white"><i data-lucide="users" class="mr-3 h-5 w-5"></i><span class="sidebar-text">Clientes</span></a>
+            <a href="#" data-view="proveedores" class="nav-link flex items-center px-4 py-2.5 rounded-md text-slate-300 hover:bg-slate-700 hover:text-white"><i data-lucide="truck" class="mr-3 h-5 w-5"></i><span class="sidebar-text">Proveedores</span></a>
+            <a href="#" data-view="unidades" class="nav-link flex items-center px-4 py-2.5 rounded-md text-slate-300 hover:bg-slate-700 hover:text-white"><i data-lucide="ruler" class="mr-3 h-5 w-5"></i><span class="sidebar-text">Unidades de Medida</span></a>
+            <a href="#" data-view="sectores" class="nav-link flex items-center px-4 py-2.5 rounded-md text-slate-300 hover:bg-slate-700 hover:text-white"><i data-lucide="factory" class="mr-3 h-5 w-5"></i><span class="sidebar-text">Sectores</span></a>
+            <a href="#" data-view="procesos" class="nav-link flex items-center px-4 py-2.5 rounded-md text-slate-300 hover:bg-slate-700 hover:text-white"><i data-lucide="cpu" class="mr-3 h-5 w-5"></i><span class="sidebar-text">Procesos</span></a>
+        </nav>
+        <div class="sidebar-footer p-4 border-t border-slate-700 flex-shrink-0">
+            <button id="sidebar-toggle" class="w-full flex items-center p-2 rounded-md bg-white/10 text-slate-300 hover:bg-white/20 hover:text-white"><i data-lucide="chevrons-left" class="h-5 w-5"></i><span class="sidebar-text ml-3 text-sm">Contraer</span></button>
+        </div>
+    </aside>
+
+    <!-- Contenido Principal -->
+    <main id="main-content" class="flex-1 ml-64 p-6 overflow-y-auto custom-scrollbar">
+         <header id="main-header" class="flex justify-between items-center mb-6">
+            <h2 id="view-title" class="text-3xl font-bold text-slate-800"></h2>
+            <div class="flex items-center space-x-4">
+                <!-- Contenedor de acciones de la vista (búsqueda, agregar) -->
+                <div id="header-actions" class="flex items-center space-x-4">
+                    <div class="relative"><input type="text" id="search-input" placeholder="Buscar en esta vista..." class="pl-10 pr-4 py-2 border rounded-full w-64 bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"><i data-lucide="search" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 h-5 w-5"></i></div>
+                    <button id="add-new-button" class="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 flex items-center shadow-md transition-transform transform hover:scale-105"><i data-lucide="plus" class="mr-2 h-5 w-5"></i><span id="add-button-text"></span></button>
+                </div>
+                <!-- Contenedor del menú de usuario -->
+                <div id="user-menu-container" class="relative ml-4"></div>
+            </div>
+        </header>
+        <!-- Contenedor de Vistas Dinámico -->
+        <div id="view-content"></div>
+    </main>
+</div>
+
+<!-- Contenedor para Modales y Notificaciones -->
+<div id="modal-container"></div>
+<div id="toast-container" class="fixed top-5 right-5 z-[1100] space-y-3"></div>
+
+<!--
+    AQUÍ ESTABA TODO EL CÓDIGO JAVASCRIPT.
+    AHORA SE CARGA DESDE EL ARCHIVO EXTERNO main.js
+-->
+<script type="module" src="main.js"></script>
+
+</body>
+</html>
