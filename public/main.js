@@ -32,7 +32,6 @@ const COLLECTIONS = {
     CLIENTES: 'clientes',
     SECTORES: 'sectores',
     PROCESOS: 'procesos',
-    ARBOLES: 'arboles',
     PROVEEDORES: 'proveedores',
     UNIDADES: 'unidades'
 };
@@ -153,7 +152,7 @@ let appState = {
     isAppInitialized: false,
     collections: {
         [COLLECTIONS.PRODUCTOS]: [], [COLLECTIONS.SUBPRODUCTOS]: [], [COLLECTIONS.INSUMOS]: [], [COLLECTIONS.CLIENTES]: [],
-        [COLLECTIONS.SECTORES]: [], [COLLECTIONS.PROCESOS]: [], [COLLECTIONS.ARBOLES]: [],
+        [COLLECTIONS.SECTORES]: [], [COLLECTIONS.PROCESOS]: [],
         [COLLECTIONS.PROVEEDORES]: [], [COLLECTIONS.UNIDADES]: []
     },
     collectionsById: {
@@ -359,9 +358,7 @@ function handleViewContentActions(e) {
         'open-sector-modal': () => openSectorProcessesModal(button.dataset.sectorId),
         'open-product-search-modal': openProductSearchModal,
         'volver-a-busqueda': () => {
-            if (appState.arbolActivo && appState.arbolActivo.docId) {
-                updateDoc(doc(db, COLLECTIONS.ARBOLES, appState.arbolActivo.docId), { lock: null });
-            }
+            // Ya no es necesario liberar ningún bloqueo.
             appState.arbolActivo = null;
             renderArbolesInitialView();
         },
@@ -661,36 +658,7 @@ function handleExport(type) {
 async function openFormModal(item = null) {
     const config = viewConfig[appState.currentView];
     const isEditing = item !== null;
-    if (isEditing) {
-        const docRef = doc(db, config.dataKey, item.docId);
-        try {
-            await runTransaction(db, async (transaction) => {
-                const docSnap = await transaction.get(docRef);
-                if (!docSnap.exists()) {
-                    throw "¡El documento ya no existe!";
-                }
-                const data = docSnap.data();
-                const lock = data.lock;
-                const isLockExpired = lock && (Date.now() - lock.timestamp > LOCK_TIMEOUT_MS);
-                if (lock && lock.by !== appState.currentUser.uid && !isLockExpired) {
-                    const lockerName = lock.name || 'otro usuario';
-                    throw new Error(`Este item está siendo editado por ${lockerName}.`);
-                }
-                transaction.update(docRef, { 
-                    "lock": {
-                        by: appState.currentUser.uid,
-                        name: appState.currentUser.name,
-                        timestamp: Date.now()
-                    } 
-                });
-            });
-            
-        } catch (error) {
-            console.error("Error al intentar bloquear el documento:", error);
-            showToast(error.message || "No se pudo bloquear el item para editar.", 'error');
-            return;
-        }
-    }
+    // El sistema de bloqueo ha sido eliminado.
     const modalId = `form-modal-${Date.now()}`;
     
     let fieldsHTML = '';
@@ -744,9 +712,9 @@ async function openFormModal(item = null) {
         if (!button) return;
         const action = button.dataset.action;
         if (action === 'close') {
-            if(isEditing) updateDoc(doc(db, config.dataKey, item.docId), { lock: null });
+            // Ya no es necesario liberar el lock.
             modalElement.remove();
-        } 
+        }
         else if (action === 'open-search-modal') {
             const fieldKey = button.dataset.fieldKey;
             openAssociationSearchModal(button.dataset.searchKey, (selectedItem) => {
@@ -806,7 +774,7 @@ async function handleFormSubmit(e, fields) {
         }
     }
     
-    if (docId) newItem.lock = null;
+    // La propiedad 'lock' ya no se utiliza.
     if (!docId) {
         newItem.createdAt = new Date();
     }
@@ -934,49 +902,48 @@ function runDashboardLogic() {
 }
 
 async function handleProductSelect(productId) {
-    const producto = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.id === productId);
-    if (!producto) return;
+    // Buscamos el producto en los datos actualmente cargados en la tabla.
+    // Esto es más eficiente que buscar en toda la colección si ya está en la vista.
+    const producto = appState.currentData.find(p => p.id === productId);
+    if (!producto) {
+        showToast("Error: Producto no encontrado en la vista actual.", "error");
+        return;
+    }
+
     try {
-        const q = query(collection(db, COLLECTIONS.ARBOLES), where("productoPrincipalId", "==", productId));
-        const querySnapshot = await getDocs(q);
-        if (querySnapshot.empty) {
-            const nuevoArbol = {
-                nombre: `Árbol de ${producto.descripcion}`,
-                productoPrincipalId: producto.id,
-                clienteId: producto.clienteId,
-                lastUpdated: new Date(),
-                estructura: [crearComponente('producto', producto)],
-                lock: { by: appState.currentUser.uid, name: appState.currentUser.name, timestamp: Date.now() }
-            };
-            const docRef = await addDoc(collection(db, COLLECTIONS.ARBOLES), nuevoArbol);
-            appState.arbolActivo = { ...nuevoArbol, docId: docRef.id };
-            showToast(`Nuevo árbol creado y bloqueado para ti.`, 'success');
-            renderArbolDetalle();
+        const productoRef = doc(db, COLLECTIONS.PRODUCTOS, producto.docId);
+        const productoSnap = await getDoc(productoRef);
+
+        if (!productoSnap.exists()) {
+            showToast("Error: El documento del producto ya no existe.", "error");
             return;
         }
-        const arbolDocRef = querySnapshot.docs[0].ref;
-        await runTransaction(db, async (transaction) => {
-            const arbolDocSnap = await transaction.get(arbolDocRef);
-            if (!arbolDocSnap.exists()) throw new Error("Este árbol ya no existe.");
-            
-            const data = arbolDocSnap.data();
-            const isLockExpired = data.lock && (Date.now() - data.lock.timestamp > LOCK_TIMEOUT_MS);
-            if (data.lock && data.lock.by !== appState.currentUser.uid && !isLockExpired) {
-                throw new Error(`Este árbol está siendo editado por ${data.lock.name}.`);
-            }
-            
-            transaction.update(arbolDocRef, { 
-                lock: { by: appState.currentUser.uid, name: appState.currentUser.name, timestamp: Date.now() } 
-            });
-        });
-        const finalDocSnap = await getDoc(arbolDocRef);
-        appState.arbolActivo = { ...finalDocSnap.data(), docId: finalDocSnap.id };
-        showToast(`Árbol cargado y bloqueado para tu edición.`, 'info');
+
+        let productoData = productoSnap.data();
+
+        // Si el producto no tiene un campo 'estructura', lo creamos.
+        if (!productoData.estructura || productoData.estructura.length === 0) {
+            const nuevaEstructura = [crearComponente('producto', productoData)];
+            await updateDoc(productoRef, { estructura: nuevaEstructura });
+            productoData.estructura = nuevaEstructura; // Actualizamos la data local para no tener que volver a leer.
+            showToast(`Nueva estructura de árbol creada para ${productoData.descripcion}.`, 'success');
+        }
+
+        // Usamos el producto directamente como el "árbol activo".
+        // Añadimos 'nombre' para mantener la compatibilidad con la vista de detalle.
+        appState.arbolActivo = {
+            ...productoData,
+            docId: productoSnap.id,
+            nombre: `Árbol de ${productoData.descripcion}`,
+            productoPrincipalId: productoData.id // Mantenemos consistencia
+        };
+
         renderArbolDetalle();
+
     } catch (error) {
-        console.error("Error al seleccionar o bloquear el árbol:", error);
-        showToast(error.message, 'error');
-        renderArbolesInitialView();
+        console.error("Error al seleccionar el producto y cargar su estructura:", error);
+        showToast(error.message || "Ocurrió un error al cargar el árbol del producto.", 'error');
+        renderArbolesInitialView(); // Volvemos a la vista inicial en caso de error.
     }
 }
 
@@ -987,28 +954,30 @@ async function guardarEstructura(button) {
     lucide.createIcons();
     button.disabled = true;
     try {
-        const arbolRef = doc(db, COLLECTIONS.ARBOLES, appState.arbolActivo.docId);
-        await updateDoc(arbolRef, {
+        // Ahora, appState.arbolActivo.docId es el ID del documento en la colección 'productos'.
+        const productoRef = doc(db, COLLECTIONS.PRODUCTOS, appState.arbolActivo.docId);
+        await updateDoc(productoRef, {
             estructura: appState.arbolActivo.estructura,
-            lastUpdated: new Date(),
-            lock: null
+            lastUpdated: new Date()
+            // Ya no se maneja el campo 'lock'.
         });
         
         button.innerHTML = `<i data-lucide="check" class="h-5 w-5"></i><span>¡Guardado!</span>`;
         button.classList.remove('bg-blue-600', 'hover:bg-blue-700');
         button.classList.add('bg-green-600');
         lucide.createIcons();
+
         setTimeout(() => {
             button.innerHTML = originalText;
             button.classList.add('bg-blue-600', 'hover:bg-blue-700');
             button.classList.remove('bg-green-600');
             button.disabled = false;
-            appState.arbolActivo = null; // Unlock locally
-            renderArbolesInitialView(); // Go back to selection
+            appState.arbolActivo = null; // Limpiamos el estado del árbol activo.
+            renderArbolesInitialView(); // Volvemos a la pantalla de selección.
         }, 2000);
     } catch (error) {
-        console.error("Error guardando el árbol:", error);
-        showToast("Error al guardar la estructura del árbol.", "error");
+        console.error("Error guardando la estructura del producto:", error);
+        showToast("Error al guardar la estructura del producto.", "error");
         button.innerHTML = originalText;
         button.disabled = false;
     }
@@ -1534,9 +1503,10 @@ function initSinoptico() {
             lucide.createIcons();
             return;
         }
-        const treesToRender = appState.collections[COLLECTIONS.ARBOLES].filter(arbol => {
-            if (appState.sinopticoState.activeFilters.clients.size > 0 && !appState.sinopticoState.activeFilters.clients.has(arbol.clienteId)) return false;
-            return arbol.estructura.some(rootNode => itemOrDescendantsMatch(rootNode, searchTerm));
+        const treesToRender = appState.collections[COLLECTIONS.PRODUCTOS].filter(producto => {
+            if (!producto.estructura || producto.estructura.length === 0) return false;
+            if (appState.sinopticoState.activeFilters.clients.size > 0 && !appState.sinopticoState.activeFilters.clients.has(producto.clienteId)) return false;
+            return producto.estructura.some(rootNode => itemOrDescendantsMatch(rootNode, searchTerm));
         });
         if (treesToRender.length === 0) {
             treeContainer.innerHTML = `<div class="text-center text-slate-500 p-8">
@@ -1666,14 +1636,16 @@ function initSinoptico() {
         let parentNode = null;
         let activeTree = null;
 
-        // Find the active tree based on the selected component
+        // Find the active product tree based on the selected component
         if (componentId) {
-            for (const arbol of appState.collections[COLLECTIONS.ARBOLES]) {
-                targetNode = findNode(componentId, arbol.estructura);
+            for (const producto of appState.collections[COLLECTIONS.PRODUCTOS]) {
+                if (!producto.estructura) continue; // Skip products without a tree
+                targetNode = findNode(componentId, producto.estructura);
                 if (targetNode) {
-                    activeTree = arbol;
-                    appState.sinopticoState.activeTreeDocId = arbol.docId;
-                    parentNode = findParentNode(componentId, arbol.estructura);
+                    activeTree = producto;
+                    appState.sinopticoState.activeTreeDocId = producto.docId;
+                    // We need to find the parent within the same structure
+                    parentNode = findParentNode(componentId, producto.estructura);
                     break;
                 }
             }
@@ -1985,9 +1957,9 @@ function initSinoptico() {
     
         const exportBtn = target.closest('button[data-action="export-product-pdf"]');
         if (exportBtn) {
-            const activeTree = appState.collections[COLLECTIONS.ARBOLES].find(a => a.docId === appState.sinopticoState.activeTreeDocId);
-            if (activeTree) {
-                const activeNode = findNode(appState.sinopticoState.activeElementId, activeTree.estructura);
+            const activeProduct = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.docId === appState.sinopticoState.activeTreeDocId);
+            if (activeProduct && activeProduct.estructura) {
+                const activeNode = findNode(appState.sinopticoState.activeElementId, activeProduct.estructura);
                 if (activeNode && activeNode.tipo === 'producto') {
                     await exportProductTreePdf(activeNode);
                 }
@@ -2029,10 +2001,10 @@ function initSinoptico() {
                     }
                 }
     
-                const tree = appState.collections[COLLECTIONS.ARBOLES].find(a => a.docId === appState.sinopticoState.activeTreeDocId);
-                if (!tree) { showToast('Error: No se pudo encontrar el árbol activo.', 'error'); return; }
+                const product = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.docId === appState.sinopticoState.activeTreeDocId);
+                if (!product || !product.estructura) { showToast('Error: No se pudo encontrar el producto activo.', 'error'); return; }
     
-                const nodeToUpdate = findNode(nodeId, tree.estructura);
+                const nodeToUpdate = findNode(nodeId, product.estructura);
     
                 if (nodeToUpdate) {
                     nodeToUpdate.quantity = newQuantity;
@@ -2041,8 +2013,8 @@ function initSinoptico() {
                     saveButton.disabled = true;
     
                     try {
-                        const arbolRef = doc(db, COLLECTIONS.ARBOLES, tree.docId);
-                        await updateDoc(arbolRef, { estructura: tree.estructura });
+                        const productRef = doc(db, COLLECTIONS.PRODUCTOS, product.docId);
+                        await updateDoc(productRef, { estructura: product.estructura });
                         showToast('Cantidad actualizada con éxito.', 'success');
                         renderTree();
                         renderDetailView(nodeId);
@@ -2084,9 +2056,9 @@ function initSinoptico() {
         if(detailItem) {
             const navigateToId = detailItem.dataset.navigateTo;
             appState.sinopticoState.activeElementId = navigateToId;
-            const treeForParent = appState.collections[COLLECTIONS.ARBOLES].find(a => a.docId === appState.sinopticoState.activeTreeDocId)
-            if (treeForParent) {
-                const parentNode = findParentNode(navigateToId, treeForParent.estructura);
+            const productForParent = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.docId === appState.sinopticoState.activeTreeDocId);
+            if (productForParent && productForParent.estructura) {
+                const parentNode = findParentNode(navigateToId, productForParent.estructura);
                 if(parentNode && !appState.sinopticoState.expandedNodes.has(parentNode.id)){
                     appState.sinopticoState.expandedNodes.add(parentNode.id);
                 }
@@ -2119,7 +2091,8 @@ function initSinoptico() {
     const searchHandler = () => {
         const searchTerm = searchInput.value.toLowerCase();
         if (searchTerm) {
-            appState.collections[COLLECTIONS.ARBOLES].forEach(arbol => {
+            appState.collections[COLLECTIONS.PRODUCTOS].forEach(producto => {
+                if (!producto.estructura) return; // Omitir productos sin estructura
                 function findAndExpand(node, parents) {
                     const item = appState.collectionsById[node.tipo + 's']?.get(node.refId);
                     if (!item) return;
@@ -2131,7 +2104,7 @@ function initSinoptico() {
                     }
                     if (node.children) node.children.forEach(child => findAndExpand(child, newParents));
                 }
-                arbol.estructura.forEach(rootNode => findAndExpand(rootNode, []));
+                producto.estructura.forEach(rootNode => findAndExpand(rootNode, []));
             });
         }
         renderTree();
@@ -2160,8 +2133,8 @@ function exportSinopticoPdf(activeFilters) {
     doc.setFontSize(18);
     doc.text("Reporte de Estructura de Productos", leftMargin, cursor.y);
     cursor.y += lineSpacing * 2;
-    const treesToRender = appState.collections[COLLECTIONS.ARBOLES].filter(arbol => {
-        return activeFilters.clients.size === 0 || activeFilters.clients.has(arbol.clienteId);
+    const treesToRender = appState.collections[COLLECTIONS.PRODUCTOS].filter(producto => {
+        return producto.hasOwnProperty('estructura') && (activeFilters.clients.size === 0 || activeFilters.clients.has(producto.clienteId));
     });
     if (treesToRender.length === 0) {
         doc.setFont('helvetica', 'normal');
