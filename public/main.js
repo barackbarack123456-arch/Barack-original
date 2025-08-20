@@ -4438,33 +4438,115 @@ function showPromptModal(title, message) {
 function runProfileLogic() {
     const user = appState.currentUser;
     if (!user) return;
+
+    const roleBadges = {
+        admin: '<span class="bg-red-100 text-red-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full">Administrador</span>',
+        editor: '<span class="bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full">Editor</span>',
+        lector: '<span class="bg-gray-100 text-gray-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full">Lector</span>'
+    };
+
     dom.viewContent.innerHTML = `<div class="max-w-4xl mx-auto space-y-8 animate-fade-in-up">
-            <div class="bg-white p-8 rounded-xl shadow-lg flex items-center space-x-6">
-                <img src="${user.avatarUrl}" alt="Avatar" class="w-24 h-24 rounded-full border-4 border-slate-200">
+        <!-- Profile Header -->
+        <div class="bg-white p-8 rounded-xl shadow-lg flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6">
+            <div class="relative group">
+                <img src="${user.avatarUrl}" alt="Avatar" class="w-24 h-24 rounded-full border-4 border-slate-200 object-cover">
+                <button id="change-avatar-btn" class="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <i data-lucide="camera" class="w-8 h-8 text-white"></i>
+                </button>
+            </div>
+            <div class="text-center sm:text-left">
+                <div class="flex items-center justify-center sm:justify-start">
+                    <h3 id="display-name" class="text-3xl font-bold text-slate-800">${user.name}</h3>
+                    <button id="edit-name-btn" class="ml-2 text-slate-400 hover:text-slate-600"><i data-lucide="pencil" class="w-5 h-5"></i></button>
+                </div>
+                <p class="text-slate-500">${user.email}</p>
+                <div class="mt-2">${roleBadges[user.role] || ''}</div>
+            </div>
+        </div>
+
+        <!-- General Settings -->
+        <div class="bg-white p-8 rounded-xl shadow-lg">
+            <h4 class="text-xl font-bold text-slate-800 border-b pb-4 mb-6">Configuración General</h4>
+            <form id="profile-settings-form" class="space-y-4 max-w-md">
                 <div>
-                    <h3 class="text-3xl font-bold text-slate-800">${user.name}</h3>
-                    <p class="text-slate-500">${user.email}</p>
+                    <label for="profile-name" class="block text-sm font-medium text-gray-700 mb-1">Nombre para mostrar</label>
+                    <input type="text" id="profile-name" value="${user.name}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
                 </div>
-            </div>
-            <div class="bg-white p-8 rounded-xl shadow-lg">
-                <h4 class="text-xl font-bold text-slate-800 border-b pb-4 mb-6">Cambiar Contraseña</h4>
-                <form id="change-password-form" class="space-y-4 max-w-md">
-                    <div><label for="current-password" class="block text-sm font-medium text-gray-700 mb-1">Contraseña Actual</label><input type="password" id="current-password" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required></div>
-                    <div><label for="new-password" class="block text-sm font-medium text-gray-700 mb-1">Nueva Contraseña</label><input type="password" id="new-password" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required></div>
-                    <div><label for="confirm-password" class="block text-sm font-medium text-gray-700 mb-1">Confirmar Nueva Contraseña</label><input type="password" id="confirm-password" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required></div>
-                    <div class="pt-2"><button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 font-semibold">Guardar Cambios</button></div>
-                </form>
-            </div>
-            <div class="bg-white p-8 rounded-xl shadow-lg border-2 border-red-200">
-                <h4 class="text-xl font-bold text-red-700 border-b border-red-200 pb-4 mb-6">Zona de Peligro</h4>
-                <div class="flex items-center justify-between">
-                    <div><p class="font-semibold">Eliminar esta cuenta</p><p class="text-sm text-slate-500">Una vez que elimine su cuenta, no hay vuelta atrás. Por favor, esté seguro.</p></div>
-                    <button data-action="delete-account" class="bg-red-600 text-white px-6 py-2 rounded-md hover:bg-red-700 font-semibold flex-shrink-0">Eliminar Cuenta</button>
+                <div>
+                    <label for="profile-avatar" class="block text-sm font-medium text-gray-700 mb-1">URL de la foto de perfil</label>
+                    <input type="url" id="profile-avatar" value="${user.avatarUrl}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
                 </div>
+                <div class="pt-2"><button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 font-semibold">Guardar Perfil</button></div>
+            </form>
+        </div>
+
+        <!-- Password Change -->
+        <div class="bg-white p-8 rounded-xl shadow-lg">
+            <h4 class="text-xl font-bold text-slate-800 border-b pb-4 mb-6">Cambiar Contraseña</h4>
+            <form id="change-password-form" class="space-y-4 max-w-md">
+                <div><label for="current-password" class="block text-sm font-medium text-gray-700 mb-1">Contraseña Actual</label><input type="password" id="current-password" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required></div>
+                <div><label for="new-password" class="block text-sm font-medium text-gray-700 mb-1">Nueva Contraseña</label><input type="password" id="new-password" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required></div>
+                <div><label for="confirm-password" class="block text-sm font-medium text-gray-700 mb-1">Confirmar Nueva Contraseña</label><input type="password" id="confirm-password" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required></div>
+                <div class="pt-2"><button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 font-semibold">Guardar Cambios</button></div>
+            </form>
+        </div>
+
+        <!-- Danger Zone -->
+        <div class="bg-white p-8 rounded-xl shadow-lg border-2 border-red-200">
+            <h4 class="text-xl font-bold text-red-700 border-b border-red-200 pb-4 mb-6">Zona de Peligro</h4>
+            <div class="flex items-center justify-between">
+                <div><p class="font-semibold">Eliminar esta cuenta</p><p class="text-sm text-slate-500">Una vez que elimine su cuenta, no hay vuelta atrás. Por favor, esté seguro.</p></div>
+                <button data-action="delete-account" class="bg-red-600 text-white px-6 py-2 rounded-md hover:bg-red-700 font-semibold flex-shrink-0">Eliminar Cuenta</button>
             </div>
-        </div>`;
+        </div>
+    </div>`;
     lucide.createIcons();
+
     document.getElementById('change-password-form').addEventListener('submit', handleChangePassword);
+    document.getElementById('profile-settings-form').addEventListener('submit', handleProfileUpdate);
+
+    // Quick edit buttons
+    document.getElementById('edit-name-btn').addEventListener('click', () => {
+        document.getElementById('profile-name').focus();
+    });
+    document.getElementById('change-avatar-btn').addEventListener('click', () => {
+        document.getElementById('profile-avatar').focus();
+    });
+}
+
+async function handleProfileUpdate(e) {
+    e.preventDefault();
+    const newName = document.getElementById('profile-name').value;
+    const newAvatarUrl = document.getElementById('profile-avatar').value;
+
+    const user = auth.currentUser;
+    const userDocRef = doc(db, COLLECTIONS.USUARIOS, user.uid);
+
+    try {
+        // Update Firebase Auth profile
+        await updateProfile(user, {
+            displayName: newName,
+            photoURL: newAvatarUrl
+        });
+
+        // Update Firestore user document
+        await updateDoc(userDocRef, {
+            name: newName,
+            photoURL: newAvatarUrl
+        });
+
+        // Update local app state
+        appState.currentUser.name = newName;
+        appState.currentUser.avatarUrl = newAvatarUrl;
+
+        showToast('Perfil actualizado con éxito.', 'success');
+        renderUserMenu(); // Refresh the user menu in the navbar
+        runProfileLogic(); // Re-render the profile page with new data
+
+    } catch (error) {
+        console.error("Error updating profile:", error);
+        showToast("Error al actualizar el perfil.", "error");
+    }
 }
 
 async function handleChangePassword(e) {
