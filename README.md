@@ -96,3 +96,7 @@ En algunos entornos, el comando `firebase` puede no estar en el `PATH` del siste
     # Ejemplo de ruta, puede variar en tu sistema
     node <npm_root_g_output>/firebase-tools/lib/bin/firebase.js <comando>
     ```
+
+## A Note on AGENTS.md
+
+You may notice a file named `AGENTS.md` in this repository. This file is specifically for providing instructions and guidelines to AI assistants (like Jules) who collaborate on this project. It contains technical conventions and lessons learned to make AI collaboration more efficient. For general project documentation, please continue to refer to this `README.md` file.
