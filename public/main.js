@@ -1561,7 +1561,7 @@ function runSinopticoLogic() {
 function runSinopticoTabularLogic() {
     if (!appState.sinopticoTabularState) {
         appState.sinopticoTabularState = {
-            activeFilters: { clients: new Set() }
+            activeFilters: { clients: new Set(), niveles: new Set() }
         };
     }
 
@@ -1578,14 +1578,31 @@ function runSinopticoTabularLogic() {
             </div>
         </div>`;
 
-        renderTabularFilters();
-        renderTabularTable();
+        const flattenedData = getFlattenedData();
+        const availableLevels = getAvailableLevels(flattenedData);
+
+        renderTabularFilters(availableLevels);
+        renderTabularTable(flattenedData);
         lucide.createIcons();
     };
 
-    const renderTabularFilters = () => {
+    const renderTabularFilters = (availableLevels) => {
         const controlsContainer = document.getElementById('sinoptico-tabular-controls');
         if (!controlsContainer) return;
+
+        const levelFiltersHTML = availableLevels.length > 0 ? `
+            <div class="flex items-center gap-3 mb-4 p-2 bg-slate-50 rounded-lg">
+                <span class="text-sm font-semibold text-slate-600 flex-shrink-0">Filtros por Nivel:</span>
+                <div class="flex flex-wrap gap-4">
+                    ${availableLevels.map(level => `
+                        <label class="flex items-center gap-2 cursor-pointer text-sm">
+                            <input type="checkbox" data-level="${level}" class="tabular-level-filter-cb" ${appState.sinopticoTabularState.activeFilters.niveles.has(level) ? 'checked' : ''}>
+                            Nivel ${level}
+                        </label>
+                    `).join('')}
+                </div>
+            </div>
+        ` : '';
 
         controlsContainer.innerHTML = `
             <div class="flex items-center gap-3 mb-4 p-2 bg-slate-50 rounded-lg">
@@ -1595,7 +1612,9 @@ function runSinopticoTabularLogic() {
                     <button id="add-client-filter-btn-tabular" class="flex items-center justify-center w-8 h-8 bg-slate-200 rounded-full hover:bg-slate-300"><i data-lucide="plus" class="w-4 h-4 pointer-events-none"></i></button>
                     <div id="add-client-filter-dropdown-tabular" class="absolute z-10 right-0 mt-2 w-64 bg-white border rounded-lg shadow-xl hidden dropdown-menu"></div>
                 </div>
-            </div>`;
+            </div>
+            ${levelFiltersHTML}
+        `;
 
         const activeFiltersBar = document.getElementById('active-filters-bar-tabular');
         activeFiltersBar.innerHTML = appState.sinopticoTabularState.activeFilters.clients.size === 0
@@ -1615,19 +1634,7 @@ function runSinopticoTabularLogic() {
             : availableClients.map(client => `<a href="#" data-id="${client.id}" class="add-tabular-filter-link block px-4 py-2 text-sm hover:bg-slate-100">${client.descripcion}</a>`).join('');
     };
 
-    const renderTabularTable = () => {
-        const tableContainer = document.getElementById('sinoptico-tabular-container');
-        if (!tableContainer) return;
-
-        const columns = [
-            { key: 'descripcion', label: 'Descripción' }, { key: 'nivel', label: 'Nivel' },
-            { key: 'codigo', label: 'Código' }, { key: 'tipo', label: 'Tipo' },
-            { key: 'cantidad', label: 'Cantidad' }, { key: 'unidad', label: 'Unidad' },
-            { key: 'proveedor', label: 'Proveedor' }, { key: 'material', label: 'Material' },
-            { key: 'costo', label: 'Costo' },
-            { key: 'observaciones', label: 'Comentarios' }
-        ];
-
+    const getFlattenedData = () => {
         const flattenedData = [];
         function flattenTree(node, level) {
             const collectionName = node.tipo + 's';
@@ -1641,19 +1648,43 @@ function runSinopticoTabularLogic() {
         const productsToRender = appState.collections[COLLECTIONS.PRODUCTOS]
             .filter(p => p.estructura && p.estructura.length > 0 && (clientFilters.size === 0 || clientFilters.has(p.clienteId)));
 
-        if (productsToRender.length === 0) {
+        productsToRender.forEach(p => p.estructura.forEach(rootNode => flattenTree(rootNode, 0)));
+        return flattenedData;
+    };
+
+    const getAvailableLevels = (flattenedData) => {
+        const levels = new Set();
+        flattenedData.forEach(item => levels.add(item.level));
+        return [...levels].sort((a, b) => a - b);
+    };
+
+    const renderTabularTable = (flattenedData) => {
+        const tableContainer = document.getElementById('sinoptico-tabular-container');
+        if (!tableContainer) return;
+
+        const columns = [
+            { key: 'descripcion', label: 'Descripción' }, { key: 'nivel', label: 'Nivel' },
+            { key: 'codigo', label: 'Código' }, { key: 'tipo', label: 'Tipo' },
+            { key: 'cantidad', label: 'Cantidad' }, { key: 'unidad', label: 'Unidad' },
+            { key: 'proveedor', label: 'Proveedor' }, { key: 'material', label: 'Material' },
+            { key: 'costo', label: 'Costo' },
+            { key: 'observaciones', label: 'Comentarios' }
+        ];
+
+        if (flattenedData.length === 0) {
             tableContainer.innerHTML = `<p class="text-slate-500 p-4 text-center">No hay productos para mostrar con los filtros seleccionados.</p>`;
             return;
         }
-
-        productsToRender.forEach(p => p.estructura.forEach(rootNode => flattenTree(rootNode, 0)));
 
         let tableHTML = `<table class="w-full text-sm text-left text-gray-600">`;
         tableHTML += `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>`;
         columns.forEach(col => { tableHTML += `<th scope="col" class="px-4 py-3">${col.label}</th>`; });
         tableHTML += `</tr></thead><tbody>`;
 
-        flattenedData.forEach(rowData => {
+        const levelFilters = appState.sinopticoTabularState.activeFilters.niveles;
+        const filteredData = flattenedData.filter(rowData => levelFilters.size === 0 || levelFilters.has(rowData.level));
+
+        filteredData.forEach(rowData => {
             const { node, item, level } = rowData;
             const indentStyle = `padding-left: ${level * 24 + 16}px;`;
             const NA = '<span class="text-slate-400">N/A</span>';
@@ -1699,6 +1730,14 @@ function runSinopticoTabularLogic() {
             render();
         } else if (target.closest('.remove-tabular-filter-btn')) {
             appState.sinopticoTabularState.activeFilters.clients.delete(target.dataset.id);
+            render();
+        } else if (target.classList.contains('tabular-level-filter-cb')) {
+            const level = parseInt(target.dataset.level, 10);
+            if (target.checked) {
+                appState.sinopticoTabularState.activeFilters.niveles.add(level);
+            } else {
+                appState.sinopticoTabularState.activeFilters.niveles.delete(level);
+            }
             render();
         } else if (!target.closest('#add-client-filter-dropdown-tabular')) {
             document.getElementById('add-client-filter-dropdown-tabular')?.classList.add('hidden');
