@@ -1072,8 +1072,8 @@ async function guardarEstructura(button) {
         const productoRef = doc(db, COLLECTIONS.PRODUCTOS, appState.arbolActivo.docId);
         await updateDoc(productoRef, {
             estructura: appState.arbolActivo.estructura,
-            lastUpdated: new Date()
-            // Ya no se maneja el campo 'lock'.
+            lastUpdated: new Date(),
+            lastUpdatedBy: appState.currentUser.name
         });
         
         button.innerHTML = `<i data-lucide="check" class="h-5 w-5"></i><span>¡Guardado!</span>`;
@@ -1495,6 +1495,9 @@ function renderCaratula(producto, cliente) {
     if (!container) return;
 
     if (producto && cliente) {
+        const lastUpdated = producto.lastUpdated ? new Date(producto.lastUpdated.seconds * 1000).toLocaleString('es-AR') : 'N/A';
+        const created = producto.createdAt ? new Date(producto.createdAt.seconds * 1000).toLocaleDateString('es-AR') : 'N/A';
+
         container.innerHTML = `
             <div class="bg-white p-6 rounded-xl shadow-lg animate-fade-in-up">
                 <div class="flex flex-col md:flex-row gap-6">
@@ -1512,6 +1515,28 @@ function renderCaratula(producto, cliente) {
                          <h3 class="text-sm font-bold uppercase text-indigo-600 tracking-wider">Cliente</h3>
                          <p class="text-2xl font-bold text-slate-800 mt-1">${cliente.descripcion}</p>
                          <p class="text-sm text-slate-500 mt-2">Código: <span class="font-semibold text-slate-700">${cliente.id}</span></p>
+                    </div>
+                </div>
+                <!-- Historial de Cambios -->
+                <div class="mt-4 pt-4 border-t border-slate-200">
+                    <h3 class="text-sm font-bold uppercase text-slate-500 tracking-wider">Información de Cambios</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-2 text-sm">
+                        <div>
+                            <p class="text-slate-500">Fecha de Creación</p>
+                            <p class="font-semibold text-slate-700">${created}</p>
+                        </div>
+                        <div>
+                            <p class="text-slate-500">Última Modificación</p>
+                            <p class="font-semibold text-slate-700">${lastUpdated}</p>
+                        </div>
+                        <div>
+                            <p class="text-slate-500">Revisado por</p>
+                            <p class="font-semibold text-slate-700">${producto.lastUpdatedBy || 'N/A'}</p>
+                        </div>
+                        <div>
+                            <p class="text-slate-500">Historial Completo</p>
+                            <p class="font-semibold text-slate-400 italic">Próximamente</p>
+                        </div>
                     </div>
                 </div>
             </div>`;
@@ -1768,17 +1793,10 @@ function initSinoptico() {
         if (!treeContainer) return;
         const searchTerm = searchInput.value.toLowerCase();
         treeContainer.innerHTML = '';
-        if (appState.sinopticoState.activeFilters.clients.size === 0 && !searchTerm) {
-            treeContainer.innerHTML = `<div class="text-center text-slate-500 p-12 bg-slate-50 rounded-lg">
-                <i data-lucide="filter" class="w-16 h-16 mx-auto text-slate-300 mb-4"></i>
-                <h3 class="text-xl font-bold text-slate-700">Comience a Explorar</h3>
-                <p class="mt-2">Para cargar un árbol de producto, seleccione un cliente utilizando el botón <i data-lucide="plus" class="inline-block w-4 h-4 -mt-1"></i> de arriba.</p>
-            </div>`;
-            lucide.createIcons();
-            return;
-        }
+
         const treesToRender = appState.collections[COLLECTIONS.PRODUCTOS].filter(producto => {
             if (!producto.estructura || producto.estructura.length === 0) return false;
+            // Si hay filtros de cliente activos, aplicarlos. Si no, mostrar todos.
             if (appState.sinopticoState.activeFilters.clients.size > 0 && !appState.sinopticoState.activeFilters.clients.has(producto.clienteId)) return false;
             return producto.estructura.some(rootNode => itemOrDescendantsMatch(rootNode, searchTerm));
         });
