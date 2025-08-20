@@ -26,19 +26,33 @@ body { font-family: 'Inter', sans-serif; background-color: #ffffff; color: #1e29
 .toast.success { background-color: #16a34a; } .toast.error { background-color: #dc2626; } .toast.info { background-color: #2563eb; }
 .toast i { margin-right: 10px; }
 
-/* --- Sidebar --- */
-#sidebar { transition: width 0.3s ease-in-out; }
-#main-content { transition: margin-left 0.3s ease-in-out; }
-#sidebar-toggle i { transition: transform 0.3s ease-in-out; }
-#sidebar.collapsed { width: 80px; }
-#sidebar.collapsed .sidebar-text, #sidebar.collapsed .app-title { display: none; }
-#sidebar.collapsed .nav-link { justify-content: center; padding-left: 0; padding-right: 0; }
-#sidebar.collapsed .nav-link i { margin-right: 0; }
-#sidebar.collapsed .sidebar-footer { justify-content: center; }
-#sidebar.collapsed #sidebar-toggle i { transform: rotate(180deg); }
+/* --- Barra de Navegación Superior --- */
+body {
+    background-color: #f1f5f9; /* slate-100 */
+}
 
+.nav-link.active {
+    background-color: #eef2ff; /* indigo-50 */
+    color: #3730a3; /* indigo-800 */
+    font-weight: 600;
+}
+
+/* Estilos para el menú desplegable de navegación */
+.nav-dropdown .dropdown-menu {
+    display: none;
+    transform-origin: top right;
+    right: 0;
+    z-index: 50;
+}
+
+.nav-dropdown.open .dropdown-menu {
+    display: block;
+    animation: dropdown-show 0.1s ease-out forwards;
+}
+
+/* Ajuste del logo para la nueva barra de navegación */
 .logo-img {
-    max-height: 80px;
+    max-height: 40px; /* Reducir la altura máxima para la barra superior */
     width: auto;
 }
 

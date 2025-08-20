@@ -390,17 +390,37 @@ function initializeAppListeners() {
 }
 
 function setupGlobalEventListeners() {
-    document.getElementById('sidebar-toggle').addEventListener('click', () => {
-        const sidebar = document.getElementById('sidebar');
-        sidebar.classList.toggle('collapsed');
-        dom.mainContent.style.marginLeft = sidebar.classList.contains('collapsed') ? '80px' : '256px';
-    });
-    
     dom.searchInput.addEventListener('input', handleSearch);
     dom.addNewButton.addEventListener('click', () => openFormModal());
+
     document.getElementById('main-nav').addEventListener('click', (e) => {
         const link = e.target.closest('.nav-link');
-        if (link) { e.preventDefault(); switchView(link.dataset.view); }
+
+        // Handle view switching from any nav-link with a data-view attribute
+        if (link && link.dataset.view) {
+            e.preventDefault();
+            switchView(link.dataset.view);
+
+            // Close dropdowns after selection
+            const openDropdown = link.closest('.nav-dropdown.open');
+            if (openDropdown) {
+                openDropdown.classList.remove('open');
+            }
+        }
+
+        // Handle dropdown toggling
+        const toggle = e.target.closest('.dropdown-toggle');
+        if (toggle) {
+            e.preventDefault(); // Prevent view switch if clicking dropdown toggle
+            const dropdown = toggle.closest('.nav-dropdown');
+            // Close other open dropdowns
+            document.querySelectorAll('.nav-dropdown.open').forEach(openDropdown => {
+                if (openDropdown !== dropdown) {
+                    openDropdown.classList.remove('open');
+                }
+            });
+            dropdown.classList.toggle('open');
+        }
     });
     
     dom.viewContent.addEventListener('click', handleViewContentActions);
@@ -418,10 +438,21 @@ function switchView(viewName) {
     appState.currentView = viewName;
     const config = viewConfig[viewName];
     dom.viewTitle.textContent = config.title;
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.classList.toggle('bg-slate-700', link.dataset.view === viewName);
-        link.classList.toggle('text-white', link.dataset.view === viewName);
+    // Update active link styling
+    document.querySelectorAll('#main-nav .nav-link').forEach(link => {
+        link.classList.remove('active');
     });
+
+    const activeLink = document.querySelector(`#main-nav [data-view="${viewName}"]`);
+    if (activeLink) {
+        activeLink.classList.add('active');
+
+        // If the link is inside a dropdown, also mark the dropdown toggle as active
+        const parentDropdown = activeLink.closest('.nav-dropdown');
+        if (parentDropdown) {
+            parentDropdown.querySelector('.dropdown-toggle').classList.add('active');
+        }
+    }
     
     dom.viewContent.innerHTML = '';
     dom.headerActions.style.display = 'none';
@@ -525,12 +556,25 @@ function handleGlobalClick(e) {
         return;
     }
     
-    if(profileLink) { e.preventDefault(); document.getElementById('user-dropdown')?.classList.add('hidden'); switchView(profileLink.dataset.view); return; }
+    if(profileLink) {
+        e.preventDefault();
+        document.getElementById('user-dropdown')?.classList.add('hidden');
+        switchView(profileLink.dataset.view);
+        return;
+    }
     
+    // Close user menu
     const userMenuButton = document.getElementById('user-menu-button');
     const userDropdown = document.getElementById('user-dropdown');
     if (userMenuButton && !userMenuButton.contains(target) && userDropdown && !userDropdown.contains(target)) {
         userDropdown.classList.add('hidden');
+    }
+
+    // Close nav dropdowns
+    if (!target.closest('.nav-dropdown')) {
+        document.querySelectorAll('.nav-dropdown.open').forEach(dropdown => {
+            dropdown.classList.remove('open');
+        });
     }
     
     if (!target.closest('#export-menu-container')) document.getElementById('export-dropdown')?.classList.add('hidden'); 
