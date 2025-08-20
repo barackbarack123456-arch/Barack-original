@@ -162,7 +162,8 @@ const viewConfig = {
                 required: true
             }
         ]
-    }
+    },
+    admin_panel: { title: 'Panel de Admin', singular: 'Panel de Admin' }
 };
 
 // --- Estado Global de la Aplicación ---
@@ -491,6 +492,7 @@ function switchView(viewName) {
     }
     if (appState.currentView === 'sinoptico') appState.sinopticoState = null;
     if (appState.currentView === 'sinoptico_tabular') appState.sinopticoTabularState = null;
+    if (viewName !== 'tareas') appState.taskViewUserId = null;
     appState.currentView = viewName;
     const config = viewConfig[viewName];
     dom.viewTitle.textContent = config.title;
@@ -521,6 +523,7 @@ function switchView(viewName) {
     else if (viewName === 'arboles') renderArbolesInitialView();
     else if (viewName === 'profile') runProfileLogic();
     else if (viewName === 'tareas') runTasksLogic();
+    else if (viewName === 'admin_panel') runAdminPanelLogic();
     else if (config?.dataKey) {
         dom.headerActions.style.display = 'flex';
         dom.searchInput.style.display = 'block';
@@ -573,6 +576,15 @@ function handleViewContentActions(e) {
         'delete-node': () => eliminarNodo(button.dataset.nodeId),
         'delete-account': handleDeleteAccount,
         'seed-database': seedDatabase,
+        'view-user-tasks': () => {
+            const userId = button.dataset.userId;
+            appState.taskViewUserId = userId;
+            switchView('tareas');
+        },
+        'assign-task-to-user': () => {
+            const userId = button.dataset.userId;
+            openTaskFormModal(null, 'todo', userId);
+        },
         'clone-product': () => cloneProduct(),
         'view-history': () => showToast('La función de historial de cambios estará disponible próximamente.', 'info'),
         'edit-node-field': () => {
@@ -1407,7 +1419,9 @@ function fetchAndRenderTasks() {
     let queryConstraints = [orderBy('createdAt', 'desc')];
 
     // Add base filter (personal, engineering, all)
-    if (taskState.activeFilter === 'personal') {
+    if (appState.taskViewUserId) {
+        queryConstraints.unshift(where('assigneeUid', '==', appState.taskViewUserId));
+    } else if (taskState.activeFilter === 'personal') {
         queryConstraints.unshift(or(
             where('assigneeUid', '==', user.uid),
             where('creatorUid', '==', user.uid)
@@ -1446,7 +1460,7 @@ function renderTasks(tasks) {
     const getEmptyColumnHTML = (status) => {
         const statusMap = { todo: 'Por Hacer', inprogress: 'En Progreso', done: 'Completada' };
         return `
-            <div class="p-4 text-center text-slate-500 border-2 border-dashed border-slate-200 rounded-lg h-full flex flex-col justify-center items-center">
+            <div class="no-drag p-4 text-center text-slate-500 border-2 border-dashed border-slate-200 rounded-lg h-full flex flex-col justify-center items-center">
                 <i data-lucide="inbox" class="h-10 w-10 mx-auto text-slate-400"></i>
                 <h4 class="mt-4 font-semibold text-slate-600">Columna Vacía</h4>
                 <p class="text-sm mt-1 mb-4">No hay tareas en estado "${statusMap[status]}".</p>
@@ -1602,6 +1616,7 @@ function initTasksSortable() {
             group: 'tasks',
             animation: 150,
             ghostClass: 'sortable-ghost',
+            filter: '.no-drag', // Ignore elements with the 'no-drag' class
             onEnd: async (evt) => {
                 const taskId = evt.item.dataset.taskId;
                 const newStatus = evt.to.closest('.task-column').dataset.status;
@@ -1618,14 +1633,14 @@ function initTasksSortable() {
     });
 }
 
-async function openTaskFormModal(task = null, defaultStatus = 'todo') {
+async function openTaskFormModal(task = null, defaultStatus = 'todo', defaultAssigneeId = null) {
     const isEditing = task !== null;
 
     // Determine the UID to be pre-selected in the dropdown.
-    let selectedUid = '';
+    let selectedUid = defaultAssigneeId || '';
     if (isEditing && task.assigneeUid) {
         selectedUid = task.assigneeUid;
-    } else if (!isEditing && taskState.activeFilter === 'personal') {
+    } else if (!isEditing && !defaultAssigneeId && taskState.activeFilter === 'personal') {
         selectedUid = appState.currentUser.uid;
     }
 
@@ -1848,6 +1863,71 @@ function populateTaskAssigneeDropdown() {
     }
 }
 
+function runAdminPanelLogic() {
+    if (appState.currentUser.role !== 'admin') {
+        showToast('Acceso denegado. Se requiere rol de administrador.', 'error');
+        switchView('dashboard');
+        return;
+    }
+
+    const users = appState.collections.usuarios || [];
+    const tasks = appState.collections.tareas || [];
+
+    const userTaskStats = users.map(user => {
+        const userTasks = tasks.filter(task => task.assigneeUid === user.docId);
+        return {
+            ...user,
+            stats: {
+                todo: userTasks.filter(t => t.status === 'todo').length,
+                inprogress: userTasks.filter(t => t.status === 'inprogress').length,
+                done: userTasks.filter(t => t.status === 'done').length
+            }
+        };
+    });
+
+    let content = `
+        <div class="bg-white p-6 rounded-xl shadow-lg animate-fade-in-up">
+            <h3 class="text-2xl font-bold mb-4">Panel de Administración de Tareas</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    `;
+
+    userTaskStats.forEach(user => {
+        content += `
+            <div class="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div class="flex items-center space-x-4">
+                    <img src="${user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email)}&background=random`}" alt="Avatar" class="w-12 h-12 rounded-full">
+                    <div>
+                        <p class="font-bold text-slate-800">${user.name || user.email}</p>
+                        <p class="text-sm text-slate-500">${user.email}</p>
+                    </div>
+                </div>
+                <div class="mt-4 flex justify-around text-center">
+                    <div>
+                        <p class="text-2xl font-bold text-yellow-600">${user.stats.todo}</p>
+                        <p class="text-xs text-slate-500">Por Hacer</p>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-blue-600">${user.stats.inprogress}</p>
+                        <p class="text-xs text-slate-500">En Progreso</p>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-green-600">${user.stats.done}</p>
+                        <p class="text-xs text-slate-500">Completadas</p>
+                    </div>
+                </div>
+                <div class="mt-4 flex gap-2">
+                    <button data-action="view-user-tasks" data-user-id="${user.docId}" class="flex-1 bg-slate-200 text-slate-700 px-4 py-2 rounded-md hover:bg-slate-300 text-sm font-semibold">Ver Tareas</button>
+                    <button data-action="assign-task-to-user" data-user-id="${user.docId}" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm font-semibold">Asignar Tarea</button>
+                </div>
+            </div>
+        `;
+    });
+
+    content += `</div></div>`;
+
+    dom.viewContent.innerHTML = content;
+    lucide.createIcons();
+}
 
 onAuthStateChanged(auth, async (user) => {
     dom.loadingOverlay.style.display = 'none';
@@ -1902,10 +1982,9 @@ function updateAuthView(isLoggedIn) {
              startRealtimeListeners();
         }
         // Show/hide admin-only UI elements
-        const userManagementLink = document.querySelector('a[data-view="user_management"]');
-        if (userManagementLink) {
-            userManagementLink.style.display = appState.currentUser.role === 'admin' ? 'flex' : 'none';
-        }
+        document.querySelectorAll('[data-admin-only="true"]').forEach(el => {
+            el.style.display = appState.currentUser.role === 'admin' ? 'flex' : 'none';
+        });
         switchView('dashboard');
     } else {
         stopRealtimeListeners();
