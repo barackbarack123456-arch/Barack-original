@@ -34,7 +34,8 @@ const COLLECTIONS = {
     PROCESOS: 'procesos',
     PROVEEDORES: 'proveedores',
     UNIDADES: 'unidades',
-    USUARIOS: 'usuarios'
+    USUARIOS: 'usuarios',
+    TAREAS: 'tareas'
 };
 
 // =================================================================================
@@ -48,6 +49,7 @@ const viewConfig = {
     flujograma: { title: 'Flujograma de Procesos', singular: 'Flujograma' },
     arboles: { title: 'Editor de Árboles', singular: 'Árbol' },
     profile: { title: 'Mi Perfil', singular: 'Mi Perfil' },
+    tareas: { title: 'Gestor de Tareas', singular: 'Tarea' },
     productos: {
         title: 'Productos',
         singular: 'Producto',
@@ -151,7 +153,8 @@ let appState = {
     collections: {
         [COLLECTIONS.PRODUCTOS]: [], [COLLECTIONS.SUBPRODUCTOS]: [], [COLLECTIONS.INSUMOS]: [], [COLLECTIONS.CLIENTES]: [],
         [COLLECTIONS.SECTORES]: [], [COLLECTIONS.PROCESOS]: [],
-        [COLLECTIONS.PROVEEDORES]: [], [COLLECTIONS.UNIDADES]: []
+        [COLLECTIONS.PROVEEDORES]: [], [COLLECTIONS.UNIDADES]: [],
+        [COLLECTIONS.USUARIOS]: []
     },
     collectionsById: {
         [COLLECTIONS.PRODUCTOS]: new Map(),
@@ -161,7 +164,8 @@ let appState = {
         [COLLECTIONS.SECTORES]: new Map(),
         [COLLECTIONS.PROCESOS]: new Map(),
         [COLLECTIONS.PROVEEDORES]: new Map(),
-        [COLLECTIONS.UNIDADES]: new Map()
+        [COLLECTIONS.UNIDADES]: new Map(),
+        [COLLECTIONS.USUARIOS]: new Map()
     },
     unsubscribeListeners: [],
     sinopticoState: null,
@@ -203,7 +207,12 @@ function startRealtimeListeners() {
             querySnapshot.forEach((doc) => {
                 const item = { ...doc.data(), docId: doc.id };
                 data.push(item);
-                if(item.id) dataMap.set(item.id, item);
+                if (name === COLLECTIONS.USUARIOS) {
+                    // Los usuarios se identifican por su UID (doc.id), no por un campo 'id'
+                    dataMap.set(doc.id, item);
+                } else if(item.id) {
+                    dataMap.set(item.id, item);
+                }
             });
             appState.collections[name] = data;
             if(appState.collectionsById[name]) appState.collectionsById[name] = dataMap;
@@ -464,6 +473,7 @@ function switchView(viewName) {
     else if (viewName === 'flujograma') runFlujogramaLogic();
     else if (viewName === 'arboles') renderArbolesInitialView();
     else if (viewName === 'profile') runProfileLogic();
+    else if (viewName === 'tareas') runTasksLogic();
     else if (config?.dataKey) {
         dom.headerActions.style.display = 'flex';
         dom.searchInput.style.display = 'block';
@@ -1174,6 +1184,354 @@ async function guardarEstructura(button) {
         button.disabled = false;
     }
 }
+
+// =================================================================================
+// --- 7. LÓGICA DE TAREAS (KANBAN BOARD) ---
+// =================================================================================
+
+let taskState = {
+    activeFilter: 'engineering', // 'engineering', 'personal', 'all'
+    unsubscribe: null
+};
+
+function runTasksLogic() {
+    // 1. Set up the basic HTML layout for the board
+    dom.viewContent.innerHTML = `
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+            <div id="task-filters" class="flex items-center gap-2 rounded-lg bg-slate-200 p-1 flex-wrap"></div>
+            <button id="add-new-task-btn" class="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 flex items-center shadow-md transition-transform transform hover:scale-105 flex-shrink-0">
+                <i data-lucide="plus" class="mr-2 h-5 w-5"></i>Nueva Tarea
+            </button>
+        </div>
+        <div id="task-board" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="task-column bg-slate-100/80 rounded-xl" data-status="todo">
+                <h3 class="font-bold text-slate-800 p-3 border-b-2 border-slate-300 mb-4 flex items-center gap-3"><i data-lucide="list-todo" class="w-5 h-5 text-yellow-600"></i>Por Hacer</h3>
+                <div class="task-list min-h-[300px] p-4 space-y-4 overflow-y-auto"></div>
+            </div>
+            <div class="task-column bg-slate-100/80 rounded-xl" data-status="inprogress">
+                <h3 class="font-bold text-slate-800 p-3 border-b-2 border-slate-300 mb-4 flex items-center gap-3"><i data-lucide="timer" class="w-5 h-5 text-blue-600"></i>En Progreso</h3>
+                <div class="task-list min-h-[300px] p-4 space-y-4 overflow-y-auto"></div>
+            </div>
+            <div class="task-column bg-slate-100/80 rounded-xl" data-status="done">
+                <h3 class="font-bold text-slate-800 p-3 border-b-2 border-slate-300 mb-4 flex items-center gap-3"><i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>Completadas</h3>
+                <div class="task-list min-h-[300px] p-4 space-y-4 overflow-y-auto"></div>
+            </div>
+        </div>
+    `;
+    lucide.createIcons();
+
+    // 2. Set up event listeners for filters and the add button
+    document.getElementById('add-new-task-btn').addEventListener('click', () => openTaskFormModal());
+    setupTaskFilters();
+
+    // 3. Initial fetch and render
+    renderTaskFilters();
+    fetchAndRenderTasks();
+
+    // 4. Cleanup logic
+    appState.currentViewCleanup = () => {
+        if (taskState.unsubscribe) {
+            taskState.unsubscribe();
+            taskState.unsubscribe = null;
+        }
+    };
+}
+
+function setupTaskFilters() {
+    const filterContainer = document.getElementById('task-filters');
+    filterContainer.addEventListener('click', e => {
+        const button = e.target.closest('button');
+        if (button && button.dataset.filter) {
+            taskState.activeFilter = button.dataset.filter;
+            renderTaskFilters();
+            fetchAndRenderTasks();
+        }
+    });
+}
+
+function renderTaskFilters() {
+    const filters = [
+        { key: 'engineering', label: 'Ingeniería' },
+        { key: 'personal', label: 'Mis Tareas' }
+    ];
+    if (appState.currentUser.role === 'admin') {
+        filters.push({ key: 'all', label: 'Todas' });
+    }
+    const filterContainer = document.getElementById('task-filters');
+    filterContainer.innerHTML = filters.map(f => `
+        <button data-filter="${f.key}" class="px-4 py-1.5 text-sm font-semibold rounded-md transition-colors ${taskState.activeFilter === f.key ? 'bg-white shadow-sm text-blue-600' : 'text-slate-600 hover:bg-slate-300/50'}">
+            ${f.label}
+        </button>
+    `).join('');
+}
+
+async function fetchAndRenderTasks() {
+     if (taskState.unsubscribe) {
+        taskState.unsubscribe();
+        taskState.unsubscribe = null;
+    }
+
+    const tasksRef = collection(db, COLLECTIONS.TAREAS);
+    const user = appState.currentUser;
+    let tasks = [];
+
+    // Clear board before fetching
+    document.querySelectorAll('.task-list').forEach(list => list.innerHTML = `<div class="p-8 text-center text-slate-500"><i data-lucide="loader" class="h-8 w-8 animate-spin mx-auto"></i><p class="mt-2">Cargando tareas...</p></div>`);
+    lucide.createIcons();
+
+    try {
+        if (taskState.activeFilter === 'personal') {
+            const assignedQuery = query(tasksRef, where('assigneeUid', '==', user.uid));
+            const createdQuery = query(tasksRef, where('creatorUid', '==', user.uid), where('assigneeUid', '!=', user.uid));
+
+            const [assignedSnap, createdSnap] = await Promise.all([getDocs(assignedQuery), getDocs(createdQuery)]);
+
+            const tasksMap = new Map();
+            assignedSnap.forEach(doc => tasksMap.set(doc.id, { ...doc.data(), docId: doc.id }));
+            createdSnap.forEach(doc => tasksMap.set(doc.id, { ...doc.data(), docId: doc.id }));
+            tasks = Array.from(tasksMap.values());
+
+        } else {
+            let q;
+            if (taskState.activeFilter === 'engineering') {
+                 q = query(tasksRef, where('isPublic', '==', true), orderBy('createdAt', 'desc'));
+            } else if (taskState.activeFilter === 'all' && user.role === 'admin') {
+                 q = query(tasksRef, orderBy('createdAt', 'desc'));
+            } else {
+                // Fallback for non-admins or unknown filters
+                q = query(tasksRef, where('isPublic', '==', true), orderBy('createdAt', 'desc'));
+            }
+            const snapshot = await getDocs(q);
+            tasks = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+        }
+
+        renderTasks(tasks);
+    } catch (error) {
+        console.error("Error fetching tasks: ", error);
+        showToast("Error al cargar las tareas. Es posible que necesite crear un índice en Firestore.", "error");
+        document.querySelectorAll('.task-list').forEach(list => list.innerHTML = `<div class="p-8 text-center text-red-500"><i data-lucide="alert-triangle" class="h-8 w-8 mx-auto"></i><p class="mt-2">Error al cargar.</p></div>`);
+        lucide.createIcons();
+    }
+}
+
+function renderTasks(tasks) {
+    document.querySelectorAll('.task-list').forEach(list => {
+        list.innerHTML = ''; // Clear loaders
+    });
+
+    if (tasks.length === 0) {
+        document.querySelectorAll('.task-list').forEach(list => {
+            list.innerHTML = `<div class="p-8 text-center text-slate-500"><i data-lucide="inbox" class="h-8 w-8 mx-auto"></i><p class="mt-2">No hay tareas aquí.</p></div>`;
+        });
+        lucide.createIcons();
+    } else {
+        tasks.forEach(task => {
+            const taskCardHTML = createTaskCard(task);
+            const column = document.querySelector(`.task-column[data-status="${task.status || 'todo'}"] .task-list`);
+            if (column) {
+                const cardElement = document.createElement('div');
+                cardElement.innerHTML = taskCardHTML;
+                cardElement.firstChild.addEventListener('click', (e) => {
+                    if (e.target.closest('.task-actions')) return;
+                    openTaskFormModal(task);
+                });
+                column.appendChild(cardElement.firstChild);
+            }
+        });
+    }
+
+    initTasksSortable();
+    lucide.createIcons();
+}
+
+function createTaskCard(task) {
+    const assignee = (appState.collections.usuarios || []).find(u => u.docId === task.assigneeUid);
+    const priorities = {
+        low: { label: 'Baja', color: 'bg-gray-200 text-gray-800' },
+        medium: { label: 'Media', color: 'bg-yellow-200 text-yellow-800' },
+        high: { label: 'Alta', color: 'bg-red-200 text-red-800' }
+    };
+    const priority = priorities[task.priority] || priorities.medium;
+
+    const dueDate = task.dueDate ? new Date(task.dueDate + 'T00:00:00') : null;
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const isOverdue = dueDate && dueDate < today;
+    const dueDateStr = dueDate ? dueDate.toLocaleDateString('es-AR') : 'Sin fecha';
+
+    return `
+        <div class="task-card bg-white rounded-lg p-4 shadow-sm border border-slate-200 cursor-pointer hover:shadow-md hover:border-blue-400 animate-fade-in-up" data-task-id="${task.docId}">
+            <h4 class="font-bold text-slate-800">${task.title}</h4>
+            <p class="text-sm text-slate-600 mt-1 mb-3 break-words">${task.description || ''}</p>
+            <div class="flex justify-between items-center text-xs">
+                <span class="px-2 py-0.5 rounded-full font-semibold ${priority.color}">${priority.label}</span>
+                <span class="flex items-center gap-1 font-medium ${isOverdue ? 'text-red-600 font-bold' : 'text-slate-500'}">
+                    <i data-lucide="calendar" class="w-3.5 h-3.5"></i> ${dueDateStr}
+                </span>
+            </div>
+            <div class="flex items-center justify-between mt-4 pt-3 border-t border-slate-200/80">
+                <div class="flex items-center gap-2">
+                    ${assignee ? `<img src="${assignee.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(assignee.name || assignee.email)}&background=random`}" title="Asignada a: ${assignee.name || assignee.email}" class="w-6 h-6 rounded-full">` : '<div class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center" title="No asignada"><i data-lucide="user-x" class="w-4 h-4 text-gray-500"></i></div>'}
+                    <span class="text-sm text-slate-500">${assignee ? (assignee.name || assignee.email.split('@')[0]) : 'No asignada'}</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function initTasksSortable() {
+    const lists = document.querySelectorAll('.task-list');
+    lists.forEach(list => {
+        // Destroy existing instance if it exists
+        if (list.sortable) {
+            list.sortable.destroy();
+        }
+
+        list.sortable = new Sortable(list, {
+            group: 'tasks',
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            onEnd: async (evt) => {
+                const taskId = evt.item.dataset.taskId;
+                const newStatus = evt.to.closest('.task-column').dataset.status;
+                const taskRef = doc(db, COLLECTIONS.TAREAS, taskId);
+                try {
+                    await updateDoc(taskRef, { status: newStatus });
+                    showToast('Tarea actualizada.', 'success');
+                } catch (error) {
+                    console.error("Error updating task status:", error);
+                    showToast('Error al mover la tarea.', 'error');
+                }
+            }
+        });
+    });
+}
+
+async function openTaskFormModal(task = null) {
+    const isEditing = task !== null;
+    const users = appState.collections.usuarios || [];
+    const userOptions = users.map(u => `<option value="${u.docId}" ${isEditing && task.assigneeUid === u.docId ? 'selected' : ''}>${u.name || u.email}</option>`).join('');
+
+    const modalHTML = `
+    <div id="task-form-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop animate-fade-in">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col m-4 modal-content">
+            <div class="flex justify-between items-center p-5 border-b">
+                <h3 class="text-xl font-bold">${isEditing ? 'Editar' : 'Nueva'} Tarea</h3>
+                <button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button>
+            </div>
+            <form id="task-form" class="p-6 overflow-y-auto space-y-4" novalidate>
+                <input type="hidden" name="taskId" value="${isEditing ? task.docId : ''}">
+                <div>
+                    <label for="task-title" class="block text-sm font-medium text-gray-700 mb-1">Título</label>
+                    <input type="text" id="task-title" name="title" value="${isEditing && task.title ? task.title : ''}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required>
+                </div>
+                <div>
+                    <label for="task-description" class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                    <textarea id="task-description" name="description" rows="4" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">${isEditing && task.description ? task.description : ''}</textarea>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label for="task-assignee" class="block text-sm font-medium text-gray-700 mb-1">Asignar a</label>
+                        <select id="task-assignee" name="assigneeUid" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                            <option value="">No asignada</option>
+                            ${userOptions}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="task-priority" class="block text-sm font-medium text-gray-700 mb-1">Prioridad</label>
+                        <select id="task-priority" name="priority" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                            <option value="low" ${isEditing && task.priority === 'low' ? 'selected' : ''}>Baja</option>
+                            <option value="medium" ${!isEditing || (isEditing && task.priority === 'medium') ? 'selected' : ''}>Media</option>
+                            <option value="high" ${isEditing && task.priority === 'high' ? 'selected' : ''}>Alta</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="task-duedate" class="block text-sm font-medium text-gray-700 mb-1">Fecha Límite</label>
+                        <input type="date" id="task-duedate" name="dueDate" value="${isEditing && task.dueDate ? task.dueDate : ''}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                    </div>
+                </div>
+            </form>
+            <div class="flex justify-end items-center p-4 border-t bg-gray-50 space-x-3">
+                ${isEditing ? `<button data-action="delete" class="text-red-600 font-semibold mr-auto px-4 py-2 rounded-md hover:bg-red-50">Eliminar Tarea</button>` : ''}
+                <button data-action="close" type="button" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
+                <button type="submit" form="task-form" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-semibold">Guardar Tarea</button>
+            </div>
+        </div>
+    </div>
+    `;
+    dom.modalContainer.innerHTML = modalHTML;
+    lucide.createIcons();
+
+    // Set assignee value after innerHTML is set
+    if (isEditing && task.assigneeUid) {
+        document.getElementById('task-assignee').value = task.assigneeUid;
+    }
+
+    const modalElement = document.getElementById('task-form-modal');
+    modalElement.querySelector('form').addEventListener('submit', handleTaskFormSubmit);
+
+    modalElement.addEventListener('click', e => {
+        const button = e.target.closest('button');
+        if (!button) return;
+        const action = button.dataset.action;
+        if (action === 'close') {
+            modalElement.remove();
+        } else if (action === 'delete') {
+            showConfirmationModal('Eliminar Tarea', '¿Estás seguro de que quieres eliminar esta tarea?', async () => {
+                try {
+                    await deleteDoc(doc(db, COLLECTIONS.TAREAS, task.docId));
+                    showToast('Tarea eliminada.', 'success');
+                    modalElement.remove();
+                    fetchAndRenderTasks();
+                } catch (error) {
+                    showToast('No tienes permiso para eliminar esta tarea.', 'error');
+                }
+            });
+        }
+    });
+}
+
+async function handleTaskFormSubmit(e) {
+    e.preventDefault();
+    const form = e.target;
+    const taskId = form.querySelector('[name="taskId"]').value;
+    const isEditing = !!taskId;
+
+    const data = {
+        title: form.querySelector('[name="title"]').value,
+        description: form.querySelector('[name="description"]').value,
+        assigneeUid: form.querySelector('[name="assigneeUid"]').value,
+        priority: form.querySelector('[name="priority"]').value,
+        dueDate: form.querySelector('[name="dueDate"]').value,
+        updatedAt: new Date()
+    };
+
+    if (!data.title) {
+        showToast('El título es obligatorio.', 'error');
+        return;
+    }
+
+    try {
+        if (isEditing) {
+            const taskRef = doc(db, COLLECTIONS.TAREAS, taskId);
+            await updateDoc(taskRef, data);
+            showToast('Tarea actualizada con éxito.', 'success');
+        } else {
+            data.creatorUid = appState.currentUser.uid;
+            data.createdAt = new Date();
+            data.status = 'todo';
+            data.isPublic = taskState.activeFilter === 'engineering';
+            await addDoc(collection(db, COLLECTIONS.TAREAS), data);
+            showToast('Tarea creada con éxito.', 'success');
+        }
+        document.getElementById('task-form-modal').remove();
+        fetchAndRenderTasks();
+    } catch (error) {
+        console.error('Error saving task:', error);
+        showToast('Error al guardar la tarea.', 'error');
+    }
+}
+
 
 onAuthStateChanged(auth, async (user) => {
     dom.loadingOverlay.style.display = 'none';

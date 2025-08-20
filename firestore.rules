@@ -23,6 +23,32 @@ service cloud.firestore {
       allow create: if request.auth != null;
     }
 
+    // --- TAREAS ---
+    match /tareas/{taskId} {
+      // Cualquier usuario autenticado puede crear una tarea.
+      allow create: if request.auth != null;
+
+      // Un usuario puede leer una tarea si es pública, si se le asignó o si la creó.
+      // Los administradores pueden leer todas las tareas.
+      allow read: if request.auth != null &&
+                    (isAdmin() ||
+                     resource.data.isPublic == true ||
+                     resource.data.assigneeUid == request.auth.uid ||
+                     resource.data.creatorUid == request.auth.uid);
+
+      // Un usuario puede actualizar una tarea si se le asignó o si la creó.
+      // Los administradores pueden actualizar cualquier tarea.
+      allow update: if request.auth != null &&
+                      (isAdmin() ||
+                       resource.data.assigneeUid == request.auth.uid ||
+                       resource.data.creatorUid == request.auth.uid);
+
+      // Un usuario solo puede eliminar una tarea que él mismo creó.
+      // Los administradores pueden eliminar cualquier tarea.
+      allow delete: if request.auth != null &&
+                      (isAdmin() || resource.data.creatorUid == request.auth.uid);
+    }
+
     // El resto de tus reglas
     match /{document=**} {
       allow read: if request.auth != null;
