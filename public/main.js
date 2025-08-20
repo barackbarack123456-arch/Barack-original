@@ -545,6 +545,13 @@ function handleViewContentActions(e) {
     const id = button.dataset.id;
     const docId = button.dataset.docId;
     const actions = {
+        'delete-task': () => {
+            showConfirmationModal(
+                'Eliminar Tarea',
+                '¿Estás seguro de que deseas eliminar esta tarea?',
+                () => deleteDocument(COLLECTIONS.TAREAS, docId)
+            );
+        },
         'details': () => openDetailsModal(appState.currentData.find(d => d.id == id)),
         'edit': () => openFormModal(appState.currentData.find(d => d.id == id)),
         'delete': () => deleteItem(docId),
@@ -1442,14 +1449,16 @@ function createTaskCard(task) {
     today.setHours(0,0,0,0);
     const isOverdue = dueDate && dueDate < today;
     const dueDateStr = dueDate ? dueDate.toLocaleDateString('es-AR') : 'Sin fecha';
+    const urgencyClass = isOverdue ? 'border-red-400 bg-red-50/50' : 'border-slate-200';
+    const dateClass = isOverdue ? 'text-red-600 font-bold' : 'text-slate-500';
 
     return `
-        <div class="task-card bg-white rounded-lg p-4 shadow-sm border border-slate-200 cursor-pointer hover:shadow-md hover:border-blue-400 animate-fade-in-up" data-task-id="${task.docId}">
+        <div class="task-card bg-white rounded-lg p-4 shadow-sm border ${urgencyClass} cursor-pointer hover:shadow-md hover:border-blue-400 animate-fade-in-up" data-task-id="${task.docId}">
             <h4 class="font-bold text-slate-800">${task.title}</h4>
             <p class="text-sm text-slate-600 mt-1 mb-3 break-words">${task.description || ''}</p>
             <div class="flex justify-between items-center text-xs">
                 <span class="px-2 py-0.5 rounded-full font-semibold ${priority.color}">${priority.label}</span>
-                <span class="flex items-center gap-1 font-medium ${isOverdue ? 'text-red-600 font-bold' : 'text-slate-500'}">
+                <span class="flex items-center gap-1 font-medium ${dateClass}">
                     <i data-lucide="calendar" class="w-3.5 h-3.5"></i> ${dueDateStr}
                 </span>
             </div>
@@ -1457,6 +1466,11 @@ function createTaskCard(task) {
                 <div class="flex items-center gap-2">
                     ${assignee ? `<img src="${assignee.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(assignee.name || assignee.email)}&background=random`}" title="Asignada a: ${assignee.name || assignee.email}" class="w-6 h-6 rounded-full">` : '<div class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center" title="No asignada"><i data-lucide="user-x" class="w-4 h-4 text-gray-500"></i></div>'}
                     <span class="text-sm text-slate-500">${assignee ? (assignee.name || assignee.email.split('@')[0]) : 'No asignada'}</span>
+                </div>
+                <div class="task-actions">
+                    <button data-action="delete-task" data-doc-id="${task.docId}" class="text-gray-400 hover:text-red-600 p-1 rounded-full" title="Eliminar tarea">
+                        <i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i>
+                    </button>
                 </div>
             </div>
         </div>
@@ -1554,6 +1568,11 @@ async function openTaskFormModal(task = null) {
     populateTaskAssigneeDropdown();
 
     const modalElement = document.getElementById('task-form-modal');
+
+    // Autofocus the title field for new tasks
+    if (!isEditing) {
+        modalElement.querySelector('#task-title').focus();
+    }
     modalElement.querySelector('form').addEventListener('submit', handleTaskFormSubmit);
 
     modalElement.addEventListener('click', e => {
