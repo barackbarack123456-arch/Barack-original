@@ -37,6 +37,27 @@ const COLLECTIONS = {
     USUARIOS: 'usuarios'
 };
 
+const UNIDADES_PREDEFINIDAS = [
+    { id: 'un', descripcion: 'Unidad' },
+    { id: 'm', descripcion: 'Metros' },
+    { id: 'mts', descripcion: 'Metros' },
+    { id: 'metros', descripcion: 'Metros' },
+    { id: 'cm', descripcion: 'Centímetros' },
+    { id: 'mm', descripcion: 'Milímetros' },
+    { id: 'm2', descripcion: 'Metros Cuadrados' },
+    { id: 'm3', descripcion: 'Metros Cúbicos' },
+    { id: 'kg', descripcion: 'Kilogramos' },
+    { id: 'g', descripcion: 'Gramos' },
+    { id: 'l', descripcion: 'Litros' },
+    { id: 'ml', descripcion: 'Mililitros' },
+    { id: 'bidon', descripcion: 'Bidón' },
+    { id: 'tanque', descripcion: 'Tanque' },
+    { id: 'cj', descripcion: 'Caja' },
+    { id: 'pq', descripcion: 'Paquete' },
+    { id: 'rollo', descripcion: 'Rollo' },
+    { id: 'par', descripcion: 'Par' },
+];
+
 // =================================================================================
 // --- 2. ESTADO GLOBAL Y CONFIGURACIÓN DE LA APP ---
 // =================================================================================
@@ -95,7 +116,7 @@ const viewConfig = {
         fields: [
             { key: 'codigo', label: 'Código', type: 'text', required: true },
             { key: 'descripcion', label: 'Descripción', type: 'textarea', required: true },
-            { key: 'unidad_medida', label: 'Unidad de Medida', type: 'select', options: ['m', 'ml', 'm2', 'm3', 'kg', 'g', 'l', 'un', 'cj', 'pq'], required: true },
+            { key: 'unidadMedidaId', label: 'Unidad de Medida', type: 'select', optionsSource: COLLECTIONS.UNIDADES, required: true },
             { key: 'material', label: 'Material', type: 'text' },
             { key: 'codigo_proveedor', label: 'Código Proveedor', type: 'text' },
             { key: 'piezas_por_vehiculo', label: 'Piezas por Vehículo', type: 'number' },
@@ -113,16 +134,6 @@ const viewConfig = {
         fields: [ 
             { key: 'id', label: 'Código', type: 'text', required: true }, 
             { key: 'descripcion', label: 'Razón Social', type: 'text', required: true } 
-        ] 
-    },
-    unidades: { 
-        title: 'Unidades de Medida', 
-        singular: 'Unidad', 
-        dataKey: COLLECTIONS.UNIDADES, 
-        columns: [ { key: 'id', label: 'Abreviatura' }, { key: 'descripcion', label: 'Descripción' } ], 
-        fields: [ 
-            { key: 'id', label: 'Abreviatura (ej: Kg, M, Un)', type: 'text', required: true }, 
-            { key: 'descripcion', label: 'Descripción (ej: Kilogramos, Metros, Unidades)', type: 'text', required: true } 
         ] 
     },
     procesos: { 
@@ -194,7 +205,13 @@ const dom = {
 // =================================================================================
 
 function startRealtimeListeners() {
-    const collectionNames = Object.keys(appState.collections);
+    // Cargar unidades predefinidas en el estado
+    appState.collections.unidades = UNIDADES_PREDEFINIDAS;
+    const unidadesMap = new Map();
+    UNIDADES_PREDEFINIDAS.forEach(u => unidadesMap.set(u.id, u));
+    appState.collectionsById.unidades = unidadesMap;
+
+    const collectionNames = Object.keys(appState.collections).filter(name => name !== COLLECTIONS.UNIDADES);
     collectionNames.forEach(name => {
         const q = query(collection(db, name));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -864,6 +881,10 @@ async function openFormModal(item = null) {
                 <input type="hidden" id="${field.key}" name="${field.key}" value="${value}">
                 <button type="button" data-action="open-search-modal" data-search-key="${field.searchKey}" data-field-key="${field.key}" class="bg-blue-500 text-white px-3 py-2 rounded-md hover:bg-blue-600"><i data-lucide="search" class="h-5 w-5"></i></button>
             </div>`;
+        } else if (field.type === 'select' && field.optionsSource) {
+            const options = appState.collections[field.optionsSource] || [];
+            let optionsHTML = options.map(opt => `<option value="${opt.id}" ${opt.id === value ? 'selected' : ''}>${opt.descripcion}</option>`).join('');
+            inputHTML = `<select id="${field.key}" name="${field.key}" class="${commonClasses}"><option value="">Seleccione...</option>${optionsHTML}</select>`;
         } else if (field.type === 'textarea') {
             inputHTML = `<textarea id="${field.key}" name="${field.key}" rows="3" class="${commonClasses}" ${field.required ? 'required' : ''}>${value}</textarea>`;
         } else {
@@ -1379,34 +1400,6 @@ function renderNodo(nodo) {
 
     const isDraggable = nodo.tipo !== 'producto';
 
-    const quantityHTML = nodo.tipo !== 'producto' ? `
-        <div class="inline-edit-container" data-field="quantity" data-node-id="${nodo.id}">
-            <span data-action="edit-node-field" class="display-mode flex items-center gap-1 cursor-pointer hover:bg-slate-200 p-1 rounded-md text-sm text-slate-600" title="Editar cantidad">
-                x <span class="font-bold">${nodo.quantity ?? 1}</span>
-                <i data-lucide="pencil" class="w-3 h-3 ml-1 opacity-0 group-hover:opacity-50 transition-opacity pointer-events-none"></i>
-            </span>
-            <span class="edit-mode hidden">
-                <input type="number" value="${nodo.quantity ?? 1}" class="w-20 border-slate-300 rounded-md py-1 px-2 text-sm">
-                <button data-action="save-node-field" class="p-1 text-green-600 hover:bg-green-100 rounded-md"><i data-lucide="check" class="w-5 h-5 pointer-events-none"></i></button>
-                <button data-action="cancel-node-field" class="p-1 text-red-600 hover:bg-red-100 rounded-md"><i data-lucide="x" class="w-5 h-5 pointer-events-none"></i></button>
-            </span>
-        </div>
-    ` : '';
-
-    const commentIcon = nodo.comment ? 'message-square-text' : 'message-square';
-    const commentHTML = `
-        <div class="inline-edit-container" data-field="comment" data-node-id="${nodo.id}">
-            <span data-action="edit-node-field" class="display-mode cursor-pointer hover:bg-slate-200 p-1 rounded-md text-slate-500" title="${nodo.comment || 'Añadir comentario'}">
-                <i data-lucide="${commentIcon}" class="w-5 h-5"></i>
-            </span>
-            <span class="edit-mode hidden">
-                <input type="text" value="${nodo.comment || ''}" placeholder="Comentario..." class="w-48 border-slate-300 rounded-md py-1 px-2 text-sm">
-                <button data-action="save-node-field" class="p-1 text-green-600 hover:bg-green-100 rounded-md"><i data-lucide="check" class="w-5 h-5 pointer-events-none"></i></button>
-                <button data-action="cancel-node-field" class="p-1 text-red-600 hover:bg-red-100 rounded-md"><i data-lucide="x" class="w-5 h-5 pointer-events-none"></i></button>
-            </span>
-        </div>
-    `;
-    
     return `<li data-node-id="${nodo.id}" class="group">
                 <div class="node-content ${isDraggable ? '' : 'cursor-default'}" data-type="${nodo.tipo}">
                     <div class="flex items-center gap-3 flex-grow min-w-0">
@@ -1415,8 +1408,6 @@ function renderNodo(nodo) {
                         <span class="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full flex-shrink-0">${nodo.tipo}</span>
                     </div>
                     <div class="flex items-center space-x-2 flex-shrink-0">
-                        ${quantityHTML}
-                        ${commentHTML}
                         <div class="h-5 border-l border-slate-200"></div>
                         ${addButtons}
                         ${nodo.tipo !== 'producto' ? `<button data-action="delete-node" data-node-id="${nodo.id}" class="text-red-500 hover:text-red-700" title="Eliminar"><i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i></button>` : ''}
@@ -1628,47 +1619,47 @@ function renderCaratula(producto, cliente) {
     if (!container) return;
 
     if (producto && cliente) {
-        const lastUpdated = producto.lastUpdated ? new Date(producto.lastUpdated.seconds * 1000).toLocaleString('es-AR') : 'N/A';
-        const created = producto.createdAt ? new Date(producto.createdAt.seconds * 1000).toLocaleDateString('es-AR') : 'N/A';
-
         container.innerHTML = `
-            <div class="bg-white p-6 rounded-xl shadow-lg animate-fade-in-up">
-                <div class="flex flex-col md:flex-row gap-6">
-                    <!-- Columna de Producto -->
-                    <div class="flex-1">
-                        <h3 class="text-sm font-bold uppercase text-blue-600 tracking-wider">Producto Principal del Árbol</h3>
-                        <p class="text-2xl font-bold text-slate-800 mt-1">${producto.descripcion}</p>
-                        <div class="flex items-center gap-4 mt-2 text-sm text-slate-500">
-                            <span>Código: <span class="font-semibold text-slate-700">${producto.id}</span></span>
-                            <span class="border-l pl-4">Versión: <span class="font-semibold text-slate-700">${producto.version || 'N/A'}</span></span>
-                        </div>
-                    </div>
-                    <!-- Columna de Cliente -->
-                    <div class="flex-1 md:border-l md:pl-6 border-slate-200">
-                         <h3 class="text-sm font-bold uppercase text-indigo-600 tracking-wider">Cliente</h3>
-                         <p class="text-2xl font-bold text-slate-800 mt-1">${cliente.descripcion}</p>
-                         <p class="text-sm text-slate-500 mt-2">Código: <span class="font-semibold text-slate-700">${cliente.id}</span></p>
-                    </div>
+            <div class="bg-white rounded-xl shadow-lg animate-fade-in-up flex overflow-hidden">
+                <!-- Columna Izquierda: Logo -->
+                <div class="w-1/3 bg-white flex items-center justify-center p-6 border-r border-slate-200">
+                    <img src="logo.png" alt="Logo" class="max-h-24">
                 </div>
-                <!-- Historial de Cambios -->
-                <div class="mt-4 pt-4 border-t border-slate-200">
-                    <h3 class="text-sm font-bold uppercase text-slate-500 tracking-wider">Información de Cambios</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-2 text-sm">
+
+                <!-- Columna Derecha: Detalles -->
+                <div class="w-2/3 bg-[#44546A] text-white p-5 flex items-center">
+                    <div class="grid grid-cols-2 gap-x-8 gap-y-4 text-sm w-full">
                         <div>
-                            <p class="text-slate-500">Fecha de Creación</p>
-                            <p class="font-semibold text-slate-700">${created}</p>
+                            <p class="font-bold opacity-80 uppercase">PROJECT</p>
+                            <p>${producto.descripcion}</p>
                         </div>
                         <div>
-                            <p class="text-slate-500">Última Modificación</p>
-                            <p class="font-semibold text-slate-700">${lastUpdated}</p>
+                            <p class="font-bold opacity-80 uppercase">Fecha de emisión</p>
+                            <p>4/8/2025</p>
                         </div>
                         <div>
-                            <p class="text-slate-500">Revisado por</p>
-                            <p class="font-semibold text-slate-700">${producto.lastUpdatedBy || 'N/A'}</p>
+                            <p class="font-bold opacity-80 uppercase">Revision</p>
+                            <p>OR</p>
                         </div>
                         <div>
-                            <p class="text-slate-500">Historial Completo</p>
-                            <p class="font-semibold text-slate-400 italic">Próximamente</p>
+                            <p class="font-bold opacity-80 uppercase">Part Name</p>
+                            <p>${cliente.descripcion}</p>
+                        </div>
+                        <div>
+                            <p class="font-bold opacity-80 uppercase">Realizó</p>
+                            <p>L, LATTANZI</p>
+                        </div>
+                        <div>
+                            <p class="font-bold opacity-80 uppercase">Fecha revisión</p>
+                            <p>4/8/2025</p>
+                        </div>
+                        <div>
+                            <p class="font-bold opacity-80 uppercase">Part Number</p>
+                            <p>${producto.id}</p>
+                        </div>
+                        <div>
+                            <p class="font-bold opacity-80 uppercase">Versión</p>
+                            <p>${producto.version || 'OR'}</p>
                         </div>
                     </div>
                 </div>
@@ -1739,12 +1730,15 @@ function runSinopticoTabularLogic() {
         const product = state.selectedProduct;
         const nodeToEdit = findNode(nodeId, product.estructura);
 
-        if (!nodeToEdit || nodeToEdit.tipo === 'producto') {
-            showToast('Solo se puede editar la cantidad y comentarios de subproductos e insumos.', 'info');
+        if (!nodeToEdit) return;
+
+        const field = cell.dataset.field;
+
+        if (nodeToEdit.tipo === 'producto' && field !== 'comment') {
+            showToast('Solo se pueden editar los comentarios de los productos.', 'info');
             return;
         }
 
-        const field = cell.dataset.field;
         if (field === 'quantity') {
             enterTableCellEditMode(row, nodeId, nodeToEdit.quantity, 'number');
         } else if (field === 'comment') {
