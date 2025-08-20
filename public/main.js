@@ -26,12 +26,12 @@ const db = getFirestore(app);
 // =================================================================================
 const LOCK_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutos en milisegundos
 const PREDEFINED_AVATARS = [
-    'https://ui-avatars.com/api/?name=Maria%20Mitchell&background=random&size=120',
-    'https://ui-avatars.com/api/?name=Mary%20Jackson&background=random&size=120',
-    'https://ui-avatars.com/api/?name=Grace%20Hopper&background=random&size=120',
-    'https://ui-avatars.com/api/?name=Hedy%20Lamarr&background=random&size=120',
-    'https://ui-avatars.com/api/?name=Ada%20Lovelace&background=random&size=120',
-    'https://ui-avatars.com/api/?name=Katherine%20Johnson&background=random&size=120'
+    'https://api.dicebear.com/8.x/identicon/svg?seed=Maria%20Mitchell',
+    'https://api.dicebear.com/8.x/identicon/svg?seed=Mary%20Jackson',
+    'https://api.dicebear.com/8.x/identicon/svg?seed=Grace%20Hopper',
+    'https://api.dicebear.com/8.x/identicon/svg?seed=Hedy%20Lamarr',
+    'https://api.dicebear.com/8.x/identicon/svg?seed=Ada%20Lovelace',
+    'https://api.dicebear.com/8.x/identicon/svg?seed=Katherine%20Johnson'
 ];
 const COLLECTIONS = {
     PRODUCTOS: 'productos',
@@ -1627,7 +1627,7 @@ function renderTimelineFilterDropdown() {
     users.forEach(user => {
         content += `<label class="flex items-center gap-3 p-1.5 hover:bg-slate-100 rounded-md cursor-pointer">
             <input type="checkbox" data-userid="${user.docId}" class="timeline-group-filter-cb" ${isVisible(user.docId) ? 'checked' : ''}>
-            <img src="${user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email)}&background=random`}" class="w-6 h-6 rounded-full">
+            <img src="${user.photoURL || `https://api.dicebear.com/8.x/identicon/svg?seed=${encodeURIComponent(user.name || user.email)}`}" class="w-6 h-6 rounded-full">
             <span class="text-sm">${user.name || user.email}</span>
         </label>`;
     });
@@ -2059,7 +2059,7 @@ function renderAdminUserList() {
             content += `
             <div class="border rounded-lg p-4 hover:shadow-md transition-shadow animate-fade-in-up">
                     <div class="flex items-center space-x-4">
-                        <img src="${user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email)}&background=random`}" alt="Avatar" class="w-12 h-12 rounded-full">
+                        <img src="${user.photoURL || `https://api.dicebear.com/8.x/identicon/svg?seed=${encodeURIComponent(user.name || user.email)}`}" alt="Avatar" class="w-12 h-12 rounded-full">
                         <div>
                             <p class="font-bold text-slate-800">${user.name || user.email}</p>
                             <p class="text-sm text-slate-500">${user.email}</p>
@@ -2312,7 +2312,7 @@ function createTaskCard(task) {
 
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-2">
-                        ${assignee ? `<img src="${assignee.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(assignee.name || assignee.email)}&background=random`}" title="Asignada a: ${assignee.name || assignee.email}" class="w-6 h-6 rounded-full">` : '<div class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center" title="No asignada"><i data-lucide="user-x" class="w-4 h-4 text-gray-500"></i></div>'}
+                        ${assignee ? `<img src="${assignee.photoURL || `https://api.dicebear.com/8.x/identicon/svg?seed=${encodeURIComponent(assignee.name || assignee.email)}`}" title="Asignada a: ${assignee.name || assignee.email}" class="w-6 h-6 rounded-full">` : '<div class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center" title="No asignada"><i data-lucide="user-x" class="w-4 h-4 text-gray-500"></i></div>'}
                         <span class="text-sm text-slate-500">${assignee ? (assignee.name || assignee.email.split('@')[0]) : 'No asignada'}</span>
                     </div>
                     <div class="task-actions">
@@ -2637,7 +2637,7 @@ onAuthStateChanged(auth, async (user) => {
                 uid: user.uid,
                 name: user.displayName || user.email.split('@')[0],
                 email: user.email,
-                avatarUrl: user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || user.email)}&background=random`,
+                avatarUrl: user.photoURL || `https://api.dicebear.com/8.x/identicon/svg?seed=${encodeURIComponent(user.displayName || user.email)}`,
                 role: userDocSnap.exists() ? userDocSnap.data().role || 'lector' : 'lector'
             };
 
