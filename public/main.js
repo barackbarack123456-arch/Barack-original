@@ -150,7 +150,6 @@ const viewConfig = {
             { key: 'role', label: 'Rol' },
             { key: 'sector', label: 'Sector' }
         ],
-        sortBy: 'email', // Special sorting for users
         fields: [
             { key: 'name', label: 'Nombre', type: 'text', readonly: true },
             { key: 'email', label: 'Correo', type: 'text', readonly: true },
@@ -684,8 +683,7 @@ async function runTableLogic(direction = 'first') {
     const collectionRef = collection(db, config.dataKey);
     const PAGE_SIZE = 10;
     let q;
-    const sortByField = config.sortBy || 'id'; // Use configured sort field or default to 'id'
-    const baseQuery = query(collectionRef, orderBy(sortByField));
+    const baseQuery = query(collectionRef, orderBy("id"));
     if (direction === 'next' && appState.pagination.lastVisibleDoc) {
         q = query(baseQuery, startAfter(appState.pagination.lastVisibleDoc), limit(PAGE_SIZE));
     } else if (direction === 'prev' && appState.pagination.firstVisibleDoc) {
@@ -1745,6 +1743,7 @@ async function handleAuthForms(e) {
 
             // Crear documento de usuario en Firestore
             await setDoc(doc(db, COLLECTIONS.USUARIOS, userCredential.user.uid), {
+                id: userCredential.user.uid,
                 name: name,
                 email: userCredential.user.email,
                 role: 'lector',
@@ -1791,6 +1790,46 @@ async function logOutUser() {
         showToast("Error al cerrar sesión.", "error");
     }
 }
+
+async function addIdFieldToUsers() {
+    showToast('Iniciando migración de datos de usuarios...', 'info');
+    const usersRef = collection(db, COLLECTIONS.USUARIOS);
+    const snapshot = await getDocs(usersRef);
+
+    if (snapshot.empty) {
+        showToast('No se encontraron usuarios para migrar.', 'info');
+        return;
+    }
+
+    const batch = writeBatch(db);
+    let updatedCount = 0;
+
+    snapshot.forEach(doc => {
+        const data = doc.data();
+        if (!data.id) {
+            console.log(`User document ${doc.id} is missing the 'id' field. Adding it.`);
+            batch.update(doc.ref, { id: doc.id });
+            updatedCount++;
+        }
+    });
+
+    if (updatedCount > 0) {
+        try {
+            await batch.commit();
+            const message = `¡Éxito! Se actualizaron ${updatedCount} perfiles de usuario con el campo 'id'.`;
+            showToast(message, 'success', 5000);
+            console.log(message);
+        } catch (error) {
+            console.error("Error updating user documents in batch: ", error);
+            showToast('Error al actualizar los perfiles de usuario.', 'error');
+        }
+    } else {
+        const message = 'Migración no necesaria. Todos los perfiles de usuario ya tienen el campo \'id\'.';
+        showToast(message, 'info', 5000);
+        console.log(message);
+    }
+}
+window.addIdFieldToUsers = addIdFieldToUsers;
 
 document.addEventListener('DOMContentLoaded', () => {
     initializeAppListeners();
