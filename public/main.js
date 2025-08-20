@@ -1460,7 +1460,8 @@ function renderUserLoadChart(tasks) {
                 data: data,
                 backgroundColor: '#3b82f6',
                 borderColor: '#1d4ed8',
-                borderWidth: 1
+                borderWidth: 1,
+                maxBarThickness: data.length < 3 ? 50 : undefined
             }]
         },
         options: {
