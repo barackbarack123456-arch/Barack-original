@@ -1018,9 +1018,12 @@ function runDashboardLogic() {
 async function handleProductSelect(productId) {
     // Buscamos el producto en los datos actualmente cargados en la tabla.
     // Esto es más eficiente que buscar en toda la colección si ya está en la vista.
-    const producto = appState.currentData.find(p => p.id === productId);
+    let producto = appState.currentData.find(p => p.id === productId);
     if (!producto) {
-        showToast("Error: Producto no encontrado en la vista actual.", "error");
+        producto = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.id === productId);
+    }
+    if (!producto) {
+        showToast("Error: Producto no encontrado.", "error");
         return;
     }
 
@@ -1636,19 +1639,19 @@ function runSinopticoTabularLogic() {
 
     const getFlattenedData = () => {
         const flattenedData = [];
-        function flattenTree(node, level) {
+        function flattenTree(node, level, productDocId) { // Add productDocId
             const collectionName = node.tipo + 's';
             const item = appState.collectionsById[collectionName]?.get(node.refId);
             if (!item) return;
-            flattenedData.push({ node, item, level });
-            if (node.children) node.children.forEach(child => flattenTree(child, level + 1));
+            flattenedData.push({ node, item, level, productDocId }); // Add productDocId
+            if (node.children) node.children.forEach(child => flattenTree(child, level + 1, productDocId)); // Pass it down
         }
 
         const clientFilters = appState.sinopticoTabularState.activeFilters.clients;
         const productsToRender = appState.collections[COLLECTIONS.PRODUCTOS]
             .filter(p => p.estructura && p.estructura.length > 0 && (clientFilters.size === 0 || clientFilters.has(p.clienteId)));
 
-        productsToRender.forEach(p => p.estructura.forEach(rootNode => flattenTree(rootNode, 0)));
+        productsToRender.forEach(p => p.estructura.forEach(rootNode => flattenTree(rootNode, 0, p.docId))); // Pass p.docId
         return flattenedData;
     };
 
@@ -1668,7 +1671,8 @@ function runSinopticoTabularLogic() {
             { key: 'cantidad', label: 'Cantidad' }, { key: 'unidad', label: 'Unidad' },
             { key: 'proveedor', label: 'Proveedor' }, { key: 'material', label: 'Material' },
             { key: 'costo', label: 'Costo' },
-            { key: 'observaciones', label: 'Comentarios' }
+            { key: 'observaciones', label: 'Comentarios' },
+            { key: 'acciones', label: 'Acciones' }
         ];
 
         if (flattenedData.length === 0) {
@@ -1688,7 +1692,7 @@ function runSinopticoTabularLogic() {
             const { node, item, level } = rowData;
             const indentStyle = `padding-left: ${level * 24 + 16}px;`;
             const NA = '<span class="text-slate-400">N/A</span>';
-            const cantidad = node.tipo === 'producto' ? NA : (node.quantity ?? '');
+            const cantidad = node.tipo === 'producto' ? NA : (node.quantity ?? NA);
             let unidad = NA, proveedor = NA, material = NA, costo = NA;
 
             if (node.tipo === 'insumo') {
@@ -1700,21 +1704,31 @@ function runSinopticoTabularLogic() {
                 if (typeof item.costo === 'number') costo = item.costo.toFixed(2);
             }
 
-            tableHTML += `<tr class="bg-white border-b hover:bg-gray-50">
+            let actionsCell = '';
+            if (node.tipo === 'producto') {
+                actionsCell = `<button data-action="edit-in-tree" data-product-id="${item.id}" class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-semibold hover:bg-blue-200">Editar en Árbol</button>`;
+            } else {
+                 actionsCell = `<button data-action="edit-tabular-quantity" data-node-id="${node.id}" data-product-doc-id="${rowData.productDocId}" class="p-1 text-slate-500 hover:text-blue-600 hover:bg-slate-200 rounded-md"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>`;
+            }
+
+
+            tableHTML += `<tr class="bg-white border-b hover:bg-gray-50" data-node-id="${node.id}">
                 <td class="px-4 py-3 font-medium text-gray-900 whitespace-nowrap" style="${indentStyle}">${item.descripcion || item.nombre}</td>
                 <td class="px-4 py-3 text-center">${level}</td>
                 <td class="px-4 py-3">${item.id}</td>
                 <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-700">${node.tipo}</span></td>
-                <td class="px-4 py-3 text-right">${cantidad}</td>
+                <td class="px-4 py-3 text-right" id="qty-cell-${node.id}">${cantidad}</td>
                 <td class="px-4 py-3 text-center">${unidad}</td>
                 <td class="px-4 py-3">${proveedor}</td>
                 <td class="px-4 py-3">${material}</td>
                 <td class="px-4 py-3 text-right">${costo}</td>
                 <td class="px-4 py-3">${item.observaciones || ''}</td>
+                <td class="px-4 py-3 text-center">${actionsCell}</td>
             </tr>`;
         });
         tableHTML += `</tbody></table>`;
         tableContainer.innerHTML = tableHTML;
+        lucide.createIcons();
     };
 
     const handleSinopticoTabularClick = (e) => {
@@ -1739,6 +1753,78 @@ function runSinopticoTabularLogic() {
                 appState.sinopticoTabularState.activeFilters.niveles.delete(level);
             }
             render();
+        } else if (target.closest('button[data-action="edit-tabular-quantity"]')) {
+            const editBtn = target.closest('button[data-action="edit-tabular-quantity"]');
+            const nodeId = editBtn.dataset.nodeId;
+            const productDocId = editBtn.dataset.productDocId;
+            const row = editBtn.closest('tr');
+            const quantityCell = row.querySelector(`#qty-cell-${nodeId}`);
+
+            const originalValue = quantityCell.textContent.trim();
+
+            quantityCell.innerHTML = `<input type="number" class="w-20 text-right border rounded-md p-1" value="${originalValue.replace('N/A', '')}" step="any" min="0">`;
+
+            editBtn.parentElement.innerHTML = `
+                <button data-action="save-tabular-quantity" data-node-id="${nodeId}" data-product-doc-id="${productDocId}" class="p-1 text-green-600 hover:bg-green-100 rounded-md"><i data-lucide="check" class="w-4 h-4 pointer-events-none"></i></button>
+                <button data-action="cancel-tabular-quantity" data-node-id="${nodeId}" data-product-doc-id="${productDocId}" data-original-value="${originalValue}" class="p-1 text-red-600 hover:bg-red-100 rounded-md"><i data-lucide="x" class="w-4 h-4 pointer-events-none"></i></button>
+            `;
+            lucide.createIcons();
+            quantityCell.querySelector('input').focus();
+        } else if (target.closest('button[data-action="cancel-tabular-quantity"]')) {
+            const cancelBtn = target.closest('button[data-action="cancel-tabular-quantity"]');
+            const row = cancelBtn.closest('tr');
+            const nodeId = row.dataset.nodeId;
+            const productDocId = cancelBtn.dataset.productDocId;
+            const quantityCell = row.querySelector(`#qty-cell-${nodeId}`);
+            const actionsCell = cancelBtn.parentElement;
+
+            quantityCell.innerHTML = cancelBtn.dataset.originalValue;
+            actionsCell.innerHTML = `<button data-action="edit-tabular-quantity" data-node-id="${nodeId}" data-product-doc-id="${productDocId}" class="p-1 text-slate-500 hover:text-blue-600 hover:bg-slate-200 rounded-md"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>`;
+            lucide.createIcons();
+        } else if (target.closest('button[data-action="save-tabular-quantity"]')) {
+            const saveBtn = target.closest('button[data-action="save-tabular-quantity"]');
+            const nodeId = saveBtn.dataset.nodeId;
+            const productDocId = saveBtn.dataset.productDocId;
+            const row = saveBtn.closest('tr');
+            const quantityCell = row.querySelector(`#qty-cell-${nodeId}`);
+            const input = quantityCell.querySelector('input');
+            const newQuantity = parseFloat(input.value);
+
+            if (isNaN(newQuantity) || newQuantity < 0) {
+                showToast('Por favor ingrese una cantidad válida.', 'error');
+                return;
+            }
+
+            saveBtn.parentElement.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin"></i>`;
+            lucide.createIcons();
+
+            const product = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.docId === productDocId);
+            if (product) {
+                const nodeToUpdate = findNode(nodeId, product.estructura);
+                if (nodeToUpdate) {
+                    nodeToUpdate.quantity = newQuantity;
+                    try {
+                        const productRef = doc(db, COLLECTIONS.PRODUCTOS, productDocId);
+                        updateDoc(productRef, { estructura: product.estructura });
+                        showToast('Cantidad actualizada.', 'success');
+                        render();
+                    } catch (error) {
+                        showToast('Error al guardar la cantidad.', 'error');
+                        console.error("Error updating quantity:", error);
+                        render();
+                    }
+                } else {
+                    showToast('Error: No se encontró el nodo a actualizar.', 'error');
+                    render();
+                }
+            } else {
+                showToast('Error: No se encontró el producto asociado.', 'error');
+                render();
+            }
+        } else if (target.closest('button[data-action="edit-in-tree"]')) {
+            const productId = target.dataset.productId;
+            switchView('arboles');
+            handleProductSelect(productId);
         } else if (!target.closest('#add-client-filter-dropdown-tabular')) {
             document.getElementById('add-client-filter-dropdown-tabular')?.classList.add('hidden');
         }
