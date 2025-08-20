@@ -3,7 +3,7 @@
 // Importar funciones de los SDKs de Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser, sendEmailVerification, updateProfile } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, writeBatch, runTransaction, orderBy, limit, startAfter } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, writeBatch, runTransaction, orderBy, limit, startAfter, or } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
 // Tu configuración de Firebase
 const firebaseConfig = {
@@ -150,6 +150,7 @@ const viewConfig = {
             { key: 'role', label: 'Rol' },
             { key: 'sector', label: 'Sector' }
         ],
+        sortBy: 'email', // Special sorting for users
         fields: [
             { key: 'name', label: 'Nombre', type: 'text', readonly: true },
             { key: 'email', label: 'Correo', type: 'text', readonly: true },
@@ -683,7 +684,8 @@ async function runTableLogic(direction = 'first') {
     const collectionRef = collection(db, config.dataKey);
     const PAGE_SIZE = 10;
     let q;
-    const baseQuery = query(collectionRef, orderBy("id"));
+    const sortByField = config.sortBy || 'id'; // Use configured sort field or default to 'id'
+    const baseQuery = query(collectionRef, orderBy(sortByField));
     if (direction === 'next' && appState.pagination.lastVisibleDoc) {
         q = query(baseQuery, startAfter(appState.pagination.lastVisibleDoc), limit(PAGE_SIZE));
     } else if (direction === 'prev' && appState.pagination.firstVisibleDoc) {
@@ -1350,34 +1352,20 @@ function fetchAndRenderTasks() {
     };
 
     if (taskState.activeFilter === 'personal') {
-        let assignedTasks = [];
-        let createdTasks = [];
-        const tasksMap = new Map();
-
-        const renderMergedTasks = () => {
-            tasksMap.clear();
-            [...assignedTasks, ...createdTasks].forEach(task => {
-                tasksMap.set(task.docId, task);
-            });
-            const allPersonalTasks = Array.from(tasksMap.values())
-                .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-            renderTasks(allPersonalTasks);
-        };
-
-        const q1 = query(tasksRef, where('assigneeUid', '==', user.uid));
-        const q2 = query(tasksRef, where('creatorUid', '==', user.uid));
-
-        const unsub1 = onSnapshot(q1, (snapshot) => {
-            assignedTasks = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
-            renderMergedTasks();
+        // Use a single OR query to get tasks assigned to or created by the user.
+        // This is more efficient and avoids race conditions from multiple listeners.
+        const q = query(tasksRef,
+            or(
+                where('assigneeUid', '==', user.uid),
+                where('creatorUid', '==', user.uid)
+            ),
+            orderBy('createdAt', 'desc')
+        );
+        const unsub = onSnapshot(q, (snapshot) => {
+            const tasks = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+            renderTasks(tasks);
         }, handleError);
-
-        const unsub2 = onSnapshot(q2, (snapshot) => {
-            createdTasks = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
-            renderMergedTasks();
-        }, handleError);
-
-        taskState.unsubscribers.push(unsub1, unsub2);
+        taskState.unsubscribers.push(unsub);
 
     } else {
         let q;
@@ -1803,50 +1791,6 @@ async function logOutUser() {
         showToast("Error al cerrar sesión.", "error");
     }
 }
-
-async function createMissingUserDocs() {
-    const usersToCreate = [
-        { uid: 'DSERrTtwUjWhfyXOV3Uk3eFstKf2', email: 'jules.test@barackmercosul.com', name: 'Jules Test' },
-        { uid: '1M83JazE90Q2fjtocyrgF8j0ufN2', email: 'testuser98765@barackmercosul.com', name: 'Test User' },
-        { uid: '7M6XuPSQf0UHUvet5KnEISxiYBT2', email: 'llattanzi@barackmercosul.com', name: 'L. Lattanzi' },
-        { uid: 'NIFudxxXnea8HqFzeMpxY0kma5b2', email: 'f.santoro@barackmercosul.com', name: 'F. Santoro' }
-    ];
-
-    showToast(`Iniciando sincronización de ${usersToCreate.length} usuarios...`, 'info', 5000);
-    const batch = writeBatch(db);
-    let createdCount = 0;
-
-    for (const user of usersToCreate) {
-        const userDocRef = doc(db, COLLECTIONS.USUARIOS, user.uid);
-        const userDocSnap = await getDoc(userDocRef);
-
-        if (!userDocSnap.exists()) {
-            batch.set(userDocRef, {
-                name: user.name,
-                email: user.email,
-                role: 'lector', // Default role for new users
-                sector: 'Sin Asignar', // Default sector
-                createdAt: new Date()
-            });
-            createdCount++;
-        }
-    }
-
-    if (createdCount > 0) {
-        try {
-            await batch.commit();
-            showToast(`¡Éxito! Se crearon ${createdCount} nuevos perfiles de usuario.`, 'success', 5000);
-            console.log(`Successfully created ${createdCount} new user documents.`);
-        } catch (error) {
-            console.error("Error creating user documents in batch: ", error);
-            showToast('Error al crear los perfiles de usuario.', 'error');
-        }
-    } else {
-        showToast('No se encontraron nuevos usuarios para sincronizar. Todos los perfiles ya existen.', 'info', 5000);
-        console.log('No new users to create. All documents already exist.');
-    }
-}
-window.createMissingUserDocs = createMissingUserDocs;
 
 document.addEventListener('DOMContentLoaded', () => {
     initializeAppListeners();
