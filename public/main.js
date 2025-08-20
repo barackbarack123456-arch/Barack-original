@@ -552,6 +552,10 @@ function handleViewContentActions(e) {
                 () => deleteDocument(COLLECTIONS.TAREAS, docId)
             );
         },
+        'add-task-to-column': () => {
+            const status = button.dataset.status;
+            openTaskFormModal(null, status);
+        },
         'details': () => openDetailsModal(appState.currentData.find(d => d.id == id)),
         'edit': () => openFormModal(appState.currentData.find(d => d.id == id)),
         'delete': () => deleteItem(docId),
@@ -1275,14 +1279,33 @@ async function guardarEstructura(button) {
 
 let taskState = {
     activeFilter: 'engineering', // 'engineering', 'personal', 'all'
+    searchTerm: '',
+    priorityFilter: 'all',
     unsubscribers: []
 };
 
 function runTasksLogic() {
     // 1. Set up the basic HTML layout for the board
     dom.viewContent.innerHTML = `
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
             <div id="task-filters" class="flex items-center gap-2 rounded-lg bg-slate-200 p-1 flex-wrap"></div>
+
+            <div class="flex items-center gap-2 flex-grow w-full md:w-auto">
+                <div class="relative flex-grow">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
+                    <input type="text" id="task-search-input" placeholder="Buscar tareas..." class="w-full pl-10 pr-4 py-2 border rounded-full bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                </div>
+                <div class="relative">
+                    <select id="task-priority-filter" class="pl-4 pr-8 py-2 border rounded-full bg-white shadow-sm appearance-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                        <option value="all">Prioridad (todas)</option>
+                        <option value="high">Alta</option>
+                        <option value="medium">Media</option>
+                        <option value="low">Baja</option>
+                    </select>
+                    <i data-lucide="chevron-down" class="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none"></i>
+                </div>
+            </div>
+
             <button id="add-new-task-btn" class="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 flex items-center shadow-md transition-transform transform hover:scale-105 flex-shrink-0">
                 <i data-lucide="plus" class="mr-2 h-5 w-5"></i>Nueva Tarea
             </button>
@@ -1306,6 +1329,14 @@ function runTasksLogic() {
 
     // 2. Set up event listeners for filters and the add button
     document.getElementById('add-new-task-btn').addEventListener('click', () => openTaskFormModal());
+    document.getElementById('task-search-input').addEventListener('input', e => {
+        taskState.searchTerm = e.target.value.toLowerCase();
+        fetchAndRenderTasks();
+    });
+    document.getElementById('task-priority-filter').addEventListener('change', e => {
+        taskState.priorityFilter = e.target.value;
+        fetchAndRenderTasks();
+    });
     setupTaskFilters();
 
     // 3. Initial fetch and render
@@ -1316,6 +1347,9 @@ function runTasksLogic() {
     appState.currentViewCleanup = () => {
         taskState.unsubscribers.forEach(unsub => unsub());
         taskState.unsubscribers = [];
+        // Reset filters when leaving view
+        taskState.searchTerm = '';
+        taskState.priorityFilter = 'all';
     };
 }
 
@@ -1361,74 +1395,97 @@ function fetchAndRenderTasks() {
 
     const handleError = (error) => {
         console.error("Error fetching tasks: ", error);
-        showToast("Error al cargar las tareas. Es posible que necesite crear un índice en Firestore.", "error");
+        let message = "Error al cargar las tareas.";
+        if (error.code === 'failed-precondition') {
+            message = "Error: Faltan índices en Firestore. Revise la consola para crear el índice necesario.";
+        }
+        showToast(message, "error", 5000);
         document.querySelectorAll('.task-list').forEach(list => list.innerHTML = `<div class="p-8 text-center text-red-500"><i data-lucide="alert-triangle" class="h-8 w-8 mx-auto"></i><p class="mt-2">Error al cargar.</p></div>`);
         lucide.createIcons();
     };
 
-    if (taskState.activeFilter === 'personal') {
-        // Use a single OR query to get tasks assigned to or created by the user.
-        // This is more efficient and avoids race conditions from multiple listeners.
-        const q = query(tasksRef,
-            or(
-                where('assigneeUid', '==', user.uid),
-                where('creatorUid', '==', user.uid)
-            ),
-            orderBy('createdAt', 'desc')
-        );
-        const unsub = onSnapshot(q, (snapshot) => {
-            const tasks = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
-            renderTasks(tasks);
-        }, handleError);
-        taskState.unsubscribers.push(unsub);
+    let queryConstraints = [orderBy('createdAt', 'desc')];
 
-    } else {
-        let q;
-        if (taskState.activeFilter === 'engineering') {
-             q = query(tasksRef, where('isPublic', '==', true), orderBy('createdAt', 'desc'));
-        } else if (taskState.activeFilter === 'all' && user.role === 'admin') {
-             q = query(tasksRef, orderBy('createdAt', 'desc'));
-        } else {
-            // Fallback for non-admins or unknown filters
-            q = query(tasksRef, where('isPublic', '==', true), orderBy('createdAt', 'desc'));
+    // Add base filter (personal, engineering, all)
+    if (taskState.activeFilter === 'personal') {
+        queryConstraints.unshift(or(
+            where('assigneeUid', '==', user.uid),
+            where('creatorUid', '==', user.uid)
+        ));
+    } else if (taskState.activeFilter === 'engineering') {
+        queryConstraints.unshift(where('isPublic', '==', true));
+    } else if (taskState.activeFilter !== 'all' || user.role !== 'admin') {
+        queryConstraints.unshift(where('isPublic', '==', true));
+    }
+
+    // Add priority filter
+    if (taskState.priorityFilter !== 'all') {
+        queryConstraints.unshift(where('priority', '==', taskState.priorityFilter));
+    }
+
+    const q = query(tasksRef, ...queryConstraints);
+
+    const unsub = onSnapshot(q, (snapshot) => {
+        let tasks = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+
+        // Apply client-side text search
+        if (taskState.searchTerm) {
+            tasks = tasks.filter(task =>
+                task.title.toLowerCase().includes(taskState.searchTerm) ||
+                (task.description && task.description.toLowerCase().includes(taskState.searchTerm))
+            );
         }
 
-        const unsub = onSnapshot(q, (snapshot) => {
-            const tasks = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
-            renderTasks(tasks);
-        }, handleError);
-        taskState.unsubscribers.push(unsub);
-    }
+        renderTasks(tasks);
+    }, handleError);
+
+    taskState.unsubscribers.push(unsub);
 }
 
 function renderTasks(tasks) {
-    // Defer rendering to the next event loop cycle to ensure the DOM is ready
+    const getEmptyColumnHTML = (status) => {
+        const statusMap = { todo: 'Por Hacer', inprogress: 'En Progreso', done: 'Completada' };
+        return `
+            <div class="p-4 text-center text-slate-500 border-2 border-dashed border-slate-200 rounded-lg h-full flex flex-col justify-center items-center">
+                <i data-lucide="inbox" class="h-10 w-10 mx-auto text-slate-400"></i>
+                <h4 class="mt-4 font-semibold text-slate-600">Columna Vacía</h4>
+                <p class="text-sm mt-1 mb-4">No hay tareas en estado "${statusMap[status]}".</p>
+                <button data-action="add-task-to-column" data-status="${status}" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-sm py-1.5 px-3 rounded-full mx-auto flex items-center">
+                    <i data-lucide="plus" class="mr-1.5 h-4 w-4"></i>Añadir Tarea
+                </button>
+            </div>
+        `;
+    };
+
+    // Defer rendering to the next event loop cycle
     setTimeout(() => {
-        document.querySelectorAll('.task-list').forEach(list => {
-            list.innerHTML = ''; // Clear loaders
+        const tasksByStatus = { todo: [], inprogress: [], done: [] };
+        tasks.forEach(task => {
+            tasksByStatus[task.status || 'todo'].push(task);
         });
 
-        if (tasks.length === 0) {
-            document.querySelectorAll('.task-list').forEach(list => {
-                list.innerHTML = `<div class="p-8 text-center text-slate-500"><i data-lucide="inbox" class="h-8 w-8 mx-auto"></i><p class="mt-2">No hay tareas aquí.</p></div>`;
-            });
-            lucide.createIcons();
-        } else {
-            tasks.forEach(task => {
-                const taskCardHTML = createTaskCard(task);
-                const column = document.querySelector(`.task-column[data-status="${task.status || 'todo'}"] .task-list`);
-                if (column) {
-                const template = document.createElement('template');
-                template.innerHTML = taskCardHTML.trim();
-                const cardNode = template.content.firstChild;
-                cardNode.addEventListener('click', (e) => {
+        document.querySelectorAll('.task-column').forEach(columnEl => {
+            const status = columnEl.dataset.status;
+            const taskListEl = columnEl.querySelector('.task-list');
+            const columnTasks = tasksByStatus[status];
+
+            if (columnTasks.length === 0) {
+                taskListEl.innerHTML = getEmptyColumnHTML(status);
+            } else {
+                taskListEl.innerHTML = '';
+                columnTasks.forEach(task => {
+                    const taskCardHTML = createTaskCard(task);
+                    const template = document.createElement('template');
+                    template.innerHTML = taskCardHTML.trim();
+                    const cardNode = template.content.firstChild;
+                    cardNode.addEventListener('click', (e) => {
                         if (e.target.closest('.task-actions')) return;
                         openTaskFormModal(task);
                     });
-                column.appendChild(cardNode);
-                }
-            });
-        }
+                    taskListEl.appendChild(cardNode);
+                });
+            }
+        });
 
         initTasksSortable();
         lucide.createIcons();
@@ -1451,6 +1508,13 @@ function createTaskCard(task) {
     const dueDateStr = dueDate ? dueDate.toLocaleDateString('es-AR') : 'Sin fecha';
     const urgencyClass = isOverdue ? 'border-red-400 bg-red-50/50' : 'border-slate-200';
     const dateClass = isOverdue ? 'text-red-600 font-bold' : 'text-slate-500';
+
+    const creationDate = task.createdAt?.seconds ? new Date(task.createdAt.seconds * 1000) : null;
+    const creationDateStr = creationDate ? creationDate.toLocaleDateString('es-AR') : 'N/A';
+
+    const taskTypeIcon = task.isPublic
+        ? `<span title="Tarea de Ingeniería (Pública)"><i data-lucide="briefcase" class="w-4 h-4 text-slate-400"></i></span>`
+        : `<span title="Tarea Privada"><i data-lucide="lock" class="w-4 h-4 text-slate-400"></i></span>`;
 
     let subtaskProgressHTML = '';
     if (task.subtasks && task.subtasks.length > 0) {
@@ -1475,25 +1539,39 @@ function createTaskCard(task) {
     }
 
     return `
-        <div class="task-card bg-white rounded-lg p-4 shadow-sm border ${urgencyClass} cursor-pointer hover:shadow-md hover:border-blue-400 animate-fade-in-up" data-task-id="${task.docId}">
-            <h4 class="font-bold text-slate-800">${task.title}</h4>
-            <p class="text-sm text-slate-600 mt-1 mb-3 break-words">${task.description || ''}</p>
-            ${subtaskProgressHTML}
-            <div class="flex justify-between items-center text-xs mt-3">
-                <span class="px-2 py-0.5 rounded-full font-semibold ${priority.color}">${priority.label}</span>
-                <span class="flex items-center gap-1 font-medium ${dateClass}">
-                    <i data-lucide="calendar" class="w-3.5 h-3.5"></i> ${dueDateStr}
-                </span>
+        <div class="task-card bg-white rounded-lg p-4 shadow-sm border ${urgencyClass} cursor-pointer hover:shadow-md hover:border-blue-400 animate-fade-in-up flex flex-col gap-3" data-task-id="${task.docId}">
+            <div class="flex justify-between items-start gap-2">
+                <h4 class="font-bold text-slate-800 flex-grow">${task.title}</h4>
+                ${taskTypeIcon}
             </div>
-            <div class="flex items-center justify-between mt-4 pt-3 border-t border-slate-200/80">
-                <div class="flex items-center gap-2">
-                    ${assignee ? `<img src="${assignee.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(assignee.name || assignee.email)}&background=random`}" title="Asignada a: ${assignee.name || assignee.email}" class="w-6 h-6 rounded-full">` : '<div class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center" title="No asignada"><i data-lucide="user-x" class="w-4 h-4 text-gray-500"></i></div>'}
-                    <span class="text-sm text-slate-500">${assignee ? (assignee.name || assignee.email.split('@')[0]) : 'No asignada'}</span>
+
+            <p class="text-sm text-slate-600 break-words flex-grow">${task.description || ''}</p>
+
+            ${subtaskProgressHTML}
+
+            <div class="mt-auto pt-3 border-t border-slate-200/80 space-y-3">
+                <div class="flex justify-between items-center text-xs text-slate-500">
+                    <span class="px-2 py-0.5 rounded-full font-semibold ${priority.color}">${priority.label}</span>
+                    <div class="flex items-center gap-3">
+                        <span class="flex items-center gap-1.5 font-medium" title="Fecha de creación">
+                            <i data-lucide="calendar-plus" class="w-3.5 h-3.5"></i> ${creationDateStr}
+                        </span>
+                        <span class="flex items-center gap-1.5 font-medium ${dateClass}" title="Fecha de entrega">
+                            <i data-lucide="calendar-check" class="w-3.5 h-3.5"></i> ${dueDateStr}
+                        </span>
+                    </div>
                 </div>
-                <div class="task-actions">
-                    <button data-action="delete-task" data-doc-id="${task.docId}" class="text-gray-400 hover:text-red-600 p-1 rounded-full" title="Eliminar tarea">
-                        <i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i>
-                    </button>
+
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        ${assignee ? `<img src="${assignee.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(assignee.name || assignee.email)}&background=random`}" title="Asignada a: ${assignee.name || assignee.email}" class="w-6 h-6 rounded-full">` : '<div class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center" title="No asignada"><i data-lucide="user-x" class="w-4 h-4 text-gray-500"></i></div>'}
+                        <span class="text-sm text-slate-500">${assignee ? (assignee.name || assignee.email.split('@')[0]) : 'No asignada'}</span>
+                    </div>
+                    <div class="task-actions">
+                        <button data-action="delete-task" data-doc-id="${task.docId}" class="text-gray-400 hover:text-red-600 p-1 rounded-full" title="Eliminar tarea">
+                            <i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1502,11 +1580,12 @@ function createTaskCard(task) {
 
 function renderSubtask(subtask) {
     const titleClass = subtask.completed ? 'line-through text-slate-500' : 'text-slate-800';
+    const containerClass = subtask.completed ? 'opacity-70' : '';
     return `
-        <div class="subtask-item flex items-center gap-3 p-2 bg-slate-100 rounded-md" data-subtask-id="${subtask.id}">
+        <div class="subtask-item group flex items-center gap-3 p-2 bg-slate-100 hover:bg-slate-200/70 rounded-md transition-all duration-150 ${containerClass}" data-subtask-id="${subtask.id}">
             <input type="checkbox" class="subtask-checkbox h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300 cursor-pointer" ${subtask.completed ? 'checked' : ''}>
             <span class="flex-grow text-sm font-medium ${titleClass}">${subtask.title}</span>
-            <button type="button" class="subtask-delete-btn text-slate-400 hover:text-red-500 p-1 rounded-full"><i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i></button>
+            <button type="button" class="subtask-delete-btn text-slate-400 hover:text-red-500 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i></button>
         </div>
     `;
 }
@@ -1539,7 +1618,7 @@ function initTasksSortable() {
     });
 }
 
-async function openTaskFormModal(task = null) {
+async function openTaskFormModal(task = null, defaultStatus = 'todo') {
     const isEditing = task !== null;
 
     // Determine the UID to be pre-selected in the dropdown.
@@ -1559,6 +1638,7 @@ async function openTaskFormModal(task = null) {
             </div>
             <form id="task-form" class="p-6 overflow-y-auto space-y-4" novalidate>
                 <input type="hidden" name="taskId" value="${isEditing ? task.docId : ''}">
+                <input type="hidden" name="status" value="${isEditing ? task.status : defaultStatus}">
                 <div>
                     <label for="task-title" class="block text-sm font-medium text-gray-700 mb-1">Título</label>
                     <input type="text" id="task-title" name="title" value="${isEditing && task.title ? task.title : ''}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required>
@@ -1725,7 +1805,7 @@ async function handleTaskFormSubmit(e) {
         } else {
             data.creatorUid = appState.currentUser.uid;
             data.createdAt = new Date();
-            data.status = 'todo';
+            data.status = form.querySelector('[name="status"]').value || 'todo';
             data.isPublic = taskState.activeFilter === 'engineering';
             await addDoc(collection(db, COLLECTIONS.TAREAS), data);
             showToast('Tarea creada con éxito.', 'success');
