@@ -1411,18 +1411,19 @@ function renderTasks(tasks) {
                 const taskCardHTML = createTaskCard(task);
                 const column = document.querySelector(`.task-column[data-status="${task.status || 'todo'}"] .task-list`);
                 if (column) {
-                    const cardElement = document.createElement('div');
-                    cardElement.innerHTML = taskCardHTML;
-                    cardElement.firstChild.addEventListener('click', (e) => {
+                const template = document.createElement('template');
+                template.innerHTML = taskCardHTML.trim();
+                const cardNode = template.content.firstChild;
+                cardNode.addEventListener('click', (e) => {
                         if (e.target.closest('.task-actions')) return;
                         openTaskFormModal(task);
                     });
-                    column.appendChild(cardElement.firstChild);
+                column.appendChild(cardNode);
                 }
             });
         }
 
-        // initTasksSortable(); // Temporarily disabled for debugging
+        initTasksSortable();
         lucide.createIcons();
     }, 0);
 }
