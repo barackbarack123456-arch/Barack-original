@@ -1651,6 +1651,9 @@ onAuthStateChanged(auth, async (user) => {
                 avatarUrl: user.photoURL || `https://placehold.co/40x40/1e40af/ffffff?text=${(user.displayName || user.email).charAt(0).toUpperCase()}`,
                 role: userRole
             };
+
+            await seedDefaultSectors(); // Ensure default data exists
+
             updateAuthView(true);
             if (isNewLogin) {
                 showToast(`¡Bienvenido de nuevo, ${appState.currentUser.name}!`, 'success');
@@ -1681,10 +1684,7 @@ function updateAuthView(isLoggedIn) {
         // Show/hide admin-only UI elements
         const userManagementLink = document.querySelector('a[data-view="user_management"]');
         if (userManagementLink) {
-            const isAdmin = appState.currentUser.role === 'admin';
-            // Temporary developer access backdoor
-            const isDevUser = appState.currentUser.email === 'f.santoro@barackmercosul.com';
-            userManagementLink.style.display = (isAdmin || isDevUser) ? 'flex' : 'none';
+            userManagementLink.style.display = appState.currentUser.role === 'admin' ? 'flex' : 'none';
         }
         switchView('dashboard');
     } else {
@@ -1830,6 +1830,40 @@ async function addIdFieldToUsers() {
     }
 }
 window.addIdFieldToUsers = addIdFieldToUsers;
+
+async function seedDefaultSectors() {
+    const sectorsRef = collection(db, COLLECTIONS.SECTORES);
+    const snapshot = await getDocs(query(sectorsRef, limit(1)));
+
+    if (!snapshot.empty) {
+        return; // Sectors already exist
+    }
+
+    console.log("No sectors found. Seeding default sectors...");
+    showToast('Creando sectores por defecto...', 'info');
+
+    const defaultSectors = [
+        { id: 'calidad', descripcion: 'Calidad', icon: 'award' },
+        { id: 'produccion', descripcion: 'Producción', icon: 'factory' },
+        { id: 'ingenieria', descripcion: 'Ingeniería', icon: 'pencil-ruler' },
+        { id: 'seguridad-higiene', descripcion: 'Seguridad e Higiene', icon: 'shield-check' }
+    ];
+
+    const batch = writeBatch(db);
+    defaultSectors.forEach(sector => {
+        const docRef = doc(db, COLLECTIONS.SECTORES, sector.id);
+        batch.set(docRef, sector);
+    });
+
+    try {
+        await batch.commit();
+        showToast('Sectores por defecto creados con éxito.', 'success');
+        console.log('Default sectors created successfully.');
+    } catch (error) {
+        console.error("Error seeding default sectors:", error);
+        showToast('Error al crear los sectores por defecto.', 'error');
+    }
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     initializeAppListeners();
