@@ -1282,7 +1282,7 @@ async function fetchAndRenderTasks() {
     try {
         if (taskState.activeFilter === 'personal') {
             const assignedQuery = query(tasksRef, where('assigneeUid', '==', user.uid));
-            const createdQuery = query(tasksRef, where('creatorUid', '==', user.uid), where('assigneeUid', '!=', user.uid));
+            const createdQuery = query(tasksRef, where('creatorUid', '==', user.uid));
 
             const [assignedSnap, createdSnap] = await Promise.all([getDocs(assignedQuery), getDocs(createdQuery)]);
 
