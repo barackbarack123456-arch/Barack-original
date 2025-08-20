@@ -1306,6 +1306,350 @@ let taskState = {
 };
 
 function runTasksLogic() {
+    if (appState.currentUser.role === 'admin') {
+        runAdminTaskDashboardLogic();
+    } else {
+        runKanbanBoardLogic();
+    }
+}
+
+function runAdminTaskDashboardLogic() {
+    dom.viewContent.innerHTML = `
+        <div class="space-y-6 animate-fade-in-up">
+            <!-- Section for Charts -->
+            <div id="task-charts-container" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="bg-white p-6 rounded-xl shadow-lg"><h3 class="text-lg font-bold text-slate-800 mb-4">Tareas por Estado</h3><div id="status-chart-container" class="h-64 flex items-center justify-center"><canvas id="status-chart"></canvas></div></div>
+                <div class="bg-white p-6 rounded-xl shadow-lg"><h3 class="text-lg font-bold text-slate-800 mb-4">Tareas por Prioridad</h3><div id="priority-chart-container" class="h-64 flex items-center justify-center"><canvas id="priority-chart"></canvas></div></div>
+                <div class="bg-white p-6 rounded-xl shadow-lg"><h3 class="text-lg font-bold text-slate-800 mb-4">Carga por Usuario (Tareas Abiertas)</h3><div id="user-load-chart-container" class="h-64 flex items-center justify-center"><canvas id="user-load-chart"></canvas></div></div>
+            </div>
+
+            <!-- Section for Table and Filters -->
+            <div class="bg-white p-6 rounded-xl shadow-lg">
+                <div id="task-table-controls" class="flex flex-col md:flex-row gap-4 mb-4">
+                    <div class="relative flex-grow"><i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i><input type="text" id="admin-task-search" placeholder="Buscar por título..." class="w-full pl-10 pr-4 py-2 border rounded-full bg-slate-50 focus:bg-white"></div>
+                    <div class="flex items-center gap-4 flex-wrap">
+                        <select id="admin-task-user-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white"><option value="all">Todos los usuarios</option></select>
+                        <select id="admin-task-priority-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white"><option value="all">Todas las prioridades</option><option value="high">Alta</option><option value="medium">Media</option><option value="low">Baja</option></select>
+                        <select id="admin-task-status-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white"><option value="all">Todos los estados</option><option value="todo">Por Hacer</option><option value="inprogress">En Progreso</option><option value="done">Completada</option></select>
+                    </div>
+                    <button id="add-new-task-admin-btn" class="bg-blue-600 text-white px-5 py-2 rounded-full hover:bg-blue-700 flex items-center shadow-md transition-transform transform hover:scale-105 flex-shrink-0"><i data-lucide="plus" class="mr-2 h-5 w-5"></i>Nueva Tarea</button>
+                </div>
+                <div id="task-data-table-container" class="overflow-x-auto"><p class="text-center py-16 text-slate-500 flex items-center justify-center gap-3"><i data-lucide="loader" class="h-6 w-6 animate-spin"></i>Cargando tabla de tareas...</p></div>
+            </div>
+        </div>
+    `;
+    lucide.createIcons();
+
+    populateAdminTaskUserFilter();
+    setupAdminTaskViewListeners();
+
+    const tasksRef = collection(db, COLLECTIONS.TAREAS);
+    const q = query(tasksRef);
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const allTasks = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+        adminTaskViewState.tasks = allTasks;
+        renderAdminTaskCharts(allTasks);
+        renderFilteredAdminTaskTable();
+    }, (error) => {
+        console.error("Error fetching tasks for admin dashboard:", error);
+        showToast('Error al cargar las tareas del dashboard.', 'error');
+    });
+
+    appState.currentViewCleanup = () => {
+        unsubscribe();
+        destroyAdminTaskCharts();
+        adminTaskViewState = { tasks: [], filters: { searchTerm: '', user: 'all', priority: 'all', status: 'all' }, sort: { by: 'createdAt', order: 'desc' }, pagination: { currentPage: 1, pageSize: 10 } };
+    };
+}
+
+let adminCharts = { statusChart: null, priorityChart: null, userLoadChart: null };
+
+function destroyAdminTaskCharts() {
+    Object.keys(adminCharts).forEach(key => {
+        if (adminCharts[key]) {
+            adminCharts[key].destroy();
+            adminCharts[key] = null;
+        }
+    });
+}
+
+function renderAdminTaskCharts(tasks) {
+    destroyAdminTaskCharts();
+    renderStatusChart(tasks);
+    renderPriorityChart(tasks);
+    renderUserLoadChart(tasks);
+}
+
+function renderStatusChart(tasks) {
+    const ctx = document.getElementById('status-chart')?.getContext('2d');
+    if (!ctx) return;
+    const statusCounts = tasks.reduce((acc, task) => {
+        const status = task.status || 'todo';
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+    }, { todo: 0, inprogress: 0, done: 0 });
+    adminCharts.statusChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Por Hacer', 'En Progreso', 'Completadas'],
+            datasets: [{
+                data: [statusCounts.todo, statusCounts.inprogress, statusCounts.done],
+                backgroundColor: ['#f59e0b', '#3b82f6', '#22c55e'],
+                borderColor: '#ffffff',
+                borderWidth: 2,
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    });
+}
+
+function renderPriorityChart(tasks) {
+    const ctx = document.getElementById('priority-chart')?.getContext('2d');
+    if (!ctx) return;
+    const priorityCounts = tasks.reduce((acc, task) => {
+        const priority = task.priority || 'medium';
+        acc[priority] = (acc[priority] || 0) + 1;
+        return acc;
+    }, { low: 0, medium: 0, high: 0 });
+    adminCharts.priorityChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ['Baja', 'Media', 'Alta'],
+            datasets: [{
+                data: [priorityCounts.low, priorityCounts.medium, priorityCounts.high],
+                backgroundColor: ['#6b7280', '#f59e0b', '#ef4444'],
+                borderColor: '#ffffff',
+                borderWidth: 2,
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    });
+}
+
+function renderUserLoadChart(tasks) {
+    const ctx = document.getElementById('user-load-chart')?.getContext('2d');
+    if (!ctx) return;
+
+    const openTasks = tasks.filter(t => t.status !== 'done');
+    const userTaskCounts = openTasks.reduce((acc, task) => {
+        const assigneeUid = task.assigneeUid || 'unassigned';
+        acc[assigneeUid] = (acc[assigneeUid] || 0) + 1;
+        return acc;
+    }, {});
+
+    const userMap = appState.collectionsById.usuarios;
+    const labels = Object.keys(userTaskCounts).map(uid => userMap.get(uid)?.name || 'No Asignado');
+    const data = Object.values(userTaskCounts);
+
+    adminCharts.userLoadChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Tareas Abiertas',
+                data: data,
+                backgroundColor: '#3b82f6',
+                borderColor: '#1d4ed8',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+    });
+}
+
+function populateAdminTaskUserFilter() {
+    const select = document.getElementById('admin-task-user-filter');
+    if (!select) return;
+    const users = appState.collections.usuarios || [];
+    const userOptions = users.map(u => {
+        const displayName = u.name || u.email.split('@')[0];
+        return `<option value="${u.docId}">${displayName}</option>`;
+    }).join('');
+    select.innerHTML = `<option value="all">Todos los usuarios</option>${userOptions}`;
+}
+
+let adminTaskViewState = {
+    tasks: [],
+    filters: {
+        searchTerm: '',
+        user: 'all',
+        priority: 'all',
+        status: 'all'
+    },
+    sort: {
+        by: 'createdAt',
+        order: 'desc'
+    },
+    pagination: {
+        currentPage: 1,
+        pageSize: 10
+    }
+};
+
+function setupAdminTaskViewListeners() {
+    const controls = {
+        search: document.getElementById('admin-task-search'),
+        user: document.getElementById('admin-task-user-filter'),
+        priority: document.getElementById('admin-task-priority-filter'),
+        status: document.getElementById('admin-task-status-filter'),
+        addNew: document.getElementById('add-new-task-admin-btn'),
+        tableContainer: document.getElementById('task-data-table-container'),
+    };
+
+    if (!controls.search) return; // In case the view is not rendered yet
+
+    const rerender = () => {
+        adminTaskViewState.pagination.currentPage = 1;
+        renderFilteredAdminTaskTable();
+    };
+
+    controls.search.addEventListener('input', (e) => { adminTaskViewState.filters.searchTerm = e.target.value.toLowerCase(); rerender(); });
+    controls.user.addEventListener('change', (e) => { adminTaskViewState.filters.user = e.target.value; rerender(); });
+    controls.priority.addEventListener('change', (e) => { adminTaskViewState.filters.priority = e.target.value; rerender(); });
+    controls.status.addEventListener('change', (e) => { adminTaskViewState.filters.status = e.target.value; rerender(); });
+    controls.addNew.addEventListener('click', () => openTaskFormModal(null, 'todo'));
+
+    controls.tableContainer.addEventListener('click', (e) => {
+        const header = e.target.closest('th[data-sort]');
+        if (header) {
+            const sortBy = header.dataset.sort;
+            if (adminTaskViewState.sort.by === sortBy) {
+                adminTaskViewState.sort.order = adminTaskViewState.sort.order === 'asc' ? 'desc' : 'asc';
+            } else {
+                adminTaskViewState.sort.by = sortBy;
+                adminTaskViewState.sort.order = 'asc';
+            }
+            rerender();
+            return;
+        }
+
+        const actionButton = e.target.closest('button[data-action]');
+        if (actionButton) {
+            const action = actionButton.dataset.action;
+            const taskId = actionButton.dataset.docId;
+            const task = adminTaskViewState.tasks.find(t => t.docId === taskId);
+
+            if (action === 'edit-task' && task) {
+                openTaskFormModal(task);
+            } else if (action === 'delete-task' && task) {
+                 showConfirmationModal('Eliminar Tarea',`¿Estás seguro de que deseas eliminar la tarea "${task.title}"?`,() => deleteDocument(COLLECTIONS.TAREAS, taskId));
+            }
+        }
+
+        const pageButton = e.target.closest('button[data-page]');
+        if (pageButton) {
+            adminTaskViewState.pagination.currentPage = parseInt(pageButton.dataset.page, 10);
+            renderFilteredAdminTaskTable();
+        }
+    });
+}
+
+
+function renderFilteredAdminTaskTable() {
+    let filteredTasks = [...adminTaskViewState.tasks];
+    const { searchTerm, user, priority, status } = adminTaskViewState.filters;
+
+    if (searchTerm) filteredTasks = filteredTasks.filter(t => t.title.toLowerCase().includes(searchTerm) || (t.description && t.description.toLowerCase().includes(searchTerm)));
+    if (user !== 'all') filteredTasks = filteredTasks.filter(t => t.assigneeUid === user);
+    if (priority !== 'all') filteredTasks = filteredTasks.filter(t => (t.priority || 'medium') === priority);
+    if (status !== 'all') filteredTasks = filteredTasks.filter(t => (t.status || 'todo') === status);
+
+    const { by, order } = adminTaskViewState.sort;
+    filteredTasks.sort((a, b) => {
+        let valA = a[by] || '';
+        let valB = b[by] || '';
+
+        if (by === 'dueDate' || by === 'createdAt') {
+            valA = valA ? new Date(valA).getTime() : 0;
+            valB = valB ? new Date(valB).getTime() : 0;
+        }
+
+        if (valA < valB) return order === 'asc' ? -1 : 1;
+        if (valA > valB) return order === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    renderAdminTaskTable(filteredTasks);
+}
+
+function renderAdminTaskTable(tasksToRender) {
+    const container = document.getElementById('task-data-table-container');
+    if (!container) return;
+
+    const { currentPage, pageSize } = adminTaskViewState.pagination;
+    const totalPages = Math.ceil(tasksToRender.length / pageSize);
+    if (currentPage > totalPages && totalPages > 0) adminTaskViewState.pagination.currentPage = totalPages;
+    const paginatedTasks = tasksToRender.slice((adminTaskViewState.pagination.currentPage - 1) * pageSize, adminTaskViewState.pagination.currentPage * pageSize);
+
+    const userMap = appState.collectionsById.usuarios;
+    const priorityMap = { high: 'Alta', medium: 'Media', low: 'Baja' };
+    const statusMap = { todo: 'Por Hacer', inprogress: 'En Progreso', done: 'Completada' };
+    const priorityColorMap = { high: 'bg-red-100 text-red-800', medium: 'bg-yellow-100 text-yellow-800', low: 'bg-slate-100 text-slate-800'};
+    const statusColorMap = { todo: 'bg-yellow-100 text-yellow-800', inprogress: 'bg-blue-100 text-blue-800', done: 'bg-green-100 text-green-800'};
+
+    const getSortIndicator = (column) => {
+        if (adminTaskViewState.sort.by === column) {
+            return adminTaskViewState.sort.order === 'asc' ? '▲' : '▼';
+        }
+        return '';
+    };
+
+    let tableHTML = `<table class="w-full text-sm text-left text-gray-600">
+        <thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>
+            <th scope="col" class="px-6 py-3 cursor-pointer hover:bg-gray-200" data-sort="title">Tarea ${getSortIndicator('title')}</th>
+            <th scope="col" class="px-6 py-3 cursor-pointer hover:bg-gray-200" data-sort="assigneeUid">Asignado a ${getSortIndicator('assigneeUid')}</th>
+            <th scope="col" class="px-6 py-3 cursor-pointer hover:bg-gray-200" data-sort="priority">Prioridad ${getSortIndicator('priority')}</th>
+            <th scope="col" class="px-6 py-3 cursor-pointer hover:bg-gray-200" data-sort="dueDate">Fecha Límite ${getSortIndicator('dueDate')}</th>
+            <th scope="col" class="px-6 py-3 cursor-pointer hover:bg-gray-200" data-sort="status">Estado ${getSortIndicator('status')}</th>
+            <th scope="col" class="px-6 py-3 text-right">Acciones</th>
+        </tr></thead><tbody>`;
+
+    if (paginatedTasks.length === 0) {
+        tableHTML += `<tr><td colspan="6" class="text-center py-16 text-gray-500"><div class="flex flex-col items-center gap-3"><i data-lucide="search-x" class="w-12 h-12 text-gray-300"></i><h4 class="font-semibold">No se encontraron tareas</h4><p>Intente ajustar los filtros de búsqueda.</p></div></td></tr>`;
+    } else {
+        paginatedTasks.forEach(task => {
+            const assignee = userMap.get(task.assigneeUid);
+            const assigneeName = assignee ? assignee.name : '<span class="italic text-slate-400">No asignado</span>';
+            const priority = task.priority || 'medium';
+            const status = task.status || 'todo';
+            const dueDate = task.dueDate ? new Date(task.dueDate + 'T00:00:00').toLocaleDateString('es-AR') : 'N/A';
+
+            tableHTML += `<tr class="bg-white border-b hover:bg-gray-50">
+                <td class="px-6 py-4 font-medium text-gray-900">${task.title}</td>
+                <td class="px-6 py-4">${assigneeName}</td>
+                <td class="px-6 py-4"><span class="px-2 py-1 font-semibold leading-tight rounded-full text-xs ${priorityColorMap[priority]}">${priorityMap[priority]}</span></td>
+                <td class="px-6 py-4">${dueDate}</td>
+                <td class="px-6 py-4"><span class="px-2 py-1 font-semibold leading-tight rounded-full text-xs ${statusColorMap[status]}">${statusMap[status]}</span></td>
+                <td class="px-6 py-4 text-right">
+                    <button data-action="edit-task" data-doc-id="${task.docId}" class="p-2 text-gray-500 hover:text-blue-600"><i data-lucide="edit" class="h-4 w-4 pointer-events-none"></i></button>
+                    <button data-action="delete-task" data-doc-id="${task.docId}" class="p-2 text-gray-500 hover:text-red-600"><i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i></button>
+                </td>
+            </tr>`;
+        });
+    }
+    tableHTML += `</tbody></table>`;
+
+    // Pagination Controls
+    if(totalPages > 1) {
+        tableHTML += `<div class="flex justify-between items-center pt-4">`;
+        tableHTML += `<button data-page="${currentPage - 1}" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed" ${currentPage === 1 ? 'disabled' : ''}>Anterior</button>`;
+        tableHTML += `<span class="text-sm font-semibold text-gray-600">Página ${currentPage} de ${totalPages}</span>`;
+        tableHTML += `<button data-page="${currentPage + 1}" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed" ${currentPage === totalPages ? 'disabled' : ''}>Siguiente</button>`;
+        tableHTML += `</div>`;
+    }
+
+    container.innerHTML = tableHTML;
+    lucide.createIcons();
+}
+
+function runKanbanBoardLogic() {
     if (taskState.activeFilter === 'supervision' && !taskState.selectedUserId) {
         renderAdminUserList();
         return;
