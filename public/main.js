@@ -1882,9 +1882,21 @@ function runSinopticoTabularLogic() {
 
         const client = appState.collectionsById[COLLECTIONS.CLIENTES].get(product.clienteId);
         const clientName = client ? client.descripcion : 'N/A';
-        const lastUpdated = product.lastUpdated ? new Date(product.lastUpdated.seconds * 1000).toLocaleString('es-AR') : 'N/A';
-        const reviewedBy = product.reviewedBy || '';
 
+        const createEditableField = (label, value, fieldName, placeholder = 'N/A') => {
+            const val = value || '';
+            return `
+                <div>
+                    <p class="font-bold opacity-80 uppercase">${label}</p>
+                    <div class="editable-field mt-1" data-field="${fieldName}" data-value="${val}">
+                        <span class="value-display cursor-pointer hover:bg-slate-500/50 rounded px-1 min-h-[1em] inline-block">${val || placeholder}</span>
+                        <div class="edit-controls hidden">
+                            <input type="text" class="bg-slate-800 border-b-2 border-slate-400 focus:outline-none w-full text-white" value="${val}">
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
 
         const getFlattenedData = (product) => {
             const flattenedData = [];
@@ -1908,46 +1920,28 @@ function runSinopticoTabularLogic() {
         const flattenedData = getFlattenedData(product);
 
         const headerHTML = `
-            <div class="bg-white rounded-xl shadow-lg animate-fade-in-up flex overflow-hidden mb-6">
-                <!-- Columna Izquierda: Logo -->
-                <div class="w-1/3 bg-white flex items-center justify-center p-6 border-r border-slate-200">
-                    <img src="logo.png" alt="Logo" class="max-h-24">
-                </div>
-
-                <!-- Columna Derecha: Detalles -->
-                <div class="w-2/3 bg-[#44546A] text-white p-5 flex items-center">
-                    <div class="grid grid-cols-2 gap-x-8 gap-y-4 text-sm w-full">
-                        <div>
-                            <p class="font-bold opacity-80 uppercase">PROJECT</p>
-                            <p>${product.descripcion}</p>
-                        </div>
-                        <div>
-                            <p class="font-bold opacity-80 uppercase">Fecha de emisión</p>
-                            <p>4/8/2025</p>
-                        </div>
-                        <div>
-                            <p class="font-bold opacity-80 uppercase">Revision</p>
-                            <p>OR</p>
-                        </div>
-                        <div>
-                            <p class="font-bold opacity-80 uppercase">Part Name</p>
-                            <p>${clientName}</p>
-                        </div>
-                        <div>
-                            <p class="font-bold opacity-80 uppercase">Realizó</p>
-                            <p>L, LATTANZI</p>
-                        </div>
-                        <div>
-                            <p class="font-bold opacity-80 uppercase">Fecha revisión</p>
-                            <p>4/8/2025</p>
-                        </div>
-                        <div>
-                            <p class="font-bold opacity-80 uppercase">Part Number</p>
-                            <p>${product.id}</p>
-                        </div>
-                        <div>
-                            <p class="font-bold opacity-80 uppercase">Versión</p>
-                            <p>${product.version || 'OR'}</p>
+            <div class="bg-white rounded-xl shadow-lg animate-fade-in-up overflow-hidden mb-6">
+                <h3 class="text-center font-bold text-lg py-2 bg-slate-200 text-slate-700">COMPOSICIÓN DE PIEZAS - BOM</h3>
+                <div class="flex">
+                    <div class="w-1/3 bg-white flex items-center justify-center p-4 border-r border-slate-200">
+                        <img src="logo.png" alt="Logo" class="max-h-20">
+                    </div>
+                    <div class="w-2/3 bg-[#44546A] text-white p-4 flex items-center" id="caratula-fields-container">
+                        <div class="grid grid-cols-2 gap-x-6 gap-y-3 text-xs w-full">
+                            ${createEditableField('PROYECTO', product.descripcion, 'descripcion')}
+                            ${createEditableField('Fecha de Emisión', product.fecha_emision, 'fecha_emision', 'Sin fecha')}
+                            ${createEditableField('Revisión', product.revision_code, 'revision_code', 'Sin revisión')}
+                            <div>
+                                <p class="font-bold opacity-80 uppercase">Nombre de Pieza</p>
+                                <p>${clientName}</p>
+                            </div>
+                            ${createEditableField('Realizó', product.realizo, 'realizo', 'No asignado')}
+                            ${createEditableField('Fecha Revisión', product.fecha_revision, 'fecha_revision', 'Sin fecha')}
+                            <div>
+                                <p class="font-bold opacity-80 uppercase">Número de Pieza</p>
+                                <p>${product.id}</p>
+                            </div>
+                            ${createEditableField('Versión', product.version, 'version')}
                         </div>
                     </div>
                 </div>
@@ -2054,11 +2048,64 @@ function runSinopticoTabularLogic() {
         renderInitialView();
     }
 
+    const caratulaFieldsHandler = (e) => {
+        const fieldContainer = e.target.closest('.editable-field');
+        if (fieldContainer && !fieldContainer.classList.contains('is-editing')) {
+            fieldContainer.classList.add('is-editing');
+            const valueDisplay = fieldContainer.querySelector('.value-display');
+            const editControls = fieldContainer.querySelector('.edit-controls');
+            const input = editControls.querySelector('input');
+
+            valueDisplay.classList.add('hidden');
+            editControls.classList.remove('hidden');
+            input.focus();
+            input.select();
+
+            const saveField = async () => {
+                const newValue = input.value;
+                const fieldName = fieldContainer.dataset.field;
+
+                if (newValue !== fieldContainer.dataset.value) {
+                    const productRef = doc(db, COLLECTIONS.PRODUCTOS, state.selectedProduct.docId);
+                    try {
+                        await updateDoc(productRef, { [fieldName]: newValue });
+                        showToast('Campo actualizado.', 'success');
+                        state.selectedProduct[fieldName] = newValue;
+                        renderReportView();
+                    } catch (error) {
+                        showToast('Error al guardar.', 'error');
+                        fieldContainer.classList.remove('is-editing');
+                        valueDisplay.classList.remove('hidden');
+                        editControls.classList.add('hidden');
+                    }
+                } else {
+                    fieldContainer.classList.remove('is-editing');
+                    valueDisplay.classList.remove('hidden');
+                    editControls.classList.add('hidden');
+                }
+            };
+
+            input.addEventListener('blur', saveField, { once: true });
+            input.addEventListener('keydown', e => {
+                if (e.key === 'Enter') input.blur();
+                if (e.key === 'Escape') {
+                    input.removeEventListener('blur', saveField);
+                    fieldContainer.classList.remove('is-editing');
+                    valueDisplay.classList.remove('hidden');
+                    editControls.classList.add('hidden');
+                }
+            });
+        }
+    };
+
     dom.viewContent.addEventListener('click', handleViewClick);
     dom.viewContent.addEventListener('dblclick', handleViewDblClick);
+    dom.viewContent.addEventListener('click', caratulaFieldsHandler);
+
     appState.currentViewCleanup = () => {
         dom.viewContent.removeEventListener('click', handleViewClick);
         dom.viewContent.removeEventListener('dblclick', handleViewDblClick);
+        dom.viewContent.removeEventListener('click', caratulaFieldsHandler);
         appState.sinopticoTabularState = null;
     };
 }
