@@ -1625,6 +1625,7 @@ function runSinopticoTabularLogic() {
             { key: 'cantidad', label: 'Cantidad' }, { key: 'unidad', label: 'Unidad' },
             { key: 'proveedor', label: 'Proveedor' }, { key: 'material', label: 'Material' },
             { key: 'costo', label: 'Costo' },
+            { key: 'observaciones', label: 'Comentarios' }
         ];
 
         const flattenedData = [];
@@ -1678,6 +1679,7 @@ function runSinopticoTabularLogic() {
                 <td class="px-4 py-3">${proveedor}</td>
                 <td class="px-4 py-3">${material}</td>
                 <td class="px-4 py-3 text-right">${costo}</td>
+                <td class="px-4 py-3">${item.observaciones || ''}</td>
             </tr>`;
         });
         tableHTML += `</tbody></table>`;
