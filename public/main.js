@@ -80,6 +80,7 @@ const viewConfig = {
             { key: 'descripcion', label: 'Descripción', type: 'textarea' },
             { key: 'peso', label: 'Peso (ej: 150kg)', type: 'text' },
             { key: 'medidas', label: 'Medidas (ej: 10x20x5 cm)', type: 'text' },
+            { key: 'observaciones', label: 'Observaciones', type: 'textarea' },
         ]
     },
     insumos: {
@@ -504,6 +505,37 @@ function handleViewContentActions(e) {
         'delete-node': () => eliminarNodo(button.dataset.nodeId),
         'delete-account': handleDeleteAccount,
         'seed-database': seedDatabase,
+        'clone-product': () => cloneProduct(),
+        'view-history': () => showToast('La función de historial de cambios estará disponible próximamente.', 'info'),
+        'edit-node-field': () => {
+            const container = button.closest('.inline-edit-container');
+            container.querySelector('.display-mode').classList.add('hidden');
+            container.querySelector('.edit-mode').classList.remove('hidden');
+            container.querySelector('input').focus();
+            container.querySelector('input').select();
+        },
+        'cancel-node-field': () => {
+            const container = button.closest('.inline-edit-container');
+            container.querySelector('.display-mode').classList.remove('hidden');
+            container.querySelector('.edit-mode').classList.add('hidden');
+        },
+        'save-node-field': () => {
+            const container = button.closest('.inline-edit-container');
+            const nodeId = container.dataset.nodeId;
+            const field = container.dataset.field;
+            const input = container.querySelector('input');
+            let value = input.value;
+
+            const node = findNode(nodeId, appState.arbolActivo.estructura);
+            if(node) {
+                if(input.type === 'number') {
+                    value = parseFloat(value);
+                    if(isNaN(value)) value = 1;
+                }
+                node[field] = value;
+                renderArbol();
+            }
+        },
     };
     
     if (actions[action]) actions[action]();
@@ -1143,16 +1175,27 @@ async function guardarEstructura(button) {
     }
 }
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
     dom.loadingOverlay.style.display = 'none';
     if (user) {
         if (user.emailVerified) {
             const isNewLogin = !appState.currentUser;
+
+            // --- Fetch user role ---
+            const userDocRef = doc(db, COLLECTIONS.USUARIOS, user.uid);
+            const userDocSnap = await getDoc(userDocRef);
+            let userRole = 'lector'; // Default role
+            if (userDocSnap.exists()) {
+                userRole = userDocSnap.data().role || 'lector';
+            }
+            // --- End fetch user role ---
+
             appState.currentUser = {
                 uid: user.uid,
                 name: user.displayName || user.email.split('@')[0],
                 email: user.email,
-                avatarUrl: user.photoURL || `https://placehold.co/40x40/1e40af/ffffff?text=${(user.displayName || user.email).charAt(0).toUpperCase()}`
+                avatarUrl: user.photoURL || `https://placehold.co/40x40/1e40af/ffffff?text=${(user.displayName || user.email).charAt(0).toUpperCase()}`,
+                role: userRole
             };
             updateAuthView(true);
             if (isNewLogin) {
@@ -1329,19 +1372,52 @@ function renderArbol(highlightNodeId = null) {
 function renderNodo(nodo) {
     const collectionName = nodo.tipo + 's';
     const item = appState.collectionsById[collectionName]?.get(nodo.refId);
-    if (!item) return ''; // Si el item fue borrado, no lo dibujamos.
+    if (!item) return '';
+
     const addableChildren = { producto: ['subproducto', 'insumo'], subproducto: ['subproducto', 'insumo'], insumo: [] };
     let addButtons = (addableChildren[nodo.tipo] || []).map(tipo => `<button data-action="add-node" data-node-id="${nodo.id}" data-child-type="${tipo}" class="px-2 py-1 bg-green-100 text-green-800 rounded-md hover:bg-green-200 text-xs font-semibold" title="Agregar ${tipo}">+ ${tipo}</button>`).join(' ');
+
     const isDraggable = nodo.tipo !== 'producto';
+
+    const quantityHTML = nodo.tipo !== 'producto' ? `
+        <div class="inline-edit-container" data-field="quantity" data-node-id="${nodo.id}">
+            <span data-action="edit-node-field" class="display-mode flex items-center gap-1 cursor-pointer hover:bg-slate-200 p-1 rounded-md text-sm text-slate-600" title="Editar cantidad">
+                x <span class="font-bold">${nodo.quantity ?? 1}</span>
+                <i data-lucide="pencil" class="w-3 h-3 ml-1 opacity-0 group-hover:opacity-50 transition-opacity pointer-events-none"></i>
+            </span>
+            <span class="edit-mode hidden">
+                <input type="number" value="${nodo.quantity ?? 1}" class="w-20 border-slate-300 rounded-md py-1 px-2 text-sm">
+                <button data-action="save-node-field" class="p-1 text-green-600 hover:bg-green-100 rounded-md"><i data-lucide="check" class="w-5 h-5 pointer-events-none"></i></button>
+                <button data-action="cancel-node-field" class="p-1 text-red-600 hover:bg-red-100 rounded-md"><i data-lucide="x" class="w-5 h-5 pointer-events-none"></i></button>
+            </span>
+        </div>
+    ` : '';
+
+    const commentIcon = nodo.comment ? 'message-square-text' : 'message-square';
+    const commentHTML = `
+        <div class="inline-edit-container" data-field="comment" data-node-id="${nodo.id}">
+            <span data-action="edit-node-field" class="display-mode cursor-pointer hover:bg-slate-200 p-1 rounded-md text-slate-500" title="${nodo.comment || 'Añadir comentario'}">
+                <i data-lucide="${commentIcon}" class="w-5 h-5"></i>
+            </span>
+            <span class="edit-mode hidden">
+                <input type="text" value="${nodo.comment || ''}" placeholder="Comentario..." class="w-48 border-slate-300 rounded-md py-1 px-2 text-sm">
+                <button data-action="save-node-field" class="p-1 text-green-600 hover:bg-green-100 rounded-md"><i data-lucide="check" class="w-5 h-5 pointer-events-none"></i></button>
+                <button data-action="cancel-node-field" class="p-1 text-red-600 hover:bg-red-100 rounded-md"><i data-lucide="x" class="w-5 h-5 pointer-events-none"></i></button>
+            </span>
+        </div>
+    `;
     
-    return `<li data-node-id="${nodo.id}">
+    return `<li data-node-id="${nodo.id}" class="group">
                 <div class="node-content ${isDraggable ? '' : 'cursor-default'}" data-type="${nodo.tipo}">
-                    <div class="flex items-center gap-2">
-                        <i data-lucide="${nodo.icon}" class="h-5 w-5 text-gray-600"></i>
-                        <span class="font-semibold">${item.descripcion}</span>
-                        <span class="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">${nodo.tipo}</span>
+                    <div class="flex items-center gap-3 flex-grow min-w-0">
+                        <i data-lucide="${nodo.icon}" class="h-5 w-5 text-gray-600 flex-shrink-0"></i>
+                        <span class="font-semibold truncate" title="${item.descripcion}">${item.descripcion}</span>
+                        <span class="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full flex-shrink-0">${nodo.tipo}</span>
                     </div>
-                    <div class="flex items-center space-x-2">
+                    <div class="flex items-center space-x-2 flex-shrink-0">
+                        ${quantityHTML}
+                        ${commentHTML}
+                        <div class="h-5 border-l border-slate-200"></div>
                         ${addButtons}
                         ${nodo.tipo !== 'producto' ? `<button data-action="delete-node" data-node-id="${nodo.id}" class="text-red-500 hover:text-red-700" title="Eliminar"><i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i></button>` : ''}
                     </div>
@@ -1351,8 +1427,10 @@ function renderNodo(nodo) {
 }
 
 function initSortable(treeArea) {
-    const lists = treeArea.querySelectorAll('ul.node-children-list');
+    const lists = treeArea.querySelectorAll('ul');
     lists.forEach(list => {
+        if (list.sortable) list.sortable.destroy();
+
         new Sortable(list, {
             group: 'nested',
             animation: 150,
@@ -1360,7 +1438,15 @@ function initSortable(treeArea) {
             swapThreshold: 0.65,
             ghostClass: 'sortable-ghost',
             dragClass: 'sortable-drag',
-            onEnd: handleDropEvent
+            onStart: (evt) => {
+                // Add class to all potential drop targets
+                treeArea.querySelectorAll('ul').forEach(l => l.classList.add('sortable-drag-over'));
+            },
+            onEnd: (evt) => {
+                // Clean up drop target styles
+                treeArea.querySelectorAll('ul').forEach(l => l.classList.remove('sortable-drag-over'));
+                handleDropEvent(evt);
+            }
         });
     });
 }
@@ -1496,7 +1582,8 @@ function crearComponente(tipo, datos) {
         tipo: tipo, 
         icon: { producto: 'package', subproducto: 'box', insumo: 'beaker' }[tipo], 
         children: [], 
-        quantity: null
+        quantity: 1,
+        comment: ''
     };
 }
 
@@ -1634,83 +1721,97 @@ function runSinopticoTabularLogic() {
                 state.activeFilters.niveles.clear();
                 renderInitialView();
                 break;
-            case 'save-tabular-quantity':
-                handleSaveQuantity(row);
+            case 'save-tabular-field':
+                handleSaveTableCell(row);
                 break;
-            case 'cancel-tabular-quantity':
+            case 'cancel-tabular-field':
                 renderReportView(); // Re-render to cancel edit
                 break;
         }
     };
 
     const handleViewDblClick = (e) => {
-        const row = e.target.closest('tr[data-node-id]');
-        if (!row || row.classList.contains('is-editing')) return;
+        const cell = e.target.closest('td[data-field]');
+        const row = cell?.closest('tr[data-node-id]');
+        if (!row || row.classList.contains('is-editing') || !cell) return;
 
         const nodeId = row.dataset.nodeId;
         const product = state.selectedProduct;
         const nodeToEdit = findNode(nodeId, product.estructura);
 
         if (!nodeToEdit || nodeToEdit.tipo === 'producto') {
-            showToast('Solo se puede editar la cantidad de subproductos e insumos.', 'info');
+            showToast('Solo se puede editar la cantidad y comentarios de subproductos e insumos.', 'info');
             return;
         }
 
-        enterEditMode(row, nodeId, nodeToEdit.quantity);
+        const field = cell.dataset.field;
+        if (field === 'quantity') {
+            enterTableCellEditMode(row, nodeId, nodeToEdit.quantity, 'number');
+        } else if (field === 'comment') {
+            enterTableCellEditMode(row, nodeId, nodeToEdit.comment || '', 'text');
+        }
     };
 
-    const enterEditMode = (row, nodeId, currentQuantity) => {
-        // Exit any other editing rows
+    const enterTableCellEditMode = (row, nodeId, currentValue, inputType) => {
         const otherEditingRow = dom.viewContent.querySelector('tr.is-editing');
         if (otherEditingRow) {
-            renderReportView(); // Simple way to cancel other edits
+            renderReportView();
         }
 
         row.classList.add('is-editing');
-        const quantityCell = row.querySelector(`#qty-cell-${nodeId}`);
+        const field = inputType === 'number' ? 'quantity' : 'comment';
+        const cell = row.querySelector(`td[data-field="${field}"]`);
         const actionsCell = row.cells[row.cells.length - 1];
 
-        const originalValue = currentQuantity ?? '';
-        quantityCell.innerHTML = `<input type="number" class="w-24 text-right border rounded-md p-1 bg-white" value="${originalValue}" step="any" min="0">`;
+        const originalValue = currentValue ?? '';
+        if (inputType === 'number') {
+            cell.innerHTML = `<input type="number" class="w-24 text-right border rounded-md p-1 bg-white" value="${originalValue}" step="any" min="0">`;
+        } else {
+            cell.innerHTML = `<input type="text" class="w-full border rounded-md p-1 bg-white" value="${originalValue}">`;
+        }
 
         actionsCell.innerHTML = `
             <div class="flex items-center justify-center gap-1">
-                <button data-action="save-tabular-quantity" class="p-1 text-green-600 hover:bg-green-100 rounded-md"><i data-lucide="check" class="w-5 h-5 pointer-events-none"></i></button>
-                <button data-action="cancel-tabular-quantity" class="p-1 text-red-600 hover:bg-red-100 rounded-md"><i data-lucide="x" class="w-5 h-5 pointer-events-none"></i></button>
+                <button data-action="save-tabular-field" class="p-1 text-green-600 hover:bg-green-100 rounded-md"><i data-lucide="check" class="w-5 h-5 pointer-events-none"></i></button>
+                <button data-action="cancel-tabular-field" class="p-1 text-red-600 hover:bg-red-100 rounded-md"><i data-lucide="x" class="w-5 h-5 pointer-events-none"></i></button>
             </div>
         `;
         lucide.createIcons();
-        const input = quantityCell.querySelector('input');
+        const input = cell.querySelector('input');
         input.focus();
         input.select();
     };
 
-    const handleSaveQuantity = async (row) => {
+    const handleSaveTableCell = async (row) => {
         const nodeId = row.dataset.nodeId;
-        const input = row.querySelector('input[type="number"]');
-        const newQuantity = parseFloat(input.value);
+        const input = row.querySelector('input');
+        const cell = input.closest('td');
+        const field = cell.dataset.field;
+        let newValue = input.value;
 
-        if (isNaN(newQuantity) || newQuantity < 0) {
-            showToast('Por favor, ingrese una cantidad válida.', 'error');
-            return;
+        if (input.type === 'number') {
+            newValue = parseFloat(newValue);
+            if (isNaN(newValue)) {
+                showToast('Por favor, ingrese una cantidad válida.', 'error');
+                return;
+            }
         }
 
         const product = state.selectedProduct;
         const nodeToUpdate = findNode(nodeId, product.estructura);
 
         if (nodeToUpdate) {
-            nodeToUpdate.quantity = newQuantity;
+            nodeToUpdate[field] = newValue;
             const productRef = doc(db, COLLECTIONS.PRODUCTOS, product.docId);
 
             try {
                 await updateDoc(productRef, { estructura: product.estructura });
-                showToast('Cantidad actualizada.', 'success');
+                showToast('Campo actualizado.', 'success');
             } catch (error) {
-                showToast('Error al guardar la cantidad.', 'error');
-                console.error("Error updating quantity:", error);
-                // Revert optimistic update if needed, though re-rendering does this.
+                showToast('Error al guardar el campo.', 'error');
+                console.error("Error updating table cell:", error);
             } finally {
-                renderReportView(); // Re-render to show new value and exit edit mode
+                renderReportView();
             }
         }
     };
@@ -1781,8 +1882,9 @@ function runSinopticoTabularLogic() {
 
         const client = appState.collectionsById[COLLECTIONS.CLIENTES].get(product.clienteId);
         const clientName = client ? client.descripcion : 'N/A';
-        const userName = appState.currentUser ? appState.currentUser.name : 'N/A';
-        const creationDate = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const lastUpdated = product.lastUpdated ? new Date(product.lastUpdated.seconds * 1000).toLocaleString('es-AR') : 'N/A';
+        const reviewedBy = product.reviewedBy || '';
+
 
         const getFlattenedData = (product) => {
             const flattenedData = [];
@@ -1806,21 +1908,40 @@ function runSinopticoTabularLogic() {
         const flattenedData = getFlattenedData(product);
 
         const headerHTML = `
-            <div class="bg-blue-100 rounded-xl shadow-lg mb-6 overflow-hidden">
-                <div class="flex items-stretch">
-                    <div class="bg-white p-4 w-1/3 md:w-1/4 flex flex-col items-center justify-center">
-                        <img src="logo.png" alt="Logo Barack" class="max-h-20 object-contain">
+            <div class="bg-white rounded-xl shadow-md mb-6 p-4 animate-fade-in">
+                <div class="flex flex-wrap items-center justify-between gap-y-4 gap-x-6">
+                    <!-- Info Principal -->
+                    <div class="flex items-center gap-4">
+                        <img src="logo.png" alt="Logo" class="h-10 hidden sm:block">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-800">Reporte BOM: ${product.descripcion}</h2>
+                            <p class="text-sm text-slate-500">
+                                <span class="font-semibold">Cliente:</span> ${clientName} |
+                                <span class="font-semibold">Código:</span> ${product.id} |
+                                <span class="font-semibold">Versión:</span> ${product.version || 'N/A'}
+                            </p>
+                        </div>
                     </div>
-                    <div class="p-6 flex-1 bg-blue-600 text-white flex flex-col justify-center">
-                        <h2 class="text-2xl md:text-3xl font-bold leading-tight text-white">BOM</h2>
-                        <p class="text-blue-200 mt-1">Reporte Tabular de Materiales</p>
+
+                    <!-- Acciones y Metadatos -->
+                    <div class="flex items-center gap-x-6 gap-y-2 flex-wrap">
+                        <div class="text-sm">
+                            <label for="revisado-por-input" class="font-semibold text-slate-600">Revisado por:</label>
+                            <input type="text" id="revisado-por-input" data-field="reviewedBy" value="${reviewedBy}" placeholder="Nombre..." class="w-32 rounded-md border-slate-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm py-1 px-2">
+                        </div>
+                        <div class="text-sm">
+                            <span class="font-semibold text-slate-600">Última Edición:</span>
+                            <span class="text-slate-700">${lastUpdated}</span>
+                        </div>
+
+                        <!-- Contenedor para botones de Admin -->
+                        <div id="admin-actions-container" class="flex items-center gap-2">
+                            ${appState.currentUser?.role === 'admin' ? `
+                                <button data-action="clone-product" class="text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-md flex items-center gap-2 shadow-sm transition-transform hover:scale-105"><i data-lucide="copy" class="w-4 h-4"></i>Clonar</button>
+                                <button data-action="view-history" class="text-sm font-semibold text-slate-700 bg-slate-200 hover:bg-slate-300 px-3 py-1.5 rounded-md flex items-center gap-2 transition-transform hover:scale-105"><i data-lucide="history" class="w-4 h-4"></i>Historial</button>
+                            ` : ''}
+                        </div>
                     </div>
-                </div>
-                <div class="p-6 grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4 text-sm border-t border-blue-200">
-                    <div><p class="text-slate-500 font-semibold">Proyecto</p><p class="font-bold text-slate-800 text-base">${clientName}</p></div>
-                    <div><p class="text-slate-500 font-semibold">Realizado por</p><p class="font-bold text-slate-800 text-base">${userName}</p></div>
-                    <div><p class="text-slate-500 font-semibold">Revisado por</p><div class="h-8 border-b border-slate-400"></div></div>
-                    <div><p class="text-slate-500 font-semibold">Fecha de Creación</p><p class="font-bold text-slate-800 text-base">${creationDate}</p></div>
                 </div>
             </div>`;
 
@@ -1858,16 +1979,16 @@ function runSinopticoTabularLogic() {
                     material = item.material || '';
                 }
 
-                tableHTML += `<tr class="bg-white border-b hover:bg-gray-100 cursor-pointer" data-node-id="${node.id}" title="Doble clic para editar cantidad">
+                tableHTML += `<tr class="bg-white border-b hover:bg-gray-100" data-node-id="${node.id}">
                     <td class="px-4 py-2 font-mono font-medium text-gray-900 whitespace-nowrap"><span class="font-sans">${prefix}</span>${item.descripcion || item.nombre}</td>
                     <td class="px-4 py-2 text-center">${level}</td>
                     <td class="px-4 py-2">${item.id}</td>
                     <td class="px-4 py-2"><span class="px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-700">${node.tipo}</span></td>
-                    <td class="px-4 py-2 text-right" id="qty-cell-${node.id}">${cantidad}</td>
+                    <td class="px-4 py-2 text-right cursor-pointer" data-field="quantity" title="Doble clic para editar">${cantidad}</td>
                     <td class="px-4 py-2 text-center">${unidad}</td>
                     <td class="px-4 py-2">${proveedor}</td>
                     <td class="px-4 py-2">${material}</td>
-                    <td class="px-4 py-2">${item.observaciones || ''}</td>
+                    <td class="px-4 py-2 cursor-pointer" data-field="comment" title="Doble clic para editar">${node.comment || ''}</td>
                     <td class="px-4 py-2 text-center" id="actions-cell-${node.id}">&nbsp;</td>
                 </tr>`;
             });
@@ -1890,6 +2011,32 @@ function runSinopticoTabularLogic() {
             </div>
         </div>`;
         lucide.createIcons();
+
+        // Attach listener right after render
+        const reviewedByInput = dom.viewContent.querySelector('#revisado-por-input');
+        if (reviewedByInput) {
+            reviewedByInput.addEventListener('blur', async (e) => {
+                const newValue = e.target.value;
+                if (newValue === (product.reviewedBy || '')) return; // No change
+
+                e.target.disabled = true;
+                e.target.classList.add('opacity-50');
+
+                const productRef = doc(db, COLLECTIONS.PRODUCTOS, product.docId);
+                try {
+                    await updateDoc(productRef, { reviewedBy: newValue, lastUpdated: new Date(), lastUpdatedBy: appState.currentUser.name });
+                    state.selectedProduct.reviewedBy = newValue; // Optimistic update
+                    showToast('Campo "Revisado por" actualizado.', 'success');
+                } catch (error) {
+                    console.error("Error updating reviewedBy:", error);
+                    showToast('Error al actualizar el campo.', 'error');
+                    e.target.value = product.reviewedBy || ''; // Revert
+                } finally {
+                    e.target.disabled = false;
+                    e.target.classList.remove('opacity-50');
+                }
+            });
+        }
     };
 
     // --- MAIN LOGIC & CLEANUP ---
@@ -2686,6 +2833,113 @@ function exportSinopticoPdf(activeFilters) {
     });
     doc.save("reporte_sinoptico.pdf");
     showToast('Reporte PDF del árbol generado.', 'success');
+}
+
+// =================================================================================
+// --- LÓGICA DE CLONACIÓN Y MODALES ESPECIALES ---
+// =================================================================================
+
+async function cloneProduct() {
+    const productToClone = appState.sinopticoTabularState.selectedProduct;
+    if (!productToClone) {
+        showToast('No hay un producto seleccionado para clonar.', 'error');
+        return;
+    }
+
+    const newId = await showPromptModal('Clonar Producto', `Ingrese el nuevo código para el clon de "${productToClone.id}":`);
+    if (!newId) return; // User cancelled
+
+    // Check if new ID already exists
+    const q = query(collection(db, COLLECTIONS.PRODUCTOS), where("id", "==", newId));
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+        showToast(`El código de producto "${newId}" ya existe.`, 'error');
+        return;
+    }
+
+    showToast('Clonando producto...', 'info');
+
+    // Deep copy
+    const newProduct = JSON.parse(JSON.stringify(productToClone));
+
+    // Reset properties
+    delete newProduct.docId;
+    delete newProduct.lastUpdated;
+    delete newProduct.lastUpdatedBy;
+    delete newProduct.reviewedBy;
+    newProduct.id = newId;
+    newProduct.createdAt = new Date();
+
+    // Generate new unique IDs for all nodes in the structure
+    function regenerateNodeIds(nodes) {
+        if (!nodes) return;
+        nodes.forEach(node => {
+            node.id = `comp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            if (node.children) {
+                regenerateNodeIds(node.children);
+            }
+        });
+    }
+
+    if (newProduct.estructura) {
+        regenerateNodeIds(newProduct.estructura);
+        // Also update the root node's refId if it's self-referencing
+        if (newProduct.estructura[0] && newProduct.estructura[0].tipo === 'producto') {
+            newProduct.estructura[0].refId = newId;
+        }
+    }
+
+    try {
+        await addDoc(collection(db, COLLECTIONS.PRODUCTOS), newProduct);
+        showToast(`Producto "${productToClone.descripcion}" clonado exitosamente como "${newId}".`, 'success');
+    } catch (error) {
+        console.error("Error clonando el producto:", error);
+        showToast('Ocurrió un error al clonar el producto.', 'error');
+    }
+}
+
+function showPromptModal(title, message) {
+    return new Promise(resolve => {
+        const modalId = `prompt-modal-${Date.now()}`;
+        const modalHTML = `<div id="${modalId}" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop animate-fade-in">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-md m-4 modal-content">
+                <div class="p-6">
+                    <h3 class="text-xl font-bold mb-2">${title}</h3>
+                    <p class="text-gray-600 mb-4">${message}</p>
+                    <input type="text" id="prompt-input" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                </div>
+                <div class="flex justify-end items-center p-4 border-t bg-gray-50 space-x-4">
+                    <button data-action="cancel" class="bg-gray-200 text-gray-800 px-6 py-2 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
+                    <button data-action="confirm" class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 font-semibold">Aceptar</button>
+                </div>
+            </div>
+        </div>`;
+        dom.modalContainer.innerHTML = modalHTML;
+        const modalElement = document.getElementById(modalId);
+        const input = modalElement.querySelector('#prompt-input');
+        input.focus();
+
+        const close = (value) => {
+            modalElement.remove();
+            resolve(value);
+        };
+
+        modalElement.addEventListener('click', e => {
+            const action = e.target.closest('button')?.dataset.action;
+            if (action === 'confirm') {
+                close(input.value.trim());
+            } else if (action === 'cancel') {
+                close(null);
+            }
+        });
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                close(input.value.trim());
+            } else if (e.key === 'Escape') {
+                close(null);
+            }
+        });
+    });
 }
 
 // =================================================================================
