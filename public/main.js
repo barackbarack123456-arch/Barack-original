@@ -1565,7 +1565,7 @@ async function openTaskFormModal(task = null) {
                     await deleteDoc(doc(db, COLLECTIONS.TAREAS, task.docId));
                     showToast('Tarea eliminada.', 'success');
                     modalElement.remove();
-                    fetchAndRenderTasks();
+                    // The onSnapshot listener will automatically update the UI.
                 } catch (error) {
                     showToast('No tienes permiso para eliminar esta tarea.', 'error');
                 }
@@ -1608,7 +1608,7 @@ async function handleTaskFormSubmit(e) {
             showToast('Tarea creada con éxito.', 'success');
         }
         document.getElementById('task-form-modal').remove();
-        fetchAndRenderTasks();
+        // The onSnapshot listener will automatically update the UI.
     } catch (error) {
         console.error('Error saving task:', error);
         showToast('Error al guardar la tarea.', 'error');
