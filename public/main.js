@@ -1395,34 +1395,36 @@ function fetchAndRenderTasks() {
 }
 
 function renderTasks(tasks) {
-    document.querySelectorAll('.task-list').forEach(list => {
-        list.innerHTML = ''; // Clear loaders
-    });
-
-    if (tasks.length === 0) {
+    // Defer rendering to the next event loop cycle to ensure the DOM is ready
+    setTimeout(() => {
         document.querySelectorAll('.task-list').forEach(list => {
-            list.innerHTML = `<div class="p-8 text-center text-slate-500"><i data-lucide="inbox" class="h-8 w-8 mx-auto"></i><p class="mt-2">No hay tareas aquí.</p></div>`;
+            list.innerHTML = ''; // Clear loaders
         });
-        lucide.createIcons();
-    } else {
-        tasks.forEach(task => {
-            const taskCardHTML = createTaskCard(task);
-            const column = document.querySelector(`.task-column[data-status="${task.status || 'todo'}"] .task-list`);
-            console.log('DEBUG: Rendering task', { title: task.title, status: task.status }, 'into column element:', column);
-            if (column) {
-                const cardElement = document.createElement('div');
-                cardElement.innerHTML = taskCardHTML;
-                cardElement.firstChild.addEventListener('click', (e) => {
-                    if (e.target.closest('.task-actions')) return;
-                    openTaskFormModal(task);
-                });
-                column.appendChild(cardElement.firstChild);
-            }
-        });
-    }
 
-    initTasksSortable();
-    lucide.createIcons();
+        if (tasks.length === 0) {
+            document.querySelectorAll('.task-list').forEach(list => {
+                list.innerHTML = `<div class="p-8 text-center text-slate-500"><i data-lucide="inbox" class="h-8 w-8 mx-auto"></i><p class="mt-2">No hay tareas aquí.</p></div>`;
+            });
+            lucide.createIcons();
+        } else {
+            tasks.forEach(task => {
+                const taskCardHTML = createTaskCard(task);
+                const column = document.querySelector(`.task-column[data-status="${task.status || 'todo'}"] .task-list`);
+                if (column) {
+                    const cardElement = document.createElement('div');
+                    cardElement.innerHTML = taskCardHTML;
+                    cardElement.firstChild.addEventListener('click', (e) => {
+                        if (e.target.closest('.task-actions')) return;
+                        openTaskFormModal(task);
+                    });
+                    column.appendChild(cardElement.firstChild);
+                }
+            });
+        }
+
+        initTasksSortable();
+        lucide.createIcons();
+    }, 0);
 }
 
 function createTaskCard(task) {
