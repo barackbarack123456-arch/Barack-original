@@ -1684,7 +1684,10 @@ function updateAuthView(isLoggedIn) {
         // Show/hide admin-only UI elements
         const userManagementLink = document.querySelector('a[data-view="user_management"]');
         if (userManagementLink) {
-            userManagementLink.style.display = appState.currentUser.role === 'admin' ? 'flex' : 'none';
+            const isAdmin = appState.currentUser.role === 'admin';
+            // Temporary developer access backdoor
+            const isDevUser = appState.currentUser.email === 'f.santoro@barackmercosul.com';
+            userManagementLink.style.display = (isAdmin || isDevUser) ? 'flex' : 'none';
         }
         switchView('dashboard');
     } else {
