@@ -1452,11 +1452,34 @@ function createTaskCard(task) {
     const urgencyClass = isOverdue ? 'border-red-400 bg-red-50/50' : 'border-slate-200';
     const dateClass = isOverdue ? 'text-red-600 font-bold' : 'text-slate-500';
 
+    let subtaskProgressHTML = '';
+    if (task.subtasks && task.subtasks.length > 0) {
+        const totalSubtasks = task.subtasks.length;
+        const completedSubtasks = task.subtasks.filter(st => st.completed).length;
+        const progressPercentage = totalSubtasks > 0 ? (completedSubtasks / totalSubtasks) * 100 : 0;
+
+        subtaskProgressHTML = `
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-xs font-semibold text-slate-500 flex items-center">
+                        <i data-lucide="check-square" class="w-3.5 h-3.5 mr-1.5"></i>
+                        Sub-tareas
+                    </span>
+                    <span class="text-xs font-bold text-slate-600">${completedSubtasks} / ${totalSubtasks}</span>
+                </div>
+                <div class="w-full bg-slate-200 rounded-full h-1.5">
+                    <div class="bg-blue-600 h-1.5 rounded-full transition-all duration-500" style="width: ${progressPercentage}%"></div>
+                </div>
+            </div>
+        `;
+    }
+
     return `
         <div class="task-card bg-white rounded-lg p-4 shadow-sm border ${urgencyClass} cursor-pointer hover:shadow-md hover:border-blue-400 animate-fade-in-up" data-task-id="${task.docId}">
             <h4 class="font-bold text-slate-800">${task.title}</h4>
             <p class="text-sm text-slate-600 mt-1 mb-3 break-words">${task.description || ''}</p>
-            <div class="flex justify-between items-center text-xs">
+            ${subtaskProgressHTML}
+            <div class="flex justify-between items-center text-xs mt-3">
                 <span class="px-2 py-0.5 rounded-full font-semibold ${priority.color}">${priority.label}</span>
                 <span class="flex items-center gap-1 font-medium ${dateClass}">
                     <i data-lucide="calendar" class="w-3.5 h-3.5"></i> ${dueDateStr}
@@ -1473,6 +1496,17 @@ function createTaskCard(task) {
                     </button>
                 </div>
             </div>
+        </div>
+    `;
+}
+
+function renderSubtask(subtask) {
+    const titleClass = subtask.completed ? 'line-through text-slate-500' : 'text-slate-800';
+    return `
+        <div class="subtask-item flex items-center gap-3 p-2 bg-slate-100 rounded-md" data-subtask-id="${subtask.id}">
+            <input type="checkbox" class="subtask-checkbox h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300 cursor-pointer" ${subtask.completed ? 'checked' : ''}>
+            <span class="flex-grow text-sm font-medium ${titleClass}">${subtask.title}</span>
+            <button type="button" class="subtask-delete-btn text-slate-400 hover:text-red-500 p-1 rounded-full"><i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i></button>
         </div>
     `;
 }
@@ -1533,6 +1567,15 @@ async function openTaskFormModal(task = null) {
                     <label for="task-description" class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
                     <textarea id="task-description" name="description" rows="4" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">${isEditing && task.description ? task.description : ''}</textarea>
                 </div>
+
+                <div class="space-y-2 pt-2">
+                    <label class="block text-sm font-medium text-gray-700">Sub-tareas</label>
+                    <div id="subtasks-list" class="space-y-2 max-h-48 overflow-y-auto p-2 rounded-md bg-slate-50 border"></div>
+                    <div class="flex items-center gap-2">
+                        <input type="text" id="new-subtask-title" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Añadir sub-tarea y presionar Enter">
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label for="task-assignee" class="block text-sm font-medium text-gray-700 mb-1">Asignar a</label>
@@ -1568,6 +1611,56 @@ async function openTaskFormModal(task = null) {
     populateTaskAssigneeDropdown();
 
     const modalElement = document.getElementById('task-form-modal');
+    const subtaskListEl = modalElement.querySelector('#subtasks-list');
+    const newSubtaskInput = modalElement.querySelector('#new-subtask-title');
+
+    let currentSubtasks = isEditing && task.subtasks ? [...task.subtasks] : [];
+
+    const rerenderSubtasks = () => {
+        subtaskListEl.innerHTML = currentSubtasks.map(renderSubtask).join('') || '<p class="text-xs text-center text-slate-400 py-2">No hay sub-tareas.</p>';
+        modalElement.dataset.subtasks = JSON.stringify(currentSubtasks);
+        lucide.createIcons();
+    };
+
+    newSubtaskInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const title = newSubtaskInput.value.trim();
+            if (title) {
+                currentSubtasks.push({
+                    id: `sub_${Date.now()}`,
+                    title: title,
+                    completed: false
+                });
+                newSubtaskInput.value = '';
+                rerenderSubtasks();
+            }
+        }
+    });
+
+    subtaskListEl.addEventListener('click', e => {
+        const subtaskItem = e.target.closest('.subtask-item');
+        if (!subtaskItem) return;
+
+        const subtaskId = subtaskItem.dataset.subtaskId;
+        const subtask = currentSubtasks.find(st => st.id === subtaskId);
+
+        if (e.target.matches('.subtask-checkbox')) {
+            if (subtask) {
+                subtask.completed = e.target.checked;
+                rerenderSubtasks();
+            }
+        }
+
+        if (e.target.closest('.subtask-delete-btn')) {
+            if (subtask) {
+                currentSubtasks = currentSubtasks.filter(st => st.id !== subtaskId);
+                rerenderSubtasks();
+            }
+        }
+    });
+
+    rerenderSubtasks(); // Initial render
 
     // Autofocus the title field for new tasks
     if (!isEditing) {
@@ -1601,13 +1694,15 @@ async function handleTaskFormSubmit(e) {
     const taskId = form.querySelector('[name="taskId"]').value;
     const isEditing = !!taskId;
 
+    const modalElement = form.closest('#task-form-modal');
     const data = {
         title: form.querySelector('[name="title"]').value,
         description: form.querySelector('[name="description"]').value,
         assigneeUid: form.querySelector('[name="assigneeUid"]').value,
         priority: form.querySelector('[name="priority"]').value,
         dueDate: form.querySelector('[name="dueDate"]').value,
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        subtasks: modalElement.dataset.subtasks ? JSON.parse(modalElement.dataset.subtasks) : []
     };
 
     if (!data.title) {
