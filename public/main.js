@@ -1408,6 +1408,7 @@ function renderTasks(tasks) {
         tasks.forEach(task => {
             const taskCardHTML = createTaskCard(task);
             const column = document.querySelector(`.task-column[data-status="${task.status || 'todo'}"] .task-list`);
+            console.log('DEBUG: Rendering task', { title: task.title, status: task.status }, 'into column element:', column);
             if (column) {
                 const cardElement = document.createElement('div');
                 cardElement.innerHTML = taskCardHTML;
