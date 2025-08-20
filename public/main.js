@@ -25,6 +25,14 @@ const db = getFirestore(app);
 // --- CONSTANTES Y CONFIGURACIÓN ---
 // =================================================================================
 const LOCK_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutos en milisegundos
+const PREDEFINED_AVATARS = [
+    'https://source.boringavatars.com/marble/120/Maria%20Mitchell?colors=264653,2a9d8f,e9c46a,f4a261,e76f51',
+    'https://source.boringavatars.com/beam/120/Mary%20Jackson?colors=264653,2a9d8f,e9c46a,f4a261,e76f51',
+    'https://source.boringavatars.com/pixel/120/Grace%20Hopper?colors=264653,2a9d8f,e9c46a,f4a261,e76f51',
+    'https://source.boringavatars.com/sunset/120/Hedy%20Lamarr?colors=264653,2a9d8f,e9c46a,f4a261,e76f51',
+    'https://source.boringavatars.com/ring/120/Ada%20Lovelace?colors=264653,2a9d8f,e9c46a,f4a261,e76f51',
+    'https://source.boringavatars.com/bauhaus/120/Katherine%20Johnson?colors=264653,2a9d8f,e9c46a,f4a261,e76f51'
+];
 const COLLECTIONS = {
     PRODUCTOS: 'productos',
     SUBPRODUCTOS: 'subproductos',
@@ -299,6 +307,69 @@ function startRealtimeListeners() {
             });
             appState.unsubscribeListeners.push(unsubscribe);
         });
+    });
+}
+
+function openAvatarSelectionModal() {
+    const modalId = 'avatar-selection-modal';
+    let avatarsHTML = '';
+    PREDEFINED_AVATARS.forEach(avatarUrl => {
+        avatarsHTML += `
+            <button data-avatar-url="${avatarUrl}" class="rounded-full overflow-hidden border-2 border-transparent hover:border-blue-500 focus:border-blue-500 transition-all duration-200 w-24 h-24">
+                <img src="${avatarUrl}" alt="Avatar" class="w-full h-full object-cover">
+            </button>
+        `;
+    });
+
+    const modalHTML = `
+        <div id="${modalId}" class="fixed inset-0 z-[60] flex items-center justify-center modal-backdrop animate-fade-in">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl m-4 modal-content">
+                <div class="flex justify-between items-center p-5 border-b">
+                    <h3 class="text-xl font-bold">Seleccionar un Avatar</h3>
+                    <button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button>
+                </div>
+                <div class="p-6">
+                    <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
+                        ${avatarsHTML}
+                    </div>
+                </div>
+                 <div class="flex justify-end items-center p-4 border-t bg-gray-50">
+                    <button data-action="close" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    dom.modalContainer.insertAdjacentHTML('beforeend', modalHTML);
+    lucide.createIcons();
+
+    const modalElement = document.getElementById(modalId);
+    modalElement.addEventListener('click', async (e) => {
+        const button = e.target.closest('button');
+        if (!button) return;
+
+        const action = button.dataset.action;
+        const avatarUrl = button.dataset.avatarUrl;
+
+        if (action === 'close') {
+            modalElement.remove();
+        } else if (avatarUrl) {
+            // This is a simplified version of handleProfileUpdate
+            const user = auth.currentUser;
+            const userDocRef = doc(db, COLLECTIONS.USUARIOS, user.uid);
+            try {
+                await updateProfile(user, { photoURL: avatarUrl });
+                await updateDoc(userDocRef, { photoURL: avatarUrl });
+                appState.currentUser.avatarUrl = avatarUrl;
+                showToast('Avatar actualizado con éxito.', 'success');
+                renderUserMenu();
+                runProfileLogic();
+                modalElement.remove();
+            } catch (error) {
+                console.error("Error updating avatar:", error);
+                showToast("Error al actualizar el avatar.", "error");
+            }
+        }
     });
 }
 
@@ -4509,9 +4580,7 @@ function runProfileLogic() {
     document.getElementById('edit-name-btn').addEventListener('click', () => {
         document.getElementById('profile-name').focus();
     });
-    document.getElementById('change-avatar-btn').addEventListener('click', () => {
-        document.getElementById('profile-avatar').focus();
-    });
+    document.getElementById('change-avatar-btn').addEventListener('click', openAvatarSelectionModal);
 }
 
 async function handleProfileUpdate(e) {
