@@ -1804,6 +1804,50 @@ async function logOutUser() {
     }
 }
 
+async function createMissingUserDocs() {
+    const usersToCreate = [
+        { uid: 'DSERrTtwUjWhfyXOV3Uk3eFstKf2', email: 'jules.test@barackmercosul.com', name: 'Jules Test' },
+        { uid: '1M83JazE90Q2fjtocyrgF8j0ufN2', email: 'testuser98765@barackmercosul.com', name: 'Test User' },
+        { uid: '7M6XuPSQf0UHUvet5KnEISxiYBT2', email: 'llattanzi@barackmercosul.com', name: 'L. Lattanzi' },
+        { uid: 'NIFudxxXnea8HqFzeMpxY0kma5b2', email: 'f.santoro@barackmercosul.com', name: 'F. Santoro' }
+    ];
+
+    showToast(`Iniciando sincronización de ${usersToCreate.length} usuarios...`, 'info', 5000);
+    const batch = writeBatch(db);
+    let createdCount = 0;
+
+    for (const user of usersToCreate) {
+        const userDocRef = doc(db, COLLECTIONS.USUARIOS, user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+
+        if (!userDocSnap.exists()) {
+            batch.set(userDocRef, {
+                name: user.name,
+                email: user.email,
+                role: 'lector', // Default role for new users
+                sector: 'Sin Asignar', // Default sector
+                createdAt: new Date()
+            });
+            createdCount++;
+        }
+    }
+
+    if (createdCount > 0) {
+        try {
+            await batch.commit();
+            showToast(`¡Éxito! Se crearon ${createdCount} nuevos perfiles de usuario.`, 'success', 5000);
+            console.log(`Successfully created ${createdCount} new user documents.`);
+        } catch (error) {
+            console.error("Error creating user documents in batch: ", error);
+            showToast('Error al crear los perfiles de usuario.', 'error');
+        }
+    } else {
+        showToast('No se encontraron nuevos usuarios para sincronizar. Todos los perfiles ya existen.', 'info', 5000);
+        console.log('No new users to create. All documents already exist.');
+    }
+}
+window.createMissingUserDocs = createMissingUserDocs;
+
 document.addEventListener('DOMContentLoaded', () => {
     initializeAppListeners();
     lucide.createIcons();
