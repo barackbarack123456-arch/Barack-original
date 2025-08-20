@@ -1328,8 +1328,19 @@ function runAdminDashboard() {
 
             <!-- Timeline Section -->
             <div class="bg-white p-6 rounded-xl shadow-lg">
-                <h3 class="text-lg font-bold text-slate-800 mb-4">Línea de Tiempo de Tareas con Vencimiento</h3>
-                <div id="tasks-timeline-container" class="h-96"></div>
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold text-slate-800">Línea de Tiempo de Tareas con Vencimiento</h3>
+                    <div class="relative" id="timeline-controls">
+                        <button id="timeline-filter-btn" class="flex items-center gap-2 bg-white border border-slate-300 px-4 py-2 rounded-md text-sm font-semibold hover:bg-slate-100 shadow-sm">
+                            <i data-lucide="users" class="w-4 h-4"></i>
+                            <span>Filtrar Asignados</span>
+                        </button>
+                        <div id="timeline-filter-dropdown" class="absolute z-10 right-0 mt-2 w-72 bg-white border rounded-lg shadow-xl hidden p-4 space-y-3">
+                            <!-- Dropdown content will be generated here -->
+                        </div>
+                    </div>
+                </div>
+                <div id="tasks-timeline-container"></div>
             </div>
 
             <!-- Section for Table and Filters -->
@@ -1489,8 +1500,43 @@ let adminTaskViewState = {
     pagination: {
         currentPage: 1,
         pageSize: 10
-    }
+    },
+    timelineVisibleGroups: null, // null means all are visible
 };
+
+function renderTimelineFilterDropdown() {
+    const dropdown = document.getElementById('timeline-filter-dropdown');
+    if (!dropdown) return;
+
+    const users = appState.collections.usuarios || [];
+    let content = `<div class="flex justify-between items-center border-b pb-2 mb-2">
+        <h4 class="font-bold">Asignados</h4>
+        <div>
+            <button data-action="timeline-filter-all" class="text-xs font-semibold text-blue-600 hover:underline">Todos</button> |
+            <button data-action="timeline-filter-none" class="text-xs font-semibold text-blue-600 hover:underline">Ninguno</button>
+        </div>
+    </div>`;
+
+    content += '<div class="max-h-60 overflow-y-auto custom-scrollbar pr-2">';
+    const isVisible = (userId) => adminTaskViewState.timelineVisibleGroups === null || adminTaskViewState.timelineVisibleGroups.has(userId);
+
+    users.forEach(user => {
+        content += `<label class="flex items-center gap-3 p-1.5 hover:bg-slate-100 rounded-md cursor-pointer">
+            <input type="checkbox" data-userid="${user.docId}" class="timeline-group-filter-cb" ${isVisible(user.docId) ? 'checked' : ''}>
+            <img src="${user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email)}&background=random`}" class="w-6 h-6 rounded-full">
+            <span class="text-sm">${user.name || user.email}</span>
+        </label>`;
+    });
+     content += `<label class="flex items-center gap-3 p-1.5 hover:bg-slate-100 rounded-md cursor-pointer">
+        <input type="checkbox" data-userid="unassigned" class="timeline-group-filter-cb" ${isVisible('unassigned') ? 'checked' : ''}>
+        <div class="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center"><i data-lucide="user-x" class="w-4 h-4 text-slate-500"></i></div>
+        <span class="text-sm">Sin Asignar</span>
+    </label>`;
+    content += '</div>';
+
+    dropdown.innerHTML = content;
+    lucide.createIcons();
+}
 
 function setupAdminTaskViewListeners() {
     const controls = {
@@ -1500,19 +1546,21 @@ function setupAdminTaskViewListeners() {
         status: document.getElementById('admin-task-status-filter'),
         addNew: document.getElementById('add-new-task-admin-btn'),
         tableContainer: document.getElementById('task-data-table-container'),
+        timelineFilterBtn: document.getElementById('timeline-filter-btn'),
+        timelineFilterDropdown: document.getElementById('timeline-filter-dropdown'),
     };
 
     if (!controls.search) return;
 
-    const rerender = () => {
+    const rerenderTable = () => {
         adminTaskViewState.pagination.currentPage = 1;
         renderFilteredAdminTaskTable();
     };
 
-    controls.search.addEventListener('input', (e) => { adminTaskViewState.filters.searchTerm = e.target.value.toLowerCase(); rerender(); });
-    controls.user.addEventListener('change', (e) => { adminTaskViewState.filters.user = e.target.value; rerender(); });
-    controls.priority.addEventListener('change', (e) => { adminTaskViewState.filters.priority = e.target.value; rerender(); });
-    controls.status.addEventListener('change', (e) => { adminTaskViewState.filters.status = e.target.value; rerender(); });
+    controls.search.addEventListener('input', (e) => { adminTaskViewState.filters.searchTerm = e.target.value.toLowerCase(); rerenderTable(); });
+    controls.user.addEventListener('change', (e) => { adminTaskViewState.filters.user = e.target.value; rerenderTable(); });
+    controls.priority.addEventListener('change', (e) => { adminTaskViewState.filters.priority = e.target.value; rerenderTable(); });
+    controls.status.addEventListener('change', (e) => { adminTaskViewState.filters.status = e.target.value; rerenderTable(); });
     controls.addNew.addEventListener('click', () => openTaskFormModal(null, 'todo'));
 
     controls.tableContainer.addEventListener('click', (e) => {
@@ -1525,7 +1573,7 @@ function setupAdminTaskViewListeners() {
                 adminTaskViewState.sort.by = sortBy;
                 adminTaskViewState.sort.order = 'asc';
             }
-            rerender();
+            rerenderTable();
             return;
         }
 
@@ -1549,10 +1597,49 @@ function setupAdminTaskViewListeners() {
         }
     });
 
+    if (controls.timelineFilterBtn) {
+        renderTimelineFilterDropdown();
+
+        controls.timelineFilterBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            controls.timelineFilterDropdown.classList.toggle('hidden');
+        });
+
+        controls.timelineFilterDropdown.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const target = e.target;
+
+            if (target.matches('[data-action="timeline-filter-all"]')) {
+                adminTaskViewState.timelineVisibleGroups = null;
+            } else if (target.matches('[data-action="timeline-filter-none"]')) {
+                adminTaskViewState.timelineVisibleGroups = new Set();
+            } else if (target.matches('.timeline-group-filter-cb')) {
+                if (adminTaskViewState.timelineVisibleGroups === null) {
+                    const allUserIds = (appState.collections.usuarios || []).map(u => u.docId);
+                    adminTaskViewState.timelineVisibleGroups = new Set([...allUserIds, 'unassigned']);
+                }
+                const userId = target.dataset.userid;
+                if (target.checked) {
+                    adminTaskViewState.timelineVisibleGroups.add(userId);
+                } else {
+                    adminTaskViewState.timelineVisibleGroups.delete(userId);
+                }
+            }
+
+            renderTimelineFilterDropdown();
+            renderTasksTimeline(adminTaskViewState.tasks);
+        });
+    }
+
     const users = appState.collections.usuarios || [];
     controls.user.innerHTML = '<option value="all">Todos los usuarios</option>' + users.map(u => `<option value="${u.docId}">${u.name || u.email}</option>`).join('');
-}
 
+    document.addEventListener('click', (e) => {
+        if (controls.timelineFilterBtn && !controls.timelineFilterBtn.contains(e.target) && !controls.timelineFilterDropdown.contains(e.target)) {
+            controls.timelineFilterDropdown.classList.add('hidden');
+        }
+    });
+}
 
 function renderFilteredAdminTaskTable() {
     let filteredTasks = [...adminTaskViewState.tasks];
@@ -1655,35 +1742,66 @@ function renderTasksTimeline(tasks) {
     if (!container) return;
 
     try {
+        const visibleGroups = adminTaskViewState.timelineVisibleGroups;
+        const isGroupVisible = (groupId) => visibleGroups === null || visibleGroups.has(groupId);
+
+        // 1. Create groups from users, but only for visible groups
+        const groups = new vis.DataSet();
+        if (isGroupVisible('unassigned')) {
+            groups.add({ id: 'unassigned', content: 'Sin Asignar' });
+        }
+        (appState.collections.usuarios || []).forEach(user => {
+            if (isGroupVisible(user.docId)) {
+                groups.add({
+                    id: user.docId,
+                    content: user.name || user.email
+                });
+            }
+        });
+
+        // 2. Map tasks to items with group property and enhanced content
         const items = new vis.DataSet(
             tasks
-                .filter(task => task.dueDate) // Solo tareas con fecha de vencimiento
+                .filter(task => task.dueDate && isGroupVisible(task.assigneeUid || 'unassigned'))
                 .map(task => {
+                    const priority = task.priority || 'medium';
+                    const priorityColors = { high: '#ef4444', medium: '#f59e0b', low: '#64748b' }; // red-500, amber-500, slate-500
+
+                    const itemContent = `
+                        <div style="display: flex; align-items: center; gap: 5px;">
+                            <div style="width: 4px; height: 16px; background-color: ${priorityColors[priority]}; border-radius: 2px; flex-shrink: 0;"></div>
+                            <div>${task.title}</div>
+                        </div>
+                    `;
+
                     return {
                         id: task.docId,
-                        content: task.title,
+                        content: itemContent,
                         start: task.dueDate,
-                        type: 'point',
-                         className: `priority-${task.priority || 'medium'}`
+                        type: 'box',
+                        group: task.assigneeUid || 'unassigned',
+                        className: `priority-${priority}`
                     };
                 })
         );
 
         if (items.length === 0) {
-            container.innerHTML = `<div class="flex items-center justify-center h-full text-slate-500"><i data-lucide="calendar-x" class="w-8 h-8 mr-2"></i> No hay tareas con fecha de vencimiento para mostrar.</div>`;
+            container.innerHTML = `<div class="flex items-center justify-center h-full text-slate-500 p-8"><i data-lucide="calendar-x" class="w-8 h-8 mr-2"></i> No hay tareas con fecha de vencimiento para mostrar.</div>`;
             lucide.createIcons();
             return;
         }
 
         const options = {
             locale: 'es',
-            height: '100%',
+            stack: true,
+            maxHeight: '500px',
             showCurrentTime: true,
             zoomMin: 1000 * 60 * 60 * 24, // Un día
             zoomMax: 1000 * 60 * 60 * 24 * 30 * 6 // 6 meses
         };
 
-        const timeline = new vis.Timeline(container, items, options);
+        // 3. Initialize timeline with items and groups
+        const timeline = new vis.Timeline(container, items, groups, options);
 
         timeline.on('select', (properties) => {
             const selectedTaskId = properties.items[0];
@@ -1696,7 +1814,7 @@ function renderTasksTimeline(tasks) {
         });
     } catch (error) {
         console.error("Error rendering timeline:", error);
-        container.innerHTML = `<div class="text-red-500">Error al renderizar la línea de tiempo.</div>`;
+        container.innerHTML = `<div class="text-red-500 p-4">Error al renderizar la línea de tiempo.</div>`;
     }
 }
 
