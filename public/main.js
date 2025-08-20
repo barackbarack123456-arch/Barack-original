@@ -26,12 +26,12 @@ const db = getFirestore(app);
 // =================================================================================
 const LOCK_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutos en milisegundos
 const PREDEFINED_AVATARS = [
-    'https://source.boringavatars.com/marble/120/Maria%20Mitchell?colors=264653,2a9d8f,e9c46a,f4a261,e76f51',
-    'https://source.boringavatars.com/beam/120/Mary%20Jackson?colors=264653,2a9d8f,e9c46a,f4a261,e76f51',
-    'https://source.boringavatars.com/pixel/120/Grace%20Hopper?colors=264653,2a9d8f,e9c46a,f4a261,e76f51',
-    'https://source.boringavatars.com/sunset/120/Hedy%20Lamarr?colors=264653,2a9d8f,e9c46a,f4a261,e76f51',
-    'https://source.boringavatars.com/ring/120/Ada%20Lovelace?colors=264653,2a9d8f,e9c46a,f4a261,e76f51',
-    'https://source.boringavatars.com/bauhaus/120/Katherine%20Johnson?colors=264653,2a9d8f,e9c46a,f4a261,e76f51'
+    'https://ui-avatars.com/api/?name=Maria%20Mitchell&background=random&size=120',
+    'https://ui-avatars.com/api/?name=Mary%20Jackson&background=random&size=120',
+    'https://ui-avatars.com/api/?name=Grace%20Hopper&background=random&size=120',
+    'https://ui-avatars.com/api/?name=Hedy%20Lamarr&background=random&size=120',
+    'https://ui-avatars.com/api/?name=Ada%20Lovelace&background=random&size=120',
+    'https://ui-avatars.com/api/?name=Katherine%20Johnson&background=random&size=120'
 ];
 const COLLECTIONS = {
     PRODUCTOS: 'productos',
