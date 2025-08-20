@@ -240,37 +240,65 @@ async function waitForUsers() {
 // =================================================================================
 
 function startRealtimeListeners() {
-    const collectionNames = Object.keys(appState.collections);
-    collectionNames.forEach(name => {
-        const q = query(collection(db, name));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const data = [];
-            const dataMap = new Map();
-            querySnapshot.forEach((doc) => {
-                const item = { ...doc.data(), docId: doc.id };
-                data.push(item);
-                if (name === COLLECTIONS.USUARIOS) {
-                    // Los usuarios se identifican por su UID (doc.id), no por un campo 'id'
-                    dataMap.set(doc.id, item);
-                } else if(item.id) {
-                    dataMap.set(item.id, item);
-                }
-            });
-            appState.collections[name] = data;
-            if(appState.collectionsById[name]) appState.collectionsById[name] = dataMap;
-            
-            // If the users collection was updated, try to populate the task modal dropdown
-            if (name === COLLECTIONS.USUARIOS) {
-                populateTaskAssigneeDropdown();
-            }
+    appState.isAppInitialized = false;
+    return new Promise((resolve, reject) => {
+        // Essential collections needed for the first paint (dashboard)
+        const essentialCollections = new Set([
+            COLLECTIONS.PRODUCTOS,
+            COLLECTIONS.INSUMOS,
+            COLLECTIONS.CLIENTES,
+            COLLECTIONS.USUARIOS
+        ]);
 
-            if (appState.currentView === 'dashboard') runDashboardLogic();
-            if (appState.currentView === 'sinoptico' && appState.sinopticoState) initSinoptico();
-        }, (error) => {
-            console.error(`Error listening to ${name} collection:`, error);
-            showToast(`Error al cargar datos de ${name}.`, 'error');
+        if (appState.unsubscribeListeners.length > 0) {
+            stopRealtimeListeners();
+        }
+
+        const collectionNames = Object.keys(appState.collections);
+        let loadedCount = 0;
+
+        collectionNames.forEach(name => {
+            const q = query(collection(db, name));
+            const unsubscribe = onSnapshot(q, (querySnapshot) => {
+                const data = [];
+                const dataMap = new Map();
+                querySnapshot.forEach((doc) => {
+                    const item = { ...doc.data(), docId: doc.id };
+                    data.push(item);
+                    if (name === COLLECTIONS.USUARIOS) {
+                        dataMap.set(doc.id, item);
+                    } else if(item.id) {
+                        dataMap.set(item.id, item);
+                    }
+                });
+                appState.collections[name] = data;
+                if(appState.collectionsById[name]) appState.collectionsById[name] = dataMap;
+
+                // Check if the initial load is complete
+                if (essentialCollections.has(name)) {
+                    essentialCollections.delete(name);
+                    if (essentialCollections.size === 0 && !appState.isAppInitialized) {
+                        console.log("Essential data loaded.");
+                        appState.isAppInitialized = true;
+                        resolve();
+                    }
+                }
+
+                // After initial load, these can run on subsequent updates
+                if (appState.isAppInitialized) {
+                    if (name === COLLECTIONS.USUARIOS) populateTaskAssigneeDropdown();
+                    if (appState.currentView === 'dashboard') runDashboardLogic();
+                    if (appState.currentView === 'sinoptico' && appState.sinopticoState) initSinoptico();
+                }
+
+            }, (error) => {
+                console.error(`Error listening to ${name} collection:`, error);
+                showToast(`Error al cargar datos de ${name}.`, 'error');
+                // Reject the promise if a critical listener fails
+                reject(error);
+            });
+            appState.unsubscribeListeners.push(unsubscribe);
         });
-        appState.unsubscribeListeners.push(unsubscribe);
     });
 }
 
@@ -480,7 +508,12 @@ function setupGlobalEventListeners() {
     });
     
     dom.viewContent.addEventListener('click', handleViewContentActions);
-    dom.authContainer.addEventListener('submit', handleAuthForms);
+
+    // Attach listeners directly to forms for more reliable submission
+    document.getElementById('login-form')?.addEventListener('submit', handleAuthForms);
+    document.getElementById('register-form')?.addEventListener('submit', handleAuthForms);
+    document.getElementById('reset-form')?.addEventListener('submit', handleAuthForms);
+
     document.addEventListener('click', handleGlobalClick);
 }
 
@@ -2516,43 +2549,59 @@ function populateTaskAssigneeDropdown() {
 
 
 onAuthStateChanged(auth, async (user) => {
-    dom.loadingOverlay.style.display = 'none';
     if (user) {
         if (user.emailVerified) {
-            const isNewLogin = !appState.currentUser;
+            const wasAlreadyLoggedIn = !!appState.currentUser;
 
-            // --- Fetch user role ---
+            // Show loading overlay with appropriate message
+            const loadingText = dom.loadingOverlay.querySelector('p');
+            loadingText.textContent = wasAlreadyLoggedIn ? 'Recargando datos...' : 'Verificación exitosa, cargando datos...';
+            dom.loadingOverlay.style.display = 'flex';
+
+            // Fetch user profile
             const userDocRef = doc(db, COLLECTIONS.USUARIOS, user.uid);
             const userDocSnap = await getDoc(userDocRef);
-            let userRole = 'lector'; // Default role
-            if (userDocSnap.exists()) {
-                userRole = userDocSnap.data().role || 'lector';
-            }
-            // --- End fetch user role ---
 
             appState.currentUser = {
                 uid: user.uid,
                 name: user.displayName || user.email.split('@')[0],
                 email: user.email,
-                avatarUrl: user.photoURL || `https://placehold.co/40x40/1e40af/ffffff?text=${(user.displayName || user.email).charAt(0).toUpperCase()}`,
-                role: userRole
+                avatarUrl: user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || user.email)}&background=random`,
+                role: userDocSnap.exists() ? userDocSnap.data().role || 'lector' : 'lector'
             };
 
-            await seedDefaultSectors(); // Ensure default data exists
+            await seedDefaultSectors();
 
-            updateAuthView(true);
-            if (isNewLogin) {
+            // Show app shell behind overlay
+            dom.authContainer.classList.add('hidden');
+            dom.appView.classList.remove('hidden');
+            renderUserMenu();
+
+            // Wait for essential data to load
+            await startRealtimeListeners();
+
+            // Hide overlay and render the initial view
+            switchView('dashboard');
+            dom.loadingOverlay.style.display = 'none';
+
+            if (!wasAlreadyLoggedIn) {
                 showToast(`¡Bienvenido de nuevo, ${appState.currentUser.name}!`, 'success');
             }
         } else {
+            dom.loadingOverlay.style.display = 'none';
             showToast('Por favor, verifica tu correo electrónico para continuar.', 'info');
-            updateAuthView(false);
             showAuthScreen('verify-email');
         }
     } else {
+        dom.loadingOverlay.style.display = 'none';
         const wasLoggedIn = !!appState.currentUser;
+
+        stopRealtimeListeners();
         appState.currentUser = null;
-        updateAuthView(false);
+        dom.authContainer.classList.remove('hidden');
+        dom.appView.classList.add('hidden');
+        showAuthScreen('login');
+
         if (wasLoggedIn) {
             showToast(`Sesión cerrada.`, 'info');
         }
@@ -2560,26 +2609,15 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 function updateAuthView(isLoggedIn) {
-    if (isLoggedIn) {
-        dom.authContainer.classList.add('hidden');
-        dom.appView.classList.remove('hidden');
-        renderUserMenu();
-        if (appState.unsubscribeListeners.length === 0) {
-             startRealtimeListeners();
-        }
-        // Show/hide admin-only UI elements
-        const userManagementLink = document.querySelector('a[data-view="user_management"]');
-        if (userManagementLink) {
-            userManagementLink.style.display = appState.currentUser.role === 'admin' ? 'flex' : 'none';
-        }
-        switchView('dashboard');
-    } else {
+    // This function is now only used for logout and unverified email scenarios.
+    if (!isLoggedIn) {
         stopRealtimeListeners();
         dom.authContainer.classList.remove('hidden');
         dom.appView.classList.add('hidden');
         appState.currentUser = null;
         showAuthScreen('login');
     }
+    // The logged-in logic is now handled directly in onAuthStateChanged
 }
 
 function renderUserMenu() {
@@ -2614,6 +2652,13 @@ async function handleAuthForms(e) {
     const email = e.target.querySelector('input[type="email"]').value;
     const passwordInput = e.target.querySelector('input[type="password"]');
     const password = passwordInput ? passwordInput.value : null;
+
+    const submitButton = e.target.querySelector('button[type="submit"]');
+    const originalButtonHTML = submitButton.innerHTML;
+    submitButton.disabled = true;
+    submitButton.innerHTML = `<i data-lucide="loader" class="animate-spin h-5 w-5 mx-auto"></i>`;
+    lucide.createIcons();
+
     try {
         if (formId === 'login-form') {
             await signInWithEmailAndPassword(auth, email, password);
@@ -2622,6 +2667,8 @@ async function handleAuthForms(e) {
             const name = e.target.querySelector('#register-name').value;
             if (!email.toLowerCase().endsWith('@barackmercosul.com')) {
                 showToast('Dominio no autorizado. Use un correo de @barackmercosul.com.', 'error');
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalButtonHTML;
                 return;
             }
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -2665,6 +2712,8 @@ async function handleAuthForms(e) {
                 friendlyMessage = 'Error de autenticación. Intente de nuevo.';
         }
         showToast(friendlyMessage, 'error');
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalButtonHTML;
     }
 }
 
