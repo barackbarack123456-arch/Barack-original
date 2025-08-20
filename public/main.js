@@ -1422,7 +1422,7 @@ function renderTasks(tasks) {
             });
         }
 
-        initTasksSortable();
+        // initTasksSortable(); // Temporarily disabled for debugging
         lucide.createIcons();
     }, 0);
 }
