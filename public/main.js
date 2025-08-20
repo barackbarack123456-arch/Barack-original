@@ -1408,9 +1408,28 @@ function initTasksSortable() {
 }
 
 async function openTaskFormModal(task = null) {
+    // Fix for race condition: check if user data is loaded.
+    if (!appState.collections.usuarios || appState.collections.usuarios.length === 0) {
+        showToast('La lista de usuarios aún se está cargando. Por favor, intente de nuevo en un momento.', 'info');
+        return;
+    }
+
     const isEditing = task !== null;
     const users = appState.collections.usuarios || [];
-    const userOptions = users.map(u => `<option value="${u.docId}" ${isEditing && task.assigneeUid === u.docId ? 'selected' : ''}>${u.name || u.email}</option>`).join('');
+
+    // UX Improvement: Set default assignee based on context.
+    let selectedUid = '';
+    if (isEditing && task.assigneeUid) {
+        selectedUid = task.assigneeUid;
+    } else if (!isEditing && taskState.activeFilter === 'personal') {
+        selectedUid = appState.currentUser.uid;
+    }
+
+    const userOptions = users.map(u => {
+        // Robust display name fallback for older user documents.
+        const displayName = u.name || u.email.split('@')[0];
+        return `<option value="${u.docId}" ${u.docId === selectedUid ? 'selected' : ''}>${displayName}</option>`;
+    }).join('');
 
     const modalHTML = `
     <div id="task-form-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop animate-fade-in">
@@ -1463,8 +1482,8 @@ async function openTaskFormModal(task = null) {
     lucide.createIcons();
 
     // Set assignee value after innerHTML is set
-    if (isEditing && task.assigneeUid) {
-        document.getElementById('task-assignee').value = task.assigneeUid;
+    if (selectedUid) {
+        document.getElementById('task-assignee').value = selectedUid;
     }
 
     const modalElement = document.getElementById('task-form-modal');
@@ -1639,6 +1658,7 @@ async function handleAuthForms(e) {
 
             // Crear documento de usuario en Firestore
             await setDoc(doc(db, COLLECTIONS.USUARIOS, userCredential.user.uid), {
+                name: name,
                 email: userCredential.user.email,
                 role: 'lector',
                 createdAt: new Date()
