@@ -139,6 +139,29 @@ const viewConfig = {
             { key: 'id', label: 'Código', type: 'text', required: true }, 
             { key: 'descripcion', label: 'Descripción', type: 'text', required: true } 
         ]
+    },
+    user_management: {
+        title: 'Gestión de Usuarios',
+        singular: 'Usuario',
+        dataKey: COLLECTIONS.USUARIOS,
+        columns: [
+            { key: 'name', label: 'Nombre' },
+            { key: 'email', label: 'Correo' },
+            { key: 'role', label: 'Rol' },
+            { key: 'sector', label: 'Sector' }
+        ],
+        fields: [
+            { key: 'name', label: 'Nombre', type: 'text', readonly: true },
+            { key: 'email', label: 'Correo', type: 'text', readonly: true },
+            { key: 'role', label: 'Rol', type: 'select', options: ['admin', 'editor', 'lector'], required: true },
+            {
+                key: 'sector',
+                label: 'Sector',
+                type: 'select',
+                searchKey: COLLECTIONS.SECTORES, // Use searchKey to indicate where to get options
+                required: true
+            }
+        ]
     }
 };
 
@@ -192,6 +215,25 @@ const dom = {
     viewContent: document.getElementById('view-content'),
     userMenuContainer: document.getElementById('user-menu-container'),
 };
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function waitForUsers() {
+    let retries = 0;
+    const maxRetries = 10; // Wait for a maximum of 20 seconds
+    while ((!appState.collections.usuarios || appState.collections.usuarios.length === 0) && retries < maxRetries) {
+        showToast('Cargando lista de usuarios...', 'info', 1800);
+        await sleep(2000);
+        retries++;
+    }
+    if (retries >= maxRetries) {
+        showToast('No se pudo cargar la lista de usuarios. Por favor, recargue la página.', 'error');
+        return false;
+    }
+    return true;
+}
 
 // =================================================================================
 // --- 3. LÓGICA DE DATOS (FIRESTORE) ---
@@ -851,18 +893,38 @@ function handleExport(type) {
 async function openFormModal(item = null) {
     const config = viewConfig[appState.currentView];
     const isEditing = item !== null;
-    // El sistema de bloqueo ha sido eliminado.
     const modalId = `form-modal-${Date.now()}`;
     
     let fieldsHTML = '';
     config.fields.forEach(field => {
-        const isReadonly = isEditing && field.key === 'id';
+        const isReadonly = (isEditing && field.key === 'id') || field.readonly;
         let inputHTML = '';
         const commonClasses = 'block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm';
         const readonlyClasses = isReadonly ? 'bg-gray-100 cursor-not-allowed' : '';
         const value = item ? (item[field.key] || '') : '';
         
-        if (field.type === 'search-select') {
+        if (field.type === 'select') {
+            let optionsHTML = '';
+            const options = field.searchKey ? appState.collections[field.searchKey] : field.options;
+
+            if (field.searchKey) {
+                options.forEach(opt => {
+                    optionsHTML += `<option value="${opt.id}">${opt.descripcion}</option>`;
+                });
+            } else { // Simple array of options
+                options.forEach(opt => {
+                    optionsHTML += `<option value="${opt.toLowerCase()}">${opt}</option>`;
+                });
+            }
+            inputHTML = `<select id="${field.key}" name="${field.key}" class="${commonClasses} ${readonlyClasses}" ${isReadonly ? 'disabled' : ''} ${field.required ? 'required' : ''}>${optionsHTML}</select>`;
+
+            // Set the selected value after the modal is in the DOM
+            setTimeout(() => {
+                const select = document.getElementById(field.key);
+                if (select) select.value = value;
+            }, 0);
+
+        } else if (field.type === 'search-select') {
             let selectedItemName = 'Ninguno seleccionado';
             if (isEditing && value) {
                 const sourceDB = appState.collections[field.searchKey];
@@ -875,17 +937,18 @@ async function openFormModal(item = null) {
                 <button type="button" data-action="open-search-modal" data-search-key="${field.searchKey}" data-field-key="${field.key}" class="bg-blue-500 text-white px-3 py-2 rounded-md hover:bg-blue-600"><i data-lucide="search" class="h-5 w-5"></i></button>
             </div>`;
         } else if (field.type === 'textarea') {
-            inputHTML = `<textarea id="${field.key}" name="${field.key}" rows="3" class="${commonClasses}" ${field.required ? 'required' : ''}>${value}</textarea>`;
+            inputHTML = `<textarea id="${field.key}" name="${field.key}" rows="3" class="${commonClasses} ${readonlyClasses}" ${field.required ? 'required' : ''} ${isReadonly ? 'readonly' : ''}>${value}</textarea>`;
         } else {
             inputHTML = `<input type="${field.type}" id="${field.key}" name="${field.key}" value="${value}" class="${commonClasses} ${readonlyClasses}" ${field.required ? 'required' : ''} ${isReadonly ? 'readonly' : ''}>`;
         }
         
-        fieldsHTML += `<div class="${field.type === 'textarea' || field.type === 'search-select' || field.key === 'id' ? 'md:col-span-2' : ''}">
+        fieldsHTML += `<div class="${field.type === 'textarea' || field.type === 'search-select' || field.key === 'id' || field.type === 'select' ? 'md:col-span-2' : ''}">
             <label for="${field.key}" class="block text-sm font-medium text-gray-700 mb-1">${field.label}</label>
             ${inputHTML}
             <p id="error-${field.key}" class="text-xs text-red-600 mt-1 h-4"></p>
         </div>`;
     });
+
     const modalHTML = `<div id="${modalId}" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop animate-fade-in"><div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col m-4 modal-content"><div class="flex justify-between items-center p-5 border-b"><h3 class="text-xl font-bold">${isEditing ? 'Editar' : 'Agregar'} ${config.singular}</h3><button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button></div><form id="data-form" class="p-6 overflow-y-auto" novalidate><input type="hidden" name="edit-doc-id" value="${isEditing ? item.docId : ''}"><div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">${fieldsHTML}</div></form><div class="flex justify-end items-center p-4 border-t bg-gray-50 space-x-3"><button data-action="close" type="button" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button><button type="submit" form="data-form" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-semibold">Guardar</button></div></div></div>`;
     
     dom.modalContainer.innerHTML = modalHTML;
@@ -905,7 +968,6 @@ async function openFormModal(item = null) {
         if (!button) return;
         const action = button.dataset.action;
         if (action === 'close') {
-            // Ya no es necesario liberar el lock.
             modalElement.remove();
         }
         else if (action === 'open-search-modal') {
@@ -1191,7 +1253,7 @@ async function guardarEstructura(button) {
 
 let taskState = {
     activeFilter: 'engineering', // 'engineering', 'personal', 'all'
-    unsubscribe: null
+    unsubscribers: []
 };
 
 function runTasksLogic() {
@@ -1230,10 +1292,8 @@ function runTasksLogic() {
 
     // 4. Cleanup logic
     appState.currentViewCleanup = () => {
-        if (taskState.unsubscribe) {
-            taskState.unsubscribe();
-            taskState.unsubscribe = null;
-        }
+        taskState.unsubscribers.forEach(unsub => unsub());
+        taskState.unsubscribers = [];
     };
 }
 
@@ -1265,52 +1325,59 @@ function renderTaskFilters() {
     `).join('');
 }
 
-async function fetchAndRenderTasks() {
-     if (taskState.unsubscribe) {
-        taskState.unsubscribe();
-        taskState.unsubscribe = null;
-    }
+function fetchAndRenderTasks() {
+    // Clear previous listeners
+    taskState.unsubscribers.forEach(unsub => unsub());
+    taskState.unsubscribers = [];
 
     const tasksRef = collection(db, COLLECTIONS.TAREAS);
     const user = appState.currentUser;
-    let tasks = [];
 
-    // Clear board before fetching
+    // Clear board before fetching and show loading indicator
     document.querySelectorAll('.task-list').forEach(list => list.innerHTML = `<div class="p-8 text-center text-slate-500"><i data-lucide="loader" class="h-8 w-8 animate-spin mx-auto"></i><p class="mt-2">Cargando tareas...</p></div>`);
     lucide.createIcons();
 
-    try {
-        if (taskState.activeFilter === 'personal') {
-            const assignedQuery = query(tasksRef, where('assigneeUid', '==', user.uid));
-            const createdQuery = query(tasksRef, where('creatorUid', '==', user.uid));
-
-            const [assignedSnap, createdSnap] = await Promise.all([getDocs(assignedQuery), getDocs(createdQuery)]);
-
-            const tasksMap = new Map();
-            assignedSnap.forEach(doc => tasksMap.set(doc.id, { ...doc.data(), docId: doc.id }));
-            createdSnap.forEach(doc => tasksMap.set(doc.id, { ...doc.data(), docId: doc.id }));
-            tasks = Array.from(tasksMap.values());
-
-        } else {
-            let q;
-            if (taskState.activeFilter === 'engineering') {
-                 q = query(tasksRef, where('isPublic', '==', true), orderBy('createdAt', 'desc'));
-            } else if (taskState.activeFilter === 'all' && user.role === 'admin') {
-                 q = query(tasksRef, orderBy('createdAt', 'desc'));
-            } else {
-                // Fallback for non-admins or unknown filters
-                q = query(tasksRef, where('isPublic', '==', true), orderBy('createdAt', 'desc'));
-            }
-            const snapshot = await getDocs(q);
-            tasks = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
-        }
-
-        renderTasks(tasks);
-    } catch (error) {
+    const handleError = (error) => {
         console.error("Error fetching tasks: ", error);
         showToast("Error al cargar las tareas. Es posible que necesite crear un índice en Firestore.", "error");
         document.querySelectorAll('.task-list').forEach(list => list.innerHTML = `<div class="p-8 text-center text-red-500"><i data-lucide="alert-triangle" class="h-8 w-8 mx-auto"></i><p class="mt-2">Error al cargar.</p></div>`);
         lucide.createIcons();
+    };
+
+    if (taskState.activeFilter === 'personal') {
+        const tasksMap = new Map();
+
+        const q1 = query(tasksRef, where('assigneeUid', '==', user.uid));
+        const q2 = query(tasksRef, where('creatorUid', '==', user.uid));
+
+        const unsub1 = onSnapshot(q1, (snapshot) => {
+            snapshot.docs.forEach(doc => tasksMap.set(doc.id, { ...doc.data(), docId: doc.id }));
+            renderTasks(Array.from(tasksMap.values()).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
+        }, handleError);
+
+        const unsub2 = onSnapshot(q2, (snapshot) => {
+            snapshot.docs.forEach(doc => tasksMap.set(doc.id, { ...doc.data(), docId: doc.id }));
+            renderTasks(Array.from(tasksMap.values()).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
+        }, handleError);
+
+        taskState.unsubscribers.push(unsub1, unsub2);
+
+    } else {
+        let q;
+        if (taskState.activeFilter === 'engineering') {
+             q = query(tasksRef, where('isPublic', '==', true), orderBy('createdAt', 'desc'));
+        } else if (taskState.activeFilter === 'all' && user.role === 'admin') {
+             q = query(tasksRef, orderBy('createdAt', 'desc'));
+        } else {
+            // Fallback for non-admins or unknown filters
+            q = query(tasksRef, where('isPublic', '==', true), orderBy('createdAt', 'desc'));
+        }
+
+        const unsub = onSnapshot(q, (snapshot) => {
+            const tasks = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+            renderTasks(tasks);
+        }, handleError);
+        taskState.unsubscribers.push(unsub);
     }
 }
 
@@ -1408,11 +1475,8 @@ function initTasksSortable() {
 }
 
 async function openTaskFormModal(task = null) {
-    // Fix for race condition: check if user data is loaded.
-    if (!appState.collections.usuarios || appState.collections.usuarios.length === 0) {
-        showToast('La lista de usuarios aún se está cargando. Por favor, intente de nuevo en un momento.', 'info');
-        return;
-    }
+    const usersLoaded = await waitForUsers();
+    if (!usersLoaded) return;
 
     const isEditing = task !== null;
     const users = appState.collections.usuarios || [];
@@ -1601,6 +1665,11 @@ function updateAuthView(isLoggedIn) {
         if (appState.unsubscribeListeners.length === 0) {
              startRealtimeListeners();
         }
+        // Show/hide admin-only UI elements
+        const userManagementLink = document.querySelector('a[data-view="user_management"]');
+        if (userManagementLink) {
+            userManagementLink.style.display = appState.currentUser.role === 'admin' ? 'flex' : 'none';
+        }
         switchView('dashboard');
     } else {
         stopRealtimeListeners();
@@ -1661,6 +1730,7 @@ async function handleAuthForms(e) {
                 name: name,
                 email: userCredential.user.email,
                 role: 'lector',
+                sector: 'Sin Asignar',
                 createdAt: new Date()
             });
 
