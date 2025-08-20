@@ -130,15 +130,18 @@
                     <a href="#" data-view="dashboard" class="nav-link px-4 py-2 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-100">
                         <i data-lucide="layout-dashboard" class="inline-block w-4 h-4 mr-1.5 -mt-0.5"></i>Dashboard
                     </a>
-                    <a href="#" data-view="sinoptico" class="nav-link px-4 py-2 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-100">
-                        <i data-lucide="eye" class="inline-block w-4 h-4 mr-1.5 -mt-0.5"></i>Vista Sinóptica
-                    </a>
-                    <a href="#" data-view="sinoptico_tabular" class="nav-link px-4 py-2 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-100">
-                        <i data-lucide="table" class="inline-block w-4 h-4 mr-1.5 -mt-0.5"></i>Sinóptico Tabular
-                    </a>
-                    <a href="#" data-view="flujograma" class="nav-link px-4 py-2 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-100">
-                        <i data-lucide="git-branch-plus" class="inline-block w-4 h-4 mr-1.5 -mt-0.5"></i>Flujograma
-                    </a>
+
+                    <!-- Dropdown de Gestión BOM -->
+                    <div class="relative nav-dropdown">
+                        <button class="nav-link dropdown-toggle px-4 py-2 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-100 flex items-center">
+                            <i data-lucide="git-merge" class="inline-block w-4 h-4 mr-1.5 -mt-0.5"></i>Gestión BOM
+                            <i data-lucide="chevron-down" class="w-4 h-4 ml-1"></i>
+                        </button>
+                        <div class="dropdown-menu absolute mt-2 w-56 bg-white border rounded-lg shadow-xl">
+                            <a href="#" data-view="arboles" class="nav-link flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="pencil-ruler" class="w-5 h-5 text-slate-500"></i>Editor de Árboles</a>
+                            <a href="#" data-view="sinoptico_tabular" class="nav-link flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="table" class="w-5 h-5 text-slate-500"></i>Reporte BOM (Tabular)</a>
+                        </div>
+                    </div>
 
                     <!-- Dropdown de Gestión -->
                     <div class="relative nav-dropdown">
@@ -147,7 +150,6 @@
                             <i data-lucide="chevron-down" class="w-4 h-4 ml-1"></i>
                         </button>
                         <div class="dropdown-menu absolute mt-2 w-56 bg-white border rounded-lg shadow-xl">
-                            <a href="#" data-view="arboles" class="nav-link flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="git-merge" class="w-5 h-5 text-slate-500"></i>Árboles de Producto</a>
                             <a href="#" data-view="productos" class="nav-link flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="package" class="w-5 h-5 text-slate-500"></i>Productos</a>
                             <a href="#" data-view="subproductos" class="nav-link flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="box" class="w-5 h-5 text-slate-500"></i>Subproductos</a>
                             <a href="#" data-view="insumos" class="nav-link flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="beaker" class="w-5 h-5 text-slate-500"></i>Insumos</a>

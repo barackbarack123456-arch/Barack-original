@@ -44,10 +44,9 @@ const COLLECTIONS = {
 // --- Configuración de Vistas ---
 const viewConfig = {
     dashboard: { title: 'Dashboard', singular: 'Dashboard' },
-    sinoptico: { title: 'Vista Sinóptica', singular: 'Vista Sinóptica' },
-    sinoptico_tabular: { title: 'Sinóptico Tabular', singular: 'Sinóptico Tabular' },
+    sinoptico_tabular: { title: 'Reporte BOM (Tabular)', singular: 'Reporte BOM (Tabular)' },
     flujograma: { title: 'Flujograma de Procesos', singular: 'Flujograma' },
-    arboles: { title: 'Árboles de Producto', singular: 'Árbol' },
+    arboles: { title: 'Editor de Árboles', singular: 'Árbol' },
     profile: { title: 'Mi Perfil', singular: 'Mi Perfil' },
     productos: {
         title: 'Productos',
@@ -2271,7 +2270,7 @@ function initSinoptico() {
         const TEXT_COLOR_LIGHT = '#2d3748';
         const TITLE_COLOR = '#2563eb';
         const TYPE_COLORS = {
-            producto: '#3b82f6', subproducto: '#16a34a', insumo: '#f97316'
+            producto: '#3b82f6', subproducto: '#16a34a', insumo: '#64748b'
         };
         
         let cursorY = 0;

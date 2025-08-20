@@ -136,7 +136,7 @@ body {
 
 .node-content[data-type="insumo"],
 .sinoptico-tree-item-content[data-type="insumo"] {
-    border-left: 4px solid #f59e0b !important; /* amber-500 */
+    border-left: 4px solid #9ca3af !important; /* gray-400 */
 }
 
 /* --- Estilos de Modales Mejorados --- */
