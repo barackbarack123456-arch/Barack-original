@@ -1605,278 +1605,306 @@ function runSinopticoLogic() {
 }
 
 function runSinopticoTabularLogic() {
+    // Initialize state for the view
     if (!appState.sinopticoTabularState) {
         appState.sinopticoTabularState = {
-            activeFilters: { clients: new Set(), niveles: new Set() }
+            selectedProduct: null,
+            activeFilters: {
+                niveles: new Set()
+            }
         };
     }
 
-    const render = () => {
-        const container = dom.viewContent;
-        container.innerHTML = `<div class="animate-fade-in-up">
-            <div class="bg-white p-6 rounded-xl shadow-lg">
-                <div class="flex items-center mb-4">
-                    <img src="logo.png" alt="Logo Barack" class="h-12 mr-4">
-                    <h3 class="text-2xl font-bold text-slate-800">Sinóptico Tabular</h3>
-                </div>
-                <div id="sinoptico-tabular-controls" class="mb-4"></div>
-                <div id="sinoptico-tabular-container" class="mt-6 overflow-x-auto"></div>
-            </div>
-        </div>`;
+    const state = appState.sinopticoTabularState;
 
-        const flattenedData = getFlattenedData();
-        const availableLevels = getAvailableLevels(flattenedData);
+    // --- Event Handlers ---
+    const handleViewClick = (e) => {
+        const button = e.target.closest('button[data-action]');
+        if (!button) return;
 
-        renderTabularFilters(availableLevels);
-        renderTabularTable(flattenedData);
-        lucide.createIcons();
-    };
+        const action = button.dataset.action;
+        const row = button.closest('tr');
 
-    const renderTabularFilters = (availableLevels) => {
-        const controlsContainer = document.getElementById('sinoptico-tabular-controls');
-        if (!controlsContainer) return;
-
-        const levelFiltersHTML = availableLevels.length > 0 ? `
-            <div class="flex items-center gap-3 mb-4 p-2 bg-slate-50 rounded-lg">
-                <span class="text-sm font-semibold text-slate-600 flex-shrink-0">Filtros por Nivel:</span>
-                <div class="flex flex-wrap gap-4">
-                    ${availableLevels.map(level => `
-                        <label class="flex items-center gap-2 cursor-pointer text-sm">
-                            <input type="checkbox" data-level="${level}" class="tabular-level-filter-cb" ${appState.sinopticoTabularState.activeFilters.niveles.has(level) ? 'checked' : ''}>
-                            Nivel ${level}
-                        </label>
-                    `).join('')}
-                </div>
-            </div>
-        ` : '';
-
-        controlsContainer.innerHTML = `
-            <div class="flex items-center gap-3 mb-4 p-2 bg-slate-50 rounded-lg">
-                <span class="text-sm font-semibold text-slate-600 flex-shrink-0">Filtros de Cliente:</span>
-                <div id="active-filters-bar-tabular" class="flex flex-wrap gap-2"></div>
-                <div class="relative ml-auto">
-                    <button id="add-client-filter-btn-tabular" class="flex items-center justify-center w-8 h-8 bg-slate-200 rounded-full hover:bg-slate-300"><i data-lucide="plus" class="w-4 h-4 pointer-events-none"></i></button>
-                    <div id="add-client-filter-dropdown-tabular" class="absolute z-10 right-0 mt-2 w-64 bg-white border rounded-lg shadow-xl hidden dropdown-menu"></div>
-                </div>
-            </div>
-            ${levelFiltersHTML}
-        `;
-
-        const activeFiltersBar = document.getElementById('active-filters-bar-tabular');
-        activeFiltersBar.innerHTML = appState.sinopticoTabularState.activeFilters.clients.size === 0
-            ? `<span class="text-xs text-slate-500 italic">Ningún cliente seleccionado</span>`
-            : [...appState.sinopticoTabularState.activeFilters.clients].map(clientId => {
-                const client = appState.collectionsById[COLLECTIONS.CLIENTES].get(clientId);
-                return client ? `<div class="flex items-center gap-2 bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full animate-fade-in"><span>${client.descripcion}</span><button data-id="${clientId}" class="remove-tabular-filter-btn p-0.5 hover:bg-blue-200 rounded-full"><i data-lucide="x" class="w-3.5 h-3.5 pointer-events-none"></i></button></div>` : '';
-            }).join('');
-    };
-
-    const populateTabularClientFilterDropdown = () => {
-        const dropdown = document.getElementById('add-client-filter-dropdown-tabular');
-        if(!dropdown) return;
-        const availableClients = appState.collections[COLLECTIONS.CLIENTES].filter(client => !appState.sinopticoTabularState.activeFilters.clients.has(client.id));
-        dropdown.innerHTML = availableClients.length === 0
-            ? `<span class="block px-4 py-2 text-sm text-slate-500">No hay más clientes.</span>`
-            : availableClients.map(client => `<a href="#" data-id="${client.id}" class="add-tabular-filter-link block px-4 py-2 text-sm hover:bg-slate-100">${client.descripcion}</a>`).join('');
-    };
-
-    const getFlattenedData = () => {
-        const flattenedData = [];
-        function flattenTree(node, level, productDocId) { // Add productDocId
-            const collectionName = node.tipo + 's';
-            const item = appState.collectionsById[collectionName]?.get(node.refId);
-            if (!item) return;
-            flattenedData.push({ node, item, level, productDocId }); // Add productDocId
-            if (node.children) node.children.forEach(child => flattenTree(child, level + 1, productDocId)); // Pass it down
+        switch (action) {
+            case 'open-product-search-modal-tabular':
+                openProductSearchModal();
+                break;
+            case 'select-another-product-tabular':
+                state.selectedProduct = null;
+                state.activeFilters.niveles.clear();
+                renderInitialView();
+                break;
+            case 'save-tabular-quantity':
+                handleSaveQuantity(row);
+                break;
+            case 'cancel-tabular-quantity':
+                renderReportView(); // Re-render to cancel edit
+                break;
         }
-
-        const clientFilters = appState.sinopticoTabularState.activeFilters.clients;
-        const productsToRender = appState.collections[COLLECTIONS.PRODUCTOS]
-            .filter(p => p.estructura && p.estructura.length > 0 && (clientFilters.size === 0 || clientFilters.has(p.clienteId)));
-
-        productsToRender.forEach(p => p.estructura.forEach(rootNode => flattenTree(rootNode, 0, p.docId))); // Pass p.docId
-        return flattenedData;
     };
 
-    const getAvailableLevels = (flattenedData) => {
-        const levels = new Set();
-        flattenedData.forEach(item => levels.add(item.level));
-        return [...levels].sort((a, b) => a - b);
-    };
+    const handleViewDblClick = (e) => {
+        const row = e.target.closest('tr[data-node-id]');
+        if (!row || row.classList.contains('is-editing')) return;
 
-    const renderTabularTable = (flattenedData) => {
-        const tableContainer = document.getElementById('sinoptico-tabular-container');
-        if (!tableContainer) return;
+        const nodeId = row.dataset.nodeId;
+        const product = state.selectedProduct;
+        const nodeToEdit = findNode(nodeId, product.estructura);
 
-        const columns = [
-            { key: 'descripcion', label: 'Descripción' }, { key: 'nivel', label: 'Nivel' },
-            { key: 'codigo', label: 'Código' }, { key: 'tipo', label: 'Tipo' },
-            { key: 'cantidad', label: 'Cantidad' }, { key: 'unidad', label: 'Unidad' },
-            { key: 'proveedor', label: 'Proveedor' }, { key: 'material', label: 'Material' },
-            { key: 'costo', label: 'Costo' },
-            { key: 'observaciones', label: 'Comentarios' },
-            { key: 'acciones', label: 'Acciones' }
-        ];
-
-        if (flattenedData.length === 0) {
-            tableContainer.innerHTML = `<p class="text-slate-500 p-4 text-center">No hay productos para mostrar con los filtros seleccionados.</p>`;
+        if (!nodeToEdit || nodeToEdit.tipo === 'producto') {
+            showToast('Solo se puede editar la cantidad de subproductos e insumos.', 'info');
             return;
         }
 
-        let tableHTML = `<table class="w-full text-sm text-left text-gray-600">`;
-        tableHTML += `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>`;
-        columns.forEach(col => { tableHTML += `<th scope="col" class="px-4 py-3">${col.label}</th>`; });
-        tableHTML += `</tr></thead><tbody>`;
-
-        const levelFilters = appState.sinopticoTabularState.activeFilters.niveles;
-        const filteredData = flattenedData.filter(rowData => levelFilters.size === 0 || levelFilters.has(rowData.level));
-
-        filteredData.forEach(rowData => {
-            const { node, item, level } = rowData;
-            const indentStyle = `padding-left: ${level * 24 + 16}px;`;
-            const NA = '<span class="text-slate-400">N/A</span>';
-            const cantidad = node.tipo === 'producto' ? NA : (node.quantity ?? NA);
-            let unidad = NA, proveedor = NA, material = NA, costo = NA;
-
-            if (node.tipo === 'insumo') {
-                const unidadData = item.unidadMedidaId ? appState.collectionsById[COLLECTIONS.UNIDADES].get(item.unidadMedidaId) : null;
-                unidad = unidadData ? unidadData.id : '';
-                const proveedorData = item.proveedorId ? appState.collectionsById[COLLECTIONS.PROVEEDORES].get(item.proveedorId) : null;
-                proveedor = proveedorData ? proveedorData.descripcion : '';
-                material = item.material || '';
-                if (typeof item.costo === 'number') costo = item.costo.toFixed(2);
-            }
-
-            let actionsCell = '';
-            if (node.tipo === 'producto') {
-                actionsCell = `<button data-action="edit-in-tree" data-product-id="${item.id}" class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-semibold hover:bg-blue-200">Editar en Árbol</button>`;
-            } else {
-                 actionsCell = `<button data-action="edit-tabular-quantity" data-node-id="${node.id}" data-product-doc-id="${rowData.productDocId}" class="p-1 text-slate-500 hover:text-blue-600 hover:bg-slate-200 rounded-md"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>`;
-            }
-
-
-            tableHTML += `<tr class="bg-white border-b hover:bg-gray-50" data-node-id="${node.id}">
-                <td class="px-4 py-3 font-medium text-gray-900 whitespace-nowrap" style="${indentStyle}">${item.descripcion || item.nombre}</td>
-                <td class="px-4 py-3 text-center">${level}</td>
-                <td class="px-4 py-3">${item.id}</td>
-                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-700">${node.tipo}</span></td>
-                <td class="px-4 py-3 text-right" id="qty-cell-${node.id}">${cantidad}</td>
-                <td class="px-4 py-3 text-center">${unidad}</td>
-                <td class="px-4 py-3">${proveedor}</td>
-                <td class="px-4 py-3">${material}</td>
-                <td class="px-4 py-3 text-right">${costo}</td>
-                <td class="px-4 py-3">${item.observaciones || ''}</td>
-                <td class="px-4 py-3 text-center">${actionsCell}</td>
-            </tr>`;
-        });
-        tableHTML += `</tbody></table>`;
-        tableContainer.innerHTML = tableHTML;
-        lucide.createIcons();
+        enterEditMode(row, nodeId, nodeToEdit.quantity);
     };
 
-    const handleSinopticoTabularClick = (e) => {
-        const target = e.target;
-        if (target.closest('#add-client-filter-btn-tabular')) {
-            e.stopPropagation();
-            populateTabularClientFilterDropdown();
-            document.getElementById('add-client-filter-dropdown-tabular').classList.toggle('hidden');
-        } else if (target.closest('.add-tabular-filter-link')) {
-            e.preventDefault();
-            appState.sinopticoTabularState.activeFilters.clients.add(target.dataset.id);
-            document.getElementById('add-client-filter-dropdown-tabular').classList.add('hidden');
-            render();
-        } else if (target.closest('.remove-tabular-filter-btn')) {
-            appState.sinopticoTabularState.activeFilters.clients.delete(target.dataset.id);
-            render();
-        } else if (target.classList.contains('tabular-level-filter-cb')) {
-            const level = parseInt(target.dataset.level, 10);
-            if (target.checked) {
-                appState.sinopticoTabularState.activeFilters.niveles.add(level);
-            } else {
-                appState.sinopticoTabularState.activeFilters.niveles.delete(level);
+    const enterEditMode = (row, nodeId, currentQuantity) => {
+        // Exit any other editing rows
+        const otherEditingRow = dom.viewContent.querySelector('tr.is-editing');
+        if (otherEditingRow) {
+            renderReportView(); // Simple way to cancel other edits
+        }
+
+        row.classList.add('is-editing');
+        const quantityCell = row.querySelector(`#qty-cell-${nodeId}`);
+        const actionsCell = row.cells[row.cells.length - 1];
+
+        const originalValue = currentQuantity ?? '';
+        quantityCell.innerHTML = `<input type="number" class="w-24 text-right border rounded-md p-1 bg-white" value="${originalValue}" step="any" min="0">`;
+
+        actionsCell.innerHTML = `
+            <div class="flex items-center justify-center gap-1">
+                <button data-action="save-tabular-quantity" class="p-1 text-green-600 hover:bg-green-100 rounded-md"><i data-lucide="check" class="w-5 h-5 pointer-events-none"></i></button>
+                <button data-action="cancel-tabular-quantity" class="p-1 text-red-600 hover:bg-red-100 rounded-md"><i data-lucide="x" class="w-5 h-5 pointer-events-none"></i></button>
+            </div>
+        `;
+        lucide.createIcons();
+        const input = quantityCell.querySelector('input');
+        input.focus();
+        input.select();
+    };
+
+    const handleSaveQuantity = async (row) => {
+        const nodeId = row.dataset.nodeId;
+        const input = row.querySelector('input[type="number"]');
+        const newQuantity = parseFloat(input.value);
+
+        if (isNaN(newQuantity) || newQuantity < 0) {
+            showToast('Por favor, ingrese una cantidad válida.', 'error');
+            return;
+        }
+
+        const product = state.selectedProduct;
+        const nodeToUpdate = findNode(nodeId, product.estructura);
+
+        if (nodeToUpdate) {
+            nodeToUpdate.quantity = newQuantity;
+            const productRef = doc(db, COLLECTIONS.PRODUCTOS, product.docId);
+
+            try {
+                await updateDoc(productRef, { estructura: product.estructura });
+                showToast('Cantidad actualizada.', 'success');
+            } catch (error) {
+                showToast('Error al guardar la cantidad.', 'error');
+                console.error("Error updating quantity:", error);
+                // Revert optimistic update if needed, though re-rendering does this.
+            } finally {
+                renderReportView(); // Re-render to show new value and exit edit mode
             }
-            render();
-        } else if (target.closest('button[data-action="edit-tabular-quantity"]')) {
-            const editBtn = target.closest('button[data-action="edit-tabular-quantity"]');
-            const nodeId = editBtn.dataset.nodeId;
-            const productDocId = editBtn.dataset.productDocId;
-            const row = editBtn.closest('tr');
-            const quantityCell = row.querySelector(`#qty-cell-${nodeId}`);
-
-            const originalValue = quantityCell.textContent.trim();
-
-            quantityCell.innerHTML = `<input type="number" class="w-20 text-right border rounded-md p-1" value="${originalValue.replace('N/A', '')}" step="any" min="0">`;
-
-            editBtn.parentElement.innerHTML = `
-                <button data-action="save-tabular-quantity" data-node-id="${nodeId}" data-product-doc-id="${productDocId}" class="p-1 text-green-600 hover:bg-green-100 rounded-md"><i data-lucide="check" class="w-4 h-4 pointer-events-none"></i></button>
-                <button data-action="cancel-tabular-quantity" data-node-id="${nodeId}" data-product-doc-id="${productDocId}" data-original-value="${originalValue}" class="p-1 text-red-600 hover:bg-red-100 rounded-md"><i data-lucide="x" class="w-4 h-4 pointer-events-none"></i></button>
-            `;
-            lucide.createIcons();
-            quantityCell.querySelector('input').focus();
-        } else if (target.closest('button[data-action="cancel-tabular-quantity"]')) {
-            const cancelBtn = target.closest('button[data-action="cancel-tabular-quantity"]');
-            const row = cancelBtn.closest('tr');
-            const nodeId = row.dataset.nodeId;
-            const productDocId = cancelBtn.dataset.productDocId;
-            const quantityCell = row.querySelector(`#qty-cell-${nodeId}`);
-            const actionsCell = cancelBtn.parentElement;
-
-            quantityCell.innerHTML = cancelBtn.dataset.originalValue;
-            actionsCell.innerHTML = `<button data-action="edit-tabular-quantity" data-node-id="${nodeId}" data-product-doc-id="${productDocId}" class="p-1 text-slate-500 hover:text-blue-600 hover:bg-slate-200 rounded-md"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>`;
-            lucide.createIcons();
-        } else if (target.closest('button[data-action="save-tabular-quantity"]')) {
-            const saveBtn = target.closest('button[data-action="save-tabular-quantity"]');
-            const nodeId = saveBtn.dataset.nodeId;
-            const productDocId = saveBtn.dataset.productDocId;
-            const row = saveBtn.closest('tr');
-            const quantityCell = row.querySelector(`#qty-cell-${nodeId}`);
-            const input = quantityCell.querySelector('input');
-            const newQuantity = parseFloat(input.value);
-
-            if (isNaN(newQuantity) || newQuantity < 0) {
-                showToast('Por favor ingrese una cantidad válida.', 'error');
-                return;
-            }
-
-            saveBtn.parentElement.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin"></i>`;
-            lucide.createIcons();
-
-            const product = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.docId === productDocId);
-            if (product) {
-                const nodeToUpdate = findNode(nodeId, product.estructura);
-                if (nodeToUpdate) {
-                    nodeToUpdate.quantity = newQuantity;
-                    try {
-                        const productRef = doc(db, COLLECTIONS.PRODUCTOS, productDocId);
-                        updateDoc(productRef, { estructura: product.estructura });
-                        showToast('Cantidad actualizada.', 'success');
-                        render();
-                    } catch (error) {
-                        showToast('Error al guardar la cantidad.', 'error');
-                        console.error("Error updating quantity:", error);
-                        render();
-                    }
-                } else {
-                    showToast('Error: No se encontró el nodo a actualizar.', 'error');
-                    render();
-                }
-            } else {
-                showToast('Error: No se encontró el producto asociado.', 'error');
-                render();
-            }
-        } else if (target.closest('button[data-action="edit-in-tree"]')) {
-            const productId = target.dataset.productId;
-            switchView('arboles');
-            handleProductSelect(productId);
-        } else if (!target.closest('#add-client-filter-dropdown-tabular')) {
-            document.getElementById('add-client-filter-dropdown-tabular')?.classList.add('hidden');
         }
     };
 
-    render();
-    document.addEventListener('click', handleSinopticoTabularClick);
+
+    // --- PRODUCT SELECTION ---
+    const openProductSearchModal = () => {
+        let clientOptions = '<option value="">Todos</option>' + appState.collections[COLLECTIONS.CLIENTES].map(c => `<option value="${c.id}">${c.descripcion}</option>`).join('');
+        const modalId = `prod-search-modal-tabular-${Date.now()}`;
+        const modalHTML = `<div id="${modalId}" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop animate-fade-in"><div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[80vh] flex flex-col m-4 modal-content"><div class="flex justify-between items-center p-5 border-b"><h3 class="text-xl font-bold">Buscar Producto Principal</h3><button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button></div><div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4"><div><label for="search-prod-term" class="block text-sm font-medium">Código/Descripción</label><input type="text" id="search-prod-term" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"></div><div><label for="search-prod-client" class="block text-sm font-medium">Cliente</label><select id="search-prod-client" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">${clientOptions}</select></div></div><div id="search-prod-results" class="p-6 border-t overflow-y-auto flex-1"></div></div></div>`;
+
+        dom.modalContainer.innerHTML = modalHTML;
+        const modalElement = document.getElementById(modalId);
+        const termInput = modalElement.querySelector('#search-prod-term');
+        const clientSelect = modalElement.querySelector('#search-prod-client');
+        const resultsContainer = modalElement.querySelector('#search-prod-results');
+
+        const searchHandler = () => {
+            const term = termInput.value.toLowerCase();
+            const clientId = clientSelect.value;
+            let results = appState.collections[COLLECTIONS.PRODUCTOS].filter(p => (term === '' || p.id.toLowerCase().includes(term) || p.descripcion.toLowerCase().includes(term)) && (!clientId || p.clienteId === clientId));
+            resultsContainer.innerHTML = results.length === 0 ? `<p class="text-center py-8">No se encontraron productos.</p>` : `<div class="space-y-1">${results.map(p => `<button data-product-id="${p.id}" class="w-full text-left p-2.5 bg-gray-50 hover:bg-blue-100 rounded-md border flex justify-between items-center"><p class="font-semibold text-blue-800">${p.descripcion} (${p.id})</p><p class="text-xs text-gray-500">${appState.collections[COLLECTIONS.CLIENTES].find(c => c.id === p.clienteId)?.descripcion || ''}</p></button>`).join('')}</div>`;
+        };
+
+        termInput.addEventListener('input', searchHandler);
+        clientSelect.addEventListener('change', searchHandler);
+        resultsContainer.addEventListener('click', e => {
+            const button = e.target.closest('button[data-product-id]');
+            if (button) {
+                handleProductSelect(button.dataset.productId);
+                modalElement.remove();
+            }
+        });
+        modalElement.querySelector('button[data-action="close"]').addEventListener('click', () => modalElement.remove());
+        searchHandler();
+    };
+
+    const handleProductSelect = (productId) => {
+        const producto = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.id === productId);
+        if (producto) {
+            state.selectedProduct = producto;
+            renderReportView();
+        } else {
+            showToast("Error: Producto no encontrado.", "error");
+            renderInitialView();
+        }
+    };
+
+    // --- RENDER FUNCTIONS ---
+    const renderInitialView = () => {
+        dom.viewContent.innerHTML = `<div class="flex flex-col items-center justify-center h-full bg-white rounded-xl shadow-lg p-6 text-center animate-fade-in-up">
+            <i data-lucide="file-search-2" class="h-24 w-24 text-gray-300 mb-6"></i>
+            <h3 class="text-2xl font-bold">Reporte BOM (Tabular)</h3>
+            <p class="text-gray-500 mt-2 mb-8 max-w-lg">Para comenzar, busque y seleccione el producto principal que desea consultar.</p>
+            <button data-action="open-product-search-modal-tabular" class="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 text-lg font-semibold shadow-lg transition-transform transform hover:scale-105">
+                <i data-lucide="search" class="inline-block mr-2 -mt-1"></i>Seleccionar Producto
+            </button>
+        </div>`;
+        lucide.createIcons();
+    };
+
+    const renderReportView = () => {
+        const product = state.selectedProduct;
+        if (!product) {
+            renderInitialView();
+            return;
+        }
+
+        const client = appState.collectionsById[COLLECTIONS.CLIENTES].get(product.clienteId);
+        const clientName = client ? client.descripcion : 'N/A';
+        const userName = appState.currentUser ? appState.currentUser.name : 'N/A';
+        const creationDate = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+        const getFlattenedData = (product) => {
+            const flattenedData = [];
+            function flattenTree(nodes, level, lineage) {
+                nodes.forEach((node, index) => {
+                    const isLast = index === nodes.length - 1;
+                    const collectionName = node.tipo + 's';
+                    const item = appState.collectionsById[collectionName]?.get(node.refId);
+                    if (!item) return;
+                    flattenedData.push({ node, item, level, isLast, lineage });
+                    if (node.children && node.children.length > 0) {
+                        flattenTree(node.children, level + 1, [...lineage, !isLast]);
+                    }
+                });
+            }
+            if (product && product.estructura) {
+                flattenTree(product.estructura, 0, []);
+            }
+            return flattenedData;
+        };
+        const flattenedData = getFlattenedData(product);
+
+        const headerHTML = `
+            <div class="bg-blue-100 rounded-xl shadow-lg mb-6 overflow-hidden">
+                <div class="flex items-stretch">
+                    <div class="bg-white p-4 w-1/3 md:w-1/4 flex flex-col items-center justify-center">
+                        <img src="logo.png" alt="Logo Barack" class="max-h-20 object-contain">
+                    </div>
+                    <div class="p-6 flex-1 bg-blue-600 text-white flex flex-col justify-center">
+                        <h2 class="text-2xl md:text-3xl font-bold leading-tight text-white">BOM</h2>
+                        <p class="text-blue-200 mt-1">Reporte Tabular de Materiales</p>
+                    </div>
+                </div>
+                <div class="p-6 grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4 text-sm border-t border-blue-200">
+                    <div><p class="text-slate-500 font-semibold">Proyecto</p><p class="font-bold text-slate-800 text-base">${clientName}</p></div>
+                    <div><p class="text-slate-500 font-semibold">Realizado por</p><p class="font-bold text-slate-800 text-base">${userName}</p></div>
+                    <div><p class="text-slate-500 font-semibold">Revisado por</p><div class="h-8 border-b border-slate-400"></div></div>
+                    <div><p class="text-slate-500 font-semibold">Fecha de Creación</p><p class="font-bold text-slate-800 text-base">${creationDate}</p></div>
+                </div>
+            </div>`;
+
+        const renderTabularTable = (data) => {
+            const columns = [
+                { key: 'descripcion', label: 'Descripción' }, { key: 'nivel', label: 'Nivel' },
+                { key: 'codigo', label: 'Código' }, { key: 'tipo', label: 'Tipo' },
+                { key: 'cantidad', label: 'Cantidad por pieza' }, { key: 'unidad', label: 'Unidad' },
+                { key: 'proveedor', label: 'Proveedor' }, { key: 'material', label: 'Material' },
+                { key: 'observaciones', label: 'Comentarios' }, { key: 'acciones', label: 'Acciones' }
+            ];
+
+            if (data.length === 0) return `<p class="text-slate-500 p-4 text-center">El producto seleccionado no tiene una estructura definida.</p>`;
+
+            let tableHTML = `<table class="w-full text-sm text-left text-gray-600">`;
+            tableHTML += `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>`;
+            columns.forEach(col => { tableHTML += `<th scope="col" class="px-4 py-3">${col.label}</th>`; });
+            tableHTML += `</tr></thead><tbody>`;
+
+            data.forEach(rowData => {
+                const { node, item, level, isLast, lineage } = rowData;
+                const NA = '<span class="text-slate-400">N/A</span>';
+
+                let prefix = lineage.map(parentIsNotLast => parentIsNotLast ? '│&nbsp;&nbsp;&nbsp;&nbsp;' : '&nbsp;&nbsp;&nbsp;&nbsp;').join('');
+                if (level > 0)  prefix += isLast ? '└─ ' : '├─ ';
+
+                const cantidad = node.tipo === 'producto' ? NA : (node.quantity ?? NA);
+                let unidad = NA, proveedor = NA, material = NA;
+
+                if (node.tipo === 'insumo') {
+                    const unidadData = item.unidadMedidaId ? appState.collectionsById[COLLECTIONS.UNIDADES].get(item.unidadMedidaId) : null;
+                    unidad = unidadData ? unidadData.id : '';
+                    const proveedorData = item.proveedorId ? appState.collectionsById[COLLECTIONS.PROVEEDORES].get(item.proveedorId) : null;
+                    proveedor = proveedorData ? proveedorData.descripcion : '';
+                    material = item.material || '';
+                }
+
+                tableHTML += `<tr class="bg-white border-b hover:bg-gray-100 cursor-pointer" data-node-id="${node.id}" title="Doble clic para editar cantidad">
+                    <td class="px-4 py-2 font-mono font-medium text-gray-900 whitespace-nowrap"><span class="font-sans">${prefix}</span>${item.descripcion || item.nombre}</td>
+                    <td class="px-4 py-2 text-center">${level}</td>
+                    <td class="px-4 py-2">${item.id}</td>
+                    <td class="px-4 py-2"><span class="px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-700">${node.tipo}</span></td>
+                    <td class="px-4 py-2 text-right" id="qty-cell-${node.id}">${cantidad}</td>
+                    <td class="px-4 py-2 text-center">${unidad}</td>
+                    <td class="px-4 py-2">${proveedor}</td>
+                    <td class="px-4 py-2">${material}</td>
+                    <td class="px-4 py-2">${item.observaciones || ''}</td>
+                    <td class="px-4 py-2 text-center" id="actions-cell-${node.id}">&nbsp;</td>
+                </tr>`;
+            });
+            tableHTML += `</tbody></table>`;
+            return tableHTML;
+        };
+
+        const tableHTML = renderTabularTable(flattenedData);
+
+        dom.viewContent.innerHTML = `<div class="animate-fade-in-up">
+            ${headerHTML}
+            <div class="bg-white p-6 rounded-xl shadow-lg">
+                <div class="flex items-center justify-between mb-4">
+                    <div><h3 class="text-xl font-bold text-slate-800">Detalle de: ${product.descripcion}</h3><p class="text-sm text-slate-500">${product.id}</p></div>
+                    <button data-action="select-another-product-tabular" class="bg-gray-500 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-gray-600 flex items-center">
+                        <i data-lucide="search" class="mr-2 h-4 w-4"></i>Seleccionar Otro Producto
+                    </button>
+                </div>
+                <div id="sinoptico-tabular-container" class="mt-6 overflow-x-auto">${tableHTML}</div>
+            </div>
+        </div>`;
+        lucide.createIcons();
+    };
+
+    // --- MAIN LOGIC & CLEANUP ---
+    if (state.selectedProduct) {
+        renderReportView();
+    } else {
+        renderInitialView();
+    }
+
+    dom.viewContent.addEventListener('click', handleViewClick);
+    dom.viewContent.addEventListener('dblclick', handleViewDblClick);
     appState.currentViewCleanup = () => {
-        document.removeEventListener('click', handleSinopticoTabularClick);
+        dom.viewContent.removeEventListener('click', handleViewClick);
+        dom.viewContent.removeEventListener('dblclick', handleViewDblClick);
+        appState.sinopticoTabularState = null;
     };
 }
 
