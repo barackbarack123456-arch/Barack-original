@@ -1306,21 +1306,30 @@ let taskState = {
 };
 
 function runTasksLogic() {
-    if (appState.currentUser.role === 'admin') {
-        runAdminDashboard();
-    } else {
-        runKanbanBoardLogic();
-    }
+    runKanbanBoardLogic();
 }
 
 function runAdminDashboard() {
     dom.viewContent.innerHTML = `
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-slate-800">Dashboard de Administrador de Tareas</h2>
+            <button data-action="admin-back-to-board" class="bg-slate-200 text-slate-800 px-4 py-2 rounded-md hover:bg-slate-300 font-semibold flex items-center">
+                <i data-lucide="arrow-left" class="mr-2 h-5 w-5"></i>
+                Volver al Tablero
+            </button>
+        </div>
         <div class="space-y-6 animate-fade-in-up">
             <!-- Section for Charts -->
             <div id="task-charts-container" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="bg-white p-6 rounded-xl shadow-lg"><h3 class="text-lg font-bold text-slate-800 mb-4">Tareas por Estado</h3><div id="status-chart-container" class="h-64 flex items-center justify-center"><canvas id="status-chart"></canvas></div></div>
                 <div class="bg-white p-6 rounded-xl shadow-lg"><h3 class="text-lg font-bold text-slate-800 mb-4">Tareas por Prioridad</h3><div id="priority-chart-container" class="h-64 flex items-center justify-center"><canvas id="priority-chart"></canvas></div></div>
                 <div class="bg-white p-6 rounded-xl shadow-lg"><h3 class="text-lg font-bold text-slate-800 mb-4">Carga por Usuario (Tareas Abiertas)</h3><div id="user-load-chart-container" class="h-64 flex items-center justify-center"><canvas id="user-load-chart"></canvas></div></div>
+            </div>
+
+            <!-- Timeline Section -->
+            <div class="bg-white p-6 rounded-xl shadow-lg">
+                <h3 class="text-lg font-bold text-slate-800 mb-4">Línea de Tiempo de Tareas con Vencimiento</h3>
+                <div id="tasks-timeline-container" class="h-96"></div>
             </div>
 
             <!-- Section for Table and Filters -->
@@ -1347,6 +1356,7 @@ function runAdminDashboard() {
         const allTasks = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
         adminTaskViewState.tasks = allTasks;
         renderAdminTaskCharts(allTasks);
+        renderTasksTimeline(allTasks);
         renderFilteredAdminTaskTable();
     }, (error) => {
         console.error("Error fetching tasks for admin dashboard:", error);
@@ -1639,6 +1649,56 @@ function renderAdminTaskTable(tasksToRender) {
     lucide.createIcons();
 }
 
+function renderTasksTimeline(tasks) {
+    const container = document.getElementById('tasks-timeline-container');
+    if (!container) return;
+
+    try {
+        const items = new vis.DataSet(
+            tasks
+                .filter(task => task.dueDate) // Solo tareas con fecha de vencimiento
+                .map(task => {
+                    return {
+                        id: task.docId,
+                        content: task.title,
+                        start: task.dueDate,
+                        type: 'point',
+                         className: `priority-${task.priority || 'medium'}`
+                    };
+                })
+        );
+
+        if (items.length === 0) {
+            container.innerHTML = `<div class="flex items-center justify-center h-full text-slate-500"><i data-lucide="calendar-x" class="w-8 h-8 mr-2"></i> No hay tareas con fecha de vencimiento para mostrar.</div>`;
+            lucide.createIcons();
+            return;
+        }
+
+        const options = {
+            locale: 'es',
+            height: '100%',
+            showCurrentTime: true,
+            zoomMin: 1000 * 60 * 60 * 24, // Un día
+            zoomMax: 1000 * 60 * 60 * 24 * 30 * 6 // 6 meses
+        };
+
+        const timeline = new vis.Timeline(container, items, options);
+
+        timeline.on('select', (properties) => {
+            const selectedTaskId = properties.items[0];
+            if (selectedTaskId) {
+                const selectedTask = tasks.find(t => t.docId === selectedTaskId);
+                if (selectedTask) {
+                    openTaskFormModal(selectedTask);
+                }
+            }
+        });
+    } catch (error) {
+        console.error("Error rendering timeline:", error);
+        container.innerHTML = `<div class="text-red-500">Error al renderizar la línea de tiempo.</div>`;
+    }
+}
+
 function runKanbanBoardLogic() {
     if (taskState.activeFilter === 'supervision' && !taskState.selectedUserId) {
         renderAdminUserList();
@@ -1678,9 +1738,11 @@ function runKanbanBoardLogic() {
                 </div>
             </div>
 
-            <button id="add-new-task-btn" class="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 flex items-center shadow-md transition-transform transform hover:scale-105 flex-shrink-0">
-                <i data-lucide="plus" class="mr-2 h-5 w-5"></i>Nueva Tarea
-            </button>
+            <div id="kanban-header-buttons" class="flex items-center gap-4 flex-shrink-0">
+                <button id="add-new-task-btn" class="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 flex items-center shadow-md transition-transform transform hover:scale-105">
+                    <i data-lucide="plus" class="mr-2 h-5 w-5"></i>Nueva Tarea
+                </button>
+            </div>
         </div>
         <div id="task-board" class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="task-column bg-slate-100/80 rounded-xl" data-status="todo">
@@ -1714,6 +1776,19 @@ function runKanbanBoardLogic() {
     // 3. Initial fetch and render
     renderTaskFilters();
     fetchAndRenderTasks();
+
+    if (appState.currentUser.role === 'admin') {
+        const headerButtons = document.getElementById('kanban-header-buttons');
+        if(headerButtons){
+             const adminButton = document.createElement('button');
+             adminButton.id = 'go-to-admin-view-btn';
+             adminButton.className = 'bg-slate-700 text-white px-5 py-2.5 rounded-full hover:bg-slate-800 flex items-center shadow-md transition-transform transform hover:scale-105 flex-shrink-0';
+             adminButton.innerHTML = `<i data-lucide="shield-check" class="mr-2 h-5 w-5"></i>Vista de Administrador`;
+             headerButtons.appendChild(adminButton);
+             lucide.createIcons();
+             adminButton.addEventListener('click', runAdminDashboard);
+        }
+    }
 
     // 4. Cleanup logic
     appState.currentViewCleanup = () => {
