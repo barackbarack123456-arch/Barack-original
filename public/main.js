@@ -1038,11 +1038,21 @@ async function handleFormSubmit(e, fields) {
     if (!docId) {
         newItem.createdAt = new Date();
     }
+    const saveButton = form.closest('.modal-content').querySelector('button[type="submit"]');
+    const originalButtonHTML = saveButton.innerHTML;
+    saveButton.disabled = true;
+    saveButton.innerHTML = `<i data-lucide="loader" class="animate-spin h-5 w-5"></i>`;
+    lucide.createIcons();
+
     const success = await saveDocument(config.dataKey, newItem, docId);
     
     if (success) {
         modalElement.remove();
         runTableLogic('first'); 
+    } else {
+        // Restore button on failure
+        saveButton.disabled = false;
+        saveButton.innerHTML = originalButtonHTML;
     }
 }
 
@@ -1582,6 +1592,13 @@ async function handleTaskFormSubmit(e) {
         return;
     }
 
+    const saveButton = form.closest('.modal-content').querySelector('button[type="submit"]');
+    const originalButtonHTML = saveButton.innerHTML;
+    saveButton.disabled = true;
+    saveButton.innerHTML = `<i data-lucide="loader" class="animate-spin h-5 w-5"></i>`;
+    lucide.createIcons();
+
+    let success = false;
     try {
         if (isEditing) {
             const taskRef = doc(db, COLLECTIONS.TAREAS, taskId);
@@ -1595,11 +1612,16 @@ async function handleTaskFormSubmit(e) {
             await addDoc(collection(db, COLLECTIONS.TAREAS), data);
             showToast('Tarea creada con éxito.', 'success');
         }
+        success = true;
         document.getElementById('task-form-modal').remove();
-        // The onSnapshot listener will automatically update the UI.
     } catch (error) {
         console.error('Error saving task:', error);
         showToast('Error al guardar la tarea.', 'error');
+    } finally {
+        if (!success) {
+            saveButton.disabled = false;
+            saveButton.innerHTML = originalButtonHTML;
+        }
     }
 }
 
@@ -1684,10 +1706,7 @@ function updateAuthView(isLoggedIn) {
         // Show/hide admin-only UI elements
         const userManagementLink = document.querySelector('a[data-view="user_management"]');
         if (userManagementLink) {
-            const isAdmin = appState.currentUser.role === 'admin';
-            // Temporary developer access backdoor
-            const isDevUser = appState.currentUser.email === 'f.santoro@barackmercosul.com';
-            userManagementLink.style.display = (isAdmin || isDevUser) ? 'flex' : 'none';
+            userManagementLink.style.display = appState.currentUser.role === 'admin' ? 'flex' : 'none';
         }
         switchView('dashboard');
     } else {
@@ -1793,46 +1812,6 @@ async function logOutUser() {
         showToast("Error al cerrar sesión.", "error");
     }
 }
-
-async function addIdFieldToUsers() {
-    showToast('Iniciando migración de datos de usuarios...', 'info');
-    const usersRef = collection(db, COLLECTIONS.USUARIOS);
-    const snapshot = await getDocs(usersRef);
-
-    if (snapshot.empty) {
-        showToast('No se encontraron usuarios para migrar.', 'info');
-        return;
-    }
-
-    const batch = writeBatch(db);
-    let updatedCount = 0;
-
-    snapshot.forEach(doc => {
-        const data = doc.data();
-        if (!data.id) {
-            console.log(`User document ${doc.id} is missing the 'id' field. Adding it.`);
-            batch.update(doc.ref, { id: doc.id });
-            updatedCount++;
-        }
-    });
-
-    if (updatedCount > 0) {
-        try {
-            await batch.commit();
-            const message = `¡Éxito! Se actualizaron ${updatedCount} perfiles de usuario con el campo 'id'.`;
-            showToast(message, 'success', 5000);
-            console.log(message);
-        } catch (error) {
-            console.error("Error updating user documents in batch: ", error);
-            showToast('Error al actualizar los perfiles de usuario.', 'error');
-        }
-    } else {
-        const message = 'Migración no necesaria. Todos los perfiles de usuario ya tienen el campo \'id\'.';
-        showToast(message, 'info', 5000);
-        console.log(message);
-    }
-}
-window.addIdFieldToUsers = addIdFieldToUsers;
 
 async function seedDefaultSectors() {
     const sectorsRef = collection(db, COLLECTIONS.SECTORES);
