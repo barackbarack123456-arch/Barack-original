@@ -3229,9 +3229,19 @@ async function handleAuthForms(e) {
                 createdAt: new Date()
             });
 
-            await sendEmailVerification(userCredential.user);
-            showToast('Registro exitoso. Se ha enviado un correo de verificación.', 'info');
-            showAuthScreen('verify-email');
+            try {
+                console.log("Attempting to send verification email to:", userCredential.user.email);
+                await sendEmailVerification(userCredential.user);
+                console.log("sendEmailVerification call completed without throwing an error.");
+                showToast('Registro exitoso. Se ha enviado un correo de verificación a tu casilla.', 'success');
+                showAuthScreen('verify-email');
+            } catch (emailError) {
+                console.error("Error sending verification email:", emailError);
+                showToast(`Usuario registrado, pero hubo un error al enviar el correo de verificación: ${emailError.message}`, 'error');
+                // A pesar del error en el email, se muestra la pantalla de verificación
+                // porque el usuario SÍ fue creado.
+                showAuthScreen('verify-email');
+            }
         }
         else if (formId === 'reset-form') {
             await sendPasswordResetEmail(auth, email);
