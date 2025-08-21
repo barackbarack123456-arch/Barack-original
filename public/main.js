@@ -3459,7 +3459,6 @@ function runSinopticoTabularLogic() {
         if (!button) return;
 
         const action = button.dataset.action;
-        const row = button.closest('tr');
 
         switch (action) {
             case 'open-product-search-modal-tabular':
@@ -3470,100 +3469,13 @@ function runSinopticoTabularLogic() {
                 state.activeFilters.niveles.clear();
                 renderInitialView();
                 break;
-            case 'save-tabular-field':
-                handleSaveTableCell(row);
-                break;
-            case 'cancel-tabular-field':
-                renderReportView(); // Re-render to cancel edit
+            case 'edit-tabular-node':
+                // Reutilizamos el modal de la vista sinóptica principal para consistencia.
+                openSinopticoEditModal(button.dataset.nodeId);
                 break;
         }
     };
 
-    const handleViewDblClick = (e) => {
-        const cell = e.target.closest('td[data-field]');
-        const row = cell?.closest('tr[data-node-id]');
-        if (!row || row.classList.contains('is-editing') || !cell) return;
-
-        const nodeId = row.dataset.nodeId;
-        const product = state.selectedProduct;
-        const nodeToEdit = findNode(nodeId, product.estructura);
-
-        if (!nodeToEdit || nodeToEdit.tipo === 'producto') {
-            showToast('Solo se puede editar la cantidad y comentarios de subproductos e insumos.', 'info');
-            return;
-        }
-
-        const field = cell.dataset.field;
-        if (field === 'quantity') {
-            enterTableCellEditMode(row, nodeId, nodeToEdit.quantity, 'number');
-        } else if (field === 'comment') {
-            enterTableCellEditMode(row, nodeId, nodeToEdit.comment || '', 'text');
-        }
-    };
-
-    const enterTableCellEditMode = (row, nodeId, currentValue, inputType) => {
-        const otherEditingRow = dom.viewContent.querySelector('tr.is-editing');
-        if (otherEditingRow) {
-            renderReportView();
-        }
-
-        row.classList.add('is-editing');
-        const field = inputType === 'number' ? 'quantity' : 'comment';
-        const cell = row.querySelector(`td[data-field="${field}"]`);
-        const actionsCell = row.cells[row.cells.length - 1];
-
-        const originalValue = currentValue ?? '';
-        if (inputType === 'number') {
-            cell.innerHTML = `<input type="number" class="w-24 text-right border rounded-md p-1 bg-white" value="${originalValue}" step="any" min="0">`;
-        } else {
-            cell.innerHTML = `<input type="text" class="w-full border rounded-md p-1 bg-white" value="${originalValue}">`;
-        }
-
-        actionsCell.innerHTML = `
-            <div class="flex items-center justify-center gap-1">
-                <button data-action="save-tabular-field" class="p-1 text-green-600 hover:bg-green-100 rounded-md"><i data-lucide="check" class="w-5 h-5 pointer-events-none"></i></button>
-                <button data-action="cancel-tabular-field" class="p-1 text-red-600 hover:bg-red-100 rounded-md"><i data-lucide="x" class="w-5 h-5 pointer-events-none"></i></button>
-            </div>
-        `;
-        lucide.createIcons();
-        const input = cell.querySelector('input');
-        input.focus();
-        input.select();
-    };
-
-    const handleSaveTableCell = async (row) => {
-        const nodeId = row.dataset.nodeId;
-        const input = row.querySelector('input');
-        const cell = input.closest('td');
-        const field = cell.dataset.field;
-        let newValue = input.value;
-
-        if (input.type === 'number') {
-            newValue = parseFloat(newValue);
-            if (isNaN(newValue)) {
-                showToast('Por favor, ingrese una cantidad válida.', 'error');
-                return;
-            }
-        }
-
-        const product = state.selectedProduct;
-        const nodeToUpdate = findNode(nodeId, product.estructura);
-
-        if (nodeToUpdate) {
-            nodeToUpdate[field] = newValue;
-            const productRef = doc(db, COLLECTIONS.PRODUCTOS, product.docId);
-
-            try {
-                await updateDoc(productRef, { estructura: product.estructura });
-                showToast('Campo actualizado.', 'success');
-            } catch (error) {
-                showToast('Error al guardar el campo.', 'error');
-                console.error("Error updating table cell:", error);
-            } finally {
-                renderReportView();
-            }
-        }
-    };
 
 
     // --- PRODUCT SELECTION ---
@@ -3630,22 +3542,6 @@ function runSinopticoTabularLogic() {
         }
 
         const client = appState.collectionsById[COLLECTIONS.CLIENTES].get(product.clienteId);
-        const clientName = client ? client.descripcion : 'N/A';
-
-        const createEditableField = (label, value, fieldName, placeholder = 'N/A') => {
-            const val = value || '';
-            return `
-                <div>
-                    <p class="font-bold opacity-80 uppercase">${label}</p>
-                    <div class="editable-field mt-1" data-field="${fieldName}" data-value="${val}">
-                        <span class="value-display cursor-pointer hover:bg-slate-500/50 rounded px-1 min-h-[1em] inline-block">${val || placeholder}</span>
-                        <div class="edit-controls hidden">
-                            <input type="text" class="bg-slate-800 border-b-2 border-slate-400 focus:outline-none w-full text-white" value="${val}">
-                        </div>
-                    </div>
-                </div>
-            `;
-        };
 
         const getFlattenedData = (product) => {
             const flattenedData = [];
@@ -3667,34 +3563,6 @@ function runSinopticoTabularLogic() {
             return flattenedData;
         };
         const flattenedData = getFlattenedData(product);
-
-        const headerHTML = `
-            <div class="bg-white rounded-xl shadow-lg animate-fade-in-up overflow-hidden mb-6">
-                <h3 class="text-center font-bold text-lg py-2 bg-slate-200 text-slate-700">COMPOSICIÓN DE PIEZAS - BOM</h3>
-                <div class="flex">
-                    <div class="w-1/3 bg-white flex items-center justify-center p-4 border-r border-slate-200">
-                        <img src="logo.png" alt="Logo" class="max-h-20">
-                    </div>
-                    <div class="w-2/3 bg-[#44546A] text-white p-4 flex items-center" id="caratula-fields-container">
-                        <div class="grid grid-cols-2 gap-x-6 gap-y-3 text-xs w-full">
-                            ${createEditableField('PROYECTO', product.descripcion, 'descripcion')}
-                            ${createEditableField('Fecha de Emisión', product.fecha_emision, 'fecha_emision', 'Sin fecha')}
-                            ${createEditableField('Revisión', product.revision_code, 'revision_code', 'Sin revisión')}
-                            <div>
-                                <p class="font-bold opacity-80 uppercase">Nombre de Pieza</p>
-                                <p>${clientName}</p>
-                            </div>
-                            ${createEditableField('Realizó', product.realizo, 'realizo', 'No asignado')}
-                            ${createEditableField('Fecha Revisión', product.fecha_revision, 'fecha_revision', 'Sin fecha')}
-                            <div>
-                                <p class="font-bold opacity-80 uppercase">Número de Pieza</p>
-                                <p>${product.id}</p>
-                            </div>
-                            ${createEditableField('Versión', product.version, 'version')}
-                        </div>
-                    </div>
-                </div>
-            </div>`;
 
         const renderTabularTable = (data) => {
             const columns = [
@@ -3730,17 +3598,21 @@ function runSinopticoTabularLogic() {
                     material = item.material || '';
                 }
 
+                const actionsHTML = node.tipo !== 'producto'
+                    ? `<button data-action="edit-tabular-node" data-node-id="${node.id}" class="p-1 text-blue-600 hover:bg-blue-100 rounded-md" title="Editar Cantidad/Comentario"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>`
+                    : '';
+
                 tableHTML += `<tr class="bg-white border-b hover:bg-gray-100" data-node-id="${node.id}">
                     <td class="px-4 py-2 font-mono font-medium text-gray-900 whitespace-nowrap"><span class="font-sans">${prefix}</span>${item.descripcion || item.nombre}</td>
                     <td class="px-4 py-2 text-center">${level}</td>
                     <td class="px-4 py-2">${item.id}</td>
                     <td class="px-4 py-2"><span class="px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-700">${node.tipo}</span></td>
-                    <td class="px-4 py-2 text-right cursor-pointer" data-field="quantity" title="Doble clic para editar">${cantidad}</td>
+                    <td class="px-4 py-2 text-right">${cantidad}</td>
                     <td class="px-4 py-2 text-center">${unidad}</td>
                     <td class="px-4 py-2">${proveedor}</td>
                     <td class="px-4 py-2">${material}</td>
-                    <td class="px-4 py-2 cursor-pointer" data-field="comment" title="Doble clic para editar">${node.comment || ''}</td>
-                    <td class="px-4 py-2 text-center" id="actions-cell-${node.id}">&nbsp;</td>
+                    <td class="px-4 py-2">${node.comment || ''}</td>
+                    <td class="px-4 py-2 text-center">${actionsHTML}</td>
                 </tr>`;
             });
             tableHTML += `</tbody></table>`;
@@ -3750,7 +3622,7 @@ function runSinopticoTabularLogic() {
         const tableHTML = renderTabularTable(flattenedData);
 
         dom.viewContent.innerHTML = `<div class="animate-fade-in-up">
-            ${headerHTML}
+            <div id="caratula-container" class="mb-6"></div>
             <div class="bg-white p-6 rounded-xl shadow-lg">
                 <div class="flex items-center justify-between mb-4">
                     <div><h3 class="text-xl font-bold text-slate-800">Detalle de: ${product.descripcion}</h3><p class="text-sm text-slate-500">${product.id}</p></div>
@@ -3761,33 +3633,9 @@ function runSinopticoTabularLogic() {
                 <div id="sinoptico-tabular-container" class="mt-6 overflow-x-auto">${tableHTML}</div>
             </div>
         </div>`;
+
+        renderCaratula(product, client);
         lucide.createIcons();
-
-        // Attach listener right after render
-        const reviewedByInput = dom.viewContent.querySelector('#revisado-por-input');
-        if (reviewedByInput) {
-            reviewedByInput.addEventListener('blur', async (e) => {
-                const newValue = e.target.value;
-                if (newValue === (product.reviewedBy || '')) return; // No change
-
-                e.target.disabled = true;
-                e.target.classList.add('opacity-50');
-
-                const productRef = doc(db, COLLECTIONS.PRODUCTOS, product.docId);
-                try {
-                    await updateDoc(productRef, { reviewedBy: newValue, lastUpdated: new Date(), lastUpdatedBy: appState.currentUser.name });
-                    state.selectedProduct.reviewedBy = newValue; // Optimistic update
-                    showToast('Campo "Revisado por" actualizado.', 'success');
-                } catch (error) {
-                    console.error("Error updating reviewedBy:", error);
-                    showToast('Error al actualizar el campo.', 'error');
-                    e.target.value = product.reviewedBy || ''; // Revert
-                } finally {
-                    e.target.disabled = false;
-                    e.target.classList.remove('opacity-50');
-                }
-            });
-        }
     };
 
     // --- MAIN LOGIC & CLEANUP ---
@@ -3848,12 +3696,10 @@ function runSinopticoTabularLogic() {
     };
 
     dom.viewContent.addEventListener('click', handleViewClick);
-    dom.viewContent.addEventListener('dblclick', handleViewDblClick);
     dom.viewContent.addEventListener('click', caratulaFieldsHandler);
 
     appState.currentViewCleanup = () => {
         dom.viewContent.removeEventListener('click', handleViewClick);
-        dom.viewContent.removeEventListener('dblclick', handleViewDblClick);
         dom.viewContent.removeEventListener('click', caratulaFieldsHandler);
         appState.sinopticoTabularState = null;
     };
