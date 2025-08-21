@@ -734,6 +734,7 @@ function handleViewContentActions(e) {
         },
         'guardar-arbol': () => guardarEstructura(button),
         'add-node': () => openComponentSearchModal(button.dataset.nodeId, button.dataset.childType),
+        'edit-node-details': () => openSinopticoEditModal(button.dataset.nodeId),
         'delete-node': () => eliminarNodo(button.dataset.nodeId),
         'delete-account': handleDeleteAccount,
         'seed-database': seedDatabase,
@@ -3209,9 +3210,15 @@ function renderNodo(nodo) {
 
     const isDraggable = nodo.tipo !== 'producto';
 
-    // Se elimina la visualización de cantidad y comentarios de esta vista para simplificarla.
-    const quantityHTML = '';
-    const commentHTML = '';
+    const quantityText = nodo.tipo !== 'producto' ? `<span class="text-sm font-semibold text-blue-600 ml-2">(x${nodo.quantity ?? 1})</span>` : '';
+
+    const commentText = nodo.comment ? `<p class="pl-8 text-sm text-slate-500 italic flex items-center gap-2"><i data-lucide="message-square" class="w-3.5 h-3.5"></i>${nodo.comment}</p>` : '';
+
+    const editButton = nodo.tipo !== 'producto' ? `
+        <button data-action="edit-node-details" data-node-id="${nodo.id}" class="text-blue-600 hover:text-blue-700" title="Editar Cantidad/Comentario">
+            <i data-lucide="pencil" class="h-4 w-4 pointer-events-none"></i>
+        </button>
+    ` : '';
 
     return `<li data-node-id="${nodo.id}" class="group">
                 <div class="node-content ${isDraggable ? '' : 'cursor-default'}" data-type="${nodo.tipo}">
@@ -3219,12 +3226,15 @@ function renderNodo(nodo) {
                         <i data-lucide="${nodo.icon}" class="h-5 w-5 text-gray-600 flex-shrink-0"></i>
                         <span class="font-semibold truncate" title="${item.descripcion}">${item.descripcion}</span>
                         <span class="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full flex-shrink-0">${nodo.tipo}</span>
+                        ${quantityText}
                     </div>
                     <div class="flex items-center space-x-2 flex-shrink-0">
                         ${addButtons}
+                        ${editButton}
                         ${nodo.tipo !== 'producto' ? `<button data-action="delete-node" data-node-id="${nodo.id}" class="text-red-500 hover:text-red-700" title="Eliminar"><i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i></button>` : ''}
                     </div>
                 </div>
+                ${commentText}
                 ${(nodo.children && nodo.children.length > 0) ? `<ul class="node-children-list">${nodo.children.map(renderNodo).join('')}</ul>` : ''}
             </li>`;
 }
@@ -3483,9 +3493,20 @@ function renderCaratula(producto, cliente) {
 }
 
 function openSinopticoEditModal(nodeId) {
-    const activeProductDocId = appState.currentView === 'sinoptico_tabular'
-        ? appState.sinopticoTabularState?.selectedProduct?.docId
-        : appState.sinopticoState?.activeTreeDocId;
+    let activeProductDocId;
+    switch (appState.currentView) {
+        case 'arboles':
+            activeProductDocId = appState.arbolActivo?.docId;
+            break;
+        case 'sinoptico_tabular':
+            activeProductDocId = appState.sinopticoTabularState?.selectedProduct?.docId;
+            break;
+        case 'sinoptico':
+            activeProductDocId = appState.sinopticoState?.activeTreeDocId;
+            break;
+        default:
+            activeProductDocId = null;
+    }
 
     if (!activeProductDocId) {
         showToast('Error: No hay un producto activo seleccionado.', 'error');
@@ -3552,9 +3573,20 @@ async function handleSinopticoFormSubmit(e) {
         return;
     }
 
-    const activeProductDocId = appState.currentView === 'sinoptico_tabular'
-        ? appState.sinopticoTabularState?.selectedProduct?.docId
-        : appState.sinopticoState?.activeTreeDocId;
+    let activeProductDocId;
+    switch (appState.currentView) {
+        case 'arboles':
+            activeProductDocId = appState.arbolActivo?.docId;
+            break;
+        case 'sinoptico_tabular':
+            activeProductDocId = appState.sinopticoTabularState?.selectedProduct?.docId;
+            break;
+        case 'sinoptico':
+            activeProductDocId = appState.sinopticoState?.activeTreeDocId;
+            break;
+        default:
+            activeProductDocId = null;
+    }
 
     if (!activeProductDocId) {
         showToast('Error: No se pudo encontrar el producto activo.', 'error');
@@ -3584,17 +3616,20 @@ async function handleSinopticoFormSubmit(e) {
 
             document.getElementById(form.closest('.fixed').id).remove();
 
-            if (appState.currentView === 'sinoptico_tabular') {
-                // BUG FIX: Explicitly update the state object before re-rendering.
-                // This ensures the view uses the most recent data immediately,
-                // without waiting for the Firestore listener to refresh the collection.
-                if(appState.sinopticoTabularState.selectedProduct && appState.sinopticoTabularState.selectedProduct.docId === product.docId) {
-                    appState.sinopticoTabularState.selectedProduct.estructura = product.estructura;
-                }
-                runSinopticoTabularLogic();
-            } else {
-                renderTree();
-                renderDetailView(nodeId);
+            switch (appState.currentView) {
+                case 'arboles':
+                    renderArbolDetalle(nodeId);
+                    break;
+                case 'sinoptico_tabular':
+                    if(appState.sinopticoTabularState.selectedProduct && appState.sinopticoTabularState.selectedProduct.docId === product.docId) {
+                        appState.sinopticoTabularState.selectedProduct.estructura = product.estructura;
+                    }
+                    runSinopticoTabularLogic();
+                    break;
+                case 'sinoptico':
+                    renderTree();
+                    renderDetailView(nodeId);
+                    break;
             }
         } catch (error) {
             console.error("Error saving sinoptico node:", error);
