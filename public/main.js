@@ -1083,7 +1083,7 @@ async function openFormModal(item = null) {
         }
         
         fieldsHTML += `<div class="${field.type === 'textarea' || field.type === 'search-select' || field.key === 'id' || field.type === 'select' ? 'md:col-span-2' : ''}">
-            <label for="${field.key}" class="block text-sm font-medium text-gray-700 mb-1">${field.label}</label>
+            <label for="${field.type === 'search-select' ? field.key + '-display' : field.key}" class="block text-sm font-medium text-gray-700 mb-1">${field.label}</label>
             ${inputHTML}
             <p id="error-${field.key}" class="text-xs text-red-600 mt-1 h-4"></p>
         </div>`;
@@ -1475,15 +1475,32 @@ function runAdminDashboard() {
                     <div class="bg-white p-6 rounded-xl shadow-lg">
                          <div class="flex justify-between items-center mb-4">
                             <h3 class="text-lg font-bold text-slate-800">Línea de Tiempo de Tareas con Vencimiento</h3>
-                            <div class="relative" id="timeline-controls">
-                                <button id="timeline-filter-btn" class="flex items-center gap-2 bg-white border border-slate-300 px-4 py-2 rounded-md text-sm font-semibold hover:bg-slate-100 shadow-sm">
-                                    <i data-lucide="users" class="w-4 h-4"></i>
-                                    <span>Filtrar Asignados</span>
-                                </button>
-                                <div id="timeline-filter-dropdown" class="absolute z-10 right-0 mt-2 w-72 bg-white border rounded-lg shadow-xl hidden p-4 space-y-3"></div>
+                        <div class="flex items-center gap-2" id="timeline-controls">
+                                <select id="timeline-priority-filter" class="pl-4 pr-8 py-2 border rounded-full bg-white shadow-sm appearance-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+                                    <option value="all">Prioridad (todas)</option>
+                                    <option value="high">Alta</option>
+                                    <option value="medium">Media</option>
+                                    <option value="low">Baja</option>
+                                </select>
+                                <div class="relative">
+                                    <button id="timeline-filter-btn" class="flex items-center gap-2 bg-white border border-slate-300 px-4 py-2 rounded-md text-sm font-semibold hover:bg-slate-100 shadow-sm">
+                                        <i data-lucide="users" class="w-4 h-4"></i>
+                                        <span>Asignados</span>
+                                    </button>
+                                    <div id="timeline-filter-dropdown" class="absolute z-10 right-0 mt-2 w-72 bg-white border rounded-lg shadow-xl hidden p-4 space-y-3"></div>
+                                </div>
                             </div>
                         </div>
-                        <div id="tasks-timeline-container" class="h-[500px]"></div>
+                        <div id="tasks-timeline-wrapper" class="h-[500px] relative">
+                            <div id="tasks-timeline-container" class="h-full"></div>
+                            <div id="timeline-empty-state" class="hidden absolute inset-0 flex items-center justify-center text-slate-500 p-8 bg-white rounded-xl">
+                                <div class="text-center">
+                                    <i data-lucide="calendar-x" class="w-12 h-12 mx-auto text-slate-400"></i>
+                                    <h4 class="mt-4 font-semibold">No hay tareas para mostrar</h4>
+                                    <p class="text-sm">Intente ajustar los filtros o agregue fechas a las tareas.</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -1762,6 +1779,7 @@ function setupAdminTaskViewListeners() {
         // Timeline filters
         timelineFilterBtn: document.getElementById('timeline-filter-btn'),
         timelineFilterDropdown: document.getElementById('timeline-filter-dropdown'),
+        timelinePriorityFilter: document.getElementById('timeline-priority-filter'),
     };
 
     if (!controls.viewFilter) return; // Exit if the main controls aren't rendered
@@ -1853,6 +1871,13 @@ function setupAdminTaskViewListeners() {
             renderFilteredAdminTaskTable();
         }
     });
+
+    if (controls.timelinePriorityFilter) {
+        controls.timelinePriorityFilter.addEventListener('change', (e) => {
+            adminTaskViewState.filters.priority = e.target.value;
+            updateTasksTimeline(adminTaskViewState.tasks);
+        });
+    }
 
     if (controls.timelineFilterBtn) {
         renderTimelineFilterDropdown();
@@ -2008,15 +2033,65 @@ function renderTasksTimeline() {
             maxHeight: '500px',
             showCurrentTime: true,
             zoomMin: 1000 * 60 * 60 * 24, // Un día
-            zoomMax: 1000 * 60 * 60 * 24 * 30 * 6 // 6 meses
+            zoomMax: 1000 * 60 * 60 * 24 * 30 * 6, // 6 meses
+            editable: {
+                updateTime: true,
+                updateGroup: true,
+                remove: false,
+            },
+            onMove: (item, callback) => {
+                const task = adminTaskViewState.tasks.find(t => t.docId === item.id);
+                if (!task) {
+                    callback(null); // Task not found, cancel move
+                    return;
+                }
+                const user = appState.collectionsById.usuarios.get(item.group);
+
+                const formatDate = (date) => new Date(date).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+                const newStartDate = item.start;
+                // For ranges, the 'end' from vis.js is exclusive, so subtract a day to get the inclusive dueDate
+                const newDueDate = item.end ? new Date(new Date(item.end).getTime() - 86400000) : newStartDate;
+
+                let confirmationMessage = `Mover la tarea "${task.title}" a`;
+                if (item.end) {
+                    confirmationMessage += ` del ${formatDate(newStartDate)} al ${formatDate(newDueDate)}`;
+                } else {
+                    confirmationMessage += ` la fecha ${formatDate(newStartDate)}`;
+                }
+
+                if (task.assigneeUid !== item.group) {
+                    confirmationMessage += ` y asignarla a ${user?.name || 'Sin Asignar'}`;
+                }
+                confirmationMessage += '?';
+
+                showConfirmationModal('Actualizar Tarea', confirmationMessage, async () => {
+                    const taskRef = doc(db, COLLECTIONS.TAREAS, item.id);
+                    try {
+                        const updateData = {
+                            startDate: newStartDate.toISOString().split('T')[0],
+                            dueDate: newDueDate.toISOString().split('T')[0],
+                            assigneeUid: item.group || ''
+                        };
+                        await updateDoc(taskRef, updateData);
+                        showToast('Tarea actualizada.', 'success');
+                        callback(item); // Acepta el cambio en la UI
+                    } catch (error) {
+                        console.error("Error updating task from timeline:", error);
+                        showToast('Error al actualizar la tarea.', 'error');
+                        callback(null); // Cancela el cambio en la UI
+                    }
+                }, () => {
+                    callback(null); // User cancelled, revert UI change
+                });
+            }
         };
 
         adminTaskViewState.timeline = new vis.Timeline(container, adminTaskViewState.timelineItems, adminTaskViewState.timelineGroups, options);
 
-        adminTaskViewState.timeline.on('select', (properties) => {
-            const selectedTaskId = properties.items[0];
-            if (selectedTaskId) {
-                const selectedTask = adminTaskViewState.tasks.find(t => t.docId === selectedTaskId);
+        adminTaskViewState.timeline.on('doubleClick', (properties) => {
+            const taskId = properties.item;
+            if (taskId) {
+                const selectedTask = adminTaskViewState.tasks.find(t => t.docId === taskId);
                 if (selectedTask) {
                     openTaskFormModal(selectedTask);
                 }
@@ -2036,6 +2111,12 @@ function updateTasksTimeline(tasks) {
     }
 
     try {
+        const { priority } = adminTaskViewState.filters;
+        let tasksToRender = tasks;
+        if (priority && priority !== 'all') {
+            tasksToRender = tasks.filter(t => (t.priority || 'medium') === priority);
+        }
+
         const visibleGroups = adminTaskViewState.timelineVisibleGroups;
         const isGroupVisible = (groupId) => visibleGroups === null || visibleGroups.has(groupId);
 
@@ -2060,8 +2141,8 @@ function updateTasksTimeline(tasks) {
         adminTaskViewState.timelineGroups.update(newGroups);
 
         // Update items
-        const items = tasks
-            .filter(task => task.dueDate && isGroupVisible(task.assigneeUid || 'unassigned'))
+        const items = tasksToRender
+            .filter(task => (task.dueDate || task.startDate) && isGroupVisible(task.assigneeUid || 'unassigned'))
             .map(task => {
                 const priority = task.priority || 'medium';
                 const priorityColors = { high: '#ef4444', medium: '#f59e0b', low: '#64748b' };
@@ -2070,36 +2151,44 @@ function updateTasksTimeline(tasks) {
                         <div style="width: 4px; height: 16px; background-color: ${priorityColors[priority]}; border-radius: 2px; flex-shrink: 0;"></div>
                         <div>${task.title}</div>
                     </div>`;
-                return {
+
+                const item = {
                     id: task.docId,
                     content: itemContent,
-                    start: task.dueDate,
-                    type: 'box',
                     group: task.assigneeUid || 'unassigned',
                     className: `priority-${priority}`
                 };
+
+                if (task.startDate && task.dueDate) {
+                    // Add a day to the end date to make the range inclusive
+                    let endDate = new Date(task.dueDate);
+                    endDate.setDate(endDate.getDate() + 1);
+
+                    item.start = task.startDate;
+                    item.end = endDate.toISOString().split('T')[0];
+                    item.type = 'range';
+                } else {
+                    item.start = task.dueDate || task.startDate;
+                    item.type = 'box';
+                }
+
+                return item;
             });
 
         adminTaskViewState.timelineItems.clear();
         adminTaskViewState.timelineItems.add(items);
 
+        const timelineContainer = document.getElementById('tasks-timeline-container');
+        const emptyStateContainer = document.getElementById('timeline-empty-state');
+
         if (items.length === 0) {
-            const container = document.getElementById('tasks-timeline-container');
-            if(container.querySelector('.vis-timeline') && container.querySelector('.vis-timeline').style.display !== 'none'){
-                 container.querySelector('.vis-timeline').style.display = 'none';
-            }
-            if(!container.querySelector('.empty-timeline-msg')){
-                container.insertAdjacentHTML('beforeend', `<div class="empty-timeline-msg flex items-center justify-center h-full text-slate-500 p-8"><i data-lucide="calendar-x" class="w-8 h-8 mr-2"></i> No hay tareas con fecha de vencimiento para mostrar.</div>`);
-                lucide.createIcons();
-            }
+            timelineContainer.classList.add('hidden');
+            emptyStateContainer.classList.remove('hidden');
         } else {
-             const container = document.getElementById('tasks-timeline-container');
-             const emptyMsg = container.querySelector('.empty-timeline-msg');
-             if(emptyMsg) emptyMsg.remove();
-             if(container.querySelector('.vis-timeline') && container.querySelector('.vis-timeline').style.display === 'none'){
-                 container.querySelector('.vis-timeline').style.display = 'block';
-             }
+            timelineContainer.classList.remove('hidden');
+            emptyStateContainer.classList.add('hidden');
         }
+        lucide.createIcons();
 
     } catch (error) {
         console.error("Error updating timeline:", error);
@@ -2513,10 +2602,13 @@ function createTaskCard(task) {
 function renderSubtask(subtask) {
     const titleClass = subtask.completed ? 'line-through text-slate-500' : 'text-slate-800';
     const containerClass = subtask.completed ? 'opacity-70' : '';
+    const checkboxId = `subtask-checkbox-${subtask.id}`;
     return `
         <div class="subtask-item group flex items-center gap-3 p-2 bg-slate-100 hover:bg-slate-200/70 rounded-md transition-all duration-150 ${containerClass}" data-subtask-id="${subtask.id}">
-            <input type="checkbox" class="subtask-checkbox h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300 cursor-pointer" ${subtask.completed ? 'checked' : ''}>
-            <span class="flex-grow text-sm font-medium ${titleClass}">${subtask.title}</span>
+            <label for="${checkboxId}" class="flex-grow flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" id="${checkboxId}" name="${checkboxId}" class="subtask-checkbox h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300 cursor-pointer" ${subtask.completed ? 'checked' : ''}>
+                <span class="flex-grow text-sm font-medium ${titleClass}">${subtask.title}</span>
+            </label>
             <button type="button" class="subtask-delete-btn text-slate-400 hover:text-red-500 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i></button>
         </div>
     `;
@@ -2588,11 +2680,12 @@ async function openTaskFormModal(task = null, defaultStatus = 'todo', defaultAss
                     <label class="block text-sm font-medium text-gray-700">Sub-tareas</label>
                     <div id="subtasks-list" class="space-y-2 max-h-48 overflow-y-auto p-2 rounded-md bg-slate-50 border"></div>
                     <div class="flex items-center gap-2">
-                        <input type="text" id="new-subtask-title" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Añadir sub-tarea y presionar Enter">
+                        <label for="new-subtask-title" class="sr-only">Añadir sub-tarea</label>
+                        <input type="text" id="new-subtask-title" name="new-subtask-title" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Añadir sub-tarea y presionar Enter">
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label for="task-assignee" class="block text-sm font-medium text-gray-700 mb-1">Asignar a</label>
                         <select id="task-assignee" name="assigneeUid" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" data-selected-uid="${selectedUid}">
@@ -2606,6 +2699,10 @@ async function openTaskFormModal(task = null, defaultStatus = 'todo', defaultAss
                             <option value="medium" ${!isEditing || (isEditing && task.priority === 'medium') ? 'selected' : ''}>Media</option>
                             <option value="high" ${isEditing && task.priority === 'high' ? 'selected' : ''}>Alta</option>
                         </select>
+                    </div>
+                    <div>
+                        <label for="task-startdate" class="block text-sm font-medium text-gray-700 mb-1">Fecha de Inicio</label>
+                        <input type="date" id="task-startdate" name="startDate" value="${isEditing && task.startDate ? task.startDate : ''}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
                     </div>
                     <div>
                         <label for="task-duedate" class="block text-sm font-medium text-gray-700 mb-1">Fecha Límite</label>
@@ -2725,6 +2822,7 @@ async function handleTaskFormSubmit(e) {
         description: form.querySelector('[name="description"]').value,
         assigneeUid: form.querySelector('[name="assigneeUid"]').value,
         priority: form.querySelector('[name="priority"]').value,
+        startDate: form.querySelector('[name="startDate"]').value,
         dueDate: form.querySelector('[name="dueDate"]').value,
         updatedAt: new Date(),
         subtasks: modalElement.dataset.subtasks ? JSON.parse(modalElement.dataset.subtasks) : []
