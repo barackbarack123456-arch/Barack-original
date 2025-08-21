@@ -526,30 +526,42 @@ async function seedDatabase() {
         { id: 'produccion', descripcion: 'Producción', icon: 'factory' },
         { id: 'logistica', descripcion: 'Logística y Almacén', icon: 'truck' },
     ];
+     const procesos = [
+        { id: 'estampado', descripcion: 'Estampado' },
+        { id: 'inyeccion', descripcion: 'Inyección de Plástico' },
+        { id: 'ensamblaje', descripcion: 'Ensamblaje Manual' },
+        { id: 'pintura', descripcion: 'Pintura y Acabado' },
+        { id: 'soldadura', descripcion: 'Soldadura por Puntos' },
+     ];
     const proyectos = [
         { id: 'PROJ-A', codigo: 'PROJ-A', nombre: 'Proyecto Halcón', descripcion: 'Desarrollo de nuevo sistema de suspensión para vehículos 4x4.' },
         { id: 'PROJ-B', codigo: 'PROJ-B', nombre: 'Proyecto Titán', descripcion: 'Optimización de componentes de motor para reducción de emisiones.' },
     ];
     const insumos = [
-        { id: 'INS001', descripcion: 'Chapa de Acero 2mm', material: 'Acero', proveedorId: 'P001', unidadMedidaId: 'm2', costo: 25.50 },
-        { id: 'INS002', descripcion: 'Polipropileno en Grano', material: 'Plástico', proveedorId: 'P002', unidadMedidaId: 'kg', costo: 3.20 },
-        { id: 'INS003', descripcion: 'Tornillo Allen M5', material: 'Acero Inox', proveedorId: 'P003', unidadMedidaId: 'un', costo: 0.15 },
-        { id: 'INS004', descripcion: 'Pintura Epoxi Negra', material: 'Químico', proveedorId: 'P002', unidadMedidaId: 'l', costo: 15.00 },
+        { id: 'INS001', numero_pieza: 'INS001', lc_kd: 'LC', descripcion: 'Chapa de Acero 2mm', version: '1.0', proveedor: 'P001', unidad_medida: 'm2', costo: 25.50, fecha_modificacion: '2023-10-01', imagen: 'https://images.pexels.com/photos/38293/metal-panels-metal-structure-steel-38293.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1' },
+        { id: 'INS002', numero_pieza: 'INS002', lc_kd: 'LC', descripcion: 'Polipropileno en Grano', version: '2.1', proveedor: 'P002', unidad_medida: 'kg', costo: 3.20, fecha_modificacion: '2023-11-15', imagen: 'https://static.interplas.com/product-images/polypropylene-homopolymer-pellets-1000x1000.jpg' },
+        { id: 'INS003', numero_pieza: 'INS003', lc_kd: 'KD', descripcion: 'Tornillo Allen M5', version: '1.0', proveedor: 'P003', unidad_medida: 'un', costo: 0.15, fecha_modificacion: '2023-09-20', imagen: 'https://www.pdq-s.com/wp-content/uploads/2022/01/Socket-Head-Cap-Screw.jpg' },
+        { id: 'INS004', numero_pieza: 'INS004', lc_kd: 'LC', descripcion: 'Pintura Epoxi Negra', version: '3.0', proveedor: 'P002', unidad_medida: 'l', costo: 15.00, fecha_modificacion: '2024-01-05', imagen: 'https://www.masterbond.com/sites/default/files/images/products/main_ep30-2.jpg' },
     ];
     const semiterminados = [
-        { id: 'SUB001', descripcion: 'Soporte Metálico Principal', peso_gr: 1200, tiempo_ciclo_seg: 300 },
-        { id: 'SUB002', descripcion: 'Carcasa Plástica Superior', peso_gr: 450, tiempo_ciclo_seg: 180 },
-        { id: 'SUB003', descripcion: 'Carcasa Plástica Inferior', peso_gr: 480, tiempo_ciclo_seg: 185 },
-        { id: 'SUB004', descripcion: 'Ensamblaje Carcasas', peso_gr: 930, tiempo_ciclo_seg: 90 },
+        { id: 'SUB001', numero_pieza: 'SUB001', lc_kd: 'LC', descripcion: 'Soporte Metálico Principal', version: '1.2', proceso: 'estampado', aspecto: 'Crítico', peso_gr: 1200, tolerancia_gr: 50, fecha_modificacion: '2024-01-10', imagen: 'https://www.shutterstock.com/image-photo/metal-stamping-part-automotive-industry-600nw-2160938473.jpg' },
+        { id: 'SUB002', numero_pieza: 'SUB002', lc_kd: 'LC', descripcion: 'Carcasa Plástica Superior', version: '2.0', proceso: 'inyeccion', aspecto: 'No Crítico', peso_gr: 450, tolerancia_gr: 10, fecha_modificacion: '2024-01-12', imagen: 'https://www.revpart.com/wp-content/uploads/2021/04/injection-molding-complex-parts.jpg' },
+        { id: 'SUB003', numero_pieza: 'SUB003', lc_kd: 'LC', descripcion: 'Carcasa Plástica Inferior', version: '2.0', proceso: 'inyeccion', aspecto: 'No Crítico', peso_gr: 480, tolerancia_gr: 10, fecha_modificacion: '2024-01-12', imagen: 'https://www.machinedesign.com/source/objects/sites/machinedesign.com/files/styles/facebook_og_image/public/injection-molded-parts-promo.jpg?itok=z2bLzH-1' },
+        { id: 'SUB004', numero_pieza: 'SUB004', lc_kd: 'LC', descripcion: 'Ensamblaje Carcasas', version: '1.0', proceso: 'ensamblaje', aspecto: 'No Crítico', peso_gr: 930, tolerancia_gr: 20, fecha_modificacion: '2024-01-15', imagen: 'https://t4.ftcdn.net/jpg/05/52/63/33/360_F_552633333_sA2m5s4sYJ5b2yV4IIM2Tjhz2K3A4lus.jpg' },
     ];
 
     const productoPrincipal = {
         id: 'PROD001',
+        numero_pieza: 'PROD001',
+        lc_kd: 'LC',
+        version_vehiculo: 'SUV 4x4 Premium',
         descripcion: 'Ensamblaje de Soporte de Motor Delantero',
-        codigo_cliente: 'CLI-558-A',
-        clienteId: 'C001',
-        proyectoId: 'PROJ-A', // Asociado a un proyecto
         version: '3.1',
+        fecha_modificacion: '2024-01-20',
+        imagen: 'https://media.istockphoto.com/id/1357283286/photo/engine-mount.jpg?s=612x612&w=0&k=20&c=M0T5S5g_sPx3yJz_s-kI6tSu_zOaWkaR2uAd2h02iW0=',
+        // Campos extra para la lógica de la app
+        clienteId: 'C001',
+        proyectoId: 'PROJ-A',
         createdAt: new Date(),
         estructura: [
             {
@@ -590,11 +602,16 @@ async function seedDatabase() {
 
     const productoSecundario = {
         id: 'PROD002',
+        numero_pieza: 'PROD002',
+        lc_kd: 'KD',
+        version_vehiculo: 'Sedan Compacto Eco',
         descripcion: 'Inyector de combustible optimizado',
-        codigo_cliente: 'CLI-720-C',
+        version: '1.0',
+        fecha_modificacion: '2024-02-01',
+        imagen: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR_x-XfVqg_iY7dYw_Z_w_q_Y7bY9H_z5O_A&s',
+        // Campos extra
         clienteId: 'C002',
         proyectoId: 'PROJ-B',
-        version: '1.0',
         createdAt: new Date(),
         estructura: [
             {
@@ -674,6 +691,7 @@ async function seedDatabase() {
         proveedores.forEach(p => setInBatch(COLLECTIONS.PROVEEDORES, p));
         unidades.forEach(u => setInBatch(COLLECTIONS.UNIDADES, u));
         sectores.forEach(s => setInBatch(COLLECTIONS.SECTORES, s));
+        procesos.forEach(p => setInBatch(COLLECTIONS.PROCESOS, p));
         proyectos.forEach(p => setInBatch(COLLECTIONS.PROYECTOS, p));
         insumos.forEach(i => setInBatch(COLLECTIONS.INSUMOS, i));
         semiterminados.forEach(s => setInBatch(COLLECTIONS.SEMITERMINADOS, s));
