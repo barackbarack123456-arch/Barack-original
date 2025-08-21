@@ -3893,6 +3893,129 @@ function runSinopticoTabularLogic() {
 
     const state = appState.sinopticoTabularState;
 
+    // --- RENDER FUNCTIONS ---
+
+    const renderTabularTable = (data) => {
+        const columns = [
+            { key: 'descripcion', label: 'Descripción' }, { key: 'nivel', label: 'Nivel' },
+            { key: 'codigo', label: 'Código' }, { key: 'tipo', label: 'Tipo' },
+            { key: 'cantidad', label: 'Cantidad por pieza' }, { key: 'unidad', label: 'Unidad' },
+            { key: 'proveedor', label: 'Proveedor' }, { key: 'material', label: 'Material' },
+            { key: 'observaciones', label: 'Comentarios' }, { key: 'acciones', label: 'Acciones' }
+        ];
+
+        if (data.length === 0) return `<p class="text-slate-500 p-4 text-center">El producto seleccionado no tiene una estructura definida.</p>`;
+
+        let tableHTML = `<table class="w-full text-sm text-left text-gray-600">`;
+        tableHTML += `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>`;
+        columns.forEach(col => { tableHTML += `<th scope="col" class="px-4 py-3">${col.label}</th>`; });
+        tableHTML += `</tr></thead><tbody>`;
+
+        data.forEach(rowData => {
+            const { node, item, level, isLast, lineage } = rowData;
+            const NA = '<span class="text-slate-400">N/A</span>';
+
+            let prefix = lineage.map(parentIsNotLast => parentIsNotLast ? '│&nbsp;&nbsp;&nbsp;&nbsp;' : '&nbsp;&nbsp;&nbsp;&nbsp;').join('');
+            if (level > 0)  prefix += isLast ? '└─ ' : '├─ ';
+
+            const cantidad = node.quantity ?? NA;
+            let unidad = NA, proveedor = NA, material = NA;
+
+            if (node.tipo === 'insumo') {
+                const unidadData = item.unidadMedidaId ? appState.collectionsById[COLLECTIONS.UNIDADES].get(item.unidadMedidaId) : null;
+                unidad = unidadData ? unidadData.id : '';
+                const proveedorData = item.proveedorId ? appState.collectionsById[COLLECTIONS.PROVEEDORES].get(item.proveedorId) : null;
+                proveedor = proveedorData ? proveedorData.descripcion : '';
+                material = item.material || '';
+            }
+
+            const actionsHTML = (node.tipo !== 'producto' || level === 0)
+                ? `<button data-action="edit-tabular-node" data-node-id="${node.id}" class="p-1 text-blue-600 hover:bg-blue-100 rounded-md" title="Editar Cantidad/Comentario"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>`
+                : '';
+
+            tableHTML += `<tr class="bg-white border-b hover:bg-gray-100" data-node-id="${node.id}">
+                <td class="px-4 py-2 font-mono font-medium text-gray-900 whitespace-nowrap"><span class="font-sans">${prefix}</span>${item.descripcion || item.nombre}</td>
+                <td class="px-4 py-2 text-center">${node.originalLevel ?? level}</td>
+                <td class="px-4 py-2">${item.id}</td>
+                <td class="px-4 py-2"><span class="px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-700">${node.tipo}</span></td>
+                <td class="px-4 py-2 text-right">${cantidad}</td>
+                <td class="px-4 py-2 text-center">${unidad}</td>
+                <td class="px-4 py-2">${proveedor}</td>
+                <td class="px-4 py-2">${material}</td>
+                <td class="px-4 py-2">${node.comment || ''}</td>
+                <td class="px-4 py-2 text-center">${actionsHTML}</td>
+            </tr>`;
+        });
+        tableHTML += `</tbody></table>`;
+        return tableHTML;
+    };
+
+    const renderReportView = () => {
+        const product = state.selectedProduct;
+        if (!product) {
+            renderInitialView();
+            return;
+        }
+
+        const client = appState.collectionsById[COLLECTIONS.CLIENTES].get(product.clienteId);
+
+        const getOriginalMaxDepth = (nodes, level = 0) => {
+            if (!nodes || nodes.length === 0) return level > 0 ? level - 1 : 0;
+            let max = level;
+            for (const node of nodes) {
+                const depth = getOriginalMaxDepth(node.children, level + 1);
+                if (depth > max) max = depth;
+            }
+            return max;
+        };
+
+        const flattenedData = getFlattenedData(product, state.activeFilters.niveles);
+        const tableHTML = renderTabularTable(flattenedData);
+
+        const maxLevel = getOriginalMaxDepth(product.estructura);
+        let levelFilterOptionsHTML = '';
+        for (let i = 0; i <= maxLevel; i++) {
+            const isChecked = !state.activeFilters.niveles.size || state.activeFilters.niveles.has(i.toString());
+            levelFilterOptionsHTML += `
+                <label class="flex items-center gap-3 p-2 hover:bg-slate-100 rounded-md cursor-pointer">
+                    <input type="checkbox" data-level="${i}" class="level-filter-cb h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300" ${isChecked ? 'checked' : ''}>
+                    <span class="text-sm">Nivel ${i}</span>
+                </label>
+            `;
+        }
+
+        dom.viewContent.innerHTML = `<div class="animate-fade-in-up">
+            <div id="caratula-container" class="mb-6"></div>
+            <div class="bg-white p-6 rounded-xl shadow-lg">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                    <div><h3 class="text-xl font-bold text-slate-800">Detalle de: ${product.descripcion}</h3><p class="text-sm text-slate-500">${product.id}</p></div>
+                    <div class="flex items-center gap-2">
+                        <div class="relative">
+                            <button id="level-filter-btn" class="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-md text-sm font-semibold hover:bg-slate-50 flex items-center gap-2">
+                                <i data-lucide="filter" class="h-4 w-4"></i>Filtrar por Nivel<i data-lucide="chevron-down" class="h-4 w-4 ml-1"></i>
+                            </button>
+                            <div id="level-filter-dropdown" class="absolute z-10 right-0 mt-2 w-48 bg-white border rounded-lg shadow-xl hidden p-2 dropdown-menu">
+                                ${levelFilterOptionsHTML}
+                                <div class="border-t my-2"></div>
+                                <button data-action="apply-level-filter" class="w-full bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700">Aplicar</button>
+                            </div>
+                        </div>
+                        <button data-action="select-another-product-tabular" class="bg-gray-500 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-gray-600 flex items-center">
+                            <i data-lucide="search" class="mr-2 h-4 w-4"></i>Seleccionar Otro
+                        </button>
+                        <button data-action="export-sinoptico-pdf" class="bg-red-600 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-red-700 flex items-center">
+                            <i data-lucide="file-text" class="mr-2 h-4 w-4"></i>Exportar a PDF
+                        </button>
+                    </div>
+                </div>
+                <div id="sinoptico-tabular-container" class="mt-6 overflow-x-auto">${tableHTML}</div>
+            </div>
+        </div>`;
+
+        renderCaratula(product, client);
+        lucide.createIcons();
+    };
+
     // --- Event Handlers ---
     const handleViewClick = (e) => {
         const button = e.target.closest('button[data-action]');
@@ -3936,7 +4059,30 @@ function runSinopticoTabularLogic() {
                 }
 
                 dropdown.classList.add('hidden');
-                renderReportView(); // Re-render with the new filter
+
+                const tableContainer = document.getElementById('sinoptico-tabular-container');
+                if (tableContainer) {
+                    // 1. Show loading state
+                    tableContainer.innerHTML = `
+                        <div class="flex items-center justify-center p-16 text-slate-500">
+                            <i data-lucide="loader" class="animate-spin h-8 w-8 mr-3"></i>
+                            <span>Cargando tabla...</span>
+                        </div>
+                    `;
+                    lucide.createIcons();
+
+                    // Use a timeout to ensure the loading indicator renders before data processing
+                    setTimeout(() => {
+                        // 2. Process data and render new table
+                        const product = state.selectedProduct;
+                        const flattenedData = getFlattenedData(product, state.activeFilters.niveles);
+                        const newTableHTML = renderTabularTable(flattenedData);
+
+                        // 3. Update table container
+                        tableContainer.innerHTML = newTableHTML;
+                        lucide.createIcons();
+                    }, 50);
+                }
                 break;
             case 'export-sinoptico-pdf':
                 exportSinopticoTabularToPdf();
@@ -3987,7 +4133,6 @@ function runSinopticoTabularLogic() {
         }
     };
 
-    // --- RENDER FUNCTIONS ---
     const renderInitialView = () => {
         dom.viewContent.innerHTML = `<div class="flex flex-col items-center justify-center h-full bg-white rounded-xl shadow-lg p-6 text-center animate-fade-in-up">
             <i data-lucide="file-search-2" class="h-24 w-24 text-gray-300 mb-6"></i>
@@ -3997,128 +4142,6 @@ function runSinopticoTabularLogic() {
                 <i data-lucide="search" class="inline-block mr-2 -mt-1"></i>Seleccionar Producto
             </button>
         </div>`;
-        lucide.createIcons();
-    };
-
-    const renderReportView = () => {
-        const product = state.selectedProduct;
-        if (!product) {
-            renderInitialView();
-            return;
-        }
-
-        const client = appState.collectionsById[COLLECTIONS.CLIENTES].get(product.clienteId);
-
-        const getOriginalMaxDepth = (nodes, level = 0) => {
-            if (!nodes || nodes.length === 0) return level > 0 ? level - 1 : 0;
-            let max = level;
-            for (const node of nodes) {
-                const depth = getOriginalMaxDepth(node.children, level + 1);
-                if (depth > max) max = depth;
-            }
-            return max;
-        };
-
-        const flattenedData = getFlattenedData(product, state.activeFilters.niveles);
-
-        const renderTabularTable = (data) => {
-            const columns = [
-                { key: 'descripcion', label: 'Descripción' }, { key: 'nivel', label: 'Nivel' },
-                { key: 'codigo', label: 'Código' }, { key: 'tipo', label: 'Tipo' },
-                { key: 'cantidad', label: 'Cantidad por pieza' }, { key: 'unidad', label: 'Unidad' },
-                { key: 'proveedor', label: 'Proveedor' }, { key: 'material', label: 'Material' },
-                { key: 'observaciones', label: 'Comentarios' }, { key: 'acciones', label: 'Acciones' }
-            ];
-
-            if (data.length === 0) return `<p class="text-slate-500 p-4 text-center">El producto seleccionado no tiene una estructura definida.</p>`;
-
-            let tableHTML = `<table class="w-full text-sm text-left text-gray-600">`;
-            tableHTML += `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>`;
-            columns.forEach(col => { tableHTML += `<th scope="col" class="px-4 py-3">${col.label}</th>`; });
-            tableHTML += `</tr></thead><tbody>`;
-
-            data.forEach(rowData => {
-                const { node, item, level, isLast, lineage } = rowData;
-                const NA = '<span class="text-slate-400">N/A</span>';
-
-                let prefix = lineage.map(parentIsNotLast => parentIsNotLast ? '│&nbsp;&nbsp;&nbsp;&nbsp;' : '&nbsp;&nbsp;&nbsp;&nbsp;').join('');
-                if (level > 0)  prefix += isLast ? '└─ ' : '├─ ';
-
-                const cantidad = node.quantity ?? NA;
-                let unidad = NA, proveedor = NA, material = NA;
-
-                if (node.tipo === 'insumo') {
-                    const unidadData = item.unidadMedidaId ? appState.collectionsById[COLLECTIONS.UNIDADES].get(item.unidadMedidaId) : null;
-                    unidad = unidadData ? unidadData.id : '';
-                    const proveedorData = item.proveedorId ? appState.collectionsById[COLLECTIONS.PROVEEDORES].get(item.proveedorId) : null;
-                    proveedor = proveedorData ? proveedorData.descripcion : '';
-                    material = item.material || '';
-                }
-
-                const actionsHTML = (node.tipo !== 'producto' || level === 0)
-                    ? `<button data-action="edit-tabular-node" data-node-id="${node.id}" class="p-1 text-blue-600 hover:bg-blue-100 rounded-md" title="Editar Cantidad/Comentario"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>`
-                    : '';
-
-                tableHTML += `<tr class="bg-white border-b hover:bg-gray-100" data-node-id="${node.id}">
-                    <td class="px-4 py-2 font-mono font-medium text-gray-900 whitespace-nowrap"><span class="font-sans">${prefix}</span>${item.descripcion || item.nombre}</td>
-                    <td class="px-4 py-2 text-center">${node.originalLevel ?? level}</td>
-                    <td class="px-4 py-2">${item.id}</td>
-                    <td class="px-4 py-2"><span class="px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-700">${node.tipo}</span></td>
-                    <td class="px-4 py-2 text-right">${cantidad}</td>
-                    <td class="px-4 py-2 text-center">${unidad}</td>
-                    <td class="px-4 py-2">${proveedor}</td>
-                    <td class="px-4 py-2">${material}</td>
-                    <td class="px-4 py-2">${node.comment || ''}</td>
-                    <td class="px-4 py-2 text-center">${actionsHTML}</td>
-                </tr>`;
-            });
-            tableHTML += `</tbody></table>`;
-            return tableHTML;
-        };
-
-        const tableHTML = renderTabularTable(flattenedData);
-
-        const maxLevel = getOriginalMaxDepth(product.estructura);
-        let levelFilterOptionsHTML = '';
-        for (let i = 0; i <= maxLevel; i++) {
-            const isChecked = !state.activeFilters.niveles.size || state.activeFilters.niveles.has(i.toString());
-            levelFilterOptionsHTML += `
-                <label class="flex items-center gap-3 p-2 hover:bg-slate-100 rounded-md cursor-pointer">
-                    <input type="checkbox" data-level="${i}" class="level-filter-cb h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300" ${isChecked ? 'checked' : ''}>
-                    <span class="text-sm">Nivel ${i}</span>
-                </label>
-            `;
-        }
-
-        dom.viewContent.innerHTML = `<div class="animate-fade-in-up">
-            <div id="caratula-container" class="mb-6"></div>
-            <div class="bg-white p-6 rounded-xl shadow-lg">
-                <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
-                    <div><h3 class="text-xl font-bold text-slate-800">Detalle de: ${product.descripcion}</h3><p class="text-sm text-slate-500">${product.id}</p></div>
-                    <div class="flex items-center gap-2">
-                        <div class="relative">
-                            <button id="level-filter-btn" class="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-md text-sm font-semibold hover:bg-slate-50 flex items-center gap-2">
-                                <i data-lucide="filter" class="h-4 w-4"></i>Filtrar por Nivel<i data-lucide="chevron-down" class="h-4 w-4 ml-1"></i>
-                            </button>
-                            <div id="level-filter-dropdown" class="absolute z-10 right-0 mt-2 w-48 bg-white border rounded-lg shadow-xl hidden p-2 dropdown-menu">
-                                ${levelFilterOptionsHTML}
-                                <div class="border-t my-2"></div>
-                                <button data-action="apply-level-filter" class="w-full bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700">Aplicar</button>
-                            </div>
-                        </div>
-                        <button data-action="select-another-product-tabular" class="bg-gray-500 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-gray-600 flex items-center">
-                            <i data-lucide="search" class="mr-2 h-4 w-4"></i>Seleccionar Otro
-                        </button>
-                        <button data-action="export-sinoptico-pdf" class="bg-red-600 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-red-700 flex items-center">
-                            <i data-lucide="file-text" class="mr-2 h-4 w-4"></i>Exportar a PDF
-                        </button>
-                    </div>
-                </div>
-                <div id="sinoptico-tabular-container" class="mt-6 overflow-x-auto">${tableHTML}</div>
-            </div>
-        </div>`;
-
-        renderCaratula(product, client);
         lucide.createIcons();
     };
 
