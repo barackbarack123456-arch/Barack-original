@@ -4360,6 +4360,7 @@ async function exportSinopticoTabularToPdf() {
             unit: 'mm',
             format: 'a4'
         });
+        const logoBase64 = await getLogoBase64();
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 10;
         let cursorY = margin;
@@ -4379,14 +4380,18 @@ async function exportSinopticoTabularToPdf() {
 
         // Details Section
         const detailsHeight = 25;
-        // Left side with logo placeholder
-        doc.setFillColor(255, 255, 255);
         const leftSectionWidth = (pageWidth - (margin * 2)) / 3;
+        doc.setFillColor(255, 255, 255);
         doc.rect(margin, cursorY, leftSectionWidth, detailsHeight, 'F');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.setTextColor(0, 0, 0);
-        doc.text('GESTIÓN PRO', margin + (leftSectionWidth / 2), cursorY + (detailsHeight / 2), { align: 'center' });
+        if (logoBase64) {
+             doc.addImage(logoBase64, 'PNG', margin + 5, cursorY + 2.5, 50, 20);
+        } else {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12);
+            doc.setTextColor(0, 0, 0);
+            doc.text('GESTIÓN PRO', margin + (leftSectionWidth / 2), cursorY + (detailsHeight / 2), { align: 'center' });
+        }
+
 
         // Right side with details
         doc.setFillColor(68, 84, 106); // #44546A
