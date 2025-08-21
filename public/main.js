@@ -3095,6 +3095,9 @@ function populateTaskAssigneeDropdown() {
 
 onAuthStateChanged(auth, async (user) => {
     if (user) {
+        // Forzar la recarga del estado del usuario para obtener el estado de emailVerified más reciente.
+        await user.reload();
+
         if (user.emailVerified) {
             const wasAlreadyLoggedIn = !!appState.currentUser;
 
