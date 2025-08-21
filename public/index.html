@@ -106,10 +106,15 @@
         <!-- Panel de Verificar Email -->
         <div id="verify-email-panel" class="p-8 bg-white shadow-2xl rounded-2xl hidden">
              <div class="text-center">
-                <i data-lucide="mail-check" class="mx-auto text-green-500 h-16 w-16"></i>
-                <h1 class="text-4xl font-extrabold mt-4 text-slate-800">¡Casi listo!</h1>
-                <p class="text-slate-500 mt-2 mb-8">Hemos enviado un enlace de verificación a tu correo. Por favor, haz clic en él para activar tu cuenta y luego inicia sesión.</p>
-                <a href="#" data-auth-screen="login" class="w-full block bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 font-semibold">Volver a Iniciar Sesión</a>
+                <i data-lucide="mail-warning" class="mx-auto text-amber-500 h-16 w-16"></i>
+                <h1 class="text-4xl font-extrabold mt-4 text-slate-800">Verifica tu Correo</h1>
+                <p class="text-slate-500 mt-2 mb-6">Hemos enviado un enlace de verificación a tu correo. Por favor, haz clic en él para activar tu cuenta. <br><strong>Revisa tu carpeta de spam si no lo encuentras.</strong></p>
+
+                <div class="space-y-4">
+                    <button id="resend-verification-btn" class="w-full bg-slate-600 text-white px-6 py-3 rounded-md hover:bg-slate-700 font-semibold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">Reenviar Correo de Verificación</button>
+                    <a href="#" data-auth-screen="login" class="w-full block bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 font-semibold">Ya lo verifiqué, ir a Iniciar Sesión</a>
+                </div>
+                <p id="resend-timer" class="text-sm text-slate-400 mt-4 h-5"></p>
             </div>
         </div>
     </div>

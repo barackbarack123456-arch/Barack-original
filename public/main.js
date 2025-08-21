@@ -966,6 +966,7 @@ function handleGlobalClick(e) {
     
     if(target.closest('#user-menu-button')) { userDropdown?.classList.toggle('hidden'); }
     if(target.closest('#logout-button')) { e.preventDefault(); logOutUser(); }
+    if(target.closest('#resend-verification-btn')) { handleResendVerificationEmail(); }
 }
 
 // =================================================================================
@@ -3194,6 +3195,40 @@ function showAuthScreen(screenName) {
     document.getElementById(`${screenName}-panel`).classList.remove('hidden');
 }
 
+async function handleResendVerificationEmail() {
+    const resendButton = document.getElementById('resend-verification-btn');
+    const timerElement = document.getElementById('resend-timer');
+    if (!resendButton || !timerElement) return;
+
+    resendButton.disabled = true;
+    timerElement.textContent = 'Enviando...';
+
+    try {
+        await sendEmailVerification(auth.currentUser);
+        showToast('Se ha enviado un nuevo correo de verificación.', 'success');
+
+        // Cooldown timer
+        let seconds = 60;
+        timerElement.textContent = `Puedes reenviar de nuevo en ${seconds}s.`;
+        const interval = setInterval(() => {
+            seconds--;
+            if (seconds > 0) {
+                timerElement.textContent = `Puedes reenviar de nuevo en ${seconds}s.`;
+            } else {
+                clearInterval(interval);
+                timerElement.textContent = '';
+                resendButton.disabled = false;
+            }
+        }, 1000);
+
+    } catch (error) {
+        console.error("Error resending verification email:", error);
+        showToast(`Error al reenviar el correo: ${error.message}`, 'error');
+        timerElement.textContent = 'Hubo un error. Inténtalo de nuevo.';
+        resendButton.disabled = false;
+    }
+}
+
 async function handleAuthForms(e) {
     e.preventDefault();
     const formId = e.target.id;
@@ -3239,10 +3274,12 @@ async function handleAuthForms(e) {
                 showToast('Registro exitoso. Se ha enviado un correo de verificación a tu casilla.', 'success');
                 showAuthScreen('verify-email');
             } catch (emailError) {
-                console.error("Error sending verification email:", emailError);
-                showToast(`Usuario registrado, pero hubo un error al enviar el correo de verificación: ${emailError.message}`, 'error');
+                console.error("Error sending verification email:", emailError.code, emailError.message, emailError);
+                let errorMessage = 'Usuario registrado, pero no se pudo enviar el correo de verificación. ';
+                errorMessage += 'Por favor, inténtelo de nuevo desde la pantalla de verificación o contacte a un administrador.';
+                showToast(errorMessage, 'error', 6000);
                 // A pesar del error en el email, se muestra la pantalla de verificación
-                // porque el usuario SÍ fue creado.
+                // porque el usuario SÍ fue creado y puede intentar el reenvío.
                 showAuthScreen('verify-email');
             }
         }
