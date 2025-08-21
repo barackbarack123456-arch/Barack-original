@@ -4952,160 +4952,193 @@ function initSinoptico() {
         lucide.createIcons();
     }
     
-    async function exportProductTreePdf(productNode) {
-        showToast('Iniciando exportación a PDF...', 'info', 1000);
-        
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-        
-        const PAGE_MARGIN = 15;
-        const PAGE_WIDTH = doc.internal.pageSize.width;
-        const PAGE_HEIGHT = doc.internal.pageSize.height;
-        const FONT_SIZES = { H1: 16, H2: 10, BODY: 9, HEADER_TABLE: 8, FOOTER: 8 };
-        const ROW_HEIGHT = 8;
-        const LINE_COLOR = '#CCCCCC';
-        const HEADER_BG_COLOR = '#44546A';
-        const TEXT_COLOR = '#2d3748';
-        const TEXT_COLOR_LIGHT = '#2d3748';
-        const TITLE_COLOR = '#2563eb';
-        const TYPE_COLORS = {
-            producto: '#3b82f6', semiterminado: '#16a34a', insumo: '#64748b'
-        };
-        
-        let cursorY = 0;
-        
-        const flattenedData = [];
-        function flattenTree(node, level, parentLineage = []) {
-            const item = appState.collectionsById[node.tipo + 's']?.get(node.refId);
-            if (!item) return;
-
-            flattenedData.push({ node, item, level, lineage: parentLineage });
-
-            if (node.children && node.children.length > 0) {
-                node.children.forEach((child, index) => {
-                    const isLast = index === node.children.length - 1;
-                    flattenTree(child, level + 1, [...parentLineage, !isLast]);
-                });
-            }
-        }
-        flattenTree(productNode, 0);
-
-        async function drawPageHeader() {
-            const productItem = appState.collectionsById[COLLECTIONS.PRODUCTOS].get(productNode.refId);
-            const clientItem = appState.collectionsById[COLLECTIONS.CLIENTES].get(productItem.clienteId);
-            
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(FONT_SIZES.H1);
-            doc.setTextColor(TITLE_COLOR);
-            doc.text('Sinóptico de Producto', PAGE_WIDTH - PAGE_MARGIN, 18, { align: 'right' });
-            
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(FONT_SIZES.H2);
-            doc.setTextColor(TEXT_COLOR_LIGHT);
-            doc.text(`Producto: ${productItem.descripcion} (${productItem.id})`, PAGE_WIDTH - PAGE_MARGIN, 25, { align: 'right' });
-            doc.text(`Cliente: ${clientItem?.descripcion || 'N/A'}`, PAGE_WIDTH - PAGE_MARGIN, 30, { align: 'right' });
-
-            cursorY = 40;
-        }
-
-        function drawTableHeaders() {
-            doc.setFillColor(HEADER_BG_COLOR);
-            doc.rect(PAGE_MARGIN, cursorY, PAGE_WIDTH - (PAGE_MARGIN * 2), ROW_HEIGHT, 'F');
-            
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(FONT_SIZES.HEADER_TABLE);
-            doc.setTextColor('#FFFFFF');
-            
-            const headers = ['Componente', 'Tipo', 'Cantidad', 'Código'];
-            const colX = [PAGE_MARGIN + 2, 110, 135, 160];
-            headers.forEach((header, i) => {
-                doc.text(header, colX[i], cursorY + ROW_HEIGHT / 2, { baseline: 'middle' });
-            });
-            
-            cursorY += ROW_HEIGHT;
-        }
-
-        function drawRow(data) {
-            const { item, node, level, lineage } = data;
-            const TEXT_Y = cursorY + ROW_HEIGHT / 2 + 1;
-            
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(FONT_SIZES.BODY);
-            doc.setTextColor(TEXT_COLOR);
-            
-            if (node.tipo === 'producto') {
-                doc.setFont('helvetica', 'bold');
-            }
-
-            const INDENT_WIDTH = 5;
-            const treeX = PAGE_MARGIN + (level * INDENT_WIDTH);
-            doc.setDrawColor(LINE_COLOR);
-            
-            lineage.forEach((continues, i) => {
-                if (continues) {
-                    const parentX = PAGE_MARGIN + (i * INDENT_WIDTH);
-                    doc.line(parentX, cursorY, parentX, cursorY + ROW_HEIGHT);
-                }
-            });
-            
-            if (level > 0) {
-                const isLast = !lineage[level];
-                doc.line(treeX - INDENT_WIDTH, cursorY + (isLast ? 0 : ROW_HEIGHT), treeX - INDENT_WIDTH, cursorY + ROW_HEIGHT/2);
-                doc.line(treeX - INDENT_WIDTH, cursorY + ROW_HEIGHT/2, treeX, cursorY + ROW_HEIGHT/2);
-            }
-            
-            const circleX = treeX - 1.5;
-            const circleY = cursorY + ROW_HEIGHT / 2;
-            doc.setFillColor(TYPE_COLORS[node.tipo] || '#000000');
-            doc.circle(circleX, circleY, 1.2, 'F');
-
-            const unitData = appState.collectionsById[COLLECTIONS.UNIDADES].get(item.unidadMedidaId);
-            const unit = unitData ? unitData.id : 'Un';
-            
-            const quantityValue = node.quantity;
-            const isQuantitySet = quantityValue !== null && quantityValue !== undefined;
-            const quantityText = isQuantitySet ? `${quantityValue} ${unit}` : '---';
-
-            const descriptionX = treeX + 2;
-            const descriptionMaxWidth = 110 - descriptionX;
-            doc.text(item.descripcion, descriptionX, TEXT_Y, { maxWidth: descriptionMaxWidth });
-
-            doc.text(node.tipo.charAt(0).toUpperCase() + node.tipo.slice(1), 110, TEXT_Y);
-            doc.text(node.tipo !== 'producto' ? quantityText : '', 135, TEXT_Y);
-            doc.text(item.id, 160, TEXT_Y);
-        }
-
-        function drawPageFooter(pageNumber, pageCount) {
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(FONT_SIZES.FOOTER);
-            doc.setTextColor(TEXT_COLOR_LIGHT);
-            const date = new Date().toLocaleDateString('es-AR');
-            doc.text(`Generado el ${date}`, PAGE_MARGIN, PAGE_HEIGHT - 10);
-            doc.text(`Página ${pageNumber} de ${pageCount}`, PAGE_WIDTH - PAGE_MARGIN, PAGE_HEIGHT - 10, { align: 'right' });
-        }
-
-        await drawPageHeader();
-        drawTableHeaders();
-
-        for (const data of flattenedData) {
-            if (cursorY + ROW_HEIGHT > PAGE_HEIGHT - PAGE_MARGIN) {
-                doc.addPage();
-                await drawPageHeader();
-                drawTableHeaders();
-            }
-            drawRow(data);
-            cursorY += ROW_HEIGHT;
-        }
-
-        const pageCount = doc.internal.getNumberOfPages();
-        for (let i = 1; i <= pageCount; i++) {
-            doc.setPage(i);
-            drawPageFooter(i, pageCount);
-        }
-
-        doc.save(`Sinoptico_Grafico_${productNode.refId.replace(/\s+/g, '_')}.pdf`);
-        showToast('PDF con árbol gráfico generado con éxito.', 'success');
+async function getLogoBase64() {
+    try {
+        const response = await fetch('logo.png');
+        if (!response.ok) return null;
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    } catch (error) {
+        console.error("Could not fetch logo.png:", error);
+        return null;
     }
+}
+
+
+async function exportProductTreePdf(productNode) {
+    showToast('Iniciando exportación a PDF...', 'info');
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+    const logoBase64 = await getLogoBase64();
+
+    const PAGE_MARGIN = 15;
+    const PAGE_WIDTH = doc.internal.pageSize.width;
+    const PAGE_HEIGHT = doc.internal.pageSize.height;
+    const FONT_SIZES = { H1: 16, H2: 10, BODY: 8, HEADER_TABLE: 8, FOOTER: 8 };
+    const BASE_ROW_HEIGHT = 7;
+    const LINE_SPACING = 4;
+    const INDENT_WIDTH = 5;
+    const LINE_COLOR = '#CCCCCC';
+    const HEADER_BG_COLOR = '#44546A';
+    const TEXT_COLOR = '#2d3748';
+    const TITLE_COLOR = '#2563eb';
+    const TYPE_COLORS = {
+        producto: '#3b82f6', semiterminado: '#16a34a', insumo: '#64748b'
+    };
+
+    let cursorY = 0;
+
+    const flattenedData = [];
+    function flattenTree(node, level, parentLineage = []) {
+        const item = appState.collectionsById[node.tipo + 's']?.get(node.refId);
+        if (!item) return;
+
+        flattenedData.push({ node, item, level, lineage: parentLineage });
+
+        if (node.children && node.children.length > 0) {
+            const visibleChildren = node.children.filter(child => appState.collectionsById[child.tipo + 's']?.get(child.refId));
+            visibleChildren.forEach((child, index) => {
+                const isLast = index === visibleChildren.length - 1;
+                flattenTree(child, level + 1, [...parentLineage, !isLast]);
+            });
+        }
+    }
+    flattenTree(productNode, 0);
+
+    async function drawPageHeader() {
+        const productItem = appState.collectionsById[COLLECTIONS.PRODUCTOS].get(productNode.refId);
+        const clientItem = appState.collectionsById[COLLECTIONS.CLIENTES].get(productItem.clienteId);
+
+        if (logoBase64) {
+            doc.addImage(logoBase64, 'PNG', PAGE_MARGIN, 12, 40, 15);
+        }
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(FONT_SIZES.H1);
+        doc.setTextColor(TITLE_COLOR);
+        doc.text('Sinóptico de Producto', PAGE_WIDTH - PAGE_MARGIN, 18, { align: 'right' });
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(FONT_SIZES.H2);
+        doc.setTextColor(TEXT_COLOR);
+        doc.text(`Producto: ${productItem.descripcion} (${productItem.id})`, PAGE_WIDTH - PAGE_MARGIN, 25, { align: 'right' });
+        doc.text(`Cliente: ${clientItem?.descripcion || 'N/A'}`, PAGE_WIDTH - PAGE_MARGIN, 30, { align: 'right' });
+
+        cursorY = 40;
+    }
+
+    function drawTableHeaders() {
+        doc.setFillColor(HEADER_BG_COLOR);
+        doc.rect(PAGE_MARGIN, cursorY, PAGE_WIDTH - (PAGE_MARGIN * 2), BASE_ROW_HEIGHT, 'F');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(FONT_SIZES.HEADER_TABLE);
+        doc.setTextColor('#FFFFFF');
+
+        const headers = ['Componente', 'Tipo', 'Cantidad', 'Código'];
+        const colX = [PAGE_MARGIN + 2, 110, 135, 160];
+        headers.forEach((header, i) => {
+            doc.text(header, colX[i], cursorY + BASE_ROW_HEIGHT / 2, { baseline: 'middle' });
+        });
+
+        cursorY += BASE_ROW_HEIGHT;
+    }
+
+    function drawRow(data) {
+        const { item, node, level, lineage } = data;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(FONT_SIZES.BODY);
+
+        const descriptionX = PAGE_MARGIN + (level * INDENT_WIDTH) + 3;
+        const descriptionMaxWidth = 108 - descriptionX;
+        const descriptionLines = doc.splitTextToSize(item.descripcion, descriptionMaxWidth);
+        const rowHeight = Math.max(BASE_ROW_HEIGHT, descriptionLines.length * LINE_SPACING + 2);
+
+        if (cursorY + rowHeight > PAGE_HEIGHT - (PAGE_MARGIN + 10)) {
+            return false;
+        }
+
+        doc.setTextColor(TEXT_COLOR);
+        if (node.tipo === 'producto') doc.setFont('helvetica', 'bold');
+
+        const textY = cursorY + rowHeight / 2;
+
+        doc.setDrawColor(LINE_COLOR);
+        const parentX = PAGE_MARGIN + ((level - 1) * INDENT_WIDTH);
+        lineage.forEach((continues, i) => {
+            const currentParentX = PAGE_MARGIN + (i * INDENT_WIDTH);
+            if (continues) {
+                doc.line(currentParentX, cursorY, currentParentX, cursorY + rowHeight);
+            }
+        });
+
+        if (level > 0) {
+            const isLast = !lineage[level-1];
+            doc.line(parentX, textY, descriptionX - 3, textY);
+            if (!isLast) {
+                 doc.line(parentX, cursorY, parentX, cursorY + rowHeight);
+            } else {
+                 doc.line(parentX, cursorY, parentX, textY);
+            }
+        }
+
+        doc.setFillColor(TYPE_COLORS[node.tipo] || '#000000');
+        doc.circle(descriptionX - 2.5, textY, 1.2, 'F');
+
+        doc.text(descriptionLines, descriptionX, cursorY + 3.5);
+        doc.text(node.tipo.charAt(0).toUpperCase() + node.tipo.slice(1), 110, textY, { baseline: 'middle' });
+
+        const unitData = appState.collectionsById[COLLECTIONS.UNIDADES].get(item.unidadMedidaId);
+        const unit = unitData ? unitData.id : 'Un';
+        const quantityValue = node.quantity;
+        const isQuantitySet = quantityValue !== null && quantityValue !== undefined;
+        const quantityText = isQuantitySet ? `${quantityValue} ${unit}` : '---';
+        doc.text(node.tipo !== 'producto' ? quantityText : '', 135, textY, { baseline: 'middle' });
+
+        doc.text(item.id, 160, textY, { baseline: 'middle' });
+
+        cursorY += rowHeight;
+        return true;
+    }
+
+    function drawPageFooter(pageNumber, pageCount) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(FONT_SIZES.FOOTER);
+        doc.setTextColor(TEXT_COLOR);
+        const date = new Date().toLocaleDateString('es-AR');
+        doc.text(`Generado el ${date}`, PAGE_MARGIN, PAGE_HEIGHT - 10);
+        doc.text(`Página ${pageNumber} de ${pageCount}`, PAGE_WIDTH - PAGE_MARGIN, PAGE_HEIGHT - 10, { align: 'right' });
+    }
+
+    await drawPageHeader();
+    drawTableHeaders();
+
+    for (const data of flattenedData) {
+        const rowDrawn = drawRow(data);
+        if (!rowDrawn) {
+            doc.addPage();
+            await drawPageHeader();
+            drawTableHeaders();
+            drawRow(data);
+        }
+    }
+
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        drawPageFooter(i, pageCount);
+    }
+
+    doc.save(`Sinoptico_Grafico_${productNode.refId.replace(/\s+/g, '_')}.pdf`);
+    showToast('PDF con árbol gráfico generado con éxito.', 'success');
+}
     
     const handleSinopticoClick = async (e) => {
         const target = e.target;
