@@ -950,6 +950,7 @@ function handleGlobalClick(e) {
     if (!target.closest('#export-menu-container')) document.getElementById('export-dropdown')?.classList.add('hidden'); 
     if (!target.closest('#type-filter-btn')) document.getElementById('type-filter-dropdown')?.classList.add('hidden'); 
     if (!target.closest('#add-client-filter-btn')) document.getElementById('add-client-filter-dropdown')?.classList.add('hidden');
+    if (!e.target.closest('#level-filter-btn')) document.getElementById('level-filter-dropdown')?.classList.add('hidden');
     
     if(target.closest('#user-menu-button')) { userDropdown?.classList.toggle('hidden'); }
     if(target.closest('#logout-button')) { e.preventDefault(); logOutUser(); }
@@ -3781,6 +3782,99 @@ function runSinopticoLogic() {
     initSinoptico();
 }
 
+const getFlattenedData = (product, levelFilters) => {
+    const flattenedData = [];
+
+    // If no filter is applied, run the original logic
+    if (!levelFilters || levelFilters.size === 0) {
+        function flattenTree(nodes, level, lineage) {
+            nodes.forEach((node, index) => {
+                const isLast = index === nodes.length - 1;
+                const collectionName = node.tipo + 's';
+                const item = appState.collectionsById[collectionName]?.get(node.refId);
+                if (!item) return;
+                flattenedData.push({ node, item, level, isLast, lineage });
+                if (node.children && node.children.length > 0) {
+                    flattenTree(node.children, level + 1, [...lineage, !isLast]);
+                }
+            });
+        }
+        if (product && product.estructura) {
+            flattenTree(product.estructura, 0, []);
+        }
+        return flattenedData;
+    }
+
+    // New logic for filtered levels
+    const sortedSelectedLevels = [...levelFilters].map(Number).sort((a, b) => a - b);
+
+    function findNextLevelNodes(startNode, startLevel, targetLevels) {
+        const results = [];
+        if (!startNode.children) return results;
+
+        const nextTargetLevel = targetLevels[0];
+        if (nextTargetLevel === undefined) return results;
+
+        function search(nodes, currentLevel) {
+            for (const node of nodes) {
+                if (currentLevel === nextTargetLevel) {
+                    results.push(node);
+                } else if (currentLevel < nextTargetLevel && node.children) {
+                    search(node.children, currentLevel + 1);
+                }
+            }
+        }
+        search(startNode.children, startLevel + 1);
+        return results;
+    }
+
+    function flattenFilteredTree(nodes, currentLevel, targetLevels, lineage) {
+        const targetLevelIndex = sortedSelectedLevels.indexOf(currentLevel);
+        if (targetLevelIndex === -1) return;
+
+        nodes.forEach((node, index) => {
+            const collectionName = node.tipo + 's';
+            const item = appState.collectionsById[collectionName]?.get(node.refId);
+            if (!item) return;
+
+            const remainingTargetLevels = targetLevels.slice(targetLevelIndex + 1);
+            const childrenToShow = findNextLevelNodes(node, currentLevel, remainingTargetLevels);
+
+            const isLastInUI = childrenToShow.length === 0;
+            const isLast = index === nodes.length - 1;
+
+            // The "displayLevel" is the index in the sorted selected levels array
+            flattenedData.push({ node, item, level: targetLevelIndex, isLast, lineage });
+
+            if (childrenToShow.length > 0) {
+                flattenFilteredTree(childrenToShow, remainingTargetLevels[0], sortedSelectedLevels, [...lineage, !isLast]);
+            }
+        });
+    }
+
+    if (product && product.estructura) {
+        const rootLevel = sortedSelectedLevels[0];
+        let initialNodes = [];
+        // Find the nodes at the first selected level
+        function findInitialNodes(nodes, currentLevel) {
+            for(const node of nodes) {
+                if (currentLevel === rootLevel) {
+                    initialNodes.push(node);
+                } else if (currentLevel < rootLevel && node.children) {
+                    findInitialNodes(node.children, currentLevel + 1);
+                }
+            }
+        }
+        findInitialNodes(product.estructura, 0);
+
+        if (initialNodes.length > 0) {
+            flattenFilteredTree(initialNodes, rootLevel, sortedSelectedLevels, []);
+        }
+    }
+
+    return flattenedData;
+};
+
 function runSinopticoTabularLogic() {
     // Initialize state for the view
     if (!appState.sinopticoTabularState) {
@@ -3797,6 +3891,14 @@ function runSinopticoTabularLogic() {
     // --- Event Handlers ---
     const handleViewClick = (e) => {
         const button = e.target.closest('button[data-action]');
+
+        // Handle dropdown toggle separately to prevent it from closing immediately
+        if (e.target.closest('#level-filter-btn')) {
+            const dropdown = document.getElementById('level-filter-dropdown');
+            if (dropdown) dropdown.classList.toggle('hidden');
+            return;
+        }
+
         if (!button) return;
 
         const action = button.dataset.action;
@@ -3811,13 +3913,31 @@ function runSinopticoTabularLogic() {
                 renderInitialView();
                 break;
             case 'edit-tabular-node':
-                // Reutilizamos el modal de la vista sinóptica principal para consistencia.
                 openSinopticoEditModal(button.dataset.nodeId);
+                break;
+            case 'apply-level-filter':
+                const dropdown = document.getElementById('level-filter-dropdown');
+                const selectedLevels = new Set();
+                dropdown.querySelectorAll('.level-filter-cb:checked').forEach(cb => {
+                    selectedLevels.add(cb.dataset.level);
+                });
+
+                const allLevelsCount = dropdown.querySelectorAll('.level-filter-cb').length;
+                // If all are selected, it's the same as no filter.
+                if (selectedLevels.size === allLevelsCount) {
+                    state.activeFilters.niveles.clear();
+                } else {
+                    state.activeFilters.niveles = selectedLevels;
+                }
+
+                dropdown.classList.add('hidden');
+                renderReportView(); // Re-render with the new filter
+                break;
+            case 'export-sinoptico-pdf':
+                exportSinopticoTabularToPdf();
                 break;
         }
     };
-
-
 
     // --- PRODUCT SELECTION ---
     const openProductSearchModal = () => {
@@ -3884,26 +4004,7 @@ function runSinopticoTabularLogic() {
 
         const client = appState.collectionsById[COLLECTIONS.CLIENTES].get(product.clienteId);
 
-        const getFlattenedData = (product) => {
-            const flattenedData = [];
-            function flattenTree(nodes, level, lineage) {
-                nodes.forEach((node, index) => {
-                    const isLast = index === nodes.length - 1;
-                    const collectionName = node.tipo + 's';
-                    const item = appState.collectionsById[collectionName]?.get(node.refId);
-                    if (!item) return;
-                    flattenedData.push({ node, item, level, isLast, lineage });
-                    if (node.children && node.children.length > 0) {
-                        flattenTree(node.children, level + 1, [...lineage, !isLast]);
-                    }
-                });
-            }
-            if (product && product.estructura) {
-                flattenTree(product.estructura, 0, []);
-            }
-            return flattenedData;
-        };
-        const flattenedData = getFlattenedData(product);
+        const flattenedData = getFlattenedData(product, state.activeFilters.niveles);
 
         const renderTabularTable = (data) => {
             const columns = [
@@ -3962,14 +4063,41 @@ function runSinopticoTabularLogic() {
 
         const tableHTML = renderTabularTable(flattenedData);
 
+        const maxLevel = flattenedData.reduce((max, item) => Math.max(max, item.level), 0);
+        let levelFilterOptionsHTML = '';
+        for (let i = 0; i <= maxLevel; i++) {
+            const isChecked = !state.activeFilters.niveles.size || state.activeFilters.niveles.has(i.toString());
+            levelFilterOptionsHTML += `
+                <label class="flex items-center gap-3 p-2 hover:bg-slate-100 rounded-md cursor-pointer">
+                    <input type="checkbox" data-level="${i}" class="level-filter-cb h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300" ${isChecked ? 'checked' : ''}>
+                    <span class="text-sm">Nivel ${i}</span>
+                </label>
+            `;
+        }
+
         dom.viewContent.innerHTML = `<div class="animate-fade-in-up">
             <div id="caratula-container" class="mb-6"></div>
             <div class="bg-white p-6 rounded-xl shadow-lg">
-                <div class="flex items-center justify-between mb-4">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
                     <div><h3 class="text-xl font-bold text-slate-800">Detalle de: ${product.descripcion}</h3><p class="text-sm text-slate-500">${product.id}</p></div>
-                    <button data-action="select-another-product-tabular" class="bg-gray-500 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-gray-600 flex items-center">
-                        <i data-lucide="search" class="mr-2 h-4 w-4"></i>Seleccionar Otro Producto
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <div class="relative">
+                            <button id="level-filter-btn" class="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-md text-sm font-semibold hover:bg-slate-50 flex items-center gap-2">
+                                <i data-lucide="filter" class="h-4 w-4"></i>Filtrar por Nivel<i data-lucide="chevron-down" class="h-4 w-4 ml-1"></i>
+                            </button>
+                            <div id="level-filter-dropdown" class="absolute z-10 right-0 mt-2 w-48 bg-white border rounded-lg shadow-xl hidden p-2 dropdown-menu">
+                                ${levelFilterOptionsHTML}
+                                <div class="border-t my-2"></div>
+                                <button data-action="apply-level-filter" class="w-full bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700">Aplicar</button>
+                            </div>
+                        </div>
+                        <button data-action="select-another-product-tabular" class="bg-gray-500 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-gray-600 flex items-center">
+                            <i data-lucide="search" class="mr-2 h-4 w-4"></i>Seleccionar Otro
+                        </button>
+                        <button data-action="export-sinoptico-pdf" class="bg-red-600 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-red-700 flex items-center">
+                            <i data-lucide="file-text" class="mr-2 h-4 w-4"></i>Exportar a PDF
+                        </button>
+                    </div>
                 </div>
                 <div id="sinoptico-tabular-container" class="mt-6 overflow-x-auto">${tableHTML}</div>
             </div>
@@ -4044,6 +4172,104 @@ function runSinopticoTabularLogic() {
         dom.viewContent.removeEventListener('click', handleCaratulaClick);
         appState.sinopticoTabularState = null;
     };
+}
+
+async function exportSinopticoTabularToPdf() {
+    const { jsPDF } = window.jspdf;
+    const state = appState.sinopticoTabularState;
+    const product = state.selectedProduct;
+
+    if (!product) {
+        showToast('No hay producto seleccionado para exportar.', 'error');
+        return;
+    }
+
+    showToast('Iniciando exportación a PDF...', 'info');
+
+    try {
+        const doc = new jsPDF('p', 'mm', 'a4');
+
+        // 1. Render Carátula using html2canvas
+        const caratulaElement = document.getElementById('caratula-container');
+        const canvas = await html2canvas(caratulaElement, { scale: 2 });
+        const imgData = canvas.toDataURL('image/png');
+
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const imgWidth = pageWidth - 20; // with margin
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+        doc.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
+
+        // 2. Add a new page for the table
+        doc.addPage();
+
+        // 3. Prepare and render the table with jsPDF-AutoTable
+        const flattenedData = getFlattenedData(product, state.activeFilters.niveles);
+        const head = [['Descripción', 'Nivel', 'Código', 'Tipo', 'Cantidad', 'Unidad', 'Proveedor', 'Material', 'Comentarios']];
+        const body = flattenedData.map(rowData => {
+            const { node, item, level, isLast, lineage } = rowData;
+            const NA = 'N/A';
+
+            let prefix = lineage.map(parentIsNotLast => parentIsNotLast ? '│    ' : '    ').join('');
+            if (level > 0)  prefix += isLast ? '└─ ' : '├─ ';
+
+            const cantidad = node.quantity ?? NA;
+            let unidad = NA, proveedor = NA, material = NA;
+
+            if (node.tipo === 'insumo') {
+                const unidadData = item.unidadMedidaId ? appState.collectionsById[COLLECTIONS.UNIDADES].get(item.unidadMedidaId) : null;
+                unidad = unidadData ? unidadData.id : '';
+                const proveedorData = item.proveedorId ? appState.collectionsById[COLLECTIONS.PROVEEDORES].get(item.proveedorId) : null;
+                proveedor = proveedorData ? proveedorData.descripcion : '';
+                material = item.material || '';
+            }
+
+            return [
+                prefix + (item.descripcion || item.nombre),
+                level,
+                item.id,
+                node.tipo,
+                cantidad,
+                unidad,
+                proveedor,
+                material,
+                node.comment || ''
+            ];
+        });
+
+        doc.autoTable({
+            head: head,
+            body: body,
+            startY: 10,
+            styles: { fontSize: 8, cellPadding: 1.5, font: 'helvetica' },
+            headStyles: { fillColor: [68, 84, 106] }, // #44546A
+            columnStyles: {
+                0: { cellWidth: 70 }, // Descripcion
+                1: { cellWidth: 10, halign: 'center' }, // Nivel
+                2: { cellWidth: 20 }, // Codigo
+                3: { cellWidth: 15 }, // Tipo
+                4: { cellWidth: 15, halign: 'right' }, // Cantidad
+                5: { cellWidth: 10, halign: 'center' }, // Unidad
+                6: { cellWidth: 20 }, // Proveedor
+                7: { cellWidth: 20 }, // Material
+                8: { cellWidth: 'auto' } // Comentarios
+            },
+            didParseCell: function (data) {
+                if (data.column.index === 0 && data.cell.section === 'body') {
+                     data.cell.styles.font = 'courier';
+                }
+            }
+        });
+
+        // 4. Save the PDF
+        doc.save(`Reporte_BOM_${product.id}.pdf`);
+        showToast('PDF exportado con éxito.', 'success');
+
+    } catch (error) {
+        console.error("Error exporting to PDF:", error);
+        showToast('Error al exportar a PDF.', 'error');
+    }
 }
 
 function handleCaratulaClick(e) {
