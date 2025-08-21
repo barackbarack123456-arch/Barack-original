@@ -1361,7 +1361,7 @@ function openDetailsModal(item) {
             const foundItem = sourceDB.find(dbItem => dbItem.id === value);
             value = foundItem ? foundItem.descripcion : 'N/A';
         }
-        fieldsHTML += `<div class="${field.type === 'textarea' || field.key === 'id' ? 'md:col-span-2' : ''}"><label class="block text-sm font-medium text-gray-500">${field.label}</label><div class="mt-1 text-sm text-gray-900 bg-gray-100 p-2 rounded-md border min-h-[38px]">${value}</div></div>`;
+        fieldsHTML += `<div class="${field.type === 'textarea' || field.key === 'id' ? 'md:col-span-2' : ''}"><label class="block text-sm font-medium text-gray-500">${field.label}</label><div class="mt-1 text-sm text-gray-900 bg-gray-100 p-2 rounded-md border min-h-[38px] break-words">${value}</div></div>`;
     });
     
     const modalHTML = `<div id="details-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop animate-fade-in"><div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col m-4 modal-content"><div class="flex justify-between items-center p-5 border-b"><h3 class="text-xl font-bold">Detalles de ${config.singular}</h3><button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button></div><div class="p-6 overflow-y-auto"><div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">${fieldsHTML}</div></div><div class="flex justify-end items-center p-4 border-t bg-gray-50"><button data-action="close" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-semibold">Cerrar</button></div></div></div>`;
@@ -3906,41 +3906,61 @@ function runSinopticoTabularLogic() {
     // --- RENDER FUNCTIONS ---
 
     const renderTabularTable = (data) => {
+        // 1. Columns updated: Cantidad & Comentarios added, Costo, Fecha Modif, Tolerancia removed.
         const columns = [
+            { key: 'descripcion', label: 'Descripción' },
             { key: 'nivel', label: 'Nivel' },
+            { key: 'cantidad', label: 'Cantidad / Pieza' },
+            { key: 'comentarios', label: 'Comentarios' },
             { key: 'lc_kd', label: 'LC / KD' },
             { key: 'version_vehiculo', label: 'Versión Vehículo' },
-            { key: 'descripcion', label: 'Descripción' },
             { key: 'numero_pieza', label: 'Número de Pieza' },
             { key: 'version', label: 'Versión' },
-            { key: 'imagen', label: 'Imágen' },
+            { key: 'imagen', label: 'Imágen (URL)' },
             { key: 'proceso', label: 'Proceso' },
             { key: 'aspecto', label: 'Aspecto' },
             { key: 'peso_gr', label: 'Peso (gr)' },
-            { key: 'tolerancia_gr', label: 'Tolerancia (gr)' },
             { key: 'proveedor', label: 'Proveedor' },
-            { key: 'costo', label: 'Costo' },
             { key: 'unidad_medida', label: 'Unidad' },
-            { key: 'fecha_modificacion', label: 'Fecha Modif.' },
             { key: 'acciones', label: 'Acciones' }
         ];
 
         if (data.length === 0) return `<p class="text-slate-500 p-4 text-center">El producto seleccionado no tiene una estructura definida.</p>`;
 
         let tableHTML = `<table class="w-full text-sm text-left text-gray-600">`;
-        tableHTML += `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>`;
-        columns.forEach(col => { tableHTML += `<th scope="col" class="px-4 py-3">${col.label}</th>`; });
-        tableHTML += `</tr></thead><tbody>`;
+        // 7. Column alignment adjusted in headers
+        tableHTML += `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>
+            <th scope="col" class="px-4 py-3">Descripción</th>
+            <th scope="col" class="px-4 py-3 text-center">Nivel</th>
+            <th scope="col" class="px-4 py-3 text-center">Cantidad / Pieza</th>
+            <th scope="col" class="px-4 py-3">Comentarios</th>
+            <th scope="col" class="px-4 py-3 text-center">LC / KD</th>
+            <th scope="col" class="px-4 py-3">Versión Vehículo</th>
+            <th scope="col" class="px-4 py-3">Número de Pieza</th>
+            <th scope="col" class="px-4 py-3 text-center">Versión</th>
+            <th scope="col" class="px-4 py-3 text-center">Imágen (URL)</th>
+            <th scope="col" class="px-4 py-3">Proceso</th>
+            <th scope="col" class="px-4 py-3">Aspecto</th>
+            <th scope="col" class="px-4 py-3 text-right">Peso (gr)</th>
+            <th scope="col" class="px-4 py-3">Proveedor</th>
+            <th scope="col" class="px-4 py-3 text-center">Unidad</th>
+            <th scope="col" class="px-4 py-3 text-center">Acciones</th>
+        </tr></thead><tbody>`;
 
         data.forEach(rowData => {
             const { node, item, level, isLast, lineage } = rowData;
             const NA = '<span class="text-slate-400">N/A</span>';
 
-            let prefix = lineage.map(parentIsNotLast => parentIsNotLast ? '│&nbsp;&nbsp;&nbsp;&nbsp;' : '&nbsp;&nbsp;&nbsp;&nbsp;').join('');
+            // 4. Increased indentation
+            let prefix = lineage.map(parentIsNotLast => parentIsNotLast ? '│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' : '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;').join('');
             if (level > 0)  prefix += isLast ? '└─ ' : '├─ ';
 
             const descripcion = `<span class="font-sans">${prefix}</span>${item.descripcion || item.nombre || ''}`;
             const nivel = node.originalLevel ?? level;
+            // 4. Cantidad added
+            const cantidad = node.quantity ?? NA;
+            // 5. Comentarios added
+            const comentarios = node.comment ? `<span class="whitespace-normal">${node.comment}</span>` : NA;
             const lc_kd = item.lc_kd || NA;
             const version_vehiculo = node.tipo === 'producto' ? (item.version_vehiculo || NA) : NA;
             const numero_pieza = item.numero_pieza || NA;
@@ -3954,8 +3974,15 @@ function runSinopticoTabularLogic() {
             }
 
             const aspecto = node.tipo === 'semiterminado' ? (item.aspecto || NA) : NA;
-            const peso_gr = node.tipo === 'semiterminado' ? (item.peso_gr || NA) : NA;
-            const tolerancia_gr = node.tipo === 'semiterminado' ? (item.tolerancia_gr || NA) : NA;
+
+            // 6. Merged Peso and Tolerancia
+            let peso_display = NA;
+            if (node.tipo === 'semiterminado' && item.peso_gr) {
+                peso_display = item.peso_gr;
+                if (item.tolerancia_gr) {
+                    peso_display += ` ± ${item.tolerancia_gr}`;
+                }
+            }
 
             let proveedor = NA;
             if (node.tipo === 'insumo' && item.proveedor) {
@@ -3963,34 +3990,30 @@ function runSinopticoTabularLogic() {
                 proveedor = proveedorData ? proveedorData.descripcion : item.proveedor;
             }
 
-            const costo = node.tipo === 'insumo' ? (item.costo || NA) : NA;
-
             let unidad_medida = NA;
             if (node.tipo === 'insumo' && item.unidad_medida) {
                 const unidadData = appState.collectionsById[COLLECTIONS.UNIDADES]?.get(item.unidad_medida);
                 unidad_medida = unidadData ? unidadData.id : item.unidad_medida;
             }
 
-            const fecha_modificacion = item.fecha_modificacion ? new Date(item.fecha_modificacion).toLocaleDateString('es-AR') : NA;
-
             const actionsHTML = `<button data-action="edit-tabular-node" data-node-id="${node.id}" class="p-1 text-blue-600 hover:bg-blue-100 rounded-md" title="Editar"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>`;
 
+            // 7. Column alignment adjusted in cells
             tableHTML += `<tr class="bg-white border-b hover:bg-gray-100" data-node-id="${node.id}">
                 <td class="px-4 py-2 font-mono font-medium text-gray-900 whitespace-nowrap">${descripcion}</td>
                 <td class="px-4 py-2 text-center">${nivel}</td>
-                <td class="px-4 py-2">${lc_kd}</td>
+                <td class="px-4 py-2 text-center">${cantidad}</td>
+                <td class="px-4 py-2">${comentarios}</td>
+                <td class="px-4 py-2 text-center">${lc_kd}</td>
                 <td class="px-4 py-2">${version_vehiculo}</td>
                 <td class="px-4 py-2">${numero_pieza}</td>
-                <td class="px-4 py-2">${version}</td>
-                <td class="px-4 py-2">${imagen}</td>
+                <td class="px-4 py-2 text-center">${version}</td>
+                <td class="px-4 py-2 text-center">${imagen}</td>
                 <td class="px-4 py-2">${proceso}</td>
                 <td class="px-4 py-2">${aspecto}</td>
-                <td class="px-4 py-2 text-right">${peso_gr}</td>
-                <td class="px-4 py-2 text-right">${tolerancia_gr}</td>
+                <td class="px-4 py-2 text-right">${peso_display}</td>
                 <td class="px-4 py-2">${proveedor}</td>
-                <td class="px-4 py-2 text-right">${costo}</td>
                 <td class="px-4 py-2 text-center">${unidad_medida}</td>
-                <td class="px-4 py-2">${fecha_modificacion}</td>
                 <td class="px-4 py-2 text-center">${actionsHTML}</td>
             </tr>`;
         });
