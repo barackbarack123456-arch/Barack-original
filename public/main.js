@@ -699,35 +699,6 @@ function handleViewContentActions(e) {
         'seed-database': seedDatabase,
         'clone-product': () => cloneProduct(),
         'view-history': () => showToast('La función de historial de cambios estará disponible próximamente.', 'info'),
-        'edit-node-field': () => {
-            const container = button.closest('.inline-edit-container');
-            container.querySelector('.display-mode').classList.add('hidden');
-            container.querySelector('.edit-mode').classList.remove('hidden');
-            container.querySelector('input').focus();
-            container.querySelector('input').select();
-        },
-        'cancel-node-field': () => {
-            const container = button.closest('.inline-edit-container');
-            container.querySelector('.display-mode').classList.remove('hidden');
-            container.querySelector('.edit-mode').classList.add('hidden');
-        },
-        'save-node-field': () => {
-            const container = button.closest('.inline-edit-container');
-            const nodeId = container.dataset.nodeId;
-            const field = container.dataset.field;
-            const input = container.querySelector('input');
-            let value = input.value;
-
-            const node = findNode(nodeId, appState.arbolActivo.estructura);
-            if(node) {
-                if(input.type === 'number') {
-                    value = parseFloat(value);
-                    if(isNaN(value)) value = 1;
-                }
-                node[field] = value;
-                renderArbol();
-            }
-        },
     };
     
     if (actions[action]) actions[action]();
@@ -3198,33 +3169,19 @@ function renderNodo(nodo) {
 
     const isDraggable = nodo.tipo !== 'producto';
 
+    // Vista simplificada sin edición inline. La edición ahora se hace en la vista Sinóptico.
     const quantityHTML = nodo.tipo !== 'producto' ? `
-        <div class="inline-edit-container" data-field="quantity" data-node-id="${nodo.id}">
-            <span data-action="edit-node-field" class="display-mode flex items-center gap-1 cursor-pointer hover:bg-slate-200 p-1 rounded-md text-sm text-slate-600" title="Editar cantidad">
-                x <span class="font-bold">${nodo.quantity ?? 1}</span>
-                <i data-lucide="pencil" class="w-3 h-3 ml-1 opacity-0 group-hover:opacity-50 transition-opacity pointer-events-none"></i>
-            </span>
-            <span class="edit-mode hidden">
-                <input type="number" value="${nodo.quantity ?? 1}" class="w-20 border-slate-300 rounded-md py-1 px-2 text-sm">
-                <button data-action="save-node-field" class="p-1 text-green-600 hover:bg-green-100 rounded-md"><i data-lucide="check" class="w-5 h-5 pointer-events-none"></i></button>
-                <button data-action="cancel-node-field" class="p-1 text-red-600 hover:bg-red-100 rounded-md"><i data-lucide="x" class="w-5 h-5 pointer-events-none"></i></button>
-            </span>
+        <div class="flex items-center gap-1 text-sm text-slate-600 p-1 rounded-md" title="Cantidad">
+            x <span class="font-bold">${nodo.quantity ?? 1}</span>
         </div>
     ` : '';
 
     const commentIcon = nodo.comment ? 'message-square-text' : 'message-square';
-    const commentHTML = `
-        <div class="inline-edit-container" data-field="comment" data-node-id="${nodo.id}">
-            <span data-action="edit-node-field" class="display-mode cursor-pointer hover:bg-slate-200 p-1 rounded-md text-slate-500" title="${nodo.comment || 'Añadir comentario'}">
-                <i data-lucide="${commentIcon}" class="w-5 h-5"></i>
-            </span>
-            <span class="edit-mode hidden">
-                <input type="text" value="${nodo.comment || ''}" placeholder="Comentario..." class="w-48 border-slate-300 rounded-md py-1 px-2 text-sm">
-                <button data-action="save-node-field" class="p-1 text-green-600 hover:bg-green-100 rounded-md"><i data-lucide="check" class="w-5 h-5 pointer-events-none"></i></button>
-                <button data-action="cancel-node-field" class="p-1 text-red-600 hover:bg-red-100 rounded-md"><i data-lucide="x" class="w-5 h-5 pointer-events-none"></i></button>
-            </span>
+    const commentHTML = nodo.comment ? `
+        <div class="text-slate-500 p-1 rounded-md" title="${nodo.comment}">
+            <i data-lucide="${commentIcon}" class="w-5 h-5"></i>
         </div>
-    `;
+    ` : '';
 
     return `<li data-node-id="${nodo.id}" class="group">
                 <div class="node-content ${isDraggable ? '' : 'cursor-default'}" data-type="${nodo.tipo}">
@@ -3448,50 +3405,44 @@ function renderCaratula(producto, cliente) {
 
     if (producto && cliente) {
         const lastUpdated = producto.lastUpdated ? new Date(producto.lastUpdated.seconds * 1000).toLocaleString('es-AR') : 'N/A';
-        const created = producto.createdAt ? new Date(producto.createdAt.seconds * 1000).toLocaleDateString('es-AR') : 'N/A';
 
         container.innerHTML = `
-            <div class="bg-white p-6 rounded-xl shadow-lg animate-fade-in-up">
-                <div class="flex flex-col md:flex-row gap-6">
-                    <!-- Columna de Producto -->
-                    <div class="flex-1">
-                        <h3 class="text-sm font-bold uppercase text-blue-600 tracking-wider">Producto Principal del Árbol</h3>
-                        <p class="text-2xl font-bold text-slate-800 mt-1">${producto.descripcion}</p>
-                        <div class="flex items-center gap-4 mt-2 text-sm text-slate-500">
-                            <span>Código: <span class="font-semibold text-slate-700">${producto.id}</span></span>
-                            <span class="border-l pl-4">Versión: <span class="font-semibold text-slate-700">${producto.version || 'N/A'}</span></span>
-                        </div>
-                    </div>
-                    <!-- Columna de Cliente -->
-                    <div class="flex-1 md:border-l md:pl-6 border-slate-200">
-                         <h3 class="text-sm font-bold uppercase text-indigo-600 tracking-wider">Cliente</h3>
-                         <p class="text-2xl font-bold text-slate-800 mt-1">${cliente.descripcion}</p>
-                         <p class="text-sm text-slate-500 mt-2">Código: <span class="font-semibold text-slate-700">${cliente.id}</span></p>
-                    </div>
+        <div class="bg-white rounded-xl shadow-lg animate-fade-in-up overflow-hidden">
+            <h3 class="text-center font-bold text-lg py-2 bg-slate-200 text-slate-700">COMPOSICIÓN DE PIEZAS - BOM</h3>
+            <div class="flex">
+                <div class="w-1/3 bg-white flex items-center justify-center p-4 border-r border-slate-200">
+                    <img src="logo.png" alt="Logo" class="max-h-20">
                 </div>
-                <!-- Historial de Cambios -->
-                <div class="mt-4 pt-4 border-t border-slate-200">
-                    <h3 class="text-sm font-bold uppercase text-slate-500 tracking-wider">Información de Cambios</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-2 text-sm">
+                <div class="w-2/3 bg-[#44546A] text-white p-4 flex items-center">
+                    <div class="grid grid-cols-2 gap-x-6 gap-y-3 text-xs w-full">
                         <div>
-                            <p class="text-slate-500">Fecha de Creación</p>
-                            <p class="font-semibold text-slate-700">${created}</p>
+                            <p class="font-bold opacity-80 uppercase">PROYECTO</p>
+                            <p>${producto.descripcion}</p>
                         </div>
                         <div>
-                            <p class="text-slate-500">Última Modificación</p>
-                            <p class="font-semibold text-slate-700">${lastUpdated}</p>
+                            <p class="font-bold opacity-80 uppercase">Última Revisión</p>
+                            <p>${lastUpdated}</p>
                         </div>
                         <div>
-                            <p class="text-slate-500">Revisado por</p>
-                            <p class="font-semibold text-slate-700">${producto.lastUpdatedBy || 'N/A'}</p>
+                            <p class="font-bold opacity-80 uppercase">Cliente</p>
+                            <p>${cliente.descripcion}</p>
                         </div>
                         <div>
-                            <p class="text-slate-500">Historial Completo</p>
-                            <p class="font-semibold text-slate-400 italic">Próximamente</p>
+                            <p class="font-bold opacity-80 uppercase">Realizó</p>
+                            <p>${producto.lastUpdatedBy || 'N/A'}</p>
+                        </div>
+                        <div>
+                            <p class="font-bold opacity-80 uppercase">Número de Pieza</p>
+                            <p>${producto.id}</p>
+                        </div>
+                        <div>
+                            <p class="font-bold opacity-80 uppercase">Versión</p>
+                            <p>${producto.version || 'N/A'}</p>
                         </div>
                     </div>
                 </div>
-            </div>`;
+            </div>
+        </div>`;
     } else {
         container.innerHTML = `
             <div class="bg-white p-6 rounded-xl shadow-lg text-center animate-fade-in">
@@ -4206,6 +4157,13 @@ function initSinoptico() {
                     <i data-lucide="file-text" class="mr-2 h-4 w-4"></i>Exportar Sinóptico a PDF
                 </button>
             </div>`;
+        } else {
+            // Botón para abrir el modal de edición
+            content += `<div class="mb-4">
+                <button data-action="open-sinoptico-edit-modal" data-node-id="${targetNode.id}" class="w-full bg-blue-600 text-white px-4 py-2.5 rounded-md hover:bg-blue-700 flex items-center justify-center text-sm font-semibold shadow-sm">
+                    <i data-lucide="pencil" class="mr-2 h-4 w-4"></i>Editar Cantidad y Comentario
+                </button>
+            </div>`;
         }
     
         const createSection = (title) => `<h3 class="sinoptico-detail-section-header">${title}</h3>`;
@@ -4223,32 +4181,11 @@ function initSinoptico() {
         if (targetNode.tipo !== 'producto') {
             const unidadData = appState.collectionsById[COLLECTIONS.UNIDADES].get(item.unidadMedidaId);
             const unidadLabel = unidadData ? `(${unidadData.id})` : '';
-            const quantityLabel = `Cantidad Requerida ${unidadLabel}`;
-            
             const quantityValue = targetNode.quantity;
             const isQuantitySet = quantityValue !== null && quantityValue !== undefined;
-            const quantityDisplay = isQuantitySet ? quantityValue : '<span class="text-red-500 italic font-normal">Sin asignar</span>';
-            const quantityInputDefault = isQuantitySet ? quantityValue : '';
-
-            content += `<div class="py-3 border-b border-slate-100" id="quantity-section" data-node-id="${targetNode.id}" data-current-quantity="${quantityValue}">
-                <div id="quantity-display-mode">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm text-slate-500">${quantityLabel}</p>
-                            <p class="font-semibold text-lg">${quantityDisplay}</p>
-                        </div>
-                        <button data-action="edit-quantity" class="text-blue-600 hover:text-blue-800 p-2 rounded-md hover:bg-blue-100"><i data-lucide="pencil" class="h-5 w-5 pointer-events-none"></i></button>
-                    </div>
-                </div>
-                <div id="quantity-edit-mode" class="hidden">
-                    <label for="quantity-input-synoptic" class="block text-sm text-slate-500 mb-2">${quantityLabel}</label>
-                    <div class="flex items-center gap-2">
-                        <input type="number" id="quantity-input-synoptic" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" value="${quantityInputDefault}" step="any" min="0" placeholder="Ingresar consumo...">
-                        <button data-action="cancel-edit-quantity" class="p-2 text-slate-500 hover:bg-slate-200 rounded-md"><i data-lucide="x" class="h-5 w-5 pointer-events-none"></i></button>
-                        <button data-action="save-quantity" class="p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 w-12"><i data-lucide="check" class="h-5 w-5 pointer-events-none"></i></button>
-                    </div>
-                </div>
-            </div>`;
+            const quantityDisplay = isQuantitySet ? quantityValue : '<span class="text-red-500 italic">Sin asignar</span>';
+            content += createRow('package-plus', `Cantidad Requerida ${unidadLabel}`, quantityDisplay);
+            content += createRow('message-square', 'Comentario', targetNode.comment || '<span class="text-slate-400 italic">Sin comentario</span>');
         }
     
         if (targetNode.children && targetNode.children.length > 0) {
@@ -4459,6 +4396,15 @@ function initSinoptico() {
     
     const handleSinopticoClick = async (e) => {
         const target = e.target;
+        const button = target.closest('button[data-action]');
+
+        if (button) {
+            const action = button.dataset.action;
+            if (action === 'open-sinoptico-edit-modal') {
+                openSinopticoEditModal(button.dataset.nodeId);
+                return;
+            }
+        }
         
         if (target.closest('#sinoptico-toggle-details')) {
             document.getElementById('sinoptico-main-view').classList.toggle('expanded');
@@ -4476,69 +4422,6 @@ function initSinoptico() {
                 }
             }
             return;
-        }
-    
-        const quantitySection = target.closest('#quantity-section');
-        if (quantitySection) {
-            const displayMode = quantitySection.querySelector('#quantity-display-mode');
-            const editMode = quantitySection.querySelector('#quantity-edit-mode');
-            const action = target.closest('button')?.dataset.action;
-    
-            if (action === 'edit-quantity') {
-                displayMode.classList.add('hidden');
-                editMode.classList.remove('hidden');
-                editMode.querySelector('input').focus();
-            }
-    
-            if (action === 'cancel-edit-quantity') {
-                displayMode.classList.remove('hidden');
-                editMode.classList.add('hidden');
-            }
-            
-            if (action === 'save-quantity') {
-                const saveButton = target.closest('button');
-                const nodeId = quantitySection.dataset.nodeId;
-                const quantityInput = quantitySection.querySelector('#quantity-input-synoptic');
-                const inputValue = quantityInput.value.trim();
-                let newQuantity;
-
-                if (inputValue === '') {
-                    newQuantity = null;
-                } else {
-                    newQuantity = parseFloat(inputValue);
-                    if (isNaN(newQuantity) || newQuantity < 0) {
-                        showToast('Por favor, ingrese una cantidad numérica válida y positiva.', 'error');
-                        return;
-                    }
-                }
-    
-                const product = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.docId === appState.sinopticoState.activeTreeDocId);
-                if (!product || !product.estructura) { showToast('Error: No se pudo encontrar el producto activo.', 'error'); return; }
-    
-                const nodeToUpdate = findNode(nodeId, product.estructura);
-    
-                if (nodeToUpdate) {
-                    nodeToUpdate.quantity = newQuantity;
-                    saveButton.innerHTML = `<i data-lucide="loader" class="h-5 w-5 animate-spin mx-auto"></i>`;
-                    lucide.createIcons();
-                    saveButton.disabled = true;
-    
-                    try {
-                        const productRef = doc(db, COLLECTIONS.PRODUCTOS, product.docId);
-                        await updateDoc(productRef, { estructura: product.estructura });
-                        showToast('Cantidad actualizada con éxito.', 'success');
-                        renderTree();
-                        renderDetailView(nodeId);
-                    } catch (error) {
-                        showToast("Error al guardar la cantidad.", "error");
-                        renderDetailView(nodeId);
-                    }
-    
-                } else {
-                    showToast('Error: No se pudo actualizar el nodo.', 'error');
-                }
-            }
-            return; 
         }
         
         const treeItem = target.closest('.sinoptico-tree-item');
@@ -4599,6 +4482,98 @@ function initSinoptico() {
     
     dom.viewContent.addEventListener('click', handleSinopticoClick);
     
+    function openSinopticoEditModal(nodeId) {
+        const product = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.docId === appState.sinopticoState.activeTreeDocId);
+        if (!product) return;
+        const node = findNode(nodeId, product.estructura);
+        if (!node) return;
+
+        const itemData = appState.collectionsById[node.tipo + 's']?.get(node.refId);
+
+        const modalId = `sinoptico-edit-modal-${Date.now()}`;
+        const modalHTML = `
+            <div id="${modalId}" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop animate-fade-in">
+                <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col m-4 modal-content">
+                    <div class="flex justify-between items-center p-5 border-b">
+                        <h3 class="text-xl font-bold">Editar: ${itemData.descripcion}</h3>
+                        <button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button>
+                    </div>
+                    <form id="sinoptico-edit-form" class="p-6 overflow-y-auto space-y-4" novalidate>
+                        <input type="hidden" name="nodeId" value="${nodeId}">
+                        <div>
+                            <label for="sinoptico-quantity" class="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
+                            <input type="number" id="sinoptico-quantity" name="quantity" value="${node.quantity ?? 1}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" step="any" min="0">
+                        </div>
+                        <div>
+                            <label for="sinoptico-comment" class="block text-sm font-medium text-gray-700 mb-1">Comentario</label>
+                            <textarea id="sinoptico-comment" name="comment" rows="3" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">${node.comment || ''}</textarea>
+                        </div>
+                    </form>
+                    <div class="flex justify-end items-center p-4 border-t bg-gray-50 space-x-3">
+                        <button data-action="close" type="button" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
+                        <button type="submit" form="sinoptico-edit-form" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-semibold">Guardar Cambios</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        dom.modalContainer.innerHTML = modalHTML;
+        lucide.createIcons();
+        const modalElement = document.getElementById(modalId);
+        modalElement.querySelector('form').addEventListener('submit', handleSinopticoFormSubmit);
+        modalElement.addEventListener('click', e => {
+            if (e.target.closest('button')?.dataset.action === 'close') {
+                modalElement.remove();
+            }
+        });
+    }
+
+    async function handleSinopticoFormSubmit(e) {
+        e.preventDefault();
+        const form = e.target;
+        const nodeId = form.querySelector('[name="nodeId"]').value;
+        const newQuantity = parseFloat(form.querySelector('[name="quantity"]').value);
+        const newComment = form.querySelector('[name="comment"]').value;
+
+        if (isNaN(newQuantity) || newQuantity < 0) {
+            showToast('Por favor, ingrese una cantidad válida.', 'error');
+            return;
+        }
+
+        const product = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.docId === appState.sinopticoState.activeTreeDocId);
+        if (!product) {
+            showToast('Error: No se pudo encontrar el producto activo.', 'error');
+            return;
+        }
+        const nodeToUpdate = findNode(nodeId, product.estructura);
+
+        if (nodeToUpdate) {
+            nodeToUpdate.quantity = newQuantity;
+            nodeToUpdate.comment = newComment;
+
+            const saveButton = form.closest('.modal-content').querySelector('button[type="submit"]');
+            saveButton.disabled = true;
+            saveButton.innerHTML = `<i data-lucide="loader" class="animate-spin h-5 w-5"></i>`;
+            lucide.createIcons();
+
+            try {
+                const productRef = doc(db, COLLECTIONS.PRODUCTOS, product.docId);
+                await updateDoc(productRef, { estructura: product.estructura });
+                showToast('Componente actualizado.', 'success');
+
+                document.getElementById(form.closest('.fixed').id).remove();
+
+                renderTree();
+                renderDetailView(nodeId);
+            } catch (error) {
+                console.error("Error saving sinoptico node:", error);
+                showToast('Error al guardar los cambios.', 'error');
+                saveButton.disabled = false;
+                saveButton.innerHTML = `Guardar Cambios`;
+            }
+        }
+    }
+
     const searchHandler = () => {
         const searchTerm = searchInput.value.toLowerCase();
         if (searchTerm) {
