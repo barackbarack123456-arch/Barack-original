@@ -1410,31 +1410,30 @@ let taskState = {
 };
 
 function runTasksLogic() {
-    if (appState.currentUser.role === 'admin') {
-        // Admins now see the dashboard view by default when clicking 'Tareas'
-        runAdminDashboard();
-    } else {
-        // Non-admins see the standard Kanban board
-        runKanbanBoardLogic();
-    }
+    runKanbanBoardLogic();
 }
 
-function runAdminDashboard() {
+function renderTaskDashboardView() {
+    const isAdmin = appState.currentUser.role === 'admin';
+    const title = isAdmin ? "Estadísticas del Equipo" : "Mis Estadísticas";
+    const subtitle = isAdmin ? "Analiza, filtra y gestiona las tareas del equipo." : "Un resumen de tu carga de trabajo y progreso.";
+
+    // Main layout is the same, but we will hide elements for non-admins
     dom.viewContent.innerHTML = `
         <div class="space-y-4">
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h2 class="text-2xl font-bold text-slate-800">Dashboard de Tareas</h2>
-                    <p class="text-sm text-slate-500">Analiza, filtra y gestiona las tareas del equipo.</p>
+                    <h2 class="text-2xl font-bold text-slate-800">${title}</h2>
+                    <p class="text-sm text-slate-500">${subtitle}</p>
                 </div>
                 <button data-action="admin-back-to-board" class="bg-slate-200 text-slate-800 px-4 py-2 rounded-md hover:bg-slate-300 font-semibold flex items-center flex-shrink-0">
-                    <i data-lucide="columns" class="mr-2 h-5 w-5"></i>
-                    <span>Ver Tablero Kanban</span>
+                    <i data-lucide="arrow-left" class="mr-2 h-5 w-5"></i>
+                    <span>Volver al Tablero</span>
                 </button>
             </div>
 
-            <!-- Global Admin Filters -->
-            <div class="bg-white p-3 rounded-xl shadow-sm border flex items-center gap-4">
+            <!-- Global Admin Filters (Admin only) -->
+            <div id="admin-filters-container" class="bg-white p-3 rounded-xl shadow-sm border items-center gap-4 ${isAdmin ? 'flex' : 'hidden'}">
                  <label for="admin-view-filter" class="text-sm font-bold text-slate-600 flex-shrink-0">Vista:</label>
                  <select id="admin-view-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white text-sm">
                     <option value="all">Todas las Tareas</option>
@@ -1449,8 +1448,8 @@ function runAdminDashboard() {
             </div>
         </div>
 
-        <!-- Tabs Navigation -->
-        <div class="border-b border-gray-200">
+        <!-- Tabs Navigation (Admin only) -->
+        <div id="admin-tabs-container" class="border-b border-gray-200 ${isAdmin ? 'block' : 'hidden'}">
             <nav id="admin-task-tabs" class="-mb-px flex space-x-6" aria-label="Tabs">
                 <button data-tab="dashboard" class="admin-task-tab active-tab group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm">
                     <i data-lucide="layout-dashboard" class="mr-2"></i><span>Dashboard</span>
@@ -1467,16 +1466,16 @@ function runAdminDashboard() {
         <div class="py-6 animate-fade-in-up">
             <!-- Tab Panels -->
             <div id="admin-tab-content">
-                <!-- Dashboard Panel -->
+                <!-- Dashboard Panel (Always visible) -->
                 <div id="tab-panel-dashboard" class="admin-tab-panel">
-                    <div id="task-charts-container" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div id="task-charts-container" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div class="bg-white p-6 rounded-xl shadow-lg"><h3 class="text-lg font-bold text-slate-800 mb-4">Tareas por Estado</h3><div id="status-chart-container" class="h-64 flex items-center justify-center"><canvas id="status-chart"></canvas></div></div>
                         <div class="bg-white p-6 rounded-xl shadow-lg"><h3 class="text-lg font-bold text-slate-800 mb-4">Tareas por Prioridad</h3><div id="priority-chart-container" class="h-64 flex items-center justify-center"><canvas id="priority-chart"></canvas></div></div>
-                        <div class="bg-white p-6 rounded-xl shadow-lg"><h3 class="text-lg font-bold text-slate-800 mb-4">Carga por Usuario (Tareas Abiertas)</h3><div id="user-load-chart-container" class="h-64 flex items-center justify-center"><canvas id="user-load-chart"></canvas></div></div>
+                        <div id="user-load-chart-wrapper" class="bg-white p-6 rounded-xl shadow-lg ${isAdmin ? 'block' : 'hidden'} lg:col-span-2"><h3 class="text-lg font-bold text-slate-800 mb-4">Carga por Usuario (Tareas Abiertas)</h3><div id="user-load-chart-container" class="h-64 flex items-center justify-center"><canvas id="user-load-chart"></canvas></div></div>
                     </div>
                 </div>
 
-                <!-- Calendar Panel -->
+                <!-- Calendar Panel (Admin only) -->
                 <div id="tab-panel-calendar" class="admin-tab-panel hidden">
                     <div class="bg-white p-6 rounded-xl shadow-lg">
                         <div id="calendar-header" class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
@@ -1505,7 +1504,7 @@ function runAdminDashboard() {
                     </div>
                 </div>
 
-                <!-- Table Panel -->
+                <!-- Table Panel (Admin only) -->
                 <div id="tab-panel-table" class="admin-tab-panel hidden">
                     <div class="bg-white p-6 rounded-xl shadow-lg">
                         <div id="task-table-controls" class="flex flex-col md:flex-row gap-4 mb-4">
@@ -1531,46 +1530,56 @@ function runAdminDashboard() {
     `;
     lucide.createIcons();
 
-    // Tab switching logic
-    const tabs = document.querySelectorAll('.admin-task-tab');
-    const panels = document.querySelectorAll('.admin-tab-panel');
+    // Tab switching logic for admins
+    if (isAdmin) {
+        const tabs = document.querySelectorAll('.admin-task-tab');
+        const panels = document.querySelectorAll('.admin-tab-panel');
 
-    document.getElementById('admin-task-tabs').addEventListener('click', (e) => {
-        const tabButton = e.target.closest('.admin-task-tab');
-        if (!tabButton) return;
+        document.getElementById('admin-task-tabs').addEventListener('click', (e) => {
+            const tabButton = e.target.closest('.admin-task-tab');
+            if (!tabButton) return;
 
-        const tabName = tabButton.dataset.tab;
+            const tabName = tabButton.dataset.tab;
 
-        tabs.forEach(tab => {
-            tab.classList.remove('active-tab');
+            tabs.forEach(tab => {
+                tab.classList.remove('active-tab');
+            });
+            tabButton.classList.add('active-tab');
+
+            panels.forEach(panel => {
+                if (panel.id === `tab-panel-${tabName}`) {
+                    panel.classList.remove('hidden');
+                } else {
+                    panel.classList.add('hidden');
+                }
+            });
         });
-        tabButton.classList.add('active-tab');
-
-        panels.forEach(panel => {
-            if (panel.id === `tab-panel-${tabName}`) {
-                panel.classList.remove('hidden');
-            } else {
-                panel.classList.add('hidden');
-            }
-        });
-    });
+    }
 
     const tasksRef = collection(db, COLLECTIONS.TAREAS);
     const q = query(tasksRef);
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const allTasks = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
-        adminTaskViewState.tasks = allTasks;
-        updateAdminDashboardData(allTasks);
+
+        if(isAdmin) {
+            adminTaskViewState.tasks = allTasks;
+            updateAdminDashboardData(allTasks);
+        } else {
+            const myTasks = allTasks.filter(t => t.assigneeUid === appState.currentUser.uid || t.creatorUid === appState.currentUser.uid);
+            renderAdminTaskCharts(myTasks); // Directly render charts with user's tasks
+        }
     }, (error) => {
-        console.error("Error fetching tasks for admin dashboard:", error);
+        console.error("Error fetching tasks for dashboard:", error);
         showToast('Error al cargar las tareas del dashboard.', 'error');
     });
 
-    // Initial render of components
-    renderCalendar(); // Initialize the calendar structure once
-    setupAdminTaskViewListeners();
-    updateAdminDashboardData([]); // Initial call with empty data to render skeletons
+    // Initial render of components for admins
+    if(isAdmin) {
+        renderCalendar(); // Initialize the calendar structure once
+        setupAdminTaskViewListeners();
+        updateAdminDashboardData([]); // Initial call with empty data to render skeletons
+    }
 
     appState.currentViewCleanup = () => {
         unsubscribe();
@@ -2247,6 +2256,9 @@ function runKanbanBoardLogic() {
             </div>
 
             <div id="kanban-header-buttons" class="flex items-center gap-4 flex-shrink-0">
+                <button id="go-to-stats-view-btn" class="bg-slate-700 text-white px-5 py-2.5 rounded-full hover:bg-slate-800 flex items-center shadow-md transition-transform transform hover:scale-105 flex-shrink-0">
+                    <i data-lucide="bar-chart-2" class="mr-2 h-5 w-5"></i>Ver Estadísticas
+                </button>
                 <button id="add-new-task-btn" class="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 flex items-center shadow-md transition-transform transform hover:scale-105">
                     <i data-lucide="plus" class="mr-2 h-5 w-5"></i>Nueva Tarea
                 </button>
@@ -2254,15 +2266,24 @@ function runKanbanBoardLogic() {
         </div>
         <div id="task-board" class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="task-column bg-slate-100/80 rounded-xl" data-status="todo">
-                <h3 class="font-bold text-slate-800 p-3 border-b-2 border-slate-300 mb-4 flex items-center gap-3"><i data-lucide="list-todo" class="w-5 h-5 text-yellow-600"></i>Por Hacer</h3>
+                <h3 class="font-bold text-slate-800 p-3 border-b-2 border-slate-300 mb-4 flex justify-between items-center cursor-pointer kanban-column-header">
+                    <span class="flex items-center gap-3"><i data-lucide="list-todo" class="w-5 h-5 text-yellow-600"></i>Por Hacer</span>
+                    <button class="kanban-toggle-btn p-1 hover:bg-slate-200 rounded-full"><i data-lucide="chevron-down" class="w-5 h-5 transition-transform"></i></button>
+                </h3>
                 <div class="task-list min-h-[300px] p-4 space-y-4 overflow-y-auto"></div>
             </div>
             <div class="task-column bg-slate-100/80 rounded-xl" data-status="inprogress">
-                <h3 class="font-bold text-slate-800 p-3 border-b-2 border-slate-300 mb-4 flex items-center gap-3"><i data-lucide="timer" class="w-5 h-5 text-blue-600"></i>En Progreso</h3>
+                <h3 class="font-bold text-slate-800 p-3 border-b-2 border-slate-300 mb-4 flex justify-between items-center cursor-pointer kanban-column-header">
+                    <span class="flex items-center gap-3"><i data-lucide="timer" class="w-5 h-5 text-blue-600"></i>En Progreso</span>
+                    <button class="kanban-toggle-btn p-1 hover:bg-slate-200 rounded-full"><i data-lucide="chevron-down" class="w-5 h-5 transition-transform"></i></button>
+                </h3>
                 <div class="task-list min-h-[300px] p-4 space-y-4 overflow-y-auto"></div>
             </div>
             <div class="task-column bg-slate-100/80 rounded-xl" data-status="done">
-                <h3 class="font-bold text-slate-800 p-3 border-b-2 border-slate-300 mb-4 flex items-center gap-3"><i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>Completadas</h3>
+                <h3 class="font-bold text-slate-800 p-3 border-b-2 border-slate-300 mb-4 flex justify-between items-center cursor-pointer kanban-column-header">
+                    <span class="flex items-center gap-3"><i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>Completadas</span>
+                    <button class="kanban-toggle-btn p-1 hover:bg-slate-200 rounded-full"><i data-lucide="chevron-down" class="w-5 h-5 transition-transform"></i></button>
+                </h3>
                 <div class="task-list min-h-[300px] p-4 space-y-4 overflow-y-auto"></div>
             </div>
         </div>
@@ -2271,6 +2292,15 @@ function runKanbanBoardLogic() {
 
     // 2. Set up event listeners for filters and the add button
     document.getElementById('add-new-task-btn').addEventListener('click', () => openTaskFormModal());
+    document.getElementById('go-to-stats-view-btn').addEventListener('click', renderTaskDashboardView);
+
+    document.getElementById('task-board').addEventListener('click', e => {
+        const header = e.target.closest('.kanban-column-header');
+        if (header) {
+            header.parentElement.classList.toggle('collapsed');
+        }
+    });
+
     document.getElementById('task-search-input').addEventListener('input', e => {
         taskState.searchTerm = e.target.value.toLowerCase();
         fetchAndRenderTasks();

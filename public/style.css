@@ -395,3 +395,12 @@ table.data-table .actions-cell button:hover {
     transform: translateY(-50%);
     font-size: 14px;
 }
+
+/* --- Kanban Column Collapsing --- */
+.task-column.collapsed .task-list {
+    display: none;
+}
+
+.task-column.collapsed .kanban-toggle-btn .lucide {
+    transform: rotate(-90deg);
+}
