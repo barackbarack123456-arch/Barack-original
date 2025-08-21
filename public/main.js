@@ -3988,6 +3988,16 @@ function runSinopticoTabularLogic() {
 
         const client = appState.collectionsById[COLLECTIONS.CLIENTES].get(product.clienteId);
 
+        const getOriginalMaxDepth = (nodes, level = 0) => {
+            if (!nodes || nodes.length === 0) return level > 0 ? level - 1 : 0;
+            let max = level;
+            for (const node of nodes) {
+                const depth = getOriginalMaxDepth(node.children, level + 1);
+                if (depth > max) max = depth;
+            }
+            return max;
+        };
+
         const flattenedData = getFlattenedData(product, state.activeFilters.niveles);
 
         const renderTabularTable = (data) => {
@@ -4047,7 +4057,7 @@ function runSinopticoTabularLogic() {
 
         const tableHTML = renderTabularTable(flattenedData);
 
-        const maxLevel = flattenedData.reduce((max, item) => Math.max(max, item.level), 0);
+        const maxLevel = getOriginalMaxDepth(product.estructura);
         let levelFilterOptionsHTML = '';
         for (let i = 0; i <= maxLevel; i++) {
             const isChecked = !state.activeFilters.niveles.size || state.activeFilters.niveles.has(i.toString());
