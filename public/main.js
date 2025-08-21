@@ -93,17 +93,23 @@ const viewConfig = {
             { key: 'codigo_cliente', label: 'Cód. Cliente' }
         ],
         fields: [
-            { key: 'codigo', label: 'Código Interno', type: 'text', required: true },
+            { key: 'descripcion', label: 'Versión del vehículo', type: 'textarea', required: true },
+            { key: 'codigo', label: 'Número de pieza', type: 'text', required: true },
+            { key: 'imagen', label: 'Imagen (URL)', type: 'text' },
+            { key: 'piezas_por_vehiculo', label: 'Piezas/Vehículo [unid.]', type: 'number' },
+            { key: 'proceso', label: 'Proceso', type: 'search-select', searchKey: COLLECTIONS.PROCESOS },
+            { key: 'lc', label: 'LC', type: 'text' },
+            { key: 'site_kd', label: 'Planta / KD', type: 'text' },
+            { key: 'aspecto', label: 'Aspecto', type: 'select', options: ['Sí', 'No'] },
+            { key: 'material', label: 'Material', type: 'text' },
+            { key: 'color', label: 'Color', type: 'text' },
+            { key: 'materia_prima', label: 'Materia prima', type: 'text' },
+            { key: 'proveedorId', label: 'Proveedor de materia prima', type: 'search-select', searchKey: COLLECTIONS.PROVEEDORES },
+            { key: 'cantidad_por_pieza', label: 'Cantidad por pieza', type: 'number' },
+            { key: 'comentarios', label: 'Comentarios', type: 'textarea' },
+            { key: 'version', label: 'Versión Técnica', type: 'text' },
             { key: 'codigo_cliente', label: 'Código de Cliente', type: 'text' },
-            { key: 'descripcion', label: 'Descripción', type: 'textarea', required: true },
-            { key: 'version', label: 'Versión', type: 'text' },
-            {
-                key: 'proyectoId',
-                label: 'Proyecto Asociado',
-                type: 'search-select',
-                searchKey: COLLECTIONS.PROYECTOS,
-                required: false
-            },
+            { key: 'proyectoId', label: 'Proyecto Asociado', type: 'search-select', searchKey: COLLECTIONS.PROYECTOS, required: false },
         ]
     },
     subproductos: {
@@ -116,12 +122,23 @@ const viewConfig = {
             { key: 'peso', label: 'Peso' }
         ],
         fields: [
-            { key: 'codigo', label: 'Código', type: 'text', required: true },
             { key: 'nombre', label: 'Nombre', type: 'text', required: true },
-            { key: 'descripcion', label: 'Descripción', type: 'textarea' },
+            { key: 'codigo', label: 'Número de pieza', type: 'text', required: true },
+            { key: 'imagen', label: 'Imagen (URL)', type: 'text' },
+            { key: 'piezas_por_vehiculo', label: 'Piezas/Vehículo [unid.]', type: 'number' },
+            { key: 'proceso', label: 'Proceso', type: 'search-select', searchKey: COLLECTIONS.PROCESOS },
+            { key: 'lc', label: 'LC', type: 'text' },
+            { key: 'site_kd', label: 'Planta / KD', type: 'text' },
+            { key: 'aspecto', label: 'Aspecto', type: 'select', options: ['Sí', 'No'] },
+            { key: 'material', label: 'Material', type: 'text' },
+            { key: 'color', label: 'Color', type: 'text' },
+            { key: 'materia_prima', label: 'Materia prima', type: 'text' },
+            { key: 'proveedorId', label: 'Proveedor de materia prima', type: 'search-select', searchKey: COLLECTIONS.PROVEEDORES },
+            { key: 'cantidad_por_pieza', label: 'Cantidad por pieza', type: 'number' },
+            { key: 'comentarios', label: 'Comentarios', type: 'textarea' },
+            { key: 'descripcion', label: 'Descripción Adicional', type: 'textarea' },
             { key: 'peso', label: 'Peso (ej: 150kg)', type: 'text' },
             { key: 'medidas', label: 'Medidas (ej: 10x20x5 cm)', type: 'text' },
-            { key: 'observaciones', label: 'Observaciones', type: 'textarea' },
         ]
     },
     insumos: {
@@ -134,14 +151,21 @@ const viewConfig = {
             { key: 'material', label: 'Material' }
         ],
         fields: [
-            { key: 'codigo', label: 'Código', type: 'text', required: true },
             { key: 'descripcion', label: 'Descripción', type: 'textarea', required: true },
-            { key: 'unidad_medida', label: 'Unidad de Medida', type: 'select', options: ['m', 'ml', 'm2', 'm3', 'kg', 'g', 'l', 'un', 'cj', 'pq'], required: true },
+            { key: 'codigo', label: 'Número de pieza', type: 'text', required: true },
+            { key: 'imagen', label: 'Imagen (URL)', type: 'text' },
+            { key: 'piezas_por_vehiculo', label: 'Piezas/Vehículo [unid.]', type: 'number' },
+            { key: 'proceso', label: 'Proceso', type: 'search-select', searchKey: COLLECTIONS.PROCESOS },
+            { key: 'lc', label: 'LC', type: 'text' },
+            { key: 'site_kd', label: 'Planta / KD', type: 'text' },
+            { key: 'aspecto', label: 'Aspecto', type: 'select', options: ['Sí', 'No'] },
             { key: 'material', label: 'Material', type: 'text' },
-            { key: 'codigo_proveedor', label: 'Código Proveedor', type: 'text' },
-            { key: 'piezas_por_vehiculo', label: 'Piezas por Vehículo', type: 'number' },
-            { key: 'proceso', label: 'Proceso', type: 'text' },
             { key: 'color', label: 'Color', type: 'text' },
+            { key: 'materia_prima', label: 'Materia prima', type: 'text' },
+            { key: 'proveedorId', label: 'Proveedor de materia prima', type: 'search-select', searchKey: COLLECTIONS.PROVEEDORES },
+            { key: 'cantidad_por_pieza', label: 'Cantidad por pieza', type: 'number' },
+            { key: 'unidadId', label: 'Unidad', type: 'search-select', searchKey: COLLECTIONS.UNIDADES, required: true },
+            { key: 'comentarios', label: 'Comentarios', type: 'textarea' },
         ]
     },
     clientes: { title: 'Clientes', singular: 'Cliente', dataKey: COLLECTIONS.CLIENTES, columns: [ { key: 'id', label: 'Código' }, { key: 'descripcion', label: 'Descripción' } ], fields: [ { key: 'id', label: 'Código', type: 'text', required: true }, { key: 'descripcion', label: 'Descripción', type: 'text', required: true } ] },
@@ -3897,11 +3921,24 @@ function runSinopticoTabularLogic() {
 
     const renderTabularTable = (data) => {
         const columns = [
-            { key: 'descripcion', label: 'Descripción' }, { key: 'nivel', label: 'Nivel' },
-            { key: 'codigo', label: 'Código' }, { key: 'tipo', label: 'Tipo' },
-            { key: 'cantidad', label: 'Cantidad por pieza' }, { key: 'unidad', label: 'Unidad' },
-            { key: 'proveedor', label: 'Proveedor' }, { key: 'material', label: 'Material' },
-            { key: 'observaciones', label: 'Comentarios' }, { key: 'acciones', label: 'Acciones' }
+            { key: 'descripcion', label: 'Descripción' },
+            { key: 'nivel', label: 'Nivel' },
+            { key: 'version', label: 'Versión del vehículo' },
+            { key: 'codigo', label: 'Número de pieza' },
+            { key: 'imagen', label: 'Imagen' },
+            { key: 'piezas_vh', label: 'Piezas/Vehículo [unid.]' },
+            { key: 'proceso', label: 'Proceso' },
+            { key: 'lc', label: 'LC' },
+            { key: 'site_kd', label: 'Planta / KD' },
+            { key: 'aspecto', label: 'Aspecto' },
+            { key: 'material', label: 'Material' },
+            { key: 'color', label: 'Color' },
+            { key: 'materia_prima', label: 'Materia prima' },
+            { key: 'proveedor', label: 'Proveedor de materia prima' },
+            { key: 'cantidad', label: 'Cantidad por pieza' },
+            { key: 'unidad', label: 'Unidad' },
+            { key: 'observaciones', label: 'Comentarios' },
+            { key: 'acciones', label: 'Acciones' }
         ];
 
         if (data.length === 0) return `<p class="text-slate-500 p-4 text-center">El producto seleccionado no tiene una estructura definida.</p>`;
@@ -3918,17 +3955,37 @@ function runSinopticoTabularLogic() {
             let prefix = lineage.map(parentIsNotLast => parentIsNotLast ? '│&nbsp;&nbsp;&nbsp;&nbsp;' : '&nbsp;&nbsp;&nbsp;&nbsp;').join('');
             if (level > 0)  prefix += isLast ? '└─ ' : '├─ ';
 
-            const cantidad = node.quantity ?? NA;
-            let unidad = NA, proveedor = NA, material = NA;
+            const vehicleVersion = item.version || (node.tipo === 'producto' ? item.descripcion : NA);
+            const partNumber = item.id || NA;
+            const imagen = item.imagen ? `<a href="${item.imagen}" target="_blank" class="text-blue-500 hover:underline">Ver Imagen</a>` : NA;
+            const piezasVh = item.piezas_por_vehiculo || NA;
+            let proceso = item.proceso || NA;
+            if (item.proceso && appState.collectionsById[COLLECTIONS.PROCESOS]) {
+                const procesoData = appState.collectionsById[COLLECTIONS.PROCESOS].get(item.proceso);
+                proceso = procesoData ? procesoData.descripcion : item.proceso;
+            }
+            const lc = item.lc || NA;
+            const siteKd = item.site_kd || NA;
+            const aspecto = item.aspecto || NA;
+            const material = item.material || NA;
+            const color = item.color || NA;
+            const materiaPrima = item.materia_prima || NA;
 
-            if (node.tipo === 'insumo') {
-                const unidadData = item.unidadMedidaId ? appState.collectionsById[COLLECTIONS.UNIDADES].get(item.unidadMedidaId) : null;
-                unidad = unidadData ? unidadData.id : '';
-                const proveedorData = item.proveedorId ? appState.collectionsById[COLLECTIONS.PROVEEDORES].get(item.proveedorId) : null;
-                proveedor = proveedorData ? proveedorData.descripcion : '';
-                material = item.material || '';
+            let proveedor = NA;
+            if (item.proveedorId) {
+                const supplier = appState.collectionsById[COLLECTIONS.PROVEEDORES].get(item.proveedorId);
+                proveedor = supplier ? supplier.descripcion : (item.proveedorId || NA);
             }
 
+            const cantidad = node.quantity ?? NA;
+
+            let unidad = NA;
+            if (item.unidadId) {
+                const unitData = appState.collectionsById[COLLECTIONS.UNIDADES]?.get(item.unidadId);
+                unidad = unitData ? unitData.id : item.unidadId;
+            }
+
+            const comentarios = node.comment || '';
             const actionsHTML = (node.tipo !== 'producto' || level === 0)
                 ? `<button data-action="edit-tabular-node" data-node-id="${node.id}" class="p-1 text-blue-600 hover:bg-blue-100 rounded-md" title="Editar Cantidad/Comentario"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>`
                 : '';
@@ -3936,13 +3993,21 @@ function runSinopticoTabularLogic() {
             tableHTML += `<tr class="bg-white border-b hover:bg-gray-100" data-node-id="${node.id}">
                 <td class="px-4 py-2 font-mono font-medium text-gray-900 whitespace-nowrap"><span class="font-sans">${prefix}</span>${item.descripcion || item.nombre}</td>
                 <td class="px-4 py-2 text-center">${node.originalLevel ?? level}</td>
-                <td class="px-4 py-2">${item.id}</td>
-                <td class="px-4 py-2"><span class="px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-700">${node.tipo}</span></td>
+                <td class="px-4 py-2">${vehicleVersion}</td>
+                <td class="px-4 py-2">${partNumber}</td>
+                <td class="px-4 py-2">${imagen}</td>
+                <td class="px-4 py-2">${piezasVh}</td>
+                <td class="px-4 py-2">${proceso}</td>
+                <td class="px-4 py-2">${lc}</td>
+                <td class="px-4 py-2">${siteKd}</td>
+                <td class="px-4 py-2">${aspecto}</td>
+                <td class="px-4 py-2">${material}</td>
+                <td class="px-4 py-2">${color}</td>
+                <td class="px-4 py-2">${materiaPrima}</td>
+                <td class="px-4 py-2">${proveedor}</td>
                 <td class="px-4 py-2 text-right">${cantidad}</td>
                 <td class="px-4 py-2 text-center">${unidad}</td>
-                <td class="px-4 py-2">${proveedor}</td>
-                <td class="px-4 py-2">${material}</td>
-                <td class="px-4 py-2">${node.comment || ''}</td>
+                <td class="px-4 py-2">${comentarios}</td>
                 <td class="px-4 py-2 text-center">${actionsHTML}</td>
             </tr>`;
         });
