@@ -1130,82 +1130,75 @@ async function handleSearch() {
     }
 }
 
-// CAMBIO: La función de exportación ahora tiene un título estilizado y mejor posicionado para el PDF.
 function handleExport(type) {
     const config = viewConfig[appState.currentView];
     const data = appState.currentData;
     const title = config.title;
 
-    const headers = config.fields.map(field => field.label);
-    const body = data.map(item => {
-        return config.fields.map(field => {
-            let value = item[field.key] || '';
-            if (field.type === 'search-select' && value) {
-                const sourceCollection = appState.collections[field.searchKey];
-                const relatedItem = sourceCollection.find(d => d.id === value);
-                return relatedItem ? relatedItem.descripcion : value;
-            }
-            return value;
-        });
-    });
-
     if (type === 'pdf') {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ orientation: 'landscape' });
-        
-        // Dibujar el título personalizado
-        doc.setFontSize(18);
-        doc.setTextColor(37, 99, 235); // Azul similar a text-blue-600
-        doc.setFont('helvetica', 'bold');
-        doc.text(title, 14, 20);
 
-        const tableStartY = 30; // Posición inicial de la tabla para que no se superponga
-
-        const columnStyles = {};
-        if (config.dataKey === COLLECTIONS.INSUMOS) {
-            Object.assign(columnStyles, {
-                0: { cellWidth: 30 }, // Código
-                1: { cellWidth: 50 }, // Descripción
-                2: { cellWidth: 30 }, // Material
-                3: { cellWidth: 30 }, // Proveedor
-                4: { cellWidth: 25 }, // Unidad de Medida
-                5: { cellWidth: 20 }, // Costo
-                6: { cellWidth: 20 }, // Stock Mínimo
-                7: { cellWidth: 'auto' }, // Observaciones
-                8: { cellWidth: 20 }  // Sourcing
+        // Use the columns from the config for headers to match the screen
+        const headers = config.columns.map(col => col.label);
+        const body = data.map(item => {
+            return config.columns.map(col => {
+                const value = col.format ? col.format(item[col.key]) : (item[col.key] || 'N/A');
+                return value;
             });
-        }
+        });
 
         doc.autoTable({
             head: [headers],
             body: body,
-            startY: tableStartY,
-            styles: { fontSize: 8 },
-            headStyles: { fillColor: '#44546A' },
-            columnStyles: columnStyles
+            startY: 25, // Start table lower to make space for header
+            styles: { fontSize: 8, cellPadding: 1.5 },
+            headStyles: { fillColor: [41, 104, 217], textColor: 255, fontStyle: 'bold' },
+            alternateRowStyles: { fillColor: [241, 245, 249] },
+            // Let the library handle column widths automatically for a generic solution
+            columnStyles: {},
+            didDrawPage: (data) => {
+                // Page Header
+                doc.setFontSize(16);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(15, 23, 42);
+                doc.text(title, 14, 15);
+
+                // Page Footer
+                const pageCount = doc.internal.getNumberOfPages();
+                doc.setFontSize(8);
+                doc.setTextColor(100, 116, 139);
+                doc.text(`Página ${data.pageNumber} de ${pageCount}`, doc.internal.pageSize.getWidth() / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+            }
         });
-        doc.save(`${config.dataKey}_export_completo.pdf`);
+
+        const fileName = `${config.dataKey}_export_${new Date().toISOString().split('T')[0]}.pdf`;
+        doc.save(fileName);
 
     } else if (type === 'excel') {
-        const dataToExport = data.map(item => {
+        // Excel export can use the more detailed field list
+        const excelData = data.map(item => {
             let row = {};
             config.fields.forEach(field => {
                 let value = item[field.key] || '';
-                if (field.type === 'search-select' && value) {
-                    const sourceCollection = appState.collections[field.searchKey];
-                    const relatedItem = sourceCollection.find(d => d.id === value);
-                    value = relatedItem ? relatedItem.descripcion : value;
+                // Resolve IDs to descriptions for 'select' fields with a searchKey
+                if (field.type === 'select' && field.searchKey && value) {
+                    const sourceCollection = appState.collectionsById[field.searchKey];
+                    const relatedItem = sourceCollection?.get(value);
+                    value = relatedItem ? (relatedItem.descripcion || relatedItem.name) : value; // Use 'name' as fallback for users
                 }
                 row[field.label] = value;
             });
             return row;
         });
-        const ws = XLSX.utils.json_to_sheet(dataToExport);
+
+        const ws = XLSX.utils.json_to_sheet(excelData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, title);
-        XLSX.writeFile(wb, `${config.dataKey}_export_completo.xlsx`);
+        const fileName = `${config.dataKey}_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+        XLSX.writeFile(wb, fileName);
     }
-    showToast(`Exportación completa a ${type.toUpperCase()} iniciada.`, 'success');
+    showToast(`Exportación a ${type.toUpperCase()} iniciada.`, 'success');
 }
 
 async function openFormModal(item = null) {
@@ -4369,177 +4362,142 @@ async function exportSinopticoTabularToPdf() {
         return;
     }
 
-    showToast('Iniciando exportación a PDF...', 'info');
+    showToast('Generando PDF profesional...', 'info');
 
     try {
-        const doc = new jsPDF({
-            orientation: 'landscape',
-            unit: 'mm',
-            format: 'a4'
-        });
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
         const logoBase64 = await getLogoBase64();
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const margin = 10;
-        let cursorY = margin;
 
-        // 1. Draw Carátula (Cover Page) with native jsPDF functions
-        const client = appState.collectionsById[COLLECTIONS.CLIENTES].get(product.clienteId);
-        const createdAt = product.createdAt ? new Date(product.createdAt.seconds * 1000).toLocaleDateString('es-AR') : 'N/A';
+        drawPdfCoverPage(doc, product, logoBase64);
 
-        // Main Title
-        doc.setFillColor(37, 99, 235); // bg-blue-600
-        doc.rect(margin, cursorY, pageWidth - (margin * 2), 10, 'F');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(14);
-        doc.setTextColor(255, 255, 255);
-        doc.text('COMPOSICIÓN DE PIEZAS - BOM', pageWidth / 2, cursorY + 6.5, { align: 'center' });
-        cursorY += 10;
+        doc.addPage();
 
-        // Details Section
-        const detailsHeight = 25;
-        const leftSectionWidth = (pageWidth - (margin * 2)) / 3;
-        doc.setFillColor(255, 255, 255);
-        doc.rect(margin, cursorY, leftSectionWidth, detailsHeight, 'F');
-        if (logoBase64) {
-             doc.addImage(logoBase64, 'PNG', margin + 5, cursorY + 2.5, 50, 20);
-        } else {
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(12);
-            doc.setTextColor(0, 0, 0);
-            doc.text('GESTIÓN PRO', margin + (leftSectionWidth / 2), cursorY + (detailsHeight / 2), { align: 'center' });
-        }
-
-
-        // Right side with details
-        doc.setFillColor(68, 84, 106); // #44546A
-        doc.rect(margin + leftSectionWidth, cursorY, (pageWidth - (margin * 2)) * 2 / 3, detailsHeight, 'F');
-
-        doc.setFontSize(8);
-        doc.setTextColor(255, 255, 255);
-        const col1X = margin + leftSectionWidth + 5;
-        const col2X = col1X + 80;
-
-        let detailY = cursorY + 5;
-        const addDetail = (label, value, x, y) => {
-            doc.setFont('helvetica', 'bold');
-            doc.text(label, x, y);
-            doc.setFont('helvetica', 'normal');
-            doc.text(value, x + 25, y);
-        };
-
-        addDetail('PRODUCTO:', product.descripcion || 'N/A', col1X, detailY);
-        addDetail('NÚMERO DE PIEZA:', product.id || 'N/A', col2X, detailY);
-        detailY += 6;
-
-        addDetail('VERSIÓN:', product.version || 'N/A', col1X, detailY);
-        addDetail('FECHA DE CREACIÓN:', createdAt, col2X, detailY);
-        detailY += 6;
-
-        addDetail('REALIZÓ:', product.lastUpdatedBy || 'N/A', col1X, detailY);
-        addDetail('APROBÓ:', product.aprobadoPor || 'N/A', col2X, detailY);
-        detailY += 6;
-
-        addDetail('FECHA REVISIÓN:', product.fechaRevision || 'N/A', col1X, detailY);
-
-        cursorY += detailsHeight + 5; // Add some space after the header
-
-        // 2. Prepare and render the table with jsPDF-AutoTable
         const flattenedData = getFlattenedData(product, state.activeFilters.niveles);
-        const head = [['Descripción', 'Nivel', 'Cantidad', 'Unidad', 'Código de pieza', 'Versión', 'Proceso', 'Proveedor', 'Comentarios']];
-        const body = flattenedData.map(rowData => {
-            const { node, item } = rowData;
-            const NA = 'N/A';
-            const descripcion = item.descripcion || item.nombre;
-            const nivel = node.originalLevel ?? rowData.level;
-            const cantidad = node.quantity ?? NA;
-            const codigo_pieza = item.codigo_pieza || NA;
-            const version = item.version || NA;
-            const comentarios = node.comment || '';
-            let proceso = '', proveedor = '', unidad_medida = '';
+        drawPdfTable(doc, product, flattenedData);
 
-            if (node.tipo === 'semiterminado' && item.proceso) {
-                const procesoData = appState.collectionsById[COLLECTIONS.PROCESOS]?.get(item.proceso);
-                proceso = procesoData ? procesoData.descripcion : item.proceso;
-            }
-            if (node.tipo === 'insumo' && item.proveedor) {
-                const proveedorData = appState.collectionsById[COLLECTIONS.PROVEEDORES]?.get(item.proveedor);
-                proveedor = proveedorData ? proveedorData.descripcion : item.proveedor;
-            }
-            if (node.tipo === 'insumo' && item.unidad_medida) {
-                const unidadData = appState.collectionsById[COLLECTIONS.UNIDADES]?.get(item.unidad_medida);
-                unidad_medida = unidadData ? unidadData.id : item.unidad_medida;
-            }
-
-            return [
-                descripcion, nivel, cantidad, unidad_medida, codigo_pieza, version, proceso, proveedor, comentarios,
-                { lineage: rowData.lineage, level: rowData.level, isLast: rowData.isLast } // Pass hierarchy data
-            ];
-        });
-
-        doc.autoTable({
-            head: head,
-            body: body,
-            startY: cursorY,
-            styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
-            headStyles: { fillColor: [68, 84, 106] }, // #44546A
-            alternateRowStyles: { fillColor: [241, 245, 249] }, // bg-slate-100
-            columnStyles: {
-                0: { cellWidth: 75 }, // Descripcion
-                1: { cellWidth: 10, halign: 'center' }, // Nivel
-                2: { cellWidth: 15, halign: 'right' }, // Cantidad
-                3: { cellWidth: 12, halign: 'center' }, // Unidad
-                4: { cellWidth: 30 }, // Código de pieza
-                5: { cellWidth: 12, halign: 'center' }, // Versión
-                6: { cellWidth: 30 }, // Proceso
-                7: { cellWidth: 30 }, // Proveedor
-                8: { cellWidth: 'auto' }, // Comentarios
-                9: { cellWidth: 0 } // Hidden data column
-            },
-            didDrawCell: function(data) {
-                if (data.column.index === 0 && data.cell.section === 'body') {
-                    const { lineage, level, isLast } = data.row.raw[9];
-                    const INDENT_WIDTH = 4, CIRCLE_RADIUS = 0.8, LINE_WIDTH = 0.2;
-                    doc.setLineWidth(LINE_WIDTH);
-                    doc.setDrawColor(150);
-
-                    lineage.forEach((parentIsNotLast, i) => {
-                        if (parentIsNotLast) {
-                            const lineX = data.cell.x + (i * INDENT_WIDTH) + 2;
-                            doc.line(lineX, data.cell.y, lineX, data.cell.y + data.row.height);
-                        }
-                    });
-
-                    const nodeX = data.cell.x + (level * INDENT_WIDTH) + 2;
-                    const nodeY = data.cell.y + data.row.height / 2;
-
-                    if (level > 0) {
-                        const parentX = nodeX - INDENT_WIDTH;
-                        doc.line(parentX, nodeY, nodeX, nodeY);
-                        doc.line(parentX, isLast ? data.cell.y : data.cell.y + data.row.height, parentX, nodeY);
-                    }
-
-                    doc.setFillColor(255, 255, 255);
-                    doc.circle(nodeX, nodeY, CIRCLE_RADIUS, 'FD');
-
-                    const textX = nodeX + CIRCLE_RADIUS + 1;
-                    doc.setTextColor(0,0,0);
-                    doc.setFont('helvetica', 'normal');
-                    doc.text(data.cell.text, textX, nodeY + 1, {
-                        baseline: 'middle',
-                        maxWidth: data.column.width - (textX - data.cell.x)
-                    });
-                }
-            }
-        });
-
-        // 4. Save the PDF
-        doc.save(`Reporte_BOM_${product.id}.pdf`);
+        const fileName = `Reporte_BOM_${product.id.replace(/[^a-z0-9]/gi, '_')}.pdf`;
+        doc.save(fileName);
         showToast('PDF exportado con éxito.', 'success');
-
     } catch (error) {
         console.error("Error exporting to PDF:", error);
         showToast('Error al exportar a PDF.', 'error');
     }
+}
+
+function drawPdfCoverPage(doc, product, logoBase64) {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+
+    // Background
+    doc.setFillColor(248, 250, 252); // slate-50
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+    // Title
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(32);
+    doc.setTextColor(15, 23, 42); // slate-900
+    doc.text('Reporte de Composición de Producto (BOM)', pageWidth / 2, pageHeight / 2 - 20, { align: 'center' });
+
+    // Product Info
+    doc.setFontSize(18);
+    doc.setTextColor(51, 65, 85); // slate-700
+    doc.text(product.descripcion, pageWidth / 2, pageHeight / 2, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(12);
+    doc.setTextColor(100, 116, 139); // slate-500
+    doc.text(`Código: ${product.id} | Versión: ${product.version || 'N/A'}`, pageWidth / 2, pageHeight / 2 + 8, { align: 'center' });
+
+    // Footer Info
+    const client = appState.collectionsById[COLLECTIONS.CLIENTES].get(product.clienteId);
+    const date = new Date().toLocaleDateString('es-AR');
+    const footerY = pageHeight - 30;
+
+    if (logoBase64) {
+        doc.addImage(logoBase64, 'PNG', margin, footerY - 5, 40, 15);
+    }
+
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Cliente: ${client?.descripcion || 'N/A'}`, pageWidth - margin, footerY, { align: 'right' });
+    doc.text(`Fecha de Generación: ${date}`, pageWidth - margin, footerY + 7, { align: 'right' });
+}
+
+function drawPdfTable(doc, product, flattenedData) {
+    const head = [['Componente', 'Nivel', 'Cantidad', 'Unidad', 'Código', 'Proceso', 'Comentarios']];
+    const body = flattenedData.map(rowData => {
+        const { node, item, level, isLast, lineage } = rowData;
+        const NA = 'N/A';
+
+        let prefix = lineage.map(parentIsNotLast => parentIsNotLast ? '│  ' : '   ').join('');
+        if (level > 0) prefix += isLast ? '└─ ' : '├─ ';
+
+        const descripcion = `${prefix}${item.descripcion || item.nombre || ''}`;
+        const nivel = node.originalLevel ?? level;
+        const cantidad = node.quantity ?? NA;
+        const codigo_pieza = item.codigo_pieza || NA;
+        const comentarios = node.comment || '';
+
+        let proceso = '', unidad_medida = '';
+        if (node.tipo === 'semiterminado' && item.proceso) {
+            const procesoData = appState.collectionsById[COLLECTIONS.PROCESOS]?.get(item.proceso);
+            proceso = procesoData ? procesoData.descripcion : item.proceso;
+        }
+        if (node.tipo === 'insumo' && item.unidad_medida) {
+            const unidadData = appState.collectionsById[COLLECTIONS.UNIDADES]?.get(item.unidad_medida);
+            unidad_medida = unidadData ? unidadData.id : item.unidad_medida;
+        }
+
+        return [descripcion, nivel, cantidad, unidad_medida, codigo_pieza, proceso, comentarios];
+    });
+
+    const pageHeader = (data) => {
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(15, 23, 42);
+        doc.text('Detalle de Composición', doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 116, 139);
+        doc.text(`Producto: ${product.descripcion} (${product.id})`, 14, 25);
+    };
+
+    const pageFooter = (data) => {
+        const pageCount = doc.internal.getNumberOfPages();
+        doc.setFontSize(8);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`Página ${data.pageNumber} de ${pageCount}`, doc.internal.pageSize.getWidth() / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+    };
+
+    doc.autoTable({
+        head: head,
+        body: body,
+        startY: 30,
+        styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak', font: 'helvetica' },
+        headStyles: { fillColor: [41, 104, 217], textColor: 255, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [241, 245, 249] },
+        columnStyles: {
+            0: { cellWidth: 100 }, // Descripcion
+            1: { cellWidth: 12, halign: 'center' }, // Nivel
+            2: { cellWidth: 15, halign: 'right' }, // Cantidad
+            3: { cellWidth: 15, halign: 'center' }, // Unidad
+            4: { cellWidth: 30 }, // Código
+            5: { cellWidth: 40 }, // Proceso
+            6: { cellWidth: 'auto' }, // Comentarios
+        },
+        didDrawPage: (data) => {
+            pageHeader(data);
+            pageFooter(data);
+        },
+        // Use a monospace font for the first column to make the tree structure align perfectly
+        didParseCell: function (data) {
+            if (data.column.index === 0 && data.cell.section === 'body') {
+                data.cell.styles.font = 'courier';
+            }
+        }
+    });
 }
 
 function handleCaratulaClick(e) {
