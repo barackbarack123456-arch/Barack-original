@@ -1415,54 +1415,121 @@ function runTasksLogic() {
 
 function runAdminDashboard() {
     dom.viewContent.innerHTML = `
-        <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-bold text-slate-800">Dashboard de Administrador de Tareas</h2>
-            <button data-action="admin-back-to-board" class="bg-slate-200 text-slate-800 px-4 py-2 rounded-md hover:bg-slate-300 font-semibold flex items-center">
-                <i data-lucide="arrow-left" class="mr-2 h-5 w-5"></i>
-                Volver al Tablero
-            </button>
+        <div class="space-y-4">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Panel de Administrador de Tareas</h2>
+                    <p class="text-sm text-slate-500">Supervisa, filtra y gestiona todas las tareas del equipo.</p>
+                </div>
+                <button data-action="admin-back-to-board" class="bg-slate-200 text-slate-800 px-4 py-2 rounded-md hover:bg-slate-300 font-semibold flex items-center flex-shrink-0">
+                    <i data-lucide="arrow-left" class="mr-2 h-5 w-5"></i>
+                    <span>Volver al Tablero</span>
+                </button>
+            </div>
+
+            <!-- Global Admin Filters -->
+            <div class="bg-white p-3 rounded-xl shadow-sm border flex items-center gap-4">
+                 <label for="admin-view-filter" class="text-sm font-bold text-slate-600 flex-shrink-0">Vista:</label>
+                 <select id="admin-view-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white text-sm">
+                    <option value="all">Todas las Tareas</option>
+                    <option value="my-tasks">Mis Tareas</option>
+                 </select>
+                 <div id="admin-user-filter-container" class="hidden">
+                    <label for="admin-specific-user-filter" class="text-sm font-bold text-slate-600 flex-shrink-0 ml-4">Usuario:</label>
+                    <select id="admin-specific-user-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white text-sm">
+                        <!-- User options will be populated here -->
+                    </select>
+                 </div>
+            </div>
         </div>
-        <div class="space-y-6 animate-fade-in-up">
-            <!-- Section for Charts -->
-            <div id="task-charts-container" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="bg-white p-6 rounded-xl shadow-lg"><h3 class="text-lg font-bold text-slate-800 mb-4">Tareas por Estado</h3><div id="status-chart-container" class="h-64 flex items-center justify-center"><canvas id="status-chart"></canvas></div></div>
-                <div class="bg-white p-6 rounded-xl shadow-lg"><h3 class="text-lg font-bold text-slate-800 mb-4">Tareas por Prioridad</h3><div id="priority-chart-container" class="h-64 flex items-center justify-center"><canvas id="priority-chart"></canvas></div></div>
-                <div class="bg-white p-6 rounded-xl shadow-lg"><h3 class="text-lg font-bold text-slate-800 mb-4">Carga por Usuario (Tareas Abiertas)</h3><div id="user-load-chart-container" class="h-64 flex items-center justify-center"><canvas id="user-load-chart"></canvas></div></div>
-            </div>
 
-            <!-- Timeline Section -->
-            <div class="bg-white p-6 rounded-xl shadow-lg">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-bold text-slate-800">Línea de Tiempo de Tareas con Vencimiento</h3>
-                    <div class="relative" id="timeline-controls">
-                        <button id="timeline-filter-btn" class="flex items-center gap-2 bg-white border border-slate-300 px-4 py-2 rounded-md text-sm font-semibold hover:bg-slate-100 shadow-sm">
-                            <i data-lucide="users" class="w-4 h-4"></i>
-                            <span>Filtrar Asignados</span>
-                        </button>
-                        <div id="timeline-filter-dropdown" class="absolute z-10 right-0 mt-2 w-72 bg-white border rounded-lg shadow-xl hidden p-4 space-y-3">
-                            <!-- Dropdown content will be generated here -->
+        <!-- Tabs Navigation -->
+        <div class="border-b border-gray-200">
+            <nav id="admin-task-tabs" class="-mb-px flex space-x-6" aria-label="Tabs">
+                <button data-tab="dashboard" class="admin-task-tab active-tab group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm">
+                    <i data-lucide="layout-dashboard" class="mr-2"></i><span>Dashboard</span>
+                </button>
+                <button data-tab="timeline" class="admin-task-tab group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm">
+                    <i data-lucide="calendar-clock" class="mr-2"></i><span>Línea de Tiempo</span>
+                </button>
+                <button data-tab="table" class="admin-task-tab group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm">
+                    <i data-lucide="table" class="mr-2"></i><span>Tabla de Tareas</span>
+                </button>
+            </nav>
+        </div>
+
+        <div class="py-6 animate-fade-in-up">
+            <!-- Tab Panels -->
+            <div id="admin-tab-content">
+                <!-- Dashboard Panel -->
+                <div id="tab-panel-dashboard" class="admin-tab-panel">
+                    <div id="task-charts-container" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="bg-white p-6 rounded-xl shadow-lg"><h3 class="text-lg font-bold text-slate-800 mb-4">Tareas por Estado</h3><div id="status-chart-container" class="h-64 flex items-center justify-center"><canvas id="status-chart"></canvas></div></div>
+                        <div class="bg-white p-6 rounded-xl shadow-lg"><h3 class="text-lg font-bold text-slate-800 mb-4">Tareas por Prioridad</h3><div id="priority-chart-container" class="h-64 flex items-center justify-center"><canvas id="priority-chart"></canvas></div></div>
+                        <div class="bg-white p-6 rounded-xl shadow-lg"><h3 class="text-lg font-bold text-slate-800 mb-4">Carga por Usuario (Tareas Abiertas)</h3><div id="user-load-chart-container" class="h-64 flex items-center justify-center"><canvas id="user-load-chart"></canvas></div></div>
+                    </div>
+                </div>
+
+                <!-- Timeline Panel -->
+                <div id="tab-panel-timeline" class="admin-tab-panel hidden">
+                    <div class="bg-white p-6 rounded-xl shadow-lg">
+                         <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold text-slate-800">Línea de Tiempo de Tareas con Vencimiento</h3>
+                            <div class="relative" id="timeline-controls">
+                                <button id="timeline-filter-btn" class="flex items-center gap-2 bg-white border border-slate-300 px-4 py-2 rounded-md text-sm font-semibold hover:bg-slate-100 shadow-sm">
+                                    <i data-lucide="users" class="w-4 h-4"></i>
+                                    <span>Filtrar Asignados</span>
+                                </button>
+                                <div id="timeline-filter-dropdown" class="absolute z-10 right-0 mt-2 w-72 bg-white border rounded-lg shadow-xl hidden p-4 space-y-3"></div>
+                            </div>
                         </div>
+                        <div id="tasks-timeline-container" class="h-[500px]"></div>
                     </div>
                 </div>
-                <div id="tasks-timeline-container"></div>
-            </div>
 
-            <!-- Section for Table and Filters -->
-            <div class="bg-white p-6 rounded-xl shadow-lg">
-                <div id="task-table-controls" class="flex flex-col md:flex-row gap-4 mb-4">
-                    <div class="relative flex-grow"><i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i><input type="text" id="admin-task-search" placeholder="Buscar por título..." class="w-full pl-10 pr-4 py-2 border rounded-full bg-slate-50 focus:bg-white"></div>
-                    <div class="flex items-center gap-4 flex-wrap">
-                        <select id="admin-task-user-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white"><option value="all">Todos los usuarios</option></select>
-                        <select id="admin-task-priority-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white"><option value="all">Todas las prioridades</option><option value="high">Alta</option><option value="medium">Media</option><option value="low">Baja</option></select>
-                        <select id="admin-task-status-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white"><option value="all">Todos los estados</option><option value="todo">Por Hacer</option><option value="inprogress">En Progreso</option><option value="done">Completada</option></select>
+                <!-- Table Panel -->
+                <div id="tab-panel-table" class="admin-tab-panel hidden">
+                    <div class="bg-white p-6 rounded-xl shadow-lg">
+                        <div id="task-table-controls" class="flex flex-col md:flex-row gap-4 mb-4">
+                            <div class="relative flex-grow"><i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i><input type="text" id="admin-task-search" placeholder="Buscar por título..." class="w-full pl-10 pr-4 py-2 border rounded-full bg-slate-50 focus:bg-white"></div>
+                            <div class="flex items-center gap-4 flex-wrap">
+                                <select id="admin-task-user-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white"><option value="all">Todos los usuarios</option></select>
+                                <select id="admin-task-priority-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white"><option value="all">Todas las prioridades</option><option value="high">Alta</option><option value="medium">Media</option><option value="low">Baja</option></select>
+                                <select id="admin-task-status-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white"><option value="all">Todos los estados</option><option value="todo">Por Hacer</option><option value="inprogress">En Progreso</option><option value="done">Completada</option></select>
+                            </div>
+                            <button id="add-new-task-admin-btn" class="bg-blue-600 text-white px-5 py-2 rounded-full hover:bg-blue-700 flex items-center shadow-md transition-transform transform hover:scale-105 flex-shrink-0"><i data-lucide="plus" class="mr-2 h-5 w-5"></i>Nueva Tarea</button>
+                        </div>
+                        <div id="task-data-table-container" class="overflow-x-auto"><p class="text-center py-16 text-slate-500 flex items-center justify-center gap-3"><i data-lucide="loader" class="h-6 w-6 animate-spin"></i>Cargando tabla de tareas...</p></div>
                     </div>
-                    <button id="add-new-task-admin-btn" class="bg-blue-600 text-white px-5 py-2 rounded-full hover:bg-blue-700 flex items-center shadow-md transition-transform transform hover:scale-105 flex-shrink-0"><i data-lucide="plus" class="mr-2 h-5 w-5"></i>Nueva Tarea</button>
                 </div>
-                <div id="task-data-table-container" class="overflow-x-auto"><p class="text-center py-16 text-slate-500 flex items-center justify-center gap-3"><i data-lucide="loader" class="h-6 w-6 animate-spin"></i>Cargando tabla de tareas...</p></div>
             </div>
         </div>
     `;
     lucide.createIcons();
+
+    // Tab switching logic
+    const tabs = document.querySelectorAll('.admin-task-tab');
+    const panels = document.querySelectorAll('.admin-tab-panel');
+
+    document.getElementById('admin-task-tabs').addEventListener('click', (e) => {
+        const tabButton = e.target.closest('.admin-task-tab');
+        if (!tabButton) return;
+
+        const tabName = tabButton.dataset.tab;
+
+        tabs.forEach(tab => {
+            tab.classList.remove('active-tab');
+        });
+        tabButton.classList.add('active-tab');
+
+        panels.forEach(panel => {
+            if (panel.id === `tab-panel-${tabName}`) {
+                panel.classList.remove('hidden');
+            } else {
+                panel.classList.add('hidden');
+            }
+        });
+    });
 
     const tasksRef = collection(db, COLLECTIONS.TAREAS);
     const q = query(tasksRef);
@@ -1470,21 +1537,54 @@ function runAdminDashboard() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const allTasks = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
         adminTaskViewState.tasks = allTasks;
-        renderAdminTaskCharts(allTasks);
-        renderTasksTimeline(allTasks);
-        renderFilteredAdminTaskTable();
+        updateAdminDashboardData(allTasks);
     }, (error) => {
         console.error("Error fetching tasks for admin dashboard:", error);
         showToast('Error al cargar las tareas del dashboard.', 'error');
     });
 
+    // Initial render of components
+    renderTasksTimeline(); // Initialize the timeline structure once
     setupAdminTaskViewListeners();
+    updateAdminDashboardData([]); // Initial call with empty data to render skeletons
 
     appState.currentViewCleanup = () => {
         unsubscribe();
         destroyAdminTaskCharts();
-        adminTaskViewState = { tasks: [], filters: { searchTerm: '', user: 'all', priority: 'all', status: 'all' }, sort: { by: 'createdAt', order: 'desc' }, pagination: { currentPage: 1, pageSize: 10 } };
+        if (adminTaskViewState.timeline) {
+            adminTaskViewState.timeline.destroy();
+        }
+        adminTaskViewState = {
+            tasks: [],
+            filters: { searchTerm: '', user: 'all', priority: 'all', status: 'all' },
+            sort: { by: 'createdAt', order: 'desc' },
+            pagination: { currentPage: 1, pageSize: 10 },
+            timeline: null,
+            timelineItems: null,
+            timelineGroups: null,
+            timelineVisibleGroups: null,
+        };
     };
+}
+
+function updateAdminDashboardData(tasks) {
+    let filteredTasks = [...tasks];
+    const { viewMode } = adminTaskViewState;
+    const currentUser = appState.currentUser;
+
+    if (viewMode === 'my-tasks') {
+        filteredTasks = tasks.filter(t => t.creatorUid === currentUser.uid || t.assigneeUid === currentUser.uid);
+    } else if (viewMode !== 'all') {
+        // A specific user's UID is selected
+        filteredTasks = tasks.filter(t => t.assigneeUid === viewMode);
+    }
+
+    // The components below will use the globally filtered task list
+    renderAdminTaskCharts(filteredTasks);
+    updateTasksTimeline(filteredTasks);
+
+    // This function has its own internal filtering based on table controls
+    renderFilteredAdminTaskTable();
 }
 
 let adminCharts = { statusChart: null, priorityChart: null, userLoadChart: null };
@@ -1591,6 +1691,7 @@ function renderUserLoadChart(tasks) {
 
 let adminTaskViewState = {
     tasks: [],
+    viewMode: 'all', // 'all', 'my-tasks', or a specific user's UID
     filters: {
         searchTerm: '',
         user: 'all',
@@ -1605,6 +1706,9 @@ let adminTaskViewState = {
         currentPage: 1,
         pageSize: 10
     },
+    timeline: null,
+    timelineItems: null,
+    timelineGroups: null,
     timelineVisibleGroups: null, // null means all are visible
 };
 
@@ -1644,18 +1748,66 @@ function renderTimelineFilterDropdown() {
 
 function setupAdminTaskViewListeners() {
     const controls = {
+        // Main view filters
+        viewFilter: document.getElementById('admin-view-filter'),
+        specificUserFilter: document.getElementById('admin-specific-user-filter'),
+        specificUserContainer: document.getElementById('admin-user-filter-container'),
+        // Table-specific filters
         search: document.getElementById('admin-task-search'),
         user: document.getElementById('admin-task-user-filter'),
         priority: document.getElementById('admin-task-priority-filter'),
         status: document.getElementById('admin-task-status-filter'),
         addNew: document.getElementById('add-new-task-admin-btn'),
         tableContainer: document.getElementById('task-data-table-container'),
+        // Timeline filters
         timelineFilterBtn: document.getElementById('timeline-filter-btn'),
         timelineFilterDropdown: document.getElementById('timeline-filter-dropdown'),
     };
 
-    if (!controls.search) return;
+    if (!controls.viewFilter) return; // Exit if the main controls aren't rendered
 
+    // --- Populate User Dropdowns ---
+    const users = appState.collections.usuarios || [];
+    const userOptionsHTML = users.map(u => `<option value="${u.docId}">${u.name || u.email}</option>`).join('');
+    controls.specificUserFilter.innerHTML = userOptionsHTML;
+    // Add a "Select a user" prompt
+    controls.specificUserFilter.insertAdjacentHTML('afterbegin', '<option value="" disabled selected>Seleccionar usuario...</option>');
+    controls.user.innerHTML = '<option value="all">Todos los asignados</option>' + userOptionsHTML;
+
+    // --- Main View Filter Logic ---
+    controls.viewFilter.addEventListener('change', (e) => {
+        const selection = e.target.value;
+        if (selection === 'all' || selection === 'my-tasks') {
+            controls.specificUserContainer.classList.add('hidden');
+            adminTaskViewState.viewMode = selection;
+            updateAdminDashboardData(adminTaskViewState.tasks);
+        } else {
+             // This logic can be extended if more options are added
+        }
+    });
+
+    // Add a specific option to trigger user selection
+    if(!controls.viewFilter.querySelector('option[value="specific-user"]')) {
+        controls.viewFilter.insertAdjacentHTML('beforeend', '<option value="specific-user">Usuario específico...</option>');
+    }
+
+    controls.viewFilter.addEventListener('change', (e) => {
+        if (e.target.value === 'specific-user') {
+            controls.specificUserContainer.classList.remove('hidden');
+        } else {
+            controls.specificUserContainer.classList.add('hidden');
+            adminTaskViewState.viewMode = e.target.value;
+            updateAdminDashboardData(adminTaskViewState.tasks);
+        }
+    });
+
+    controls.specificUserFilter.addEventListener('change', (e) => {
+        adminTaskViewState.viewMode = e.target.value;
+        updateAdminDashboardData(adminTaskViewState.tasks);
+    });
+
+
+    // --- Table Filter Logic ---
     const rerenderTable = () => {
         adminTaskViewState.pagination.currentPage = 1;
         renderFilteredAdminTaskTable();
@@ -1667,6 +1819,7 @@ function setupAdminTaskViewListeners() {
     controls.status.addEventListener('change', (e) => { adminTaskViewState.filters.status = e.target.value; rerenderTable(); });
     controls.addNew.addEventListener('click', () => openTaskFormModal(null, 'todo'));
 
+    // --- Table-specific Click Logic ---
     controls.tableContainer.addEventListener('click', (e) => {
         const header = e.target.closest('th[data-sort]');
         if (header) {
@@ -1841,59 +1994,16 @@ function renderAdminTaskTable(tasksToRender) {
     lucide.createIcons();
 }
 
-function renderTasksTimeline(tasks) {
+function renderTasksTimeline() {
     const container = document.getElementById('tasks-timeline-container');
     if (!container) return;
 
+    // Initialize only if it doesn't exist
+    if (adminTaskViewState.timeline) return;
+
     try {
-        const visibleGroups = adminTaskViewState.timelineVisibleGroups;
-        const isGroupVisible = (groupId) => visibleGroups === null || visibleGroups.has(groupId);
-
-        // 1. Create groups from users, but only for visible groups
-        const groups = new vis.DataSet();
-        if (isGroupVisible('unassigned')) {
-            groups.add({ id: 'unassigned', content: 'Sin Asignar' });
-        }
-        (appState.collections.usuarios || []).forEach(user => {
-            if (isGroupVisible(user.docId)) {
-                groups.add({
-                    id: user.docId,
-                    content: user.name || user.email
-                });
-            }
-        });
-
-        // 2. Map tasks to items with group property and enhanced content
-        const items = new vis.DataSet(
-            tasks
-                .filter(task => task.dueDate && isGroupVisible(task.assigneeUid || 'unassigned'))
-                .map(task => {
-                    const priority = task.priority || 'medium';
-                    const priorityColors = { high: '#ef4444', medium: '#f59e0b', low: '#64748b' }; // red-500, amber-500, slate-500
-
-                    const itemContent = `
-                        <div style="display: flex; align-items: center; gap: 5px;">
-                            <div style="width: 4px; height: 16px; background-color: ${priorityColors[priority]}; border-radius: 2px; flex-shrink: 0;"></div>
-                            <div>${task.title}</div>
-                        </div>
-                    `;
-
-                    return {
-                        id: task.docId,
-                        content: itemContent,
-                        start: task.dueDate,
-                        type: 'box',
-                        group: task.assigneeUid || 'unassigned',
-                        className: `priority-${priority}`
-                    };
-                })
-        );
-
-        if (items.length === 0) {
-            container.innerHTML = `<div class="flex items-center justify-center h-full text-slate-500 p-8"><i data-lucide="calendar-x" class="w-8 h-8 mr-2"></i> No hay tareas con fecha de vencimiento para mostrar.</div>`;
-            lucide.createIcons();
-            return;
-        }
+        adminTaskViewState.timelineItems = new vis.DataSet([]);
+        adminTaskViewState.timelineGroups = new vis.DataSet([]);
 
         const options = {
             locale: 'es',
@@ -1904,21 +2014,98 @@ function renderTasksTimeline(tasks) {
             zoomMax: 1000 * 60 * 60 * 24 * 30 * 6 // 6 meses
         };
 
-        // 3. Initialize timeline with items and groups
-        const timeline = new vis.Timeline(container, items, groups, options);
+        adminTaskViewState.timeline = new vis.Timeline(container, adminTaskViewState.timelineItems, adminTaskViewState.timelineGroups, options);
 
-        timeline.on('select', (properties) => {
+        adminTaskViewState.timeline.on('select', (properties) => {
             const selectedTaskId = properties.items[0];
             if (selectedTaskId) {
-                const selectedTask = tasks.find(t => t.docId === selectedTaskId);
+                const selectedTask = adminTaskViewState.tasks.find(t => t.docId === selectedTaskId);
                 if (selectedTask) {
                     openTaskFormModal(selectedTask);
                 }
             }
         });
     } catch (error) {
-        console.error("Error rendering timeline:", error);
-        container.innerHTML = `<div class="text-red-500 p-4">Error al renderizar la línea de tiempo.</div>`;
+        console.error("Error initializing timeline:", error);
+        container.innerHTML = `<div class="text-red-500 p-4">Error al inicializar la línea de tiempo.</div>`;
+    }
+}
+
+function updateTasksTimeline(tasks) {
+    if (!adminTaskViewState.timeline) {
+        // If the timeline hasn't been initialized, do nothing.
+        // This can happen if data arrives before the DOM is ready.
+        return;
+    }
+
+    try {
+        const visibleGroups = adminTaskViewState.timelineVisibleGroups;
+        const isGroupVisible = (groupId) => visibleGroups === null || visibleGroups.has(groupId);
+
+        // Update groups
+        const currentGroupIds = adminTaskViewState.timelineGroups.getIds();
+        const users = appState.collections.usuarios || [];
+        const newGroups = [];
+
+        if (isGroupVisible('unassigned')) {
+            newGroups.push({ id: 'unassigned', content: 'Sin Asignar' });
+        }
+        users.forEach(user => {
+            if (isGroupVisible(user.docId)) {
+                newGroups.push({ id: user.docId, content: user.name || user.email });
+            }
+        });
+
+        const newGroupIds = newGroups.map(g => g.id);
+        const groupsToRemove = currentGroupIds.filter(id => !newGroupIds.includes(id));
+
+        adminTaskViewState.timelineGroups.remove(groupsToRemove);
+        adminTaskViewState.timelineGroups.update(newGroups);
+
+        // Update items
+        const items = tasks
+            .filter(task => task.dueDate && isGroupVisible(task.assigneeUid || 'unassigned'))
+            .map(task => {
+                const priority = task.priority || 'medium';
+                const priorityColors = { high: '#ef4444', medium: '#f59e0b', low: '#64748b' };
+                const itemContent = `
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <div style="width: 4px; height: 16px; background-color: ${priorityColors[priority]}; border-radius: 2px; flex-shrink: 0;"></div>
+                        <div>${task.title}</div>
+                    </div>`;
+                return {
+                    id: task.docId,
+                    content: itemContent,
+                    start: task.dueDate,
+                    type: 'box',
+                    group: task.assigneeUid || 'unassigned',
+                    className: `priority-${priority}`
+                };
+            });
+
+        adminTaskViewState.timelineItems.clear();
+        adminTaskViewState.timelineItems.add(items);
+
+        if (items.length === 0) {
+            const container = document.getElementById('tasks-timeline-container');
+            if(container.querySelector('.vis-timeline') && container.querySelector('.vis-timeline').style.display !== 'none'){
+                 container.querySelector('.vis-timeline').style.display = 'none';
+            }
+            if(!container.querySelector('.empty-timeline-msg')){
+                container.insertAdjacentHTML('beforeend', `<div class="empty-timeline-msg flex items-center justify-center h-full text-slate-500 p-8"><i data-lucide="calendar-x" class="w-8 h-8 mr-2"></i> No hay tareas con fecha de vencimiento para mostrar.</div>`);
+                lucide.createIcons();
+            }
+        } else {
+             const container = document.getElementById('tasks-timeline-container');
+             const emptyMsg = container.querySelector('.empty-timeline-msg');
+             if(emptyMsg) emptyMsg.remove();
+             if(container.querySelector('.vis-timeline') && container.querySelector('.vis-timeline').style.display === 'none'){
+                 container.querySelector('.vis-timeline').style.display = 'block';
+             }
+        }
+
+    } catch (error) {
+        console.error("Error updating timeline:", error);
     }
 }
 

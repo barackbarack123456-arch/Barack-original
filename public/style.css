@@ -298,3 +298,28 @@ table.data-table .actions-cell button:hover {
     background-color: #ef4444; /* red-500 */
     width: 2px;
 }
+
+/* --- Estilos para Pestañas (Tabs) --- */
+.admin-task-tab {
+    border-color: transparent;
+    color: #475569; /* slate-600 */
+}
+.admin-task-tab:hover {
+    border-color: #d1d5db; /* gray-300 */
+    color: #1f2937; /* gray-800 */
+}
+.admin-task-tab.active-tab {
+    border-color: #2563eb; /* blue-600 */
+    color: #1e40af; /* blue-800 */
+    font-weight: 700;
+}
+.admin-task-tab .lucide {
+    color: #64748b; /* slate-500 */
+    transition: color 0.2s;
+}
+.admin-task-tab:hover .lucide {
+    color: #334155; /* slate-700 */
+}
+.admin-task-tab.active-tab .lucide {
+    color: #1e40af; /* blue-800 */
+}
