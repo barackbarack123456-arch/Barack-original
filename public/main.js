@@ -4317,10 +4317,15 @@ async function exportSinopticoTabularToPdf() {
         const imgWidth = pageWidth - 20; // with margin
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-        doc.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
+        let tableStartY = 10;
 
-        // 2. Add a new page for the table
-        doc.addPage();
+        if (imgHeight < pageHeight - 30) { // Check if there's enough space for the cover and some table rows
+            doc.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
+            tableStartY = 10 + imgHeight + 10; // 10mm margin after the image
+        } else {
+            doc.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight, undefined, 'FAST');
+            doc.addPage();
+        }
 
         // 3. Prepare and render the table with jsPDF-AutoTable
         const flattenedData = getFlattenedData(product, state.activeFilters.niveles);
@@ -4329,8 +4334,9 @@ async function exportSinopticoTabularToPdf() {
             const { node, item, level, isLast, lineage } = rowData;
             const NA = 'N/A';
 
-            let prefix = lineage.map(parentIsNotLast => parentIsNotLast ? '│    ' : '    ').join('');
-            if (level > 0)  prefix += isLast ? '└─ ' : '├─ ';
+            // Use ASCII characters for tree to avoid font issues
+            let prefix = lineage.map(parentIsNotLast => parentIsNotLast ? '|    ' : '    ').join('');
+            if (level > 0)  prefix += isLast ? '+-- ' : '+-- ';
 
             const descripcion = prefix + (item.descripcion || item.nombre);
             const nivel = node.originalLevel ?? level;
@@ -4384,7 +4390,7 @@ async function exportSinopticoTabularToPdf() {
         doc.autoTable({
             head: head,
             body: body,
-            startY: 10,
+            startY: tableStartY,
             styles: { fontSize: 7, cellPadding: 1.5, font: 'helvetica' },
             headStyles: { fillColor: [68, 84, 106] }, // #44546A
             columnStyles: {
