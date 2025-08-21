@@ -4362,142 +4362,82 @@ async function exportSinopticoTabularToPdf() {
         return;
     }
 
-    showToast('Generando PDF profesional...', 'info');
+    const caratulaElement = document.getElementById('caratula-container');
+    const tableElement = document.getElementById('sinoptico-tabular-container');
+
+    if (!caratulaElement || !tableElement) {
+        showToast('Error: No se encontraron los elementos para exportar.', 'error');
+        return;
+    }
+
+    showToast('Iniciando reconstrucción visual para PDF...', 'info');
+
+    // Show a global loading overlay to prevent user interaction
+    dom.loadingOverlay.style.display = 'flex';
+    dom.loadingOverlay.querySelector('p').textContent = 'Generando PDF de alta fidelidad...';
+
 
     try {
-        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-        const logoBase64 = await getLogoBase64();
+        // Use html2canvas to capture the elements
+        const canvasCaratula = await html2canvas(caratulaElement, { scale: 2, useCORS: true });
+        const canvasTable = await html2canvas(tableElement, { scale: 2, useCORS: true });
 
-        drawPdfCoverPage(doc, product, logoBase64);
+        const doc = new jsPDF({
+            orientation: 'l', // landscape
+            unit: 'mm',
+            format: 'a4'
+        });
 
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        // Add Caratula (Cover page)
+        const caratulaImgData = canvasCaratula.toDataURL('image/png');
+        const caratulaImgProps = doc.getImageProperties(caratulaImgData);
+        const caratulaPdfWidth = pageWidth - 20; // with margin
+        const caratulaPdfHeight = (caratulaImgProps.height * caratulaPdfWidth) / caratulaImgProps.width;
+        doc.addImage(caratulaImgData, 'PNG', 10, 10, caratulaPdfWidth, caratulaPdfHeight);
+
+        // Add Table
         doc.addPage();
+        const tableImgData = canvasTable.toDataURL('image/png');
+        const tableImgProps = doc.getImageProperties(tableImgData);
 
-        const flattenedData = getFlattenedData(product, state.activeFilters.niveles);
-        drawPdfTable(doc, product, flattenedData);
+        // Calculate dimensions to fit the table image onto a single landscape page
+        const imgWidth = tableImgProps.width;
+        const imgHeight = tableImgProps.height;
+        const pageRatio = pageWidth / pageHeight;
+        const imgRatio = imgWidth / imgHeight;
 
-        const fileName = `Reporte_BOM_${product.id.replace(/[^a-z0-9]/gi, '_')}.pdf`;
+        let finalWidth, finalHeight;
+
+        if (imgRatio > pageRatio) {
+            // Image is wider than the page
+            finalWidth = pageWidth;
+            finalHeight = pageWidth / imgRatio;
+        } else {
+            // Image is taller than the page
+            finalHeight = pageHeight;
+            finalWidth = pageHeight * imgRatio;
+        }
+
+        // Center the image on the page
+        const x_pos = (pageWidth - finalWidth) / 2;
+        const y_pos = (pageHeight - finalHeight) / 2;
+
+        doc.addImage(tableImgData, 'PNG', x_pos, y_pos, finalWidth, finalHeight);
+
+        const fileName = `Reporte_Visual_BOM_${product.id.replace(/[^a-z0-9]/gi, '_')}.pdf`;
         doc.save(fileName);
-        showToast('PDF exportado con éxito.', 'success');
+        showToast('PDF visual generado con éxito.', 'success');
+
     } catch (error) {
-        console.error("Error exporting to PDF:", error);
-        showToast('Error al exportar a PDF.', 'error');
+        console.error("Error exporting with html2canvas:", error);
+        showToast('Error al generar el PDF visual.', 'error');
+    } finally {
+        // Hide the loading overlay
+        dom.loadingOverlay.style.display = 'none';
     }
-}
-
-function drawPdfCoverPage(doc, product, logoBase64) {
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 20;
-
-    // Background
-    doc.setFillColor(248, 250, 252); // slate-50
-    doc.rect(0, 0, pageWidth, pageHeight, 'F');
-
-    // Title
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(32);
-    doc.setTextColor(15, 23, 42); // slate-900
-    doc.text('Reporte de Composición de Producto (BOM)', pageWidth / 2, pageHeight / 2 - 20, { align: 'center' });
-
-    // Product Info
-    doc.setFontSize(18);
-    doc.setTextColor(51, 65, 85); // slate-700
-    doc.text(product.descripcion, pageWidth / 2, pageHeight / 2, { align: 'center' });
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(12);
-    doc.setTextColor(100, 116, 139); // slate-500
-    doc.text(`Código: ${product.id} | Versión: ${product.version || 'N/A'}`, pageWidth / 2, pageHeight / 2 + 8, { align: 'center' });
-
-    // Footer Info
-    const client = appState.collectionsById[COLLECTIONS.CLIENTES].get(product.clienteId);
-    const date = new Date().toLocaleDateString('es-AR');
-    const footerY = pageHeight - 30;
-
-    if (logoBase64) {
-        doc.addImage(logoBase64, 'PNG', margin, footerY - 5, 40, 15);
-    }
-
-    doc.setFontSize(10);
-    doc.setTextColor(100, 116, 139);
-    doc.text(`Cliente: ${client?.descripcion || 'N/A'}`, pageWidth - margin, footerY, { align: 'right' });
-    doc.text(`Fecha de Generación: ${date}`, pageWidth - margin, footerY + 7, { align: 'right' });
-}
-
-function drawPdfTable(doc, product, flattenedData) {
-    const head = [['Componente', 'Nivel', 'Cantidad', 'Unidad', 'Código', 'Proceso', 'Comentarios']];
-    const body = flattenedData.map(rowData => {
-        const { node, item, level, isLast, lineage } = rowData;
-        const NA = 'N/A';
-
-        let prefix = lineage.map(parentIsNotLast => parentIsNotLast ? '│  ' : '   ').join('');
-        if (level > 0) prefix += isLast ? '└─ ' : '├─ ';
-
-        const descripcion = `${prefix}${item.descripcion || item.nombre || ''}`;
-        const nivel = node.originalLevel ?? level;
-        const cantidad = node.quantity ?? NA;
-        const codigo_pieza = item.codigo_pieza || NA;
-        const comentarios = node.comment || '';
-
-        let proceso = '', unidad_medida = '';
-        if (node.tipo === 'semiterminado' && item.proceso) {
-            const procesoData = appState.collectionsById[COLLECTIONS.PROCESOS]?.get(item.proceso);
-            proceso = procesoData ? procesoData.descripcion : item.proceso;
-        }
-        if (node.tipo === 'insumo' && item.unidad_medida) {
-            const unidadData = appState.collectionsById[COLLECTIONS.UNIDADES]?.get(item.unidad_medida);
-            unidad_medida = unidadData ? unidadData.id : item.unidad_medida;
-        }
-
-        return [descripcion, nivel, cantidad, unidad_medida, codigo_pieza, proceso, comentarios];
-    });
-
-    const pageHeader = (data) => {
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(15, 23, 42);
-        doc.text('Detalle de Composición', doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
-
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(100, 116, 139);
-        doc.text(`Producto: ${product.descripcion} (${product.id})`, 14, 25);
-    };
-
-    const pageFooter = (data) => {
-        const pageCount = doc.internal.getNumberOfPages();
-        doc.setFontSize(8);
-        doc.setTextColor(100, 116, 139);
-        doc.text(`Página ${data.pageNumber} de ${pageCount}`, doc.internal.pageSize.getWidth() / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
-    };
-
-    doc.autoTable({
-        head: head,
-        body: body,
-        startY: 30,
-        styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak', font: 'helvetica' },
-        headStyles: { fillColor: [41, 104, 217], textColor: 255, fontStyle: 'bold' },
-        alternateRowStyles: { fillColor: [241, 245, 249] },
-        columnStyles: {
-            0: { cellWidth: 100 }, // Descripcion
-            1: { cellWidth: 12, halign: 'center' }, // Nivel
-            2: { cellWidth: 15, halign: 'right' }, // Cantidad
-            3: { cellWidth: 15, halign: 'center' }, // Unidad
-            4: { cellWidth: 30 }, // Código
-            5: { cellWidth: 40 }, // Proceso
-            6: { cellWidth: 'auto' }, // Comentarios
-        },
-        didDrawPage: (data) => {
-            pageHeader(data);
-            pageFooter(data);
-        },
-        // Use a monospace font for the first column to make the tree structure align perfectly
-        didParseCell: function (data) {
-            if (data.column.index === 0 && data.cell.section === 'body') {
-                data.cell.styles.font = 'courier';
-            }
-        }
-    });
 }
 
 function handleCaratulaClick(e) {
