@@ -54,7 +54,6 @@ const COLLECTIONS = {
 // --- Configuración de Vistas ---
 const viewConfig = {
     dashboard: { title: 'Dashboard', singular: 'Dashboard' },
-    sinoptico_tabular: { title: 'Reporte BOM (Tabular)', singular: 'Reporte BOM (Tabular)' },
     flujograma: { title: 'Flujograma de Procesos', singular: 'Flujograma' },
     arboles: { title: 'Editor de Árboles', singular: 'Árbol' },
     profile: { title: 'Mi Perfil', singular: 'Mi Perfil' },
@@ -3577,6 +3576,12 @@ async function handleSinopticoFormSubmit(e) {
             document.getElementById(form.closest('.fixed').id).remove();
 
             if (appState.currentView === 'sinoptico_tabular') {
+                // BUG FIX: Explicitly update the state object before re-rendering.
+                // This ensures the view uses the most recent data immediately,
+                // without waiting for the Firestore listener to refresh the collection.
+                if(appState.sinopticoTabularState.selectedProduct && appState.sinopticoTabularState.selectedProduct.docId === product.docId) {
+                    appState.sinopticoTabularState.selectedProduct.estructura = product.estructura;
+                }
                 runSinopticoTabularLogic();
             } else {
                 renderTree();
