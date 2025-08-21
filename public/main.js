@@ -3393,31 +3393,37 @@ function renderCaratula(producto, cliente) {
     if (producto && cliente) {
         const lastUpdated = producto.lastUpdated ? new Date(producto.lastUpdated.seconds * 1000).toLocaleString('es-AR') : 'N/A';
 
+        const createEditableField = (label, value, fieldName, placeholder = 'N/A') => {
+            const val = value || '';
+            return `
+                <div class="caratula-field group cursor-pointer" data-field="${fieldName}" data-value="${val}">
+                    <p class="font-bold opacity-80 uppercase flex items-center">${label}
+                        <i data-lucide="pencil" class="w-3 h-3 ml-2 opacity-0 group-hover:opacity-50 transition-opacity"></i>
+                    </p>
+                    <div class="value-display min-h-[1em]">${val || `<span class="italic opacity-50">${placeholder}</span>`}</div>
+                    <div class="edit-controls hidden">
+                        <input type="text" class="bg-slate-800 border-b-2 border-slate-400 focus:outline-none w-full text-white" value="${val}">
+                    </div>
+                </div>
+            `;
+        };
+
         container.innerHTML = `
-        <div class="bg-white p-6 rounded-xl shadow-lg animate-fade-in-up border border-slate-200">
-            <div class="flex justify-between items-start">
-                <div>
-                    <h2 class="text-2xl font-bold text-slate-800">${producto.descripcion}</h2>
-                    <p class="text-sm font-medium text-slate-500">ID: ${producto.id} / Versión: ${producto.version || 'N/A'}</p>
+        <div class="bg-white rounded-xl shadow-lg animate-fade-in-up overflow-hidden">
+            <h3 class="text-center font-bold text-lg py-2 bg-slate-200 text-slate-700">COMPOSICIÓN DE PIEZAS - BOM</h3>
+            <div class="flex">
+                <div class="w-1/3 bg-white flex items-center justify-center p-4 border-r border-slate-200">
+                    <img src="logo.png" alt="Logo" class="max-h-20">
                 </div>
-                <div class="text-right">
-                     <img src="logo.png" alt="Logo" class="h-12">
-                </div>
-            </div>
-            <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-                <div class="bg-slate-50 p-4 rounded-lg">
-                    <p class="font-semibold text-slate-600">Cliente</p>
-                    <p class="text-slate-800">${cliente.descripcion}</p>
-                    <p class="text-xs text-slate-500">ID: ${cliente.id}</p>
-                </div>
-                <div class="bg-slate-50 p-4 rounded-lg">
-                    <p class="font-semibold text-slate-600">Última Actualización</p>
-                    <p class="text-slate-800">${lastUpdated}</p>
-                    <p class="text-xs text-slate-500">Por: ${producto.lastUpdatedBy || 'N/A'}</p>
-                </div>
-                <div class="bg-slate-50 p-4 rounded-lg">
-                    <p class="font-semibold text-slate-600">Información Adicional</p>
-                    <p class="text-slate-400 italic">No disponible</p>
+                <div class="w-2/3 bg-[#44546A] text-white p-4 flex items-center" id="caratula-fields-container">
+                    <div class="grid grid-cols-2 gap-x-6 gap-y-4 text-xs w-full">
+                        ${createEditableField('PROYECTO', producto.descripcion, 'descripcion')}
+                        <div><p class="font-bold opacity-80 uppercase">Última Revisión</p><p>${lastUpdated}</p></div>
+                        <div><p class="font-bold opacity-80 uppercase">CLIENTE</p><p>${cliente.descripcion}</p></div>
+                        ${createEditableField('REALIZÓ', producto.lastUpdatedBy, 'lastUpdatedBy', 'N/A')}
+                        <div><p class="font-bold opacity-80 uppercase">NÚMERO DE PIEZA</p><p>${producto.id}</p></div>
+                        ${createEditableField('VERSIÓN', producto.version, 'version')}
+                    </div>
                 </div>
             </div>
         </div>`;
@@ -3432,6 +3438,98 @@ function renderCaratula(producto, cliente) {
             </div>`;
     }
     lucide.createIcons();
+}
+
+function openSinopticoEditModal(nodeId) {
+    const product = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.docId === appState.sinopticoState.activeTreeDocId);
+    if (!product) return;
+    const node = findNode(nodeId, product.estructura);
+    if (!node) return;
+
+    const itemData = appState.collectionsById[node.tipo + 's']?.get(node.refId);
+
+    const modalId = `sinoptico-edit-modal-${Date.now()}`;
+    const modalHTML = `
+        <div id="${modalId}" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop animate-fade-in">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col m-4 modal-content">
+                <div class="flex justify-between items-center p-5 border-b">
+                    <h3 class="text-xl font-bold">Editar: ${itemData.descripcion}</h3>
+                    <button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button>
+                </div>
+                <form id="sinoptico-edit-form" class="p-6 overflow-y-auto space-y-4" novalidate>
+                    <input type="hidden" name="nodeId" value="${nodeId}">
+                    <div>
+                        <label for="sinoptico-quantity" class="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
+                        <input type="number" id="sinoptico-quantity" name="quantity" value="${node.quantity ?? 1}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" step="any" min="0">
+                    </div>
+                    <div>
+                        <label for="sinoptico-comment" class="block text-sm font-medium text-gray-700 mb-1">Comentario</label>
+                        <textarea id="sinoptico-comment" name="comment" rows="3" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">${node.comment || ''}</textarea>
+                    </div>
+                </form>
+                <div class="flex justify-end items-center p-4 border-t bg-gray-50 space-x-3">
+                    <button data-action="close" type="button" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
+                    <button type="submit" form="sinoptico-edit-form" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-semibold">Guardar Cambios</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    dom.modalContainer.innerHTML = modalHTML;
+    lucide.createIcons();
+    const modalElement = document.getElementById(modalId);
+    modalElement.querySelector('form').addEventListener('submit', handleSinopticoFormSubmit);
+    modalElement.addEventListener('click', e => {
+        if (e.target.closest('button')?.dataset.action === 'close') {
+            modalElement.remove();
+        }
+    });
+}
+
+async function handleSinopticoFormSubmit(e) {
+    e.preventDefault();
+    const form = e.target;
+    const nodeId = form.querySelector('[name="nodeId"]').value;
+    const newQuantity = parseFloat(form.querySelector('[name="quantity"]').value);
+    const newComment = form.querySelector('[name="comment"]').value;
+
+    if (isNaN(newQuantity) || newQuantity < 0) {
+        showToast('Por favor, ingrese una cantidad válida.', 'error');
+        return;
+    }
+
+    const product = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.docId === appState.sinopticoState.activeTreeDocId);
+    if (!product) {
+        showToast('Error: No se pudo encontrar el producto activo.', 'error');
+        return;
+    }
+    const nodeToUpdate = findNode(nodeId, product.estructura);
+
+    if (nodeToUpdate) {
+        nodeToUpdate.quantity = newQuantity;
+        nodeToUpdate.comment = newComment;
+
+        const saveButton = form.closest('.modal-content').querySelector('button[type="submit"]');
+        saveButton.disabled = true;
+        saveButton.innerHTML = `<i data-lucide="loader" class="animate-spin h-5 w-5"></i>`;
+        lucide.createIcons();
+
+        try {
+            const productRef = doc(db, COLLECTIONS.PRODUCTOS, product.docId);
+            await updateDoc(productRef, { estructura: product.estructura });
+            showToast('Componente actualizado.', 'success');
+
+            document.getElementById(form.closest('.fixed').id).remove();
+
+            renderTree();
+            renderDetailView(nodeId);
+        } catch (error) {
+            console.error("Error saving sinoptico node:", error);
+            showToast('Error al guardar los cambios.', 'error');
+            saveButton.disabled = false;
+            saveButton.innerHTML = `Guardar Cambios`;
+        }
+    }
 }
 
 function runSinopticoLogic() {
@@ -3696,14 +3794,87 @@ function runSinopticoTabularLogic() {
     };
 
     dom.viewContent.addEventListener('click', handleViewClick);
-    dom.viewContent.addEventListener('click', caratulaFieldsHandler);
+    dom.viewContent.addEventListener('click', handleCaratulaClick);
 
     appState.currentViewCleanup = () => {
         dom.viewContent.removeEventListener('click', handleViewClick);
-        dom.viewContent.removeEventListener('click', caratulaFieldsHandler);
+        dom.viewContent.removeEventListener('click', handleCaratulaClick);
         appState.sinopticoTabularState = null;
     };
 }
+
+function handleCaratulaClick(e) {
+    const fieldContainer = e.target.closest('.caratula-field');
+    if (fieldContainer && !fieldContainer.classList.contains('is-editing')) {
+        const currentlyEditing = document.querySelector('.caratula-field.is-editing');
+        if (currentlyEditing) {
+            // Si ya hay otro campo editándose, lo cerramos (sin guardar)
+            const valueDisplay = currentlyEditing.querySelector('.value-display');
+            const editControls = currentlyEditing.querySelector('.edit-controls');
+            valueDisplay.classList.remove('hidden');
+            editControls.classList.add('hidden');
+            currentlyEditing.classList.remove('is-editing');
+        }
+
+        fieldContainer.classList.add('is-editing');
+        const valueDisplay = fieldContainer.querySelector('.value-display');
+        const editControls = fieldContainer.querySelector('.edit-controls');
+        const input = editControls.querySelector('input');
+
+        valueDisplay.classList.add('hidden');
+        editControls.classList.remove('hidden');
+        input.focus();
+        input.select();
+
+        const saveField = async () => {
+            const newValue = input.value;
+            const fieldName = fieldContainer.dataset.field;
+            const originalValue = fieldContainer.dataset.value;
+
+            fieldContainer.classList.remove('is-editing');
+            valueDisplay.classList.remove('hidden');
+            editControls.classList.add('hidden');
+
+            if (newValue !== originalValue) {
+                const activeProductDocId = appState.sinopticoState?.activeTreeDocId || appState.sinopticoTabularState?.selectedProduct?.docId;
+                if (!activeProductDocId) return;
+
+                const productRef = doc(db, COLLECTIONS.PRODUCTOS, activeProductDocId);
+                try {
+                    await updateDoc(productRef, { [fieldName]: newValue });
+                    showToast('Campo de carátula actualizado.', 'success');
+
+                    // Actualizar estado local y re-renderizar la vista actual
+                    if(appState.currentView === 'sinoptico') {
+                        const product = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.docId === activeProductDocId);
+                        product[fieldName] = newValue;
+                        renderDetailView(appState.sinopticoState.activeElementId);
+                    } else if (appState.currentView === 'sinoptico_tabular') {
+                        appState.sinopticoTabularState.selectedProduct[fieldName] = newValue;
+                        const { renderReportView } = runSinopticoTabularLogic; // Re-run to get access to inner function
+                        if(renderReportView) renderReportView();
+                    }
+                } catch (error) {
+                    showToast('Error al guardar el campo.', 'error');
+                    console.error("Error updating caratula field:", error);
+                }
+            }
+        };
+
+        input.addEventListener('blur', saveField, { once: true });
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') input.blur();
+            if (e.key === 'Escape') {
+                input.removeEventListener('blur', saveField);
+                input.value = fieldContainer.dataset.value; // Revert value
+                fieldContainer.classList.remove('is-editing');
+                valueDisplay.classList.remove('hidden');
+                editControls.classList.add('hidden');
+            }
+        });
+    }
+}
+
 
 function runFlujogramaLogic() {
     dom.viewContent.innerHTML = `<div class="bg-white p-6 rounded-xl shadow-lg animate-fade-in-up">
@@ -4306,99 +4477,8 @@ function initSinoptico() {
     };
     
     dom.viewContent.addEventListener('click', handleSinopticoClick);
+    dom.viewContent.addEventListener('click', handleCaratulaClick);
     
-    function openSinopticoEditModal(nodeId) {
-        const product = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.docId === appState.sinopticoState.activeTreeDocId);
-        if (!product) return;
-        const node = findNode(nodeId, product.estructura);
-        if (!node) return;
-
-        const itemData = appState.collectionsById[node.tipo + 's']?.get(node.refId);
-
-        const modalId = `sinoptico-edit-modal-${Date.now()}`;
-        const modalHTML = `
-            <div id="${modalId}" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop animate-fade-in">
-                <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col m-4 modal-content">
-                    <div class="flex justify-between items-center p-5 border-b">
-                        <h3 class="text-xl font-bold">Editar: ${itemData.descripcion}</h3>
-                        <button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button>
-                    </div>
-                    <form id="sinoptico-edit-form" class="p-6 overflow-y-auto space-y-4" novalidate>
-                        <input type="hidden" name="nodeId" value="${nodeId}">
-                        <div>
-                            <label for="sinoptico-quantity" class="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
-                            <input type="number" id="sinoptico-quantity" name="quantity" value="${node.quantity ?? 1}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" step="any" min="0">
-                        </div>
-                        <div>
-                            <label for="sinoptico-comment" class="block text-sm font-medium text-gray-700 mb-1">Comentario</label>
-                            <textarea id="sinoptico-comment" name="comment" rows="3" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">${node.comment || ''}</textarea>
-                        </div>
-                    </form>
-                    <div class="flex justify-end items-center p-4 border-t bg-gray-50 space-x-3">
-                        <button data-action="close" type="button" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
-                        <button type="submit" form="sinoptico-edit-form" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-semibold">Guardar Cambios</button>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        dom.modalContainer.innerHTML = modalHTML;
-        lucide.createIcons();
-        const modalElement = document.getElementById(modalId);
-        modalElement.querySelector('form').addEventListener('submit', handleSinopticoFormSubmit);
-        modalElement.addEventListener('click', e => {
-            if (e.target.closest('button')?.dataset.action === 'close') {
-                modalElement.remove();
-            }
-        });
-    }
-
-    async function handleSinopticoFormSubmit(e) {
-        e.preventDefault();
-        const form = e.target;
-        const nodeId = form.querySelector('[name="nodeId"]').value;
-        const newQuantity = parseFloat(form.querySelector('[name="quantity"]').value);
-        const newComment = form.querySelector('[name="comment"]').value;
-
-        if (isNaN(newQuantity) || newQuantity < 0) {
-            showToast('Por favor, ingrese una cantidad válida.', 'error');
-            return;
-        }
-
-        const product = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.docId === appState.sinopticoState.activeTreeDocId);
-        if (!product) {
-            showToast('Error: No se pudo encontrar el producto activo.', 'error');
-            return;
-        }
-        const nodeToUpdate = findNode(nodeId, product.estructura);
-
-        if (nodeToUpdate) {
-            nodeToUpdate.quantity = newQuantity;
-            nodeToUpdate.comment = newComment;
-
-            const saveButton = form.closest('.modal-content').querySelector('button[type="submit"]');
-            saveButton.disabled = true;
-            saveButton.innerHTML = `<i data-lucide="loader" class="animate-spin h-5 w-5"></i>`;
-            lucide.createIcons();
-
-            try {
-                const productRef = doc(db, COLLECTIONS.PRODUCTOS, product.docId);
-                await updateDoc(productRef, { estructura: product.estructura });
-                showToast('Componente actualizado.', 'success');
-
-                document.getElementById(form.closest('.fixed').id).remove();
-
-                renderTree();
-                renderDetailView(nodeId);
-            } catch (error) {
-                console.error("Error saving sinoptico node:", error);
-                showToast('Error al guardar los cambios.', 'error');
-                saveButton.disabled = false;
-                saveButton.innerHTML = `Guardar Cambios`;
-            }
-        }
-    }
-
     const searchHandler = () => {
         const searchTerm = searchInput.value.toLowerCase();
         if (searchTerm) {
