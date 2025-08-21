@@ -43,7 +43,8 @@ const COLLECTIONS = {
     PROVEEDORES: 'proveedores',
     UNIDADES: 'unidades',
     USUARIOS: 'usuarios',
-    TAREAS: 'tareas'
+    TAREAS: 'tareas',
+    PROYECTOS: 'proyectos'
 };
 
 // =================================================================================
@@ -58,6 +59,21 @@ const viewConfig = {
     arboles: { title: 'Editor de Árboles', singular: 'Árbol' },
     profile: { title: 'Mi Perfil', singular: 'Mi Perfil' },
     tareas: { title: 'Gestor de Tareas', singular: 'Tarea' },
+    proyectos: {
+        title: 'Proyectos',
+        singular: 'Proyecto',
+        dataKey: COLLECTIONS.PROYECTOS,
+        columns: [
+            { key: 'codigo', label: 'Código' },
+            { key: 'nombre', label: 'Nombre' },
+            { key: 'descripcion', label: 'Descripción' }
+        ],
+        fields: [
+            { key: 'codigo', label: 'Código', type: 'text', required: true },
+            { key: 'nombre', label: 'Nombre', type: 'text', required: true },
+            { key: 'descripcion', label: 'Descripción', type: 'textarea' },
+        ]
+    },
     productos: {
         title: 'Productos',
         singular: 'Producto',
@@ -65,6 +81,15 @@ const viewConfig = {
         columns: [
             { key: 'codigo', label: 'Código' },
             { key: 'descripcion', label: 'Descripción' },
+            {
+                key: 'proyectoId',
+                label: 'Proyecto',
+                format: (value) => {
+                    if (!value) return 'N/A';
+                    const proyecto = appState.collectionsById[COLLECTIONS.PROYECTOS]?.get(value);
+                    return proyecto ? proyecto.nombre : value;
+                }
+            },
             { key: 'codigo_cliente', label: 'Cód. Cliente' }
         ],
         fields: [
@@ -72,7 +97,13 @@ const viewConfig = {
             { key: 'codigo_cliente', label: 'Código de Cliente', type: 'text' },
             { key: 'descripcion', label: 'Descripción', type: 'textarea', required: true },
             { key: 'version', label: 'Versión', type: 'text' },
-            // Aquí irían más campos si los necesitas
+            {
+                key: 'proyectoId',
+                label: 'Proyecto Asociado',
+                type: 'search-select',
+                searchKey: COLLECTIONS.PROYECTOS,
+                required: false
+            },
         ]
     },
     subproductos: {
@@ -185,7 +216,7 @@ let appState = {
         [COLLECTIONS.PRODUCTOS]: [], [COLLECTIONS.SUBPRODUCTOS]: [], [COLLECTIONS.INSUMOS]: [], [COLLECTIONS.CLIENTES]: [],
         [COLLECTIONS.SECTORES]: [], [COLLECTIONS.PROCESOS]: [],
         [COLLECTIONS.PROVEEDORES]: [], [COLLECTIONS.UNIDADES]: [],
-        [COLLECTIONS.USUARIOS]: []
+        [COLLECTIONS.USUARIOS]: [], [COLLECTIONS.PROYECTOS]: []
     },
     collectionsById: {
         [COLLECTIONS.PRODUCTOS]: new Map(),
@@ -196,7 +227,8 @@ let appState = {
         [COLLECTIONS.PROCESOS]: new Map(),
         [COLLECTIONS.PROVEEDORES]: new Map(),
         [COLLECTIONS.UNIDADES]: new Map(),
-        [COLLECTIONS.USUARIOS]: new Map()
+        [COLLECTIONS.USUARIOS]: new Map(),
+        [COLLECTIONS.PROYECTOS]: new Map()
     },
     unsubscribeListeners: [],
     sinopticoState: null,
@@ -3408,6 +3440,8 @@ function renderCaratula(producto, cliente) {
             `;
         };
 
+        const proyectoAsociado = producto.proyectoId ? appState.collectionsById[COLLECTIONS.PROYECTOS].get(producto.proyectoId) : null;
+
         container.innerHTML = `
         <div class="bg-white rounded-xl shadow-lg animate-fade-in-up overflow-hidden">
             <h3 class="text-center font-bold text-lg py-2 bg-slate-200 text-slate-700">COMPOSICIÓN DE PIEZAS - BOM</h3>
@@ -3417,7 +3451,11 @@ function renderCaratula(producto, cliente) {
                 </div>
                 <div class="w-2/3 bg-[#44546A] text-white p-4 flex items-center" id="caratula-fields-container">
                     <div class="grid grid-cols-2 gap-x-6 gap-y-4 text-xs w-full">
-                        ${createEditableField('PROYECTO', producto.descripcion, 'descripcion')}
+                        ${createEditableField('PRODUCTO', producto.descripcion, 'descripcion')}
+                        <div>
+                            <p class="font-bold opacity-80 uppercase">PROYECTO</p>
+                            <p>${proyectoAsociado ? proyectoAsociado.nombre : '<span class="italic opacity-50">Sin proyecto</span>'}</p>
+                        </div>
                         <div><p class="font-bold opacity-80 uppercase">Última Revisión</p><p>${lastUpdated}</p></div>
                         <div><p class="font-bold opacity-80 uppercase">CLIENTE</p><p>${cliente.descripcion}</p></div>
                         ${createEditableField('REALIZÓ', producto.lastUpdatedBy, 'lastUpdatedBy', 'N/A')}
