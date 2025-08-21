@@ -3348,7 +3348,7 @@ function renderNodo(nodo) {
 
     const isDraggable = nodo.tipo !== 'producto';
 
-    const quantityText = nodo.tipo !== 'producto' ? `<span class="text-sm font-semibold text-blue-600 ml-2">(x${nodo.quantity ?? 1})</span>` : '';
+    const quantityText = '';
 
     const commentText = nodo.comment ? `<p class="pl-8 text-sm text-slate-500 italic flex items-center gap-2"><i data-lucide="message-square" class="w-3.5 h-3.5"></i>${nodo.comment}</p>` : '';
 

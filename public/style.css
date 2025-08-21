@@ -69,13 +69,13 @@ body {
 }
 
 /* --- Estilos de Árboles (Gestión y Sinóptico) --- */
-.tree ul { padding-left: 22px; position: relative; margin: 4px 0; border-radius: 8px; }
+.tree ul { padding-left: 28px; position: relative; margin: 4px 0; border-radius: 8px; }
 .tree li { list-style-type: none; position: relative; padding: 2px 0 2px 25px; }
 .tree li::before, .tree li::after { content: ''; position: absolute; left: 0; }
 .tree li::before { border-left: 1px solid #d1d5db; height: 100%; top: 0; width: 1px; }
 .tree li:last-child::before { height: 22px; }
 .tree li::after { border-top: 1px solid #d1d5db; height: 1px; top: 22px; width: 20px; }
-.node-content { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 8px; transition: background-color 0.2s; cursor: grab; border: 1px solid transparent;}
+.node-content { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; border-radius: 8px; transition: background-color 0.2s; cursor: grab; border: 1px solid transparent;}
 .node-content:hover { background-color: #f3f4f6; }
 .node-content:active { cursor: grabbing; }
 
@@ -85,7 +85,8 @@ body {
     border: 2px dashed #60a5fa; /* blue-400 */
     border-radius: 8px;
     opacity: 0.6;
-    height: 44px;
+    height: 54px;
+    margin-top: 4px;
     margin-bottom: 4px;
 }
 .sortable-ghost > * {
@@ -403,4 +404,15 @@ table.data-table .actions-cell button:hover {
 
 .task-column.collapsed .kanban-toggle-btn .lucide {
     transform: rotate(-90deg);
+}
+
+/* --- Mejora de Espaciado Visual en Árbol Sinóptico --- */
+.sinoptico-tree-container > li > ul > .sinoptico-tree-item:not(:last-child) {
+    margin-bottom: 1rem; /* 16px de espacio entre productos principales */
+}
+.sinoptico-tree-item[data-type="subproducto"] {
+    padding-top: 0.5rem; /* 8px de espacio sobre cada subproducto */
+}
+.sinoptico-tree-item[data-type="subproducto"] > .sinoptico-tree-item-content + ul {
+    padding-top: 0.5rem; /* Espacio entre un subproducto y sus hijos */
 }
