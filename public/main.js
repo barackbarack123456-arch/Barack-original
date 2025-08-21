@@ -3423,7 +3423,7 @@ function renderCaratula(producto, cliente) {
     if (!container) return;
 
     if (producto && cliente) {
-        const lastUpdated = producto.lastUpdated ? new Date(producto.lastUpdated.seconds * 1000).toLocaleString('es-AR') : 'N/A';
+        const createdAt = producto.createdAt ? new Date(producto.createdAt.seconds * 1000).toLocaleDateString('es-AR') : 'N/A';
 
         const createEditableField = (label, value, fieldName, placeholder = 'N/A') => {
             const val = value || '';
@@ -3440,27 +3440,23 @@ function renderCaratula(producto, cliente) {
             `;
         };
 
-        const proyectoAsociado = producto.proyectoId ? appState.collectionsById[COLLECTIONS.PROYECTOS].get(producto.proyectoId) : null;
-
         container.innerHTML = `
         <div class="bg-white rounded-xl shadow-lg animate-fade-in-up overflow-hidden">
-            <h3 class="text-center font-bold text-lg py-2 bg-slate-200 text-slate-700">COMPOSICIÓN DE PIEZAS - BOM</h3>
+            <h3 class="text-center font-bold text-xl py-3 bg-blue-600 text-white">COMPOSICIÓN DE PIEZAS - BOM</h3>
             <div class="flex">
                 <div class="w-1/3 bg-white flex items-center justify-center p-4 border-r border-slate-200">
                     <img src="logo.png" alt="Logo" class="max-h-20">
                 </div>
                 <div class="w-2/3 bg-[#44546A] text-white p-4 flex items-center" id="caratula-fields-container">
-                    <div class="grid grid-cols-2 gap-x-6 gap-y-4 text-xs w-full">
-                        ${createEditableField('PRODUCTO', producto.descripcion, 'descripcion')}
-                        <div>
-                            <p class="font-bold opacity-80 uppercase">PROYECTO</p>
-                            <p>${proyectoAsociado ? proyectoAsociado.nombre : '<span class="italic opacity-50">Sin proyecto</span>'}</p>
-                        </div>
-                        <div><p class="font-bold opacity-80 uppercase">Última Revisión</p><p>${lastUpdated}</p></div>
-                        <div><p class="font-bold opacity-80 uppercase">CLIENTE</p><p>${cliente.descripcion}</p></div>
+                    <div class="grid grid-cols-2 gap-x-6 gap-y-4 text-sm w-full">
+                        <div><p class="font-bold opacity-80 uppercase">PRODUCTO</p><p>${producto.descripcion || 'N/A'}</p></div>
+                        <div><p class="font-bold opacity-80 uppercase">NÚMERO DE PIEZA</p><p>${producto.id || 'N/A'}</p></div>
+                        <div><p class="font-bold opacity-80 uppercase">VERSIÓN</p><p>${producto.version || 'N/A'}</p></div>
+                        <div><p class="font-bold opacity-80 uppercase">FECHA DE CREACIÓN</p><p>${createdAt}</p></div>
+
                         ${createEditableField('REALIZÓ', producto.lastUpdatedBy, 'lastUpdatedBy', 'N/A')}
-                        <div><p class="font-bold opacity-80 uppercase">NÚMERO DE PIEZA</p><p>${producto.id}</p></div>
-                        ${createEditableField('VERSIÓN', producto.version, 'version')}
+                        ${createEditableField('APROBÓ', producto.aprobadoPor, 'aprobadoPor', 'N/A')}
+                        ${createEditableField('FECHA DE REVISIÓN', producto.fechaRevision, 'fechaRevision', 'YYYY-MM-DD')}
                     </div>
                 </div>
             </div>
@@ -3759,7 +3755,7 @@ function runSinopticoTabularLogic() {
                     material = item.material || '';
                 }
 
-                const actionsHTML = node.tipo !== 'producto'
+                const actionsHTML = (node.tipo !== 'producto' || level === 0)
                     ? `<button data-action="edit-tabular-node" data-node-id="${node.id}" class="p-1 text-blue-600 hover:bg-blue-100 rounded-md" title="Editar Cantidad/Comentario"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>`
                     : '';
 
