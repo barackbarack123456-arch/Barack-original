@@ -3785,7 +3785,9 @@ function runSinopticoLogic() {
 }
 
 const getFlattenedData = (product, levelFilters) => {
-    // Helper to flatten a tree structure for display
+    // Helper to flatten a tree structure for display.
+    // This helper now assumes the nodes passed to it may already have an 'originalLevel'.
+    // The 'level' parameter here is the *display* level after filtering.
     const flattenTree = (nodes, level, lineage) => {
         const result = [];
         nodes.forEach((node, index) => {
@@ -3793,6 +3795,8 @@ const getFlattenedData = (product, levelFilters) => {
             const collectionName = node.tipo + 's';
             const item = appState.collectionsById[collectionName]?.get(node.refId);
             if (!item) return;
+
+            // The node is pushed as is. If it has originalLevel, it will be preserved.
             result.push({ node, item, level, isLast, lineage });
             if (node.children && node.children.length > 0) {
                 result.push(...flattenTree(node.children, level + 1, [...lineage, !isLast]));
@@ -3801,30 +3805,46 @@ const getFlattenedData = (product, levelFilters) => {
         return result;
     };
 
-    // If no filter is applied, run the original logic
     if (!product || !product.estructura) return [];
+
+    // If no filter is applied, we still need to add originalLevel.
     if (!levelFilters || levelFilters.size === 0) {
-        return flattenTree(product.estructura, 0, []);
+        const addOriginalLevel = (nodes, level) => {
+            return nodes.map(node => {
+                const newNode = { ...node, originalLevel: level };
+                if (newNode.children && newNode.children.length > 0) {
+                    newNode.children = addOriginalLevel(newNode.children, level + 1);
+                }
+                return newNode;
+            });
+        };
+        const structureWithLevels = addOriginalLevel(product.estructura, 0);
+        return flattenTree(structureWithLevels, 0, []);
     }
 
     // --- New, robust logic for filtered levels ---
     const sortedSelectedLevels = [...levelFilters].map(Number).sort((a, b) => a - b);
 
-    // Recursively finds the next set of visible descendants for a given node
+    // Recursively finds the next set of visible descendants for a given node.
+    // It receives the absolute parentLevel.
     const findVisibleDescendants = (parentNode, parentLevel) => {
         const results = [];
         if (!parentNode.children) return results;
 
+        // Find the next level to show from the sorted list of selected levels.
         const nextTargetLevel = sortedSelectedLevels.find(l => l > parentLevel);
-        if (nextTargetLevel === undefined) return [];
+        if (nextTargetLevel === undefined) return []; // No more levels to show below this one.
 
+        // Search through descendants to find nodes at the target level.
         function search(nodes, currentLevel) {
             nodes.forEach(node => {
                 if (currentLevel === nextTargetLevel) {
-                    const newNode = { ...node }; // Create a copy to avoid modifying the original structure
+                    // Found a visible node. Attach its original level and find its visible children.
+                    const newNode = { ...node, originalLevel: currentLevel };
                     newNode.children = findVisibleDescendants(node, currentLevel);
                     results.push(newNode);
                 } else if (currentLevel < nextTargetLevel && node.children) {
+                    // This node is not visible, but its children might be. Keep searching deeper.
                     search(node.children, currentLevel + 1);
                 }
             });
@@ -3834,17 +3854,17 @@ const getFlattenedData = (product, levelFilters) => {
         return results;
     };
 
-    // Builds the initial filtered tree, starting from the original structure
+    // Builds the initial filtered tree, starting from the original structure.
     const buildFilteredTree = (nodes, currentLevel) => {
         const result = [];
         nodes.forEach(node => {
             if (sortedSelectedLevels.includes(currentLevel)) {
-                // This node is visible. Keep it and find its filtered children.
-                const newNode = { ...node };
+                // This node is visible. Keep it, attach its original level, and find its filtered children.
+                const newNode = { ...node, originalLevel: currentLevel };
                 newNode.children = findVisibleDescendants(node, currentLevel);
                 result.push(newNode);
             } else {
-                // This node is not visible. Skip it, but check its children.
+                // This node is not visible. Skip it, but check its children to see if they should be promoted.
                 if (node.children) {
                     result.push(...buildFilteredTree(node.children, currentLevel + 1));
                 }
@@ -3855,7 +3875,8 @@ const getFlattenedData = (product, levelFilters) => {
 
     const filteredEstructura = buildFilteredTree(product.estructura, 0);
 
-    // Pass 2: Flatten the newly created filtered tree
+    // Pass 2: Flatten the newly created filtered tree for display.
+    // The 'level' passed to flattenTree (0) is the starting *display* level.
     return flattenTree(filteredEstructura, 0, []);
 };
 
@@ -4040,7 +4061,7 @@ function runSinopticoTabularLogic() {
 
                 tableHTML += `<tr class="bg-white border-b hover:bg-gray-100" data-node-id="${node.id}">
                     <td class="px-4 py-2 font-mono font-medium text-gray-900 whitespace-nowrap"><span class="font-sans">${prefix}</span>${item.descripcion || item.nombre}</td>
-                    <td class="px-4 py-2 text-center">${level}</td>
+                    <td class="px-4 py-2 text-center">${node.originalLevel ?? level}</td>
                     <td class="px-4 py-2">${item.id}</td>
                     <td class="px-4 py-2"><span class="px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-700">${node.tipo}</span></td>
                     <td class="px-4 py-2 text-right">${cantidad}</td>
