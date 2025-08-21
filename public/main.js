@@ -54,6 +54,7 @@ const COLLECTIONS = {
 // --- Configuración de Vistas ---
 const viewConfig = {
     dashboard: { title: 'Dashboard', singular: 'Dashboard' },
+    sinoptico_tabular: { title: 'Reporte BOM (Tabular)', singular: 'Reporte BOM (Tabular)' },
     flujograma: { title: 'Flujograma de Procesos', singular: 'Flujograma' },
     arboles: { title: 'Editor de Árboles', singular: 'Árbol' },
     profile: { title: 'Mi Perfil', singular: 'Mi Perfil' },
@@ -629,6 +630,14 @@ function switchView(viewName) {
     appState.currentView = viewName;
     const config = viewConfig[viewName];
     dom.viewTitle.textContent = config.title;
+
+    // Hide the title for the tabular view to save space, but show it for all other views.
+    if (viewName === 'sinoptico_tabular') {
+        dom.viewTitle.style.display = 'none';
+    } else {
+        dom.viewTitle.style.display = 'block';
+    }
+
     // Update active link styling
     document.querySelectorAll('#main-nav .nav-link').forEach(link => {
         link.classList.remove('active');
