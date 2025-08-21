@@ -2169,8 +2169,7 @@ function displayTasksOnCalendar(tasks) {
                 const priority = task.priority || 'medium';
 
                 const taskElement = document.createElement('div');
-                taskElement.className = `p-1.5 rounded-md text-xs font-semibold cursor-pointer hover:opacity-80 truncate`;
-                taskElement.classList.add(priorityClasses[priority]);
+                taskElement.className = `p-1.5 rounded-md text-xs font-semibold cursor-pointer hover:opacity-80 truncate ${priorityClasses[priority]}`;
                 taskElement.textContent = task.title;
                 taskElement.title = task.title;
                 taskElement.dataset.taskId = task.docId;
