@@ -4305,106 +4305,157 @@ async function exportSinopticoTabularToPdf() {
     showToast('Iniciando exportación a PDF...', 'info');
 
     try {
-        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-
-        // 1. Render Carátula using html2canvas
-        const caratulaElement = document.getElementById('caratula-container');
-        const canvas = await html2canvas(caratulaElement, { scale: 2 });
-        const imgData = canvas.toDataURL('image/png');
-
+        const doc = new jsPDF({
+            orientation: 'landscape',
+            unit: 'mm',
+            format: 'a4'
+        });
         const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const imgWidth = pageWidth - 20; // with margin
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        const margin = 10;
+        let cursorY = margin;
 
-        doc.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
+        // 1. Draw Carátula (Cover Page) with native jsPDF functions
+        const client = appState.collectionsById[COLLECTIONS.CLIENTES].get(product.clienteId);
+        const createdAt = product.createdAt ? new Date(product.createdAt.seconds * 1000).toLocaleDateString('es-AR') : 'N/A';
 
-        // 2. Add a new page for the table
-        doc.addPage();
+        // Main Title
+        doc.setFillColor(37, 99, 235); // bg-blue-600
+        doc.rect(margin, cursorY, pageWidth - (margin * 2), 10, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(255, 255, 255);
+        doc.text('COMPOSICIÓN DE PIEZAS - BOM', pageWidth / 2, cursorY + 6.5, { align: 'center' });
+        cursorY += 10;
 
-        // 3. Prepare and render the table with jsPDF-AutoTable
+        // Details Section
+        const detailsHeight = 25;
+        // Left side with logo placeholder
+        doc.setFillColor(255, 255, 255);
+        const leftSectionWidth = (pageWidth - (margin * 2)) / 3;
+        doc.rect(margin, cursorY, leftSectionWidth, detailsHeight, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        doc.text('GESTIÓN PRO', margin + (leftSectionWidth / 2), cursorY + (detailsHeight / 2), { align: 'center' });
+
+        // Right side with details
+        doc.setFillColor(68, 84, 106); // #44546A
+        doc.rect(margin + leftSectionWidth, cursorY, (pageWidth - (margin * 2)) * 2 / 3, detailsHeight, 'F');
+
+        doc.setFontSize(8);
+        doc.setTextColor(255, 255, 255);
+        const col1X = margin + leftSectionWidth + 5;
+        const col2X = col1X + 80;
+
+        let detailY = cursorY + 5;
+        const addDetail = (label, value, x, y) => {
+            doc.setFont('helvetica', 'bold');
+            doc.text(label, x, y);
+            doc.setFont('helvetica', 'normal');
+            doc.text(value, x + 25, y);
+        };
+
+        addDetail('PRODUCTO:', product.descripcion || 'N/A', col1X, detailY);
+        addDetail('NÚMERO DE PIEZA:', product.id || 'N/A', col2X, detailY);
+        detailY += 6;
+
+        addDetail('VERSIÓN:', product.version || 'N/A', col1X, detailY);
+        addDetail('FECHA DE CREACIÓN:', createdAt, col2X, detailY);
+        detailY += 6;
+
+        addDetail('REALIZÓ:', product.lastUpdatedBy || 'N/A', col1X, detailY);
+        addDetail('APROBÓ:', product.aprobadoPor || 'N/A', col2X, detailY);
+        detailY += 6;
+
+        addDetail('FECHA REVISIÓN:', product.fechaRevision || 'N/A', col1X, detailY);
+
+        cursorY += detailsHeight + 5; // Add some space after the header
+
+        // 2. Prepare and render the table with jsPDF-AutoTable
         const flattenedData = getFlattenedData(product, state.activeFilters.niveles);
-        const head = [['Descripción', 'Nivel', 'Comentarios', 'LC/KD', 'Versión Vehículo', 'Código de pieza', 'Versión', 'Proceso', 'Aspecto', 'Peso (gr)', 'Proveedor', 'Cantidad', 'Unidad']];
+        const head = [['Descripción', 'Nivel', 'Cantidad', 'Unidad', 'Código de pieza', 'Versión', 'Proceso', 'Proveedor', 'Comentarios']];
         const body = flattenedData.map(rowData => {
-            const { node, item, level, isLast, lineage } = rowData;
+            const { node, item } = rowData;
             const NA = 'N/A';
-
-            let prefix = lineage.map(parentIsNotLast => parentIsNotLast ? '│    ' : '    ').join('');
-            if (level > 0)  prefix += isLast ? '└─ ' : '├─ ';
-
-            const descripcion = prefix + (item.descripcion || item.nombre);
-            const nivel = node.originalLevel ?? level;
-            const comentarios = node.comment || '';
-            const lc_kd = item.lc_kd || NA;
-            const version_vehiculo = node.tipo === 'producto' ? (item.version_vehiculo || NA) : NA;
+            const descripcion = item.descripcion || item.nombre;
+            const nivel = node.originalLevel ?? rowData.level;
+            const cantidad = node.quantity ?? NA;
             const codigo_pieza = item.codigo_pieza || NA;
             const version = item.version || NA;
-            let proceso = NA;
+            const comentarios = node.comment || '';
+            let proceso = '', proveedor = '', unidad_medida = '';
+
             if (node.tipo === 'semiterminado' && item.proceso) {
                 const procesoData = appState.collectionsById[COLLECTIONS.PROCESOS]?.get(item.proceso);
                 proceso = procesoData ? procesoData.descripcion : item.proceso;
             }
-            const aspecto = node.tipo === 'semiterminado' ? (item.aspecto || NA) : NA;
-            let peso_display = NA;
-            if (node.tipo === 'semiterminado' && item.peso_gr) {
-                peso_display = item.peso_gr;
-                if (item.tolerancia_gr) {
-                    peso_display += ` ± ${item.tolerancia_gr}`;
-                }
-            }
-            let proveedor = NA;
             if (node.tipo === 'insumo' && item.proveedor) {
                 const proveedorData = appState.collectionsById[COLLECTIONS.PROVEEDORES]?.get(item.proveedor);
                 proveedor = proveedorData ? proveedorData.descripcion : item.proveedor;
             }
-            const cantidad = node.quantity ?? NA;
-            let unidad_medida = NA;
             if (node.tipo === 'insumo' && item.unidad_medida) {
                 const unidadData = appState.collectionsById[COLLECTIONS.UNIDADES]?.get(item.unidad_medida);
                 unidad_medida = unidadData ? unidadData.id : item.unidad_medida;
             }
 
             return [
-                descripcion,
-                nivel,
-                comentarios,
-                lc_kd,
-                version_vehiculo,
-                codigo_pieza,
-                version,
-                proceso,
-                aspecto,
-                peso_display,
-                proveedor,
-                cantidad,
-                unidad_medida
+                descripcion, nivel, cantidad, unidad_medida, codigo_pieza, version, proceso, proveedor, comentarios,
+                { lineage: rowData.lineage, level: rowData.level, isLast: rowData.isLast } // Pass hierarchy data
             ];
         });
 
         doc.autoTable({
             head: head,
             body: body,
-            startY: 10,
-            styles: { fontSize: 7, cellPadding: 1.5, font: 'helvetica' },
+            startY: cursorY,
+            styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
             headStyles: { fillColor: [68, 84, 106] }, // #44546A
+            alternateRowStyles: { fillColor: [241, 245, 249] }, // bg-slate-100
             columnStyles: {
-                0: { cellWidth: 60 }, // Descripcion
+                0: { cellWidth: 75 }, // Descripcion
                 1: { cellWidth: 10, halign: 'center' }, // Nivel
-                2: { cellWidth: 40 }, // Comentarios
-                3: { cellWidth: 10, halign: 'center' }, // LC/KD
-                4: { cellWidth: 20 }, // Versión Vehículo
-                5: { cellWidth: 20 }, // Código de pieza
-                6: { cellWidth: 10, halign: 'center' }, // Versión
-                7: { cellWidth: 20 }, // Proceso
-                8: { cellWidth: 15 }, // Aspecto
-                9: { cellWidth: 15, halign: 'right' }, // Peso
-                10: { cellWidth: 20 }, // Proveedor
-                11: { cellWidth: 15, halign: 'right' }, // Cantidad
-                12: { cellWidth: 10, halign: 'center' } // Unidad
+                2: { cellWidth: 15, halign: 'right' }, // Cantidad
+                3: { cellWidth: 12, halign: 'center' }, // Unidad
+                4: { cellWidth: 30 }, // Código de pieza
+                5: { cellWidth: 12, halign: 'center' }, // Versión
+                6: { cellWidth: 30 }, // Proceso
+                7: { cellWidth: 30 }, // Proveedor
+                8: { cellWidth: 'auto' }, // Comentarios
+                9: { cellWidth: 0 } // Hidden data column
             },
-            didParseCell: function (data) {
+            didDrawCell: function(data) {
                 if (data.column.index === 0 && data.cell.section === 'body') {
-                     data.cell.styles.font = 'courier';
+                    const { lineage, level, isLast } = data.row.raw[9];
+                    const INDENT_WIDTH = 4, CIRCLE_RADIUS = 0.8, LINE_WIDTH = 0.2;
+                    doc.setLineWidth(LINE_WIDTH);
+                    doc.setDrawColor(150);
+
+                    lineage.forEach((parentIsNotLast, i) => {
+                        if (parentIsNotLast) {
+                            const lineX = data.cell.x + (i * INDENT_WIDTH) + 2;
+                            doc.line(lineX, data.cell.y, lineX, data.cell.y + data.row.height);
+                        }
+                    });
+
+                    const nodeX = data.cell.x + (level * INDENT_WIDTH) + 2;
+                    const nodeY = data.cell.y + data.row.height / 2;
+
+                    if (level > 0) {
+                        const parentX = nodeX - INDENT_WIDTH;
+                        doc.line(parentX, nodeY, nodeX, nodeY);
+                        doc.line(parentX, isLast ? data.cell.y : data.cell.y + data.row.height, parentX, nodeY);
+                    }
+
+                    doc.setFillColor(255, 255, 255);
+                    doc.circle(nodeX, nodeY, CIRCLE_RADIUS, 'FD');
+
+                    const textX = nodeX + CIRCLE_RADIUS + 1;
+                    doc.setTextColor(0,0,0);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text(data.cell.text, textX, nodeY + 1, {
+                        baseline: 'middle',
+                        maxWidth: data.column.width - (textX - data.cell.x)
+                    });
                 }
             }
         });
