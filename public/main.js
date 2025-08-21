@@ -3169,19 +3169,9 @@ function renderNodo(nodo) {
 
     const isDraggable = nodo.tipo !== 'producto';
 
-    // Vista simplificada sin edición inline. La edición ahora se hace en la vista Sinóptico.
-    const quantityHTML = nodo.tipo !== 'producto' ? `
-        <div class="flex items-center gap-1 text-sm text-slate-600 p-1 rounded-md" title="Cantidad">
-            x <span class="font-bold">${nodo.quantity ?? 1}</span>
-        </div>
-    ` : '';
-
-    const commentIcon = nodo.comment ? 'message-square-text' : 'message-square';
-    const commentHTML = nodo.comment ? `
-        <div class="text-slate-500 p-1 rounded-md" title="${nodo.comment}">
-            <i data-lucide="${commentIcon}" class="w-5 h-5"></i>
-        </div>
-    ` : '';
+    // Se elimina la visualización de cantidad y comentarios de esta vista para simplificarla.
+    const quantityHTML = '';
+    const commentHTML = '';
 
     return `<li data-node-id="${nodo.id}" class="group">
                 <div class="node-content ${isDraggable ? '' : 'cursor-default'}" data-type="${nodo.tipo}">
@@ -3191,9 +3181,6 @@ function renderNodo(nodo) {
                         <span class="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full flex-shrink-0">${nodo.tipo}</span>
                     </div>
                     <div class="flex items-center space-x-2 flex-shrink-0">
-                        ${quantityHTML}
-                        ${commentHTML}
-                        <div class="h-5 border-l border-slate-200"></div>
                         ${addButtons}
                         ${nodo.tipo !== 'producto' ? `<button data-action="delete-node" data-node-id="${nodo.id}" class="text-red-500 hover:text-red-700" title="Eliminar"><i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i></button>` : ''}
                     </div>
@@ -3407,45 +3394,37 @@ function renderCaratula(producto, cliente) {
         const lastUpdated = producto.lastUpdated ? new Date(producto.lastUpdated.seconds * 1000).toLocaleString('es-AR') : 'N/A';
 
         container.innerHTML = `
-        <div class="bg-white rounded-xl shadow-lg animate-fade-in-up overflow-hidden">
-            <h3 class="text-center font-bold text-lg py-2 bg-slate-200 text-slate-700">COMPOSICIÓN DE PIEZAS - BOM</h3>
-            <div class="flex">
-                <div class="w-1/3 bg-white flex items-center justify-center p-4 border-r border-slate-200">
-                    <img src="logo.png" alt="Logo" class="max-h-20">
+        <div class="bg-white p-6 rounded-xl shadow-lg animate-fade-in-up border border-slate-200">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">${producto.descripcion}</h2>
+                    <p class="text-sm font-medium text-slate-500">ID: ${producto.id} / Versión: ${producto.version || 'N/A'}</p>
                 </div>
-                <div class="w-2/3 bg-[#44546A] text-white p-4 flex items-center">
-                    <div class="grid grid-cols-2 gap-x-6 gap-y-3 text-xs w-full">
-                        <div>
-                            <p class="font-bold opacity-80 uppercase">PROYECTO</p>
-                            <p>${producto.descripcion}</p>
-                        </div>
-                        <div>
-                            <p class="font-bold opacity-80 uppercase">Última Revisión</p>
-                            <p>${lastUpdated}</p>
-                        </div>
-                        <div>
-                            <p class="font-bold opacity-80 uppercase">Cliente</p>
-                            <p>${cliente.descripcion}</p>
-                        </div>
-                        <div>
-                            <p class="font-bold opacity-80 uppercase">Realizó</p>
-                            <p>${producto.lastUpdatedBy || 'N/A'}</p>
-                        </div>
-                        <div>
-                            <p class="font-bold opacity-80 uppercase">Número de Pieza</p>
-                            <p>${producto.id}</p>
-                        </div>
-                        <div>
-                            <p class="font-bold opacity-80 uppercase">Versión</p>
-                            <p>${producto.version || 'N/A'}</p>
-                        </div>
-                    </div>
+                <div class="text-right">
+                     <img src="logo.png" alt="Logo" class="h-12">
+                </div>
+            </div>
+            <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                <div class="bg-slate-50 p-4 rounded-lg">
+                    <p class="font-semibold text-slate-600">Cliente</p>
+                    <p class="text-slate-800">${cliente.descripcion}</p>
+                    <p class="text-xs text-slate-500">ID: ${cliente.id}</p>
+                </div>
+                <div class="bg-slate-50 p-4 rounded-lg">
+                    <p class="font-semibold text-slate-600">Última Actualización</p>
+                    <p class="text-slate-800">${lastUpdated}</p>
+                    <p class="text-xs text-slate-500">Por: ${producto.lastUpdatedBy || 'N/A'}</p>
+                </div>
+                <div class="bg-slate-50 p-4 rounded-lg">
+                    <p class="font-semibold text-slate-600">Información Adicional</p>
+                    <p class="text-slate-400 italic">No disponible</p>
                 </div>
             </div>
         </div>`;
+
     } else {
         container.innerHTML = `
-            <div class="bg-white p-6 rounded-xl shadow-lg text-center animate-fade-in">
+            <div class="bg-white p-6 rounded-xl shadow-lg text-center animate-fade-in border border-slate-200">
                 <p class="text-slate-500 flex items-center justify-center">
                     <i data-lucide="info" class="inline-block mr-3 h-5 w-5 text-slate-400"></i>
                     <span>La información del producto y cliente aparecerá aquí cuando selecciones un elemento del árbol.</span>
