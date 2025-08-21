@@ -678,7 +678,7 @@ function handleViewContentActions(e) {
         'admin-back-to-board': () => {
             taskState.selectedUserId = null;
             taskState.activeFilter = 'engineering'; // Go back to default view
-            runTasksLogic();
+            runKanbanBoardLogic(); // Go directly to the board, bypassing the new main logic
         },
         'details': () => openDetailsModal(appState.currentData.find(d => d.id == id)),
         'edit': () => openFormModal(appState.currentData.find(d => d.id == id)),
@@ -1410,7 +1410,13 @@ let taskState = {
 };
 
 function runTasksLogic() {
-    runKanbanBoardLogic();
+    if (appState.currentUser.role === 'admin') {
+        // Admins now see the dashboard view by default when clicking 'Tareas'
+        runAdminDashboard();
+    } else {
+        // Non-admins see the standard Kanban board
+        runKanbanBoardLogic();
+    }
 }
 
 function runAdminDashboard() {
@@ -1418,12 +1424,12 @@ function runAdminDashboard() {
         <div class="space-y-4">
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h2 class="text-2xl font-bold text-slate-800">Panel de Administrador de Tareas</h2>
-                    <p class="text-sm text-slate-500">Supervisa, filtra y gestiona todas las tareas del equipo.</p>
+                    <h2 class="text-2xl font-bold text-slate-800">Dashboard de Tareas</h2>
+                    <p class="text-sm text-slate-500">Analiza, filtra y gestiona las tareas del equipo.</p>
                 </div>
                 <button data-action="admin-back-to-board" class="bg-slate-200 text-slate-800 px-4 py-2 rounded-md hover:bg-slate-300 font-semibold flex items-center flex-shrink-0">
-                    <i data-lucide="arrow-left" class="mr-2 h-5 w-5"></i>
-                    <span>Volver al Tablero</span>
+                    <i data-lucide="columns" class="mr-2 h-5 w-5"></i>
+                    <span>Ver Tablero Kanban</span>
                 </button>
             </div>
 
@@ -1507,7 +1513,13 @@ function runAdminDashboard() {
                             <div class="flex items-center gap-4 flex-wrap">
                                 <select id="admin-task-user-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white"><option value="all">Todos los usuarios</option></select>
                                 <select id="admin-task-priority-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white"><option value="all">Todas las prioridades</option><option value="high">Alta</option><option value="medium">Media</option><option value="low">Baja</option></select>
-                                <select id="admin-task-status-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white"><option value="all">Todos los estados</option><option value="todo">Por Hacer</option><option value="inprogress">En Progreso</option><option value="done">Completada</option></select>
+                                <select id="admin-task-status-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white">
+                                    <option value="active">Activas</option>
+                                    <option value="all">Todos los estados</option>
+                                    <option value="todo">Por Hacer</option>
+                                    <option value="inprogress">En Progreso</option>
+                                    <option value="done">Completada</option>
+                                </select>
                             </div>
                             <button id="add-new-task-admin-btn" class="bg-blue-600 text-white px-5 py-2 rounded-full hover:bg-blue-700 flex items-center shadow-md transition-transform transform hover:scale-105 flex-shrink-0"><i data-lucide="plus" class="mr-2 h-5 w-5"></i>Nueva Tarea</button>
                         </div>
@@ -1618,18 +1630,21 @@ function renderAdminTaskCharts(tasks) {
 function renderStatusChart(tasks) {
     const ctx = document.getElementById('status-chart')?.getContext('2d');
     if (!ctx) return;
-    const statusCounts = tasks.reduce((acc, task) => {
+
+    const activeTasks = tasks.filter(t => t.status !== 'done');
+    const statusCounts = activeTasks.reduce((acc, task) => {
         const status = task.status || 'todo';
         acc[status] = (acc[status] || 0) + 1;
         return acc;
-    }, { todo: 0, inprogress: 0, done: 0 });
+    }, { todo: 0, inprogress: 0 });
+
     adminCharts.statusChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: ['Por Hacer', 'En Progreso', 'Completadas'],
+            labels: ['Por Hacer', 'En Progreso'],
             datasets: [{
-                data: [statusCounts.todo, statusCounts.inprogress, statusCounts.done],
-                backgroundColor: ['#f59e0b', '#3b82f6', '#22c55e'],
+                data: [statusCounts.todo, statusCounts.inprogress],
+                backgroundColor: ['#f59e0b', '#3b82f6'],
                 borderColor: '#ffffff',
                 borderWidth: 2,
             }]
@@ -1641,11 +1656,14 @@ function renderStatusChart(tasks) {
 function renderPriorityChart(tasks) {
     const ctx = document.getElementById('priority-chart')?.getContext('2d');
     if (!ctx) return;
-    const priorityCounts = tasks.reduce((acc, task) => {
+
+    const activeTasks = tasks.filter(t => t.status !== 'done');
+    const priorityCounts = activeTasks.reduce((acc, task) => {
         const priority = task.priority || 'medium';
         acc[priority] = (acc[priority] || 0) + 1;
         return acc;
     }, { low: 0, medium: 0, high: 0 });
+
     adminCharts.priorityChart = new Chart(ctx, {
         type: 'pie',
         data: {
@@ -1706,7 +1724,7 @@ let adminTaskViewState = {
         searchTerm: '',
         user: 'all',
         priority: 'all',
-        status: 'all'
+        status: 'active'
     },
     sort: {
         by: 'createdAt',
@@ -1902,7 +1920,11 @@ function renderFilteredAdminTaskTable() {
     if (searchTerm) filteredTasks = filteredTasks.filter(t => t.title.toLowerCase().includes(searchTerm) || (t.description && t.description.toLowerCase().includes(searchTerm)));
     if (user !== 'all') filteredTasks = filteredTasks.filter(t => t.assigneeUid === user);
     if (priority !== 'all') filteredTasks = filteredTasks.filter(t => (t.priority || 'medium') === priority);
-    if (status !== 'all') filteredTasks = filteredTasks.filter(t => (t.status || 'todo') === status);
+    if (status === 'active') {
+        filteredTasks = filteredTasks.filter(t => t.status !== 'done');
+    } else if (status !== 'all') {
+        filteredTasks = filteredTasks.filter(t => (t.status || 'todo') === status);
+    }
 
     const { by, order } = adminTaskViewState.sort;
     filteredTasks.sort((a, b) => {
@@ -2263,18 +2285,8 @@ function runKanbanBoardLogic() {
     renderTaskFilters();
     fetchAndRenderTasks();
 
-    if (appState.currentUser.role === 'admin') {
-        const headerButtons = document.getElementById('kanban-header-buttons');
-        if(headerButtons){
-             const adminButton = document.createElement('button');
-             adminButton.id = 'go-to-admin-view-btn';
-             adminButton.className = 'bg-slate-700 text-white px-5 py-2.5 rounded-full hover:bg-slate-800 flex items-center shadow-md transition-transform transform hover:scale-105 flex-shrink-0';
-             adminButton.innerHTML = `<i data-lucide="shield-check" class="mr-2 h-5 w-5"></i>Vista de Administrador`;
-             headerButtons.appendChild(adminButton);
-             lucide.createIcons();
-             adminButton.addEventListener('click', runAdminDashboard);
-        }
-    }
+    // The admin button is no longer needed as the entry point is unified.
+    // Admins can switch between dashboard and board using the back button.
 
     // 4. Cleanup logic
     appState.currentViewCleanup = () => {
