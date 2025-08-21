@@ -464,8 +464,15 @@ function deleteItem(docId) {
 
 async function clearAllCollections() {
     showToast('Limpiando base de datos actual...', 'info', 5000);
-    const collectionNames = Object.keys(COLLECTIONS);
+    // Usar Object.values para obtener los nombres de colección correctos (ej: "productos")
+    // en lugar de las claves del objeto (ej: "PRODUCTOS").
+    const collectionNames = Object.values(COLLECTIONS);
     for (const name of collectionNames) {
+        // No borrar la colección de usuarios para preservar las cuentas existentes.
+        if (name === COLLECTIONS.USUARIOS) {
+            console.log(`Se omite la limpieza de la colección '${name}' para preservar los usuarios.`);
+            continue;
+        }
         try {
             const collectionRef = collection(db, name);
             const snapshot = await getDocs(collectionRef);
@@ -487,16 +494,24 @@ async function clearAllCollections() {
 
 async function seedDatabase() {
     await clearAllCollections();
-    showToast('Iniciando carga de datos de prueba...', 'info');
+    showToast('Iniciando carga de datos de prueba completos...', 'info');
     const batch = writeBatch(db);
 
-    // Helper para crear un nuevo documento en el batch
+    // Helper para crear un nuevo documento en el batch con un ID predefinido
     const setInBatch = (collectionName, data) => {
-        const docRef = doc(collection(db, collectionName), data.id);
+        // Usamos el campo 'id' de los datos como el ID del documento de Firestore
+        const docRef = doc(db, collectionName, data.id);
         batch.set(docRef, data);
     };
 
-    // Datos de ejemplo
+    // Helper para añadir un documento con un ID autogenerado por Firestore
+    const addInBatch = (collectionName, data) => {
+        const docRef = doc(collection(db, collectionName));
+        batch.set(docRef, data);
+    };
+
+    // --- DATOS DE PRUEBA ---
+
     const clientes = [
         { id: 'C001', descripcion: 'Cliente Automotriz Global' },
         { id: 'C002', descripcion: 'Cliente Industrial Pesado' },
@@ -513,6 +528,16 @@ async function seedDatabase() {
         { id: 'l', descripcion: 'Litros' },
         { id: 'm2', descripcion: 'Metros Cuadrados' },
     ];
+     const sectores = [
+        { id: 'ingenieria', descripcion: 'Ingeniería de Producto', icon: 'pencil-ruler' },
+        { id: 'calidad', descripcion: 'Control de Calidad', icon: 'award' },
+        { id: 'produccion', descripcion: 'Producción', icon: 'factory' },
+        { id: 'logistica', descripcion: 'Logística y Almacén', icon: 'truck' },
+    ];
+    const proyectos = [
+        { id: 'PROJ-A', codigo: 'PROJ-A', nombre: 'Proyecto Halcón', descripcion: 'Desarrollo de nuevo sistema de suspensión para vehículos 4x4.' },
+        { id: 'PROJ-B', codigo: 'PROJ-B', nombre: 'Proyecto Titán', descripcion: 'Optimización de componentes de motor para reducción de emisiones.' },
+    ];
     const insumos = [
         { id: 'INS001', descripcion: 'Chapa de Acero 2mm', material: 'Acero', proveedorId: 'P001', unidadMedidaId: 'm2', costo: 25.50 },
         { id: 'INS002', descripcion: 'Polipropileno en Grano', material: 'Plástico', proveedorId: 'P002', unidadMedidaId: 'kg', costo: 3.20 },
@@ -526,12 +551,12 @@ async function seedDatabase() {
         { id: 'SUB004', descripcion: 'Ensamblaje Carcasas', peso_gr: 930, tiempo_ciclo_seg: 90 },
     ];
 
-    // Producto final con su estructura de árbol
     const productoPrincipal = {
         id: 'PROD001',
         descripcion: 'Ensamblaje de Soporte de Motor Delantero',
         codigo_cliente: 'CLI-558-A',
         clienteId: 'C001',
+        proyectoId: 'PROJ-A', // Asociado a un proyecto
         version: '3.1',
         createdAt: new Date(),
         estructura: [
@@ -571,19 +596,105 @@ async function seedDatabase() {
         ]
     };
 
+    const productoSecundario = {
+        id: 'PROD002',
+        descripcion: 'Inyector de combustible optimizado',
+        codigo_cliente: 'CLI-720-C',
+        clienteId: 'C002',
+        proyectoId: 'PROJ-B',
+        version: '1.0',
+        createdAt: new Date(),
+        estructura: [
+            {
+                id: 'comp_root_prod002',
+                refId: 'PROD002',
+                tipo: 'producto',
+                icon: 'package',
+                children: [
+                    {
+                        id: 'comp_sub002_p2', refId: 'SUB002', tipo: 'subproducto', icon: 'box', quantity: 2,
+                        children: [
+                            { id: 'comp_ins002_p2', refId: 'INS002', tipo: 'insumo', icon: 'beaker', quantity: 0.9, children: [] }
+                        ]
+                    },
+                    { id: 'comp_ins003_p2', refId: 'INS003', tipo: 'insumo', icon: 'beaker', quantity: 4, children: [] }
+                ]
+            }
+        ]
+    };
+
+    // Obtener UIDs de usuarios para asignar tareas
+    const users = appState.collections.usuarios || [];
+    const currentUserUid = appState.currentUser?.uid;
+    const otherUser = users.find(u => u.docId !== currentUserUid);
+    const otherUserUid = otherUser?.docId;
+
+    const tareas = [];
+    if (currentUserUid) {
+        tareas.push({
+            title: 'Revisar diseño de Soporte Motor (PROD001)',
+            description: 'Verificar que el diseño 3D cumpla con las especificaciones del cliente C001 y los requerimientos del Proyecto Halcón.',
+            status: 'todo',
+            priority: 'high',
+            creatorUid: currentUserUid,
+            assigneeUid: currentUserUid,
+            isPublic: true,
+            createdAt: new Date(new Date().setDate(new Date().getDate() - 5)),
+            dueDate: new Date(new Date().setDate(new Date().getDate() + 10)).toISOString().split('T')[0],
+            subtasks: [
+                { id: `sub_${Date.now()}_1`, title: 'Analizar plano 2D', completed: true },
+                { id: `sub_${Date.now()}_2`, title: 'Correr simulación FEA', completed: false },
+                { id: `sub_${Date.now()}_3`, title: 'Documentar resultados', completed: false },
+            ]
+        });
+        tareas.push({
+            title: 'Cotizar material INS002',
+            description: 'Pedir cotización actualizada a Plásticos Industriales SRL para el polipropileno en grano. Necesario para PROD002.',
+            status: 'inprogress',
+            priority: 'medium',
+            creatorUid: currentUserUid,
+            assigneeUid: otherUserUid || currentUserUid, // Asignar a otro usuario si existe
+            isPublic: true,
+            createdAt: new Date(new Date().setDate(new Date().getDate() - 2)),
+            dueDate: new Date(new Date().setDate(new Date().getDate() + 5)).toISOString().split('T')[0],
+            subtasks: []
+        });
+        tareas.push({
+            title: 'Organizar reunión de kickoff Proyecto Titán',
+            description: 'Coordinar con todos los stakeholders para el inicio del proyecto.',
+            status: 'done',
+            priority: 'low',
+            creatorUid: currentUserUid,
+            assigneeUid: currentUserUid,
+            isPublic: false, // Tarea privada
+            createdAt: new Date(new Date().setDate(new Date().getDate() - 10)),
+            dueDate: new Date(new Date().setDate(new Date().getDate() - 8)).toISOString().split('T')[0],
+            subtasks: [
+                { id: `sub_${Date.now()}_4`, title: 'Definir agenda', completed: true },
+                { id: `sub_${Date.now()}_5`, title: 'Enviar invitaciones', completed: true },
+            ]
+        });
+    }
+
     // Añadir todo al batch
     try {
         clientes.forEach(c => setInBatch(COLLECTIONS.CLIENTES, c));
         proveedores.forEach(p => setInBatch(COLLECTIONS.PROVEEDORES, p));
         unidades.forEach(u => setInBatch(COLLECTIONS.UNIDADES, u));
+        sectores.forEach(s => setInBatch(COLLECTIONS.SECTORES, s));
+        proyectos.forEach(p => setInBatch(COLLECTIONS.PROYECTOS, p));
         insumos.forEach(i => setInBatch(COLLECTIONS.INSUMOS, i));
         subproductos.forEach(s => setInBatch(COLLECTIONS.SUBPRODUCTOS, s));
         setInBatch(COLLECTIONS.PRODUCTOS, productoPrincipal);
+        setInBatch(COLLECTIONS.PRODUCTOS, productoSecundario);
+
+        // Añadir tareas con ID autogenerado
+        tareas.forEach(t => addInBatch(COLLECTIONS.TAREAS, t));
 
         await batch.commit();
-        showToast('Datos de prueba cargados exitosamente.', 'success');
-        // Forzar actualización del dashboard y vistas
-        if (appState.currentView === 'dashboard') runDashboardLogic();
+        showToast('Datos de prueba completos cargados exitosamente.', 'success');
+
+        // Forzar actualización de la vista
         switchView('dashboard');
 
     } catch (error) {
