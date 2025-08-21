@@ -462,7 +462,31 @@ function deleteItem(docId) {
     );
 }
 
+async function clearAllCollections() {
+    showToast('Limpiando base de datos actual...', 'info', 5000);
+    const collectionNames = Object.keys(COLLECTIONS);
+    for (const name of collectionNames) {
+        try {
+            const collectionRef = collection(db, name);
+            const snapshot = await getDocs(collectionRef);
+            if (snapshot.empty) continue;
+
+            const batch = writeBatch(db);
+            snapshot.docs.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+            await batch.commit();
+            console.log(`Colección '${name}' limpiada.`);
+        } catch (error) {
+            console.error(`Error limpiando la colección ${name}:`, error);
+            showToast(`Error al limpiar la colección ${name}.`, 'error');
+        }
+    }
+    showToast('Limpieza de base de datos completada.', 'success');
+}
+
 async function seedDatabase() {
+    await clearAllCollections();
     showToast('Iniciando carga de datos de prueba...', 'info');
     const batch = writeBatch(db);
 
@@ -3793,7 +3817,7 @@ function runSinopticoTabularLogic() {
                 let prefix = lineage.map(parentIsNotLast => parentIsNotLast ? '│&nbsp;&nbsp;&nbsp;&nbsp;' : '&nbsp;&nbsp;&nbsp;&nbsp;').join('');
                 if (level > 0)  prefix += isLast ? '└─ ' : '├─ ';
 
-                const cantidad = node.tipo === 'producto' ? NA : (node.quantity ?? NA);
+                const cantidad = node.quantity ?? NA;
                 let unidad = NA, proveedor = NA, material = NA;
 
                 if (node.tipo === 'insumo') {
