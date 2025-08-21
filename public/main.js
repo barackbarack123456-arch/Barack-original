@@ -3479,8 +3479,20 @@ function renderCaratula(producto, cliente) {
 }
 
 function openSinopticoEditModal(nodeId) {
-    const product = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.docId === appState.sinopticoState.activeTreeDocId);
-    if (!product) return;
+    const activeProductDocId = appState.currentView === 'sinoptico_tabular'
+        ? appState.sinopticoTabularState?.selectedProduct?.docId
+        : appState.sinopticoState?.activeTreeDocId;
+
+    if (!activeProductDocId) {
+        showToast('Error: No hay un producto activo seleccionado.', 'error');
+        return;
+    }
+
+    const product = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.docId === activeProductDocId);
+    if (!product) {
+        showToast('Error: Producto no encontrado en la colección.', 'error');
+        return;
+    }
     const node = findNode(nodeId, product.estructura);
     if (!node) return;
 
@@ -3536,7 +3548,16 @@ async function handleSinopticoFormSubmit(e) {
         return;
     }
 
-    const product = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.docId === appState.sinopticoState.activeTreeDocId);
+    const activeProductDocId = appState.currentView === 'sinoptico_tabular'
+        ? appState.sinopticoTabularState?.selectedProduct?.docId
+        : appState.sinopticoState?.activeTreeDocId;
+
+    if (!activeProductDocId) {
+        showToast('Error: No se pudo encontrar el producto activo.', 'error');
+        return;
+    }
+    const product = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.docId === activeProductDocId);
+
     if (!product) {
         showToast('Error: No se pudo encontrar el producto activo.', 'error');
         return;
@@ -3559,8 +3580,12 @@ async function handleSinopticoFormSubmit(e) {
 
             document.getElementById(form.closest('.fixed').id).remove();
 
-            renderTree();
-            renderDetailView(nodeId);
+            if (appState.currentView === 'sinoptico_tabular') {
+                runSinopticoTabularLogic();
+            } else {
+                renderTree();
+                renderDetailView(nodeId);
+            }
         } catch (error) {
             console.error("Error saving sinoptico node:", error);
             showToast('Error al guardar los cambios.', 'error');
