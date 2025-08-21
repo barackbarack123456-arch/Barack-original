@@ -950,7 +950,9 @@ function handleGlobalClick(e) {
     if (!target.closest('#export-menu-container')) document.getElementById('export-dropdown')?.classList.add('hidden'); 
     if (!target.closest('#type-filter-btn')) document.getElementById('type-filter-dropdown')?.classList.add('hidden'); 
     if (!target.closest('#add-client-filter-btn')) document.getElementById('add-client-filter-dropdown')?.classList.add('hidden');
-    if (!e.target.closest('#level-filter-btn')) document.getElementById('level-filter-dropdown')?.classList.add('hidden');
+    if (!e.target.closest('#level-filter-btn') && !e.target.closest('#level-filter-dropdown')) {
+        document.getElementById('level-filter-dropdown')?.classList.add('hidden');
+    }
     
     if(target.closest('#user-menu-button')) { userDropdown?.classList.toggle('hidden'); }
     if(target.closest('#logout-button')) { e.preventDefault(); logOutUser(); }
@@ -3783,96 +3785,78 @@ function runSinopticoLogic() {
 }
 
 const getFlattenedData = (product, levelFilters) => {
-    const flattenedData = [];
-
-    // If no filter is applied, run the original logic
-    if (!levelFilters || levelFilters.size === 0) {
-        function flattenTree(nodes, level, lineage) {
-            nodes.forEach((node, index) => {
-                const isLast = index === nodes.length - 1;
-                const collectionName = node.tipo + 's';
-                const item = appState.collectionsById[collectionName]?.get(node.refId);
-                if (!item) return;
-                flattenedData.push({ node, item, level, isLast, lineage });
-                if (node.children && node.children.length > 0) {
-                    flattenTree(node.children, level + 1, [...lineage, !isLast]);
-                }
-            });
-        }
-        if (product && product.estructura) {
-            flattenTree(product.estructura, 0, []);
-        }
-        return flattenedData;
-    }
-
-    // New logic for filtered levels
-    const sortedSelectedLevels = [...levelFilters].map(Number).sort((a, b) => a - b);
-
-    function findNextLevelNodes(startNode, startLevel, targetLevels) {
-        const results = [];
-        if (!startNode.children) return results;
-
-        const nextTargetLevel = targetLevels[0];
-        if (nextTargetLevel === undefined) return results;
-
-        function search(nodes, currentLevel) {
-            for (const node of nodes) {
-                if (currentLevel === nextTargetLevel) {
-                    results.push(node);
-                } else if (currentLevel < nextTargetLevel && node.children) {
-                    search(node.children, currentLevel + 1);
-                }
-            }
-        }
-        search(startNode.children, startLevel + 1);
-        return results;
-    }
-
-    function flattenFilteredTree(nodes, currentLevel, targetLevels, lineage) {
-        const targetLevelIndex = sortedSelectedLevels.indexOf(currentLevel);
-        if (targetLevelIndex === -1) return;
-
+    // Helper to flatten a tree structure for display
+    const flattenTree = (nodes, level, lineage) => {
+        const result = [];
         nodes.forEach((node, index) => {
+            const isLast = index === nodes.length - 1;
             const collectionName = node.tipo + 's';
             const item = appState.collectionsById[collectionName]?.get(node.refId);
             if (!item) return;
-
-            const remainingTargetLevels = targetLevels.slice(targetLevelIndex + 1);
-            const childrenToShow = findNextLevelNodes(node, currentLevel, remainingTargetLevels);
-
-            const isLastInUI = childrenToShow.length === 0;
-            const isLast = index === nodes.length - 1;
-
-            // The "displayLevel" is the index in the sorted selected levels array
-            flattenedData.push({ node, item, level: targetLevelIndex, isLast, lineage });
-
-            if (childrenToShow.length > 0) {
-                flattenFilteredTree(childrenToShow, remainingTargetLevels[0], sortedSelectedLevels, [...lineage, !isLast]);
+            result.push({ node, item, level, isLast, lineage });
+            if (node.children && node.children.length > 0) {
+                result.push(...flattenTree(node.children, level + 1, [...lineage, !isLast]));
             }
         });
+        return result;
+    };
+
+    // If no filter is applied, run the original logic
+    if (!product || !product.estructura) return [];
+    if (!levelFilters || levelFilters.size === 0) {
+        return flattenTree(product.estructura, 0, []);
     }
 
-    if (product && product.estructura) {
-        const rootLevel = sortedSelectedLevels[0];
-        let initialNodes = [];
-        // Find the nodes at the first selected level
-        function findInitialNodes(nodes, currentLevel) {
-            for(const node of nodes) {
-                if (currentLevel === rootLevel) {
-                    initialNodes.push(node);
-                } else if (currentLevel < rootLevel && node.children) {
-                    findInitialNodes(node.children, currentLevel + 1);
+    // --- New, robust logic for filtered levels ---
+    const sortedSelectedLevels = [...levelFilters].map(Number).sort((a, b) => a - b);
+
+    // Recursively finds the next set of visible descendants for a given node
+    const findVisibleDescendants = (parentNode, parentLevel) => {
+        const results = [];
+        if (!parentNode.children) return results;
+
+        const nextTargetLevel = sortedSelectedLevels.find(l => l > parentLevel);
+        if (nextTargetLevel === undefined) return [];
+
+        function search(nodes, currentLevel) {
+            nodes.forEach(node => {
+                if (currentLevel === nextTargetLevel) {
+                    const newNode = { ...node }; // Create a copy to avoid modifying the original structure
+                    newNode.children = findVisibleDescendants(node, currentLevel);
+                    results.push(newNode);
+                } else if (currentLevel < nextTargetLevel && node.children) {
+                    search(node.children, currentLevel + 1);
+                }
+            });
+        }
+
+        search(parentNode.children, parentLevel + 1);
+        return results;
+    };
+
+    // Builds the initial filtered tree, starting from the original structure
+    const buildFilteredTree = (nodes, currentLevel) => {
+        const result = [];
+        nodes.forEach(node => {
+            if (sortedSelectedLevels.includes(currentLevel)) {
+                // This node is visible. Keep it and find its filtered children.
+                const newNode = { ...node };
+                newNode.children = findVisibleDescendants(node, currentLevel);
+                result.push(newNode);
+            } else {
+                // This node is not visible. Skip it, but check its children.
+                if (node.children) {
+                    result.push(...buildFilteredTree(node.children, currentLevel + 1));
                 }
             }
-        }
-        findInitialNodes(product.estructura, 0);
+        });
+        return result;
+    };
 
-        if (initialNodes.length > 0) {
-            flattenFilteredTree(initialNodes, rootLevel, sortedSelectedLevels, []);
-        }
-    }
+    const filteredEstructura = buildFilteredTree(product.estructura, 0);
 
-    return flattenedData;
+    // Pass 2: Flatten the newly created filtered tree
+    return flattenTree(filteredEstructura, 0, []);
 };
 
 function runSinopticoTabularLogic() {
