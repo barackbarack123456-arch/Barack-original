@@ -4062,7 +4062,8 @@ function runSinopticoTabularLogic() {
 
                 const tableContainer = document.getElementById('sinoptico-tabular-container');
                 if (tableContainer) {
-                    // 1. Show loading state
+                    // 1. Store scroll position & show loading state
+                    const savedScrollY = window.scrollY;
                     tableContainer.innerHTML = `
                         <div class="flex items-center justify-center p-16 text-slate-500">
                             <i data-lucide="loader" class="animate-spin h-8 w-8 mr-3"></i>
@@ -4071,17 +4072,25 @@ function runSinopticoTabularLogic() {
                     `;
                     lucide.createIcons();
 
-                    // Use a timeout to ensure the loading indicator renders before data processing
-                    setTimeout(() => {
-                        // 2. Process data and render new table
+                    // 2. Set up promises for minimum delay and data processing
+                    const minDelayPromise = new Promise(resolve => setTimeout(resolve, 400));
+
+                    const processDataPromise = new Promise(resolve => {
                         const product = state.selectedProduct;
                         const flattenedData = getFlattenedData(product, state.activeFilters.niveles);
                         const newTableHTML = renderTabularTable(flattenedData);
+                        resolve(newTableHTML);
+                    });
 
-                        // 3. Update table container
+                    // 3. Wait for both to complete
+                    Promise.all([minDelayPromise, processDataPromise]).then(([_, newTableHTML]) => {
+                        // 4. Render new table
                         tableContainer.innerHTML = newTableHTML;
                         lucide.createIcons();
-                    }, 50);
+
+                        // 5. Restore scroll position
+                        window.scrollTo(0, savedScrollY);
+                    });
                 }
                 break;
             case 'export-sinoptico-pdf':
