@@ -79,7 +79,7 @@ const viewConfig = {
         singular: 'Producto',
         dataKey: COLLECTIONS.PRODUCTOS,
         columns: [
-            { key: 'numero_pieza', label: 'Nº Pieza' },
+            { key: 'codigo_pieza', label: 'Código de pieza' },
             { key: 'descripcion', label: 'Descripción' },
             { key: 'version_vehiculo', label: 'Versión Vehículo' },
         ],
@@ -87,7 +87,7 @@ const viewConfig = {
             { key: 'lc_kd', label: 'LC / KD', type: 'select', options: ['LC', 'KD'], required: true },
             { key: 'version_vehiculo', label: 'Versión del Vehículo', type: 'text', required: true },
             { key: 'descripcion', label: 'Descripción', type: 'textarea', required: true },
-            { key: 'numero_pieza', label: 'Número de Pieza', type: 'text', required: true },
+            { key: 'codigo_pieza', label: 'Código de pieza', type: 'text', required: true },
             { key: 'version', label: 'Versión', type: 'text' },
             { key: 'imagen', label: 'Imágen (URL)', type: 'text' },
             { key: 'fecha_modificacion', label: 'Fecha de Modificación', type: 'date' },
@@ -98,14 +98,14 @@ const viewConfig = {
         singular: 'Semiterminado',
         dataKey: COLLECTIONS.SEMITERMINADOS,
         columns: [
-            { key: 'numero_pieza', label: 'Nº Pieza' },
+            { key: 'codigo_pieza', label: 'Código de pieza' },
             { key: 'descripcion', label: 'Descripción' },
             { key: 'proceso', label: 'Proceso' },
         ],
         fields: [
             { key: 'lc_kd', label: 'LC / KD', type: 'select', options: ['LC', 'KD'], required: true },
             { key: 'descripcion', label: 'Descripción', type: 'textarea', required: true },
-            { key: 'numero_pieza', label: 'Número de Pieza', type: 'text', required: true },
+            { key: 'codigo_pieza', label: 'Código de pieza', type: 'text', required: true },
             { key: 'version', label: 'Versión', type: 'text' },
             { key: 'imagen', label: 'Imágen (URL)', type: 'text' },
             { key: 'proceso', label: 'Proceso', type: 'select', searchKey: COLLECTIONS.PROCESOS, required: true },
@@ -120,14 +120,14 @@ const viewConfig = {
         singular: 'Insumo',
         dataKey: COLLECTIONS.INSUMOS,
         columns: [
-            { key: 'numero_pieza', label: 'Nº Pieza' },
+            { key: 'codigo_pieza', label: 'Código de pieza' },
             { key: 'descripcion', label: 'Descripción' },
             { key: 'proveedor', label: 'Proveedor' },
         ],
         fields: [
             { key: 'lc_kd', label: 'LC / KD', type: 'select', options: ['LC', 'KD'], required: true },
             { key: 'descripcion', label: 'Descripción', type: 'textarea', required: true },
-            { key: 'numero_pieza', label: 'Número de Pieza', type: 'text', required: true },
+            { key: 'codigo_pieza', label: 'Código de pieza', type: 'text', required: true },
             { key: 'version', label: 'Versión', type: 'text' },
             { key: 'imagen', label: 'Imágen (URL)', type: 'text' },
             { key: 'proveedor', label: 'Proveedor', type: 'select', searchKey: COLLECTIONS.PROVEEDORES, required: true },
@@ -538,21 +538,21 @@ async function seedDatabase() {
         { id: 'PROJ-B', codigo: 'PROJ-B', nombre: 'Proyecto Titán', descripcion: 'Optimización de componentes de motor para reducción de emisiones.' },
     ];
     const insumos = [
-        { id: 'INS001', numero_pieza: 'INS001', lc_kd: 'LC', descripcion: 'Chapa de Acero 2mm', version: '1.0', proveedor: 'P001', unidad_medida: 'm2', costo: 25.50, fecha_modificacion: '2023-10-01', imagen: 'https://images.pexels.com/photos/38293/metal-panels-metal-structure-steel-38293.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1' },
-        { id: 'INS002', numero_pieza: 'INS002', lc_kd: 'LC', descripcion: 'Polipropileno en Grano', version: '2.1', proveedor: 'P002', unidad_medida: 'kg', costo: 3.20, fecha_modificacion: '2023-11-15', imagen: 'https://static.interplas.com/product-images/polypropylene-homopolymer-pellets-1000x1000.jpg' },
-        { id: 'INS003', numero_pieza: 'INS003', lc_kd: 'KD', descripcion: 'Tornillo Allen M5', version: '1.0', proveedor: 'P003', unidad_medida: 'un', costo: 0.15, fecha_modificacion: '2023-09-20', imagen: 'https://www.pdq-s.com/wp-content/uploads/2022/01/Socket-Head-Cap-Screw.jpg' },
-        { id: 'INS004', numero_pieza: 'INS004', lc_kd: 'LC', descripcion: 'Pintura Epoxi Negra', version: '3.0', proveedor: 'P002', unidad_medida: 'l', costo: 15.00, fecha_modificacion: '2024-01-05', imagen: 'https://www.masterbond.com/sites/default/files/images/products/main_ep30-2.jpg' },
+        { id: 'INS001', codigo_pieza: 'INS001', lc_kd: 'LC', descripcion: 'Chapa de Acero 2mm', version: '1.0', proveedor: 'P001', unidad_medida: 'm2', costo: 25.50, fecha_modificacion: '2023-10-01', imagen: 'https://images.pexels.com/photos/38293/metal-panels-metal-structure-steel-38293.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1' },
+        { id: 'INS002', codigo_pieza: 'INS002', lc_kd: 'LC', descripcion: 'Polipropileno en Grano', version: '2.1', proveedor: 'P002', unidad_medida: 'kg', costo: 3.20, fecha_modificacion: '2023-11-15', imagen: 'https://static.interplas.com/product-images/polypropylene-homopolymer-pellets-1000x1000.jpg' },
+        { id: 'INS003', codigo_pieza: 'INS003', lc_kd: 'KD', descripcion: 'Tornillo Allen M5', version: '1.0', proveedor: 'P003', unidad_medida: 'un', costo: 0.15, fecha_modificacion: '2023-09-20', imagen: 'https://www.pdq-s.com/wp-content/uploads/2022/01/Socket-Head-Cap-Screw.jpg' },
+        { id: 'INS004', codigo_pieza: 'INS004', lc_kd: 'LC', descripcion: 'Pintura Epoxi Negra', version: '3.0', proveedor: 'P002', unidad_medida: 'l', costo: 15.00, fecha_modificacion: '2024-01-05', imagen: 'https://www.masterbond.com/sites/default/files/images/products/main_ep30-2.jpg' },
     ];
     const semiterminados = [
-        { id: 'SUB001', numero_pieza: 'SUB001', lc_kd: 'LC', descripcion: 'Soporte Metálico Principal', version: '1.2', proceso: 'estampado', aspecto: 'Crítico', peso_gr: 1200, tolerancia_gr: 50, fecha_modificacion: '2024-01-10', imagen: 'https://www.shutterstock.com/image-photo/metal-stamping-part-automotive-industry-600nw-2160938473.jpg' },
-        { id: 'SUB002', numero_pieza: 'SUB002', lc_kd: 'LC', descripcion: 'Carcasa Plástica Superior', version: '2.0', proceso: 'inyeccion', aspecto: 'No Crítico', peso_gr: 450, tolerancia_gr: 10, fecha_modificacion: '2024-01-12', imagen: 'https://www.revpart.com/wp-content/uploads/2021/04/injection-molding-complex-parts.jpg' },
-        { id: 'SUB003', numero_pieza: 'SUB003', lc_kd: 'LC', descripcion: 'Carcasa Plástica Inferior', version: '2.0', proceso: 'inyeccion', aspecto: 'No Crítico', peso_gr: 480, tolerancia_gr: 10, fecha_modificacion: '2024-01-12', imagen: 'https://www.machinedesign.com/source/objects/sites/machinedesign.com/files/styles/facebook_og_image/public/injection-molded-parts-promo.jpg?itok=z2bLzH-1' },
-        { id: 'SUB004', numero_pieza: 'SUB004', lc_kd: 'LC', descripcion: 'Ensamblaje Carcasas', version: '1.0', proceso: 'ensamblaje', aspecto: 'No Crítico', peso_gr: 930, tolerancia_gr: 20, fecha_modificacion: '2024-01-15', imagen: 'https://t4.ftcdn.net/jpg/05/52/63/33/360_F_552633333_sA2m5s4sYJ5b2yV4IIM2Tjhz2K3A4lus.jpg' },
+        { id: 'SUB001', codigo_pieza: 'SUB001', lc_kd: 'LC', descripcion: 'Soporte Metálico Principal', version: '1.2', proceso: 'estampado', aspecto: 'Crítico', peso_gr: 1200, tolerancia_gr: 50, fecha_modificacion: '2024-01-10', imagen: 'https://www.shutterstock.com/image-photo/metal-stamping-part-automotive-industry-600nw-2160938473.jpg' },
+        { id: 'SUB002', codigo_pieza: 'SUB002', lc_kd: 'LC', descripcion: 'Carcasa Plástica Superior', version: '2.0', proceso: 'inyeccion', aspecto: 'No Crítico', peso_gr: 450, tolerancia_gr: 10, fecha_modificacion: '2024-01-12', imagen: 'https://www.revpart.com/wp-content/uploads/2021/04/injection-molding-complex-parts.jpg' },
+        { id: 'SUB003', codigo_pieza: 'SUB003', lc_kd: 'LC', descripcion: 'Carcasa Plástica Inferior', version: '2.0', proceso: 'inyeccion', aspecto: 'No Crítico', peso_gr: 480, tolerancia_gr: 10, fecha_modificacion: '2024-01-12', imagen: 'https://www.machinedesign.com/source/objects/sites/machinedesign.com/files/styles/facebook_og_image/public/injection-molded-parts-promo.jpg?itok=z2bLzH-1' },
+        { id: 'SUB004', codigo_pieza: 'SUB004', lc_kd: 'LC', descripcion: 'Ensamblaje Carcasas', version: '1.0', proceso: 'ensamblaje', aspecto: 'No Crítico', peso_gr: 930, tolerancia_gr: 20, fecha_modificacion: '2024-01-15', imagen: 'https://t4.ftcdn.net/jpg/05/52/63/33/360_F_552633333_sA2m5s4sYJ5b2yV4IIM2Tjhz2K3A4lus.jpg' },
     ];
 
     const productoPrincipal = {
         id: 'PROD001',
-        numero_pieza: 'PROD001',
+        codigo_pieza: 'PROD001',
         lc_kd: 'LC',
         version_vehiculo: 'SUV 4x4 Premium',
         descripcion: 'Ensamblaje de Soporte de Motor Delantero',
@@ -602,7 +602,7 @@ async function seedDatabase() {
 
     const productoSecundario = {
         id: 'PROD002',
-        numero_pieza: 'PROD002',
+        codigo_pieza: 'PROD002',
         lc_kd: 'KD',
         version_vehiculo: 'Sedan Compacto Eco',
         descripcion: 'Inyector de combustible optimizado',
@@ -3914,7 +3914,7 @@ function runSinopticoTabularLogic() {
             { key: 'comentarios', label: 'Comentarios' },
             { key: 'lc_kd', label: 'LC / KD' },
             { key: 'version_vehiculo', label: 'Versión Vehículo' },
-            { key: 'numero_pieza', label: 'Número de Pieza' },
+            { key: 'codigo_pieza', label: 'Código de pieza' },
             { key: 'version', label: 'Versión' },
             { key: 'imagen', label: 'Imágen (URL)' },
             { key: 'proceso', label: 'Proceso' },
@@ -3932,17 +3932,17 @@ function runSinopticoTabularLogic() {
         tableHTML += `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>
             <th scope="col" class="px-4 py-3">Descripción</th>
             <th scope="col" class="px-4 py-3 text-center">Nivel</th>
-            <th scope="col" class="px-4 py-3 text-center">Cantidad / Pieza</th>
             <th scope="col" class="px-4 py-3">Comentarios</th>
             <th scope="col" class="px-4 py-3 text-center">LC / KD</th>
             <th scope="col" class="px-4 py-3">Versión Vehículo</th>
-            <th scope="col" class="px-4 py-3">Número de Pieza</th>
+            <th scope="col" class="px-4 py-3">Código de pieza</th>
             <th scope="col" class="px-4 py-3 text-center">Versión</th>
             <th scope="col" class="px-4 py-3 text-center">Imágen (URL)</th>
             <th scope="col" class="px-4 py-3">Proceso</th>
             <th scope="col" class="px-4 py-3">Aspecto</th>
             <th scope="col" class="px-4 py-3 text-right">Peso (gr)</th>
             <th scope="col" class="px-4 py-3">Proveedor</th>
+            <th scope="col" class="px-4 py-3 text-center">Cantidad / Pieza</th>
             <th scope="col" class="px-4 py-3 text-center">Unidad</th>
             <th scope="col" class="px-4 py-3 text-center">Acciones</th>
         </tr></thead><tbody>`;
@@ -3963,7 +3963,7 @@ function runSinopticoTabularLogic() {
             const comentarios = node.comment ? `<span class="whitespace-normal">${node.comment}</span>` : NA;
             const lc_kd = item.lc_kd || NA;
             const version_vehiculo = node.tipo === 'producto' ? (item.version_vehiculo || NA) : NA;
-            const numero_pieza = item.numero_pieza || NA;
+            const codigo_pieza = item.codigo_pieza || NA;
             const version = item.version || NA;
             const imagen = item.imagen ? `<a href="${item.imagen}" target="_blank" class="text-blue-600 hover:underline">Ver</a>` : NA;
 
@@ -4002,17 +4002,17 @@ function runSinopticoTabularLogic() {
             tableHTML += `<tr class="bg-white border-b hover:bg-gray-100" data-node-id="${node.id}">
                 <td class="px-4 py-2 font-mono font-medium text-gray-900 whitespace-nowrap">${descripcion}</td>
                 <td class="px-4 py-2 text-center">${nivel}</td>
-                <td class="px-4 py-2 text-center">${cantidad}</td>
                 <td class="px-4 py-2">${comentarios}</td>
                 <td class="px-4 py-2 text-center">${lc_kd}</td>
                 <td class="px-4 py-2">${version_vehiculo}</td>
-                <td class="px-4 py-2">${numero_pieza}</td>
+                <td class="px-4 py-2">${codigo_pieza}</td>
                 <td class="px-4 py-2 text-center">${version}</td>
                 <td class="px-4 py-2 text-center">${imagen}</td>
                 <td class="px-4 py-2">${proceso}</td>
                 <td class="px-4 py-2">${aspecto}</td>
                 <td class="px-4 py-2 text-right">${peso_display}</td>
                 <td class="px-4 py-2">${proveedor}</td>
+                <td class="px-4 py-2 text-center">${cantidad}</td>
                 <td class="px-4 py-2 text-center">${unidad_medida}</td>
                 <td class="px-4 py-2 text-center">${actionsHTML}</td>
             </tr>`;
@@ -4305,7 +4305,7 @@ async function exportSinopticoTabularToPdf() {
     showToast('Iniciando exportación a PDF...', 'info');
 
     try {
-        const doc = new jsPDF('p', 'mm', 'a4');
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
         // 1. Render Carátula using html2canvas
         const caratulaElement = document.getElementById('caratula-container');
@@ -4324,7 +4324,7 @@ async function exportSinopticoTabularToPdf() {
 
         // 3. Prepare and render the table with jsPDF-AutoTable
         const flattenedData = getFlattenedData(product, state.activeFilters.niveles);
-        const head = [['Descripción', 'Nivel', 'Código', 'Tipo', 'Cantidad', 'Unidad', 'Proveedor', 'Material', 'Comentarios']];
+        const head = [['Descripción', 'Nivel', 'Comentarios', 'LC/KD', 'Versión Vehículo', 'Código de pieza', 'Versión', 'Proceso', 'Aspecto', 'Peso (gr)', 'Proveedor', 'Cantidad', 'Unidad']];
         const body = flattenedData.map(rowData => {
             const { node, item, level, isLast, lineage } = rowData;
             const NA = 'N/A';
@@ -4332,27 +4332,52 @@ async function exportSinopticoTabularToPdf() {
             let prefix = lineage.map(parentIsNotLast => parentIsNotLast ? '│    ' : '    ').join('');
             if (level > 0)  prefix += isLast ? '└─ ' : '├─ ';
 
+            const descripcion = prefix + (item.descripcion || item.nombre);
+            const nivel = node.originalLevel ?? level;
+            const comentarios = node.comment || '';
+            const lc_kd = item.lc_kd || NA;
+            const version_vehiculo = node.tipo === 'producto' ? (item.version_vehiculo || NA) : NA;
+            const codigo_pieza = item.codigo_pieza || NA;
+            const version = item.version || NA;
+            let proceso = NA;
+            if (node.tipo === 'semiterminado' && item.proceso) {
+                const procesoData = appState.collectionsById[COLLECTIONS.PROCESOS]?.get(item.proceso);
+                proceso = procesoData ? procesoData.descripcion : item.proceso;
+            }
+            const aspecto = node.tipo === 'semiterminado' ? (item.aspecto || NA) : NA;
+            let peso_display = NA;
+            if (node.tipo === 'semiterminado' && item.peso_gr) {
+                peso_display = item.peso_gr;
+                if (item.tolerancia_gr) {
+                    peso_display += ` ± ${item.tolerancia_gr}`;
+                }
+            }
+            let proveedor = NA;
+            if (node.tipo === 'insumo' && item.proveedor) {
+                const proveedorData = appState.collectionsById[COLLECTIONS.PROVEEDORES]?.get(item.proveedor);
+                proveedor = proveedorData ? proveedorData.descripcion : item.proveedor;
+            }
             const cantidad = node.quantity ?? NA;
-            let unidad = NA, proveedor = NA, material = NA;
-
-            if (node.tipo === 'insumo') {
-                const unidadData = item.unidadMedidaId ? appState.collectionsById[COLLECTIONS.UNIDADES].get(item.unidadMedidaId) : null;
-                unidad = unidadData ? unidadData.id : '';
-                const proveedorData = item.proveedorId ? appState.collectionsById[COLLECTIONS.PROVEEDORES].get(item.proveedorId) : null;
-                proveedor = proveedorData ? proveedorData.descripcion : '';
-                material = item.material || '';
+            let unidad_medida = NA;
+            if (node.tipo === 'insumo' && item.unidad_medida) {
+                const unidadData = appState.collectionsById[COLLECTIONS.UNIDADES]?.get(item.unidad_medida);
+                unidad_medida = unidadData ? unidadData.id : item.unidad_medida;
             }
 
             return [
-                prefix + (item.descripcion || item.nombre),
-                level,
-                item.id,
-                node.tipo,
-                cantidad,
-                unidad,
+                descripcion,
+                nivel,
+                comentarios,
+                lc_kd,
+                version_vehiculo,
+                codigo_pieza,
+                version,
+                proceso,
+                aspecto,
+                peso_display,
                 proveedor,
-                material,
-                node.comment || ''
+                cantidad,
+                unidad_medida
             ];
         });
 
@@ -4360,18 +4385,22 @@ async function exportSinopticoTabularToPdf() {
             head: head,
             body: body,
             startY: 10,
-            styles: { fontSize: 8, cellPadding: 1.5, font: 'helvetica' },
+            styles: { fontSize: 7, cellPadding: 1.5, font: 'helvetica' },
             headStyles: { fillColor: [68, 84, 106] }, // #44546A
             columnStyles: {
-                0: { cellWidth: 70 }, // Descripcion
+                0: { cellWidth: 60 }, // Descripcion
                 1: { cellWidth: 10, halign: 'center' }, // Nivel
-                2: { cellWidth: 20 }, // Codigo
-                3: { cellWidth: 15 }, // Tipo
-                4: { cellWidth: 15, halign: 'right' }, // Cantidad
-                5: { cellWidth: 10, halign: 'center' }, // Unidad
-                6: { cellWidth: 20 }, // Proveedor
-                7: { cellWidth: 20 }, // Material
-                8: { cellWidth: 'auto' } // Comentarios
+                2: { cellWidth: 40 }, // Comentarios
+                3: { cellWidth: 10, halign: 'center' }, // LC/KD
+                4: { cellWidth: 20 }, // Versión Vehículo
+                5: { cellWidth: 20 }, // Código de pieza
+                6: { cellWidth: 10, halign: 'center' }, // Versión
+                7: { cellWidth: 20 }, // Proceso
+                8: { cellWidth: 15 }, // Aspecto
+                9: { cellWidth: 15, halign: 'right' }, // Peso
+                10: { cellWidth: 20 }, // Proveedor
+                11: { cellWidth: 15, halign: 'right' }, // Cantidad
+                12: { cellWidth: 10, halign: 'center' } // Unidad
             },
             didParseCell: function (data) {
                 if (data.column.index === 0 && data.cell.section === 'body') {
