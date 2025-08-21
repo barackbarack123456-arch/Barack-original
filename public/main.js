@@ -427,6 +427,23 @@ async function saveDocument(collectionName, data, docId = null) {
     }
 }
 
+async function getLogoBase64() {
+    try {
+        const response = await fetch('logo.png');
+        if (!response.ok) return null;
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    } catch (error) {
+        console.error("Could not fetch logo.png:", error);
+        return null;
+    }
+}
+
 async function deleteDocument(collectionName, docId) {
     try {
         await deleteDoc(doc(db, collectionName, docId));
