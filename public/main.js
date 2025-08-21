@@ -2035,9 +2035,9 @@ function renderTasksTimeline() {
             zoomMin: 1000 * 60 * 60 * 24, // Un día
             zoomMax: 1000 * 60 * 60 * 24 * 30 * 6, // 6 meses
             editable: {
-                updateTime: true,
-                updateGroup: true,
-                remove: false,
+                updateTime: true, // Permite mover y cambiar el tamaño de los elementos.
+                updateGroup: true, // Permite arrastrar elementos entre grupos.
+                remove: false, // No permitir eliminar con la tecla Supr.
             },
             onMove: (item, callback) => {
                 const task = adminTaskViewState.tasks.find(t => t.docId === item.id);
@@ -2095,6 +2095,15 @@ function renderTasksTimeline() {
                 if (selectedTask) {
                     openTaskFormModal(selectedTask);
                 }
+            } else {
+                // Clicked on an empty space
+                const clickedDate = new Date(properties.time);
+                const assigneeUid = properties.group === 'unassigned' ? null : properties.group;
+
+                // Format date as YYYY-MM-DD for the input
+                const formattedDate = clickedDate.toISOString().split('T')[0];
+
+                openTaskFormModal(null, 'todo', assigneeUid, formattedDate);
             }
         });
     } catch (error) {
@@ -2144,19 +2153,34 @@ function updateTasksTimeline(tasks) {
         const items = tasksToRender
             .filter(task => (task.dueDate || task.startDate) && isGroupVisible(task.assigneeUid || 'unassigned'))
             .map(task => {
+                const assignee = appState.collectionsById.usuarios.get(task.assigneeUid);
+                const status = task.status || 'todo';
                 const priority = task.priority || 'medium';
-                const priorityColors = { high: '#ef4444', medium: '#f59e0b', low: '#64748b' };
+
+                const avatarUrl = assignee ? assignee.photoURL : `https://api.dicebear.com/8.x/identicon/svg?seed=Unassigned`;
+                const avatarImg = `<img src="${avatarUrl}" class="timeline-item-avatar" title="Asignado a: ${assignee ? assignee.name : 'Sin asignar'}">`;
+
+                const statusMap = { todo: 'Por Hacer', inprogress: 'En Progreso', done: 'Completada' };
+                const statusIndicator = `<div class="timeline-item-status status-${status}" title="Estado: ${statusMap[status]}"></div>`;
+
                 const itemContent = `
-                    <div style="display: flex; align-items: center; gap: 5px;">
-                        <div style="width: 4px; height: 16px; background-color: ${priorityColors[priority]}; border-radius: 2px; flex-shrink: 0;"></div>
-                        <div>${task.title}</div>
-                    </div>`;
+                <div class="timeline-item-content" title="${task.title}\nDescripción: ${task.description || 'N/A'}">
+                    ${statusIndicator}
+                    <div class="timeline-item-title">${task.title}</div>
+                    ${avatarImg}
+                </div>
+                `;
+
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const dueDate = task.dueDate ? new Date(task.dueDate + 'T00:00:00') : null;
+                const isOverdue = dueDate && dueDate < today && task.status !== 'done';
 
                 const item = {
                     id: task.docId,
                     content: itemContent,
                     group: task.assigneeUid || 'unassigned',
-                    className: `priority-${priority}`
+                    className: `priority-${priority} status-${status} ${isOverdue ? 'overdue' : ''}`
                 };
 
                 if (task.startDate && task.dueDate) {
@@ -2643,7 +2667,7 @@ function initTasksSortable() {
     });
 }
 
-async function openTaskFormModal(task = null, defaultStatus = 'todo', defaultAssigneeUid = null) {
+async function openTaskFormModal(task = null, defaultStatus = 'todo', defaultAssigneeUid = null, defaultDate = null) {
     const isEditing = task !== null;
 
     // Determine the UID to be pre-selected in the dropdown.
@@ -2702,11 +2726,11 @@ async function openTaskFormModal(task = null, defaultStatus = 'todo', defaultAss
                     </div>
                     <div>
                         <label for="task-startdate" class="block text-sm font-medium text-gray-700 mb-1">Fecha de Inicio</label>
-                        <input type="date" id="task-startdate" name="startDate" value="${isEditing && task.startDate ? task.startDate : ''}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                        <input type="date" id="task-startdate" name="startDate" value="${isEditing && task.startDate ? task.startDate : (defaultDate || '')}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
                     </div>
                     <div>
                         <label for="task-duedate" class="block text-sm font-medium text-gray-700 mb-1">Fecha Límite</label>
-                        <input type="date" id="task-duedate" name="dueDate" value="${isEditing && task.dueDate ? task.dueDate : ''}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                        <input type="date" id="task-duedate" name="dueDate" value="${isEditing && task.dueDate ? task.dueDate : (defaultDate || '')}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
                     </div>
                 </div>
 
