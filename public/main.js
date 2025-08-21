@@ -1449,8 +1449,8 @@ function runAdminDashboard() {
                 <button data-tab="dashboard" class="admin-task-tab active-tab group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm">
                     <i data-lucide="layout-dashboard" class="mr-2"></i><span>Dashboard</span>
                 </button>
-                <button data-tab="timeline" class="admin-task-tab group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm">
-                    <i data-lucide="calendar-clock" class="mr-2"></i><span>Línea de Tiempo</span>
+                <button data-tab="calendar" class="admin-task-tab group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm">
+                    <i data-lucide="calendar-days" class="mr-2"></i><span>Calendario</span>
                 </button>
                 <button data-tab="table" class="admin-task-tab group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm">
                     <i data-lucide="table" class="mr-2"></i><span>Tabla de Tareas</span>
@@ -1470,36 +1470,31 @@ function runAdminDashboard() {
                     </div>
                 </div>
 
-                <!-- Timeline Panel -->
-                <div id="tab-panel-timeline" class="admin-tab-panel hidden">
+                <!-- Calendar Panel -->
+                <div id="tab-panel-calendar" class="admin-tab-panel hidden">
                     <div class="bg-white p-6 rounded-xl shadow-lg">
-                         <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-lg font-bold text-slate-800">Línea de Tiempo de Tareas con Vencimiento</h3>
-                        <div class="flex items-center gap-2" id="timeline-controls">
-                                <select id="timeline-priority-filter" class="pl-4 pr-8 py-2 border rounded-full bg-white shadow-sm appearance-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+                        <div id="calendar-header" class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+                            <div class="flex items-center gap-4">
+                                <button id="prev-calendar-btn" class="p-2 rounded-full hover:bg-slate-100"><i data-lucide="chevron-left" class="h-6 w-6"></i></button>
+                                <h3 id="calendar-title" class="text-2xl font-bold text-slate-800 text-center w-48"></h3>
+                                <button id="next-calendar-btn" class="p-2 rounded-full hover:bg-slate-100"><i data-lucide="chevron-right" class="h-6 w-6"></i></button>
+                                <button id="today-calendar-btn" class="bg-slate-200 text-slate-700 px-4 py-2 rounded-md hover:bg-slate-300 text-sm font-semibold">Hoy</button>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <select id="calendar-priority-filter" class="pl-4 pr-8 py-2 border rounded-full bg-white shadow-sm appearance-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
                                     <option value="all">Prioridad (todas)</option>
                                     <option value="high">Alta</option>
                                     <option value="medium">Media</option>
                                     <option value="low">Baja</option>
                                 </select>
-                                <div class="relative">
-                                    <button id="timeline-filter-btn" class="flex items-center gap-2 bg-white border border-slate-300 px-4 py-2 rounded-md text-sm font-semibold hover:bg-slate-100 shadow-sm">
-                                        <i data-lucide="users" class="w-4 h-4"></i>
-                                        <span>Asignados</span>
-                                    </button>
-                                    <div id="timeline-filter-dropdown" class="absolute z-10 right-0 mt-2 w-72 bg-white border rounded-lg shadow-xl hidden p-4 space-y-3"></div>
+                                <div class="flex items-center gap-2 rounded-lg bg-slate-200 p-1">
+                                    <button data-view="monthly" class="calendar-view-btn px-4 py-1.5 text-sm font-semibold rounded-md">Mensual</button>
+                                    <button data-view="weekly" class="calendar-view-btn px-4 py-1.5 text-sm font-semibold rounded-md">Semanal</button>
                                 </div>
                             </div>
                         </div>
-                        <div id="tasks-timeline-wrapper" class="h-[500px] relative">
-                            <div id="tasks-timeline-container" class="h-full"></div>
-                            <div id="timeline-empty-state" class="hidden absolute inset-0 flex items-center justify-center text-slate-500 p-8 bg-white rounded-xl">
-                                <div class="text-center">
-                                    <i data-lucide="calendar-x" class="w-12 h-12 mx-auto text-slate-400"></i>
-                                    <h4 class="mt-4 font-semibold">No hay tareas para mostrar</h4>
-                                    <p class="text-sm">Intente ajustar los filtros o agregue fechas a las tareas.</p>
-                                </div>
-                            </div>
+                        <div id="calendar-grid" class="mt-6">
+                            <!-- Calendar will be rendered here -->
                         </div>
                     </div>
                 </div>
@@ -1561,25 +1556,22 @@ function runAdminDashboard() {
     });
 
     // Initial render of components
-    renderTasksTimeline(); // Initialize the timeline structure once
+    renderCalendar(); // Initialize the calendar structure once
     setupAdminTaskViewListeners();
     updateAdminDashboardData([]); // Initial call with empty data to render skeletons
 
     appState.currentViewCleanup = () => {
         unsubscribe();
         destroyAdminTaskCharts();
-        if (adminTaskViewState.timeline) {
-            adminTaskViewState.timeline.destroy();
-        }
         adminTaskViewState = {
             tasks: [],
             filters: { searchTerm: '', user: 'all', priority: 'all', status: 'all' },
             sort: { by: 'createdAt', order: 'desc' },
             pagination: { currentPage: 1, pageSize: 10 },
-            timeline: null,
-            timelineItems: null,
-            timelineGroups: null,
-            timelineVisibleGroups: null,
+            calendar: {
+                currentDate: new Date(),
+                view: 'monthly' // 'monthly' or 'weekly'
+            }
         };
     };
 }
@@ -1598,7 +1590,8 @@ function updateAdminDashboardData(tasks) {
 
     // The components below will use the globally filtered task list
     renderAdminTaskCharts(filteredTasks);
-    updateTasksTimeline(filteredTasks);
+    renderCalendar(adminTaskViewState.calendar.currentDate, adminTaskViewState.calendar.view);
+
 
     // This function has its own internal filtering based on table controls
     renderFilteredAdminTaskTable();
@@ -1723,45 +1716,11 @@ let adminTaskViewState = {
         currentPage: 1,
         pageSize: 10
     },
-    timeline: null,
-    timelineItems: null,
-    timelineGroups: null,
-    timelineVisibleGroups: null, // null means all are visible
+    calendar: {
+        currentDate: new Date(),
+        view: 'monthly' // 'monthly' or 'weekly'
+    }
 };
-
-function renderTimelineFilterDropdown() {
-    const dropdown = document.getElementById('timeline-filter-dropdown');
-    if (!dropdown) return;
-
-    const users = appState.collections.usuarios || [];
-    let content = `<div class="flex justify-between items-center border-b pb-2 mb-2">
-        <h4 class="font-bold">Asignados</h4>
-        <div>
-            <button data-action="timeline-filter-all" class="text-xs font-semibold text-blue-600 hover:underline">Todos</button> |
-            <button data-action="timeline-filter-none" class="text-xs font-semibold text-blue-600 hover:underline">Ninguno</button>
-        </div>
-    </div>`;
-
-    content += '<div class="max-h-60 overflow-y-auto custom-scrollbar pr-2">';
-    const isVisible = (userId) => adminTaskViewState.timelineVisibleGroups === null || adminTaskViewState.timelineVisibleGroups.has(userId);
-
-    users.forEach(user => {
-        content += `<label class="flex items-center gap-3 p-1.5 hover:bg-slate-100 rounded-md cursor-pointer">
-            <input type="checkbox" data-userid="${user.docId}" class="timeline-group-filter-cb" ${isVisible(user.docId) ? 'checked' : ''}>
-            <img src="${user.photoURL || `https://api.dicebear.com/8.x/identicon/svg?seed=${encodeURIComponent(user.name || user.email)}`}" class="w-6 h-6 rounded-full">
-            <span class="text-sm">${user.name || user.email}</span>
-        </label>`;
-    });
-     content += `<label class="flex items-center gap-3 p-1.5 hover:bg-slate-100 rounded-md cursor-pointer">
-        <input type="checkbox" data-userid="unassigned" class="timeline-group-filter-cb" ${isVisible('unassigned') ? 'checked' : ''}>
-        <div class="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center"><i data-lucide="user-x" class="w-4 h-4 text-slate-500"></i></div>
-        <span class="text-sm">Sin Asignar</span>
-    </label>`;
-    content += '</div>';
-
-    dropdown.innerHTML = content;
-    lucide.createIcons();
-}
 
 function setupAdminTaskViewListeners() {
     const controls = {
@@ -1776,10 +1735,7 @@ function setupAdminTaskViewListeners() {
         status: document.getElementById('admin-task-status-filter'),
         addNew: document.getElementById('add-new-task-admin-btn'),
         tableContainer: document.getElementById('task-data-table-container'),
-        // Timeline filters
-        timelineFilterBtn: document.getElementById('timeline-filter-btn'),
-        timelineFilterDropdown: document.getElementById('timeline-filter-dropdown'),
-        timelinePriorityFilter: document.getElementById('timeline-priority-filter'),
+        // Timeline filters are removed, so no controls to declare.
     };
 
     if (!controls.viewFilter) return; // Exit if the main controls aren't rendered
@@ -1872,52 +1828,71 @@ function setupAdminTaskViewListeners() {
         }
     });
 
-    if (controls.timelinePriorityFilter) {
-        controls.timelinePriorityFilter.addEventListener('change', (e) => {
-            adminTaskViewState.filters.priority = e.target.value;
-            updateTasksTimeline(adminTaskViewState.tasks);
-        });
-    }
+    // --- Calendar Controls Logic ---
+    const calendarControls = {
+        prevBtn: document.getElementById('prev-calendar-btn'),
+        nextBtn: document.getElementById('next-calendar-btn'),
+        todayBtn: document.getElementById('today-calendar-btn'),
+        viewBtns: document.querySelectorAll('.calendar-view-btn')
+    };
 
-    if (controls.timelineFilterBtn) {
-        renderTimelineFilterDropdown();
-
-        controls.timelineFilterBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            controls.timelineFilterDropdown.classList.toggle('hidden');
-        });
-
-        controls.timelineFilterDropdown.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const target = e.target;
-
-            if (target.matches('[data-action="timeline-filter-all"]')) {
-                adminTaskViewState.timelineVisibleGroups = null;
-            } else if (target.matches('[data-action="timeline-filter-none"]')) {
-                adminTaskViewState.timelineVisibleGroups = new Set();
-            } else if (target.matches('.timeline-group-filter-cb')) {
-                if (adminTaskViewState.timelineVisibleGroups === null) {
-                    const allUserIds = (appState.collections.usuarios || []).map(u => u.docId);
-                    adminTaskViewState.timelineVisibleGroups = new Set([...allUserIds, 'unassigned']);
-                }
-                const userId = target.dataset.userid;
-                if (target.checked) {
-                    adminTaskViewState.timelineVisibleGroups.add(userId);
-                } else {
-                    adminTaskViewState.timelineVisibleGroups.delete(userId);
-                }
+    if (calendarControls.prevBtn) {
+        calendarControls.prevBtn.addEventListener('click', () => {
+            const date = adminTaskViewState.calendar.currentDate;
+            if (adminTaskViewState.calendar.view === 'monthly') {
+                date.setMonth(date.getMonth() - 1);
+            } else {
+                date.setDate(date.getDate() - 7);
             }
-
-            renderTimelineFilterDropdown();
-            renderTasksTimeline(adminTaskViewState.tasks);
+            renderCalendar(date, adminTaskViewState.calendar.view);
         });
-    }
 
-    document.addEventListener('click', (e) => {
-        if (controls.timelineFilterBtn && !controls.timelineFilterBtn.contains(e.target) && !controls.timelineFilterDropdown.contains(e.target)) {
-            controls.timelineFilterDropdown.classList.add('hidden');
+        calendarControls.nextBtn.addEventListener('click', () => {
+            const date = adminTaskViewState.calendar.currentDate;
+            if (adminTaskViewState.calendar.view === 'monthly') {
+                date.setMonth(date.getMonth() + 1);
+            } else {
+                date.setDate(date.getDate() + 7);
+            }
+            renderCalendar(date, adminTaskViewState.calendar.view);
+        });
+
+        calendarControls.todayBtn.addEventListener('click', () => {
+            renderCalendar(new Date(), adminTaskViewState.calendar.view);
+        });
+
+        calendarControls.viewBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const view = btn.dataset.view;
+                renderCalendar(adminTaskViewState.calendar.currentDate, view);
+            });
+        });
+
+        const calendarPriorityFilter = document.getElementById('calendar-priority-filter');
+        if(calendarPriorityFilter) {
+            calendarPriorityFilter.addEventListener('change', (e) => {
+                adminTaskViewState.filters.priority = e.target.value;
+                renderCalendar(adminTaskViewState.calendar.currentDate, adminTaskViewState.calendar.view);
+            });
         }
-    });
+
+        const calendarGrid = document.getElementById('calendar-grid');
+        if (calendarGrid) {
+            calendarGrid.addEventListener('click', (e) => {
+                if (e.target.closest('[data-task-id]')) {
+                    return;
+                }
+                const dayCell = e.target.closest('.relative.p-2');
+                if (dayCell) {
+                    const taskList = dayCell.querySelector('.task-list[data-date]');
+                    if (taskList) {
+                        const dateStr = taskList.dataset.date;
+                        openTaskFormModal(null, 'todo', null, dateStr);
+                    }
+                }
+            });
+        }
+    }
 }
 
 function renderFilteredAdminTaskTable() {
@@ -2016,208 +1991,200 @@ function renderAdminTaskTable(tasksToRender) {
     lucide.createIcons();
 }
 
-function renderTasksTimeline() {
-    const container = document.getElementById('tasks-timeline-container');
-    if (!container) return;
+// =================================================================================
+// --- 8. LÓGICA DEL CALENDARIO ---
+// =================================================================================
+// Helper para obtener el número de la semana ISO 8601.
+Date.prototype.getWeekNumber = function() {
+  var d = new Date(Date.UTC(this.getFullYear(), this.getMonth(), this.getDate()));
+  var dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+};
 
-    // Initialize only if it doesn't exist
-    if (adminTaskViewState.timeline) return;
+function renderCalendar(date, view) {
+    if (!adminTaskViewState.calendar) return; // Don't render if state is not ready
 
-    try {
-        adminTaskViewState.timelineItems = new vis.DataSet([]);
-        adminTaskViewState.timelineGroups = new vis.DataSet([]);
+    const calendarGrid = document.getElementById('calendar-grid');
+    const calendarTitle = document.getElementById('calendar-title');
 
-        const options = {
-            locale: 'es',
-            stack: true,
-            maxHeight: '500px',
-            showCurrentTime: true,
-            zoomMin: 1000 * 60 * 60 * 24, // Un día
-            zoomMax: 1000 * 60 * 60 * 24 * 30 * 6, // 6 meses
-            editable: {
-                updateTime: true, // Permite mover y cambiar el tamaño de los elementos.
-                updateGroup: true, // Permite arrastrar elementos entre grupos.
-                remove: false, // No permitir eliminar con la tecla Supr.
-            },
-            onMove: (item, callback) => {
-                const task = adminTaskViewState.tasks.find(t => t.docId === item.id);
-                if (!task) {
-                    callback(null); // Task not found, cancel move
-                    return;
-                }
-                const user = appState.collectionsById.usuarios.get(item.group);
+    if (!calendarGrid || !calendarTitle) return;
 
-                const formatDate = (date) => new Date(date).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
-                const newStartDate = item.start;
-                // For ranges, the 'end' from vis.js is exclusive, so subtract a day to get the inclusive dueDate
-                const newDueDate = item.end ? new Date(new Date(item.end).getTime() - 86400000) : newStartDate;
+    const aDate = date || adminTaskViewState.calendar.currentDate;
+    const aView = view || adminTaskViewState.calendar.view;
 
-                let confirmationMessage = `Mover la tarea "${task.title}" a`;
-                if (item.end) {
-                    confirmationMessage += ` del ${formatDate(newStartDate)} al ${formatDate(newDueDate)}`;
-                } else {
-                    confirmationMessage += ` la fecha ${formatDate(newStartDate)}`;
-                }
+    adminTaskViewState.calendar.currentDate = aDate;
+    adminTaskViewState.calendar.view = aView;
 
-                if (task.assigneeUid !== item.group) {
-                    confirmationMessage += ` y asignarla a ${user?.name || 'Sin Asignar'}`;
-                }
-                confirmationMessage += '?';
+    // Update view switcher buttons UI
+    document.querySelectorAll('.calendar-view-btn').forEach(btn => {
+        if (btn.dataset.view === aView) {
+            btn.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
+            btn.classList.remove('text-slate-600', 'hover:bg-slate-300/50');
+        } else {
+            btn.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
+            btn.classList.add('text-slate-600', 'hover:bg-slate-300/50');
+        }
+    });
 
-                showConfirmationModal('Actualizar Tarea', confirmationMessage, async () => {
-                    const taskRef = doc(db, COLLECTIONS.TAREAS, item.id);
-                    try {
-                        const updateData = {
-                            startDate: newStartDate.toISOString().split('T')[0],
-                            dueDate: newDueDate.toISOString().split('T')[0],
-                            assigneeUid: item.group || ''
-                        };
-                        await updateDoc(taskRef, updateData);
-                        showToast('Tarea actualizada.', 'success');
-                        callback(item); // Acepta el cambio en la UI
-                    } catch (error) {
-                        console.error("Error updating task from timeline:", error);
-                        showToast('Error al actualizar la tarea.', 'error');
-                        callback(null); // Cancela el cambio en la UI
-                    }
-                }, () => {
-                    callback(null); // User cancelled, revert UI change
-                });
-            }
-        };
-
-        adminTaskViewState.timeline = new vis.Timeline(container, adminTaskViewState.timelineItems, adminTaskViewState.timelineGroups, options);
-
-        adminTaskViewState.timeline.on('doubleClick', (properties) => {
-            const taskId = properties.item;
-            if (taskId) {
-                const selectedTask = adminTaskViewState.tasks.find(t => t.docId === taskId);
-                if (selectedTask) {
-                    openTaskFormModal(selectedTask);
-                }
-            } else {
-                // Clicked on an empty space
-                const clickedDate = new Date(properties.time);
-                const assigneeUid = properties.group === 'unassigned' ? null : properties.group;
-
-                // Format date as YYYY-MM-DD for the input
-                const formattedDate = clickedDate.toISOString().split('T')[0];
-
-                openTaskFormModal(null, 'todo', assigneeUid, formattedDate);
-            }
-        });
-    } catch (error) {
-        console.error("Error initializing timeline:", error);
-        container.innerHTML = `<div class="text-red-500 p-4">Error al inicializar la línea de tiempo.</div>`;
+    if (aView === 'monthly') {
+        renderMonthlyView(aDate);
+    } else { // weekly
+        renderWeeklyView(aDate);
     }
+
+    // After rendering the grid, display tasks
+    displayTasksOnCalendar(adminTaskViewState.tasks);
 }
 
-function updateTasksTimeline(tasks) {
-    if (!adminTaskViewState.timeline) {
-        // If the timeline hasn't been initialized, do nothing.
-        // This can happen if data arrives before the DOM is ready.
-        return;
+function renderMonthlyView(date) {
+    const calendarGrid = document.getElementById('calendar-grid');
+    const calendarTitle = document.getElementById('calendar-title');
+
+    const year = date.getFullYear();
+    const month = date.getMonth();
+
+    calendarTitle.textContent = date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase());
+
+    let html = `
+        <div class="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr] gap-px bg-slate-200 border border-slate-200 rounded-lg overflow-hidden">
+            <div class="font-bold text-sm text-center py-2 bg-slate-50 text-slate-600">Sem</div>
+            <div class="font-bold text-sm text-center py-2 bg-slate-50 text-slate-600">Lunes</div>
+            <div class="font-bold text-sm text-center py-2 bg-slate-50 text-slate-600">Martes</div>
+            <div class="font-bold text-sm text-center py-2 bg-slate-50 text-slate-600">Miércoles</div>
+            <div class="font-bold text-sm text-center py-2 bg-slate-50 text-slate-600">Jueves</div>
+            <div class="font-bold text-sm text-center py-2 bg-slate-50 text-slate-600">Viernes</div>
+    `;
+
+    const firstDayOfMonth = new Date(year, month, 1);
+    const lastDayOfMonth = new Date(year, month + 1, 0);
+
+    let currentDate = new Date(firstDayOfMonth);
+    let dayOfWeek = currentDate.getDay();
+    let dateOffset = (dayOfWeek === 0) ? 6 : dayOfWeek - 1;
+    currentDate.setDate(currentDate.getDate() - dateOffset);
+
+    let weekHasContent = true;
+    while(weekHasContent) {
+        let weekNumber = currentDate.getWeekNumber();
+        html += `<div class="bg-slate-100 text-center p-2 font-bold text-slate-500 text-sm flex items-center justify-center">${weekNumber}</div>`;
+
+        let daysInThisWeekFromMonth = 0;
+        for (let i = 0; i < 5; i++) { // Monday to Friday
+            const dayClass = (currentDate.getMonth() === month) ? 'bg-white' : 'bg-slate-50 text-slate-400';
+            const dateStr = currentDate.toISOString().split('T')[0];
+            html += `
+                <div class="relative p-2 min-h-[120px] ${dayClass}">
+                    <time datetime="${dateStr}" class="font-semibold text-sm">${currentDate.getDate()}</time>
+                    <div class="task-list mt-1 space-y-1" data-date="${dateStr}"></div>
+                </div>
+            `;
+            if (currentDate.getMonth() === month) {
+                daysInThisWeekFromMonth++;
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+        currentDate.setDate(currentDate.getDate() + 2);
+
+        if (daysInThisWeekFromMonth === 0 && currentDate > lastDayOfMonth) {
+            weekHasContent = false;
+        }
     }
 
-    try {
+    html += `</div>`;
+    calendarGrid.innerHTML = html;
+}
+
+function renderWeeklyView(date) {
+    const calendarGrid = document.getElementById('calendar-grid');
+    const calendarTitle = document.getElementById('calendar-title');
+
+    let dayOfWeek = date.getDay();
+    let dateOffset = (dayOfWeek === 0) ? 6 : dayOfWeek - 1;
+    let monday = new Date(date);
+    monday.setDate(date.getDate() - dateOffset);
+
+    let friday = new Date(monday);
+    friday.setDate(monday.getDate() + 4);
+
+    const weekNumber = monday.getWeekNumber();
+    calendarTitle.textContent = `Semana ${weekNumber}`;
+
+    const dayHeaders = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+    let headerHtml = '';
+    for(let i=0; i<5; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        headerHtml += `<div class="font-bold text-sm text-center py-2 bg-slate-50 text-slate-600">${dayHeaders[i]} ${d.getDate()}</div>`;
+    }
+
+    let html = `
+        <div class="grid grid-cols-5 gap-px bg-slate-200 border border-slate-200 rounded-lg overflow-hidden">
+            ${headerHtml}
+    `;
+
+    for (let i = 0; i < 5; i++) {
+        const currentDate = new Date(monday);
+        currentDate.setDate(monday.getDate() + i);
+        const dateStr = currentDate.toISOString().split('T')[0];
+        html += `
+            <div class="relative bg-white p-2 min-h-[200px]">
+                <div class="task-list mt-1 space-y-1" data-date="${dateStr}"></div>
+            </div>
+        `;
+    }
+
+    html += `</div>`;
+    calendarGrid.innerHTML = html;
+}
+
+function displayTasksOnCalendar(tasks) {
+    // Clear any existing tasks from the calendar
+    document.querySelectorAll('#calendar-grid .task-list').forEach(list => {
+        list.innerHTML = '';
+    });
+
+    if (!tasks) return;
+
+    const tasksToDisplay = tasks.filter(task => {
         const { priority } = adminTaskViewState.filters;
-        let tasksToRender = tasks;
-        if (priority && priority !== 'all') {
-            tasksToRender = tasks.filter(t => (t.priority || 'medium') === priority);
+        if (priority !== 'all' && (task.priority || 'medium') !== priority) {
+            return false;
         }
+        return true;
+    });
 
-        const visibleGroups = adminTaskViewState.timelineVisibleGroups;
-        const isGroupVisible = (groupId) => visibleGroups === null || visibleGroups.has(groupId);
+    tasksToDisplay.forEach(task => {
+        if (task.dueDate) {
+            const taskDateStr = task.dueDate;
+            const dayCell = document.querySelector(`#calendar-grid .task-list[data-date="${taskDateStr}"]`);
 
-        // Update groups
-        const currentGroupIds = adminTaskViewState.timelineGroups.getIds();
-        const users = appState.collections.usuarios || [];
-        const newGroups = [];
-
-        if (isGroupVisible('unassigned')) {
-            newGroups.push({ id: 'unassigned', content: 'Sin Asignar' });
-        }
-        users.forEach(user => {
-            if (isGroupVisible(user.docId)) {
-                newGroups.push({ id: user.docId, content: user.name || user.email });
-            }
-        });
-
-        const newGroupIds = newGroups.map(g => g.id);
-        const groupsToRemove = currentGroupIds.filter(id => !newGroupIds.includes(id));
-
-        adminTaskViewState.timelineGroups.remove(groupsToRemove);
-        adminTaskViewState.timelineGroups.update(newGroups);
-
-        // Update items
-        const items = tasksToRender
-            .filter(task => (task.dueDate || task.startDate) && isGroupVisible(task.assigneeUid || 'unassigned'))
-            .map(task => {
-                const assignee = appState.collectionsById.usuarios.get(task.assigneeUid);
-                const status = task.status || 'todo';
+            if (dayCell) {
+                const priorityClasses = {
+                    high: 'bg-red-100 border-l-4 border-red-500 text-red-800',
+                    medium: 'bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800',
+                    low: 'bg-slate-100 border-l-4 border-slate-500 text-slate-800',
+                };
                 const priority = task.priority || 'medium';
 
-                const avatarUrl = assignee ? assignee.photoURL : `https://api.dicebear.com/8.x/identicon/svg?seed=Unassigned`;
-                const avatarImg = `<img src="${avatarUrl}" class="timeline-item-avatar" title="Asignado a: ${assignee ? assignee.name : 'Sin asignar'}">`;
+                const taskElement = document.createElement('div');
+                taskElement.className = `p-1.5 rounded-md text-xs font-semibold cursor-pointer hover:opacity-80 truncate`;
+                taskElement.classList.add(priorityClasses[priority]);
+                taskElement.textContent = task.title;
+                taskElement.title = task.title;
+                taskElement.dataset.taskId = task.docId;
 
-                const statusMap = { todo: 'Por Hacer', inprogress: 'En Progreso', done: 'Completada' };
-                const statusIndicator = `<div class="timeline-item-status status-${status}" title="Estado: ${statusMap[status]}"></div>`;
+                taskElement.addEventListener('click', () => {
+                    openTaskFormModal(task);
+                });
 
-                const itemContent = `
-                <div class="timeline-item-content" title="${task.title}\nDescripción: ${task.description || 'N/A'}">
-                    ${statusIndicator}
-                    <div class="timeline-item-title">${task.title}</div>
-                    ${avatarImg}
-                </div>
-                `;
-
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const dueDate = task.dueDate ? new Date(task.dueDate + 'T00:00:00') : null;
-                const isOverdue = dueDate && dueDate < today && task.status !== 'done';
-
-                const item = {
-                    id: task.docId,
-                    content: itemContent,
-                    group: task.assigneeUid || 'unassigned',
-                    className: `priority-${priority} status-${status} ${isOverdue ? 'overdue' : ''}`
-                };
-
-                if (task.startDate && task.dueDate) {
-                    // Add a day to the end date to make the range inclusive
-                    let endDate = new Date(task.dueDate);
-                    endDate.setDate(endDate.getDate() + 1);
-
-                    item.start = task.startDate;
-                    item.end = endDate.toISOString().split('T')[0];
-                    item.type = 'range';
-                } else {
-                    item.start = task.dueDate || task.startDate;
-                    item.type = 'box';
-                }
-
-                return item;
-            });
-
-        adminTaskViewState.timelineItems.clear();
-        adminTaskViewState.timelineItems.add(items);
-
-        const timelineContainer = document.getElementById('tasks-timeline-container');
-        const emptyStateContainer = document.getElementById('timeline-empty-state');
-
-        if (items.length === 0) {
-            timelineContainer.classList.add('hidden');
-            emptyStateContainer.classList.remove('hidden');
-        } else {
-            timelineContainer.classList.remove('hidden');
-            emptyStateContainer.classList.add('hidden');
+                dayCell.appendChild(taskElement);
+            }
         }
-        lucide.createIcons();
-
-    } catch (error) {
-        console.error("Error updating timeline:", error);
-    }
+    });
 }
+
 
 function runKanbanBoardLogic() {
     if (taskState.activeFilter === 'supervision' && !taskState.selectedUserId) {
