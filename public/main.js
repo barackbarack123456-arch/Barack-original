@@ -3373,7 +3373,7 @@ function renderNodo(nodo) {
                     </div>
                 </div>
                 ${commentText}
-                ${(nodo.children && nodo.children.length > 0) ? `<ul class="node-children-list">${nodo.children.map(renderNodo).join('')}</ul>` : ''}
+                ${addableChildren[nodo.tipo].length > 0 ? `<ul class="node-children-list">${(nodo.children || []).map(renderNodo).join('')}</ul>` : ''}
             </li>`;
 }
 
