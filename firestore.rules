@@ -7,6 +7,22 @@ service cloud.firestore {
       return request.auth.uid in ['NIFudxxXnea8HqFzeMpxY0kma5b2', '7M6XuPSQf0UHUvet5KnEISxiYBT2'];
     }
 
+    // --- USUARIOS ---
+    match /usuarios/{userId} {
+      // Un usuario puede leer su propio perfil. Los admins pueden leer todos.
+      allow read: if request.auth.uid == userId || isAdmin();
+
+      // Un usuario puede crear su propio documento de perfil durante el registro.
+      allow create: if request.auth.uid == userId;
+
+      // Un usuario puede actualizar su propio perfil (nombre, avatar, etc.).
+      // Los administradores pueden actualizar cualquier perfil (para cambiar roles, etc.).
+      allow update: if request.auth.uid == userId || isAdmin();
+
+      // Solo los administradores pueden eliminar usuarios.
+      allow delete: if isAdmin();
+    }
+
     // Reglas para colecciones existentes...
     
     // Regla para la nueva colección de Unidades de Medida
