@@ -1888,9 +1888,6 @@ function setupAdminTaskViewListeners() {
         });
     }
 
-    const users = appState.collections.usuarios || [];
-    controls.user.innerHTML = '<option value="all">Todos los usuarios</option>' + users.map(u => `<option value="${u.docId}">${u.name || u.email}</option>`).join('');
-
     document.addEventListener('click', (e) => {
         if (controls.timelineFilterBtn && !controls.timelineFilterBtn.contains(e.target) && !controls.timelineFilterDropdown.contains(e.target)) {
             controls.timelineFilterDropdown.classList.add('hidden');
