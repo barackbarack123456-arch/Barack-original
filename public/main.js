@@ -3990,9 +3990,9 @@ function runSinopticoTabularLogic() {
         let tableHTML = `<table class="w-full text-sm text-left text-gray-600" style="table-layout: fixed; width: 100%;">`;
         // 7. Column alignment and width adjusted in headers
         tableHTML += `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>
-            <th scope="col" class="px-4 py-3" style="width: 20%;">Descripción</th>
+            <th scope="col" class="px-4 py-3" style="width: 18%;">Descripción</th>
             <th scope="col" class="px-4 py-3 text-center col-nivel" style="width: 3%;">Nivel</th>
-            <th scope="col" class="px-4 py-3 col-comentarios" style="width: 10%;">Comentarios</th>
+            <th scope="col" class="px-4 py-3 col-comentarios" style="width: 9%;">Comentarios</th>
             <th scope="col" class="px-4 py-3 text-center" style="width: 4%;">LC / KD</th>
             <th scope="col" class="px-4 py-3" style="width: 8%;">Versión Vehículo</th>
             <th scope="col" class="px-4 py-3" style="width: 7%;">Código de pieza</th>
@@ -4002,8 +4002,8 @@ function runSinopticoTabularLogic() {
             <th scope="col" class="px-4 py-3" style="width: 5%;">Aspecto</th>
             <th scope="col" class="px-4 py-3 text-right" style="width: 5%;">Peso (gr)</th>
             <th scope="col" class="px-4 py-3" style="width: 8%;">Proveedor</th>
-            <th scope="col" class="px-4 py-3 text-center" style="width: 5%;">Cantidad / Pieza</th>
-            <th scope="col" class="px-4 py-3 text-center" style="width: 3%;">Unidad</th>
+            <th scope="col" class="px-4 py-3 text-center" style="width: 7%;">Cantidad / Pieza</th>
+            <th scope="col" class="px-4 py-3 text-center" style="width: 4%;">Unidad</th>
             <th scope="col" class="px-4 py-3 text-center" style="width: 5%;">Acciones</th>
         </tr></thead><tbody>`;
 
