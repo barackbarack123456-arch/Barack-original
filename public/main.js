@@ -3987,7 +3987,7 @@ function runSinopticoTabularLogic() {
 
         if (data.length === 0) return `<p class="text-slate-500 p-4 text-center">El producto seleccionado no tiene una estructura definida.</p>`;
 
-        let tableHTML = `<table class="w-full text-sm text-left text-gray-600" style="table-layout: fixed; width: 100%;">`;
+        let tableHTML = `<table class="w-full text-sm text-left text-gray-600">`;
         // 7. Column alignment and width adjusted in headers
         tableHTML += `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>
             <th scope="col" class="px-4 py-3 align-middle">Descripción</th>
@@ -4419,80 +4419,62 @@ async function exportSinopticoTabularToPdf() {
         const NA = 'N/A';
         const createdAt = product.createdAt ? new Date(product.createdAt.seconds * 1000).toLocaleDateString('es-AR') : NA;
 
-        // Re-implementing two-column layout with better spacing
-        const col1Items = [
-            { label: 'PRODUCTO:', value: product.descripcion || NA },
-            { label: 'VERSIÓN:', value: product.version || NA },
-            { label: 'REALIZÓ:', value: product.lastUpdatedBy || NA },
-            { label: 'FECHA DE REVISIÓN:', value: product.fechaRevision || NA }
-        ];
-
-        const col2Items = [
-            { label: 'NÚMERO DE PIEZA:', value: product.id || NA },
-            { label: 'FECHA DE CREACIÓN:', value: createdAt },
-            { label: 'APROBÓ:', value: product.aprobadoPor || NA }
-        ];
-
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-
+        // --- New 3-Column Layout Logic ---
         const PADDING = 4;
-        const LINE_HEIGHT = 4;
-        const ROW_SPACING = 3;
-        const COL_GAP = 5;
+        const LINE_HEIGHT = 4.5;
+        const ROW_SPACING = 4;
+        const COL_GAP = 8;
+        let currentY = boxY + PADDING;
 
-        const col1LabelWidth = 22;
-        const col2LabelWidth = 30;
-
-        const col1X = boxX + PADDING;
-        const col1ValueX = col1X + col1LabelWidth;
-        const col1ValueWidth = (boxWidth / 2) - col1LabelWidth - PADDING - (COL_GAP / 2);
-
-        const col2X = boxX + (boxWidth / 2) + (COL_GAP / 2);
-        const col2ValueX = col2X + col2LabelWidth;
-        const col2ValueWidth = (boxWidth / 2) - col2LabelWidth - PADDING - (COL_GAP / 2);
-
-        // Pre-calculate row heights
-        const rowHeights = [];
-        const numRows = Math.max(col1Items.length, col2Items.length);
-        for(let i = 0; i < numRows; i++) {
-            const item1 = col1Items[i];
-            const item2 = col2Items[i];
-            const lines1 = item1 ? doc.splitTextToSize(item1.value, col1ValueWidth) : [''];
-            const lines2 = item2 ? doc.splitTextToSize(item2.value, col2ValueWidth) : [''];
-            rowHeights.push(Math.max(lines1.length, lines2.length) * LINE_HEIGHT);
-        }
-
-        const totalHeight = rowHeights.reduce((sum, height) => sum + height + ROW_SPACING, 0) + PADDING * 2 - ROW_SPACING;
-
-        // Draw the box
+        // Set a fixed total height that is likely large enough to avoid pre-calculation complexity.
+        const totalHeight = 40;
         doc.setFillColor('#44546A');
         doc.rect(boxX, boxY, boxWidth, totalHeight, 'F');
         doc.setTextColor('#FFFFFF');
 
-        // Draw the text
-        let infoCursorY = boxY + PADDING + (LINE_HEIGHT / 2);
-        for(let i = 0; i < numRows; i++) {
-            const rowHeight = rowHeights[i];
-            const textY = infoCursorY + (rowHeight / 2); // Center text vertically in the allocated row space
+        // 1. Draw Product Title (larger font, full width)
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.text('PRODUCTO:', boxX + PADDING, currentY + 3);
+        doc.setFontSize(11); // Increased font size for the title
+        const productTitleLines = doc.splitTextToSize(product.descripcion || NA, boxWidth - PADDING * 2 - 20); // Give it more space
+        doc.text(productTitleLines, boxX + PADDING + 20, currentY + 3);
+        currentY += (productTitleLines.length * (LINE_HEIGHT - 0.5)) + ROW_SPACING;
 
-            const item1 = col1Items[i];
-            if(item1) {
-                doc.setFont('helvetica', 'bold');
-                doc.text(item1.label, col1X, textY, { baseline: 'middle' });
-                doc.setFont('helvetica', 'normal');
-                doc.text(doc.splitTextToSize(item1.value, col1ValueWidth), col1ValueX, textY, { baseline: 'middle' });
-            }
+        // 2. Separator Line
+        doc.setDrawColor('#6b7280');
+        doc.line(boxX + PADDING, currentY, boxX + boxWidth - PADDING, currentY);
+        currentY += ROW_SPACING;
 
-            const item2 = col2Items[i];
-            if(item2) {
-                doc.setFont('helvetica', 'bold');
-                doc.text(item2.label, col2X, textY, { baseline: 'middle' });
-                doc.setFont('helvetica', 'normal');
-                doc.text(doc.splitTextToSize(item2.value, col2ValueWidth), col2ValueX, textY, { baseline: 'middle' });
-            }
-            infoCursorY += rowHeight + ROW_SPACING;
-        }
+        // 3. Draw remaining data in a 3-column layout
+        const colWidth = (boxWidth - (PADDING * 2) - (COL_GAP * 2)) / 3;
+        const col1X = boxX + PADDING;
+        const col2X = col1X + colWidth + COL_GAP;
+        const col3X = col2X + colWidth + COL_GAP;
+
+        doc.setFontSize(8);
+
+        // Row 1
+        let row1Y = currentY;
+        doc.setFont('helvetica', 'bold');
+        doc.text('NÚMERO DE PIEZA:', col1X, row1Y);
+        doc.text('REALIZÓ:', col2X, row1Y);
+        doc.text('FECHA DE CREACIÓN:', col3X, row1Y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(product.id || NA, col1X, row1Y + LINE_HEIGHT);
+        doc.text(product.lastUpdatedBy || NA, col2X, row1Y + LINE_HEIGHT);
+        doc.text(createdAt, col3X, row1Y + LINE_HEIGHT);
+
+        // Row 2
+        let row2Y = row1Y + (LINE_HEIGHT * 2) + ROW_SPACING;
+        doc.setFont('helvetica', 'bold');
+        doc.text('VERSIÓN:', col1X, row2Y);
+        doc.text('APROBÓ:', col2X, row2Y);
+        doc.text('FECHA DE REVISIÓN:', col3X, row2Y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(product.version || NA, col1X, row2Y + LINE_HEIGHT);
+        doc.text(product.aprobadoPor || NA, col2X, row2Y + LINE_HEIGHT);
+        doc.text(product.fechaRevision || NA, col3X, row2Y + LINE_HEIGHT);
 
         cursorY += totalHeight + 7; // Move main cursor down
 
