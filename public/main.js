@@ -3991,8 +3991,8 @@ function runSinopticoTabularLogic() {
         // 7. Column alignment adjusted in headers
         tableHTML += `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>
             <th scope="col" class="px-4 py-3">Descripción</th>
-            <th scope="col" class="px-4 py-3 text-center">Nivel</th>
-            <th scope="col" class="px-4 py-3">Comentarios</th>
+            <th scope="col" class="px-4 py-3 text-center col-nivel">Nivel</th>
+            <th scope="col" class="px-4 py-3 col-comentarios">Comentarios</th>
             <th scope="col" class="px-4 py-3 text-center">LC / KD</th>
             <th scope="col" class="px-4 py-3">Versión Vehículo</th>
             <th scope="col" class="px-4 py-3">Código de pieza</th>
@@ -4061,8 +4061,8 @@ function runSinopticoTabularLogic() {
             // 7. Column alignment adjusted in cells
             tableHTML += `<tr class="bg-white border-b hover:bg-gray-100" data-node-id="${node.id}">
                 <td class="px-4 py-2 font-mono font-medium text-gray-900 whitespace-nowrap">${descripcion}</td>
-                <td class="px-4 py-2 text-center">${nivel}</td>
-                <td class="px-4 py-2">${comentarios}</td>
+                <td class="px-4 py-2 text-center col-nivel">${nivel}</td>
+                <td class="px-4 py-2 col-comentarios">${comentarios}</td>
                 <td class="px-4 py-2 text-center">${lc_kd}</td>
                 <td class="px-4 py-2">${version_vehiculo}</td>
                 <td class="px-4 py-2">${codigo_pieza}</td>
@@ -4466,13 +4466,22 @@ async function exportSinopticoTabularToPdf() {
         const originalBoxShadow = tableElement.style.boxShadow;
         tableElement.style.boxShadow = 'none';
 
-        const canvas = await html2canvas(tableElement, {
-            scale: 2,
-            useCORS: true,
-            logging: false,
-        });
+        // Ocultar columnas no deseadas antes de la captura
+        const columnsToHide = tableElement.querySelectorAll('.col-nivel, .col-comentarios');
+        columnsToHide.forEach(col => col.style.display = 'none');
 
-        tableElement.style.boxShadow = originalBoxShadow;
+        let canvas;
+        try {
+            canvas = await html2canvas(tableElement, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+            });
+        } finally {
+            // Siempre volver a mostrar las columnas, incluso si hay un error
+            columnsToHide.forEach(col => col.style.display = '');
+            tableElement.style.boxShadow = originalBoxShadow;
+        }
 
         const imgData = canvas.toDataURL('image/png');
         const imgProps = doc.getImageProperties(imgData);
