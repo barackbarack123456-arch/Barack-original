@@ -4371,71 +4371,68 @@ async function exportSinopticoTabularToPdf() {
     }
 
     showToast('Iniciando reconstrucción visual para PDF...', 'info');
-
-    // Show a global loading overlay to prevent user interaction
     dom.loadingOverlay.style.display = 'flex';
     dom.loadingOverlay.querySelector('p').textContent = 'Generando PDF de alta fidelidad...';
 
+    // Create a temporary container for printing
+    const printContainer = document.createElement('div');
+    printContainer.style.position = 'absolute';
+    printContainer.style.left = '-9999px';
+    printContainer.style.width = '1200px'; // A reasonable width for a landscape A4 paper at 96 DPI
+    printContainer.style.backgroundColor = 'white';
+    printContainer.style.padding = '20px';
+
+    // Clone elements
+    const clonedCaratula = caratulaElement.cloneNode(true);
+    const clonedTable = tableElement.cloneNode(true);
+
+    // Style cloned elements for printing
+    clonedCaratula.style.transform = 'scale(0.9)';
+    clonedCaratula.style.transformOrigin = 'top center';
+    clonedCaratula.style.marginBottom = '10px';
+
+    printContainer.appendChild(clonedCaratula);
+    printContainer.appendChild(clonedTable);
+    document.body.appendChild(printContainer);
 
     try {
-        // Use html2canvas to capture the elements
-        const canvasCaratula = await html2canvas(caratulaElement, { scale: 2, useCORS: true });
-        const canvasTable = await html2canvas(tableElement, { scale: 2, useCORS: true });
-
-        const doc = new jsPDF({
-            orientation: 'l', // landscape
-            unit: 'mm',
-            format: 'a4'
+        const canvas = await html2canvas(printContainer, {
+            scale: 2,
+            useCORS: true,
+            width: printContainer.scrollWidth,
+            height: printContainer.scrollHeight,
+            windowWidth: printContainer.scrollWidth,
+            windowHeight: printContainer.scrollHeight
         });
 
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
+        document.body.removeChild(printContainer);
 
-        // Add Caratula (Cover page)
-        const caratulaImgData = canvasCaratula.toDataURL('image/png');
-        const caratulaImgProps = doc.getImageProperties(caratulaImgData);
-        const caratulaPdfWidth = pageWidth - 20; // with margin
-        const caratulaPdfHeight = (caratulaImgProps.height * caratulaPdfWidth) / caratulaImgProps.width;
-        doc.addImage(caratulaImgData, 'PNG', 10, 10, caratulaPdfWidth, caratulaPdfHeight);
+        const imgData = canvas.toDataURL('image/png');
+        const imgProps = await new Promise(resolve => {
+            const img = new Image();
+            img.onload = () => resolve({ width: img.width, height: img.height });
+            img.src = imgData;
+        });
 
-        // Add Table
-        doc.addPage();
-        const tableImgData = canvasTable.toDataURL('image/png');
-        const tableImgProps = doc.getImageProperties(tableImgData);
+        const doc = new jsPDF({
+            orientation: imgProps.width > imgProps.height ? 'l' : 'p',
+            unit: 'px',
+            format: [imgProps.width, imgProps.height]
+        });
 
-        // Calculate dimensions to fit the table image onto a single landscape page
-        const imgWidth = tableImgProps.width;
-        const imgHeight = tableImgProps.height;
-        const pageRatio = pageWidth / pageHeight;
-        const imgRatio = imgWidth / imgHeight;
+        doc.addImage(imgData, 'PNG', 0, 0, imgProps.width, imgProps.height);
 
-        let finalWidth, finalHeight;
-
-        if (imgRatio > pageRatio) {
-            // Image is wider than the page
-            finalWidth = pageWidth;
-            finalHeight = pageWidth / imgRatio;
-        } else {
-            // Image is taller than the page
-            finalHeight = pageHeight;
-            finalWidth = pageHeight * imgRatio;
-        }
-
-        // Center the image on the page
-        const x_pos = (pageWidth - finalWidth) / 2;
-        const y_pos = (pageHeight - finalHeight) / 2;
-
-        doc.addImage(tableImgData, 'PNG', x_pos, y_pos, finalWidth, finalHeight);
-
-        const fileName = `Reporte_Visual_BOM_${product.id.replace(/[^a-z0-9]/gi, '_')}.pdf`;
+        const fileName = `Reporte_Unificado_${product.id.replace(/[^a-z0-9]/gi, '_')}.pdf`;
         doc.save(fileName);
-        showToast('PDF visual generado con éxito.', 'success');
+        showToast('PDF de página única generado con éxito.', 'success');
 
     } catch (error) {
         console.error("Error exporting with html2canvas:", error);
         showToast('Error al generar el PDF visual.', 'error');
+        if (document.body.contains(printContainer)) {
+            document.body.removeChild(printContainer);
+        }
     } finally {
-        // Hide the loading overlay
         dom.loadingOverlay.style.display = 'none';
     }
 }
