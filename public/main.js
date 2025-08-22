@@ -4362,54 +4362,36 @@ async function exportSinopticoTabularToPdf() {
         return;
     }
 
-    const tableElement = document.getElementById('sinoptico-tabular-container');
-    if (!tableElement) {
-        showToast('Error: No se encontró el contenedor de la tabla para exportar.', 'error');
-        return;
-    }
-
-    showToast('Generando PDF híbrido...', 'info');
+    showToast('Generando PDF...', 'info');
     dom.loadingOverlay.style.display = 'flex';
-    dom.loadingOverlay.querySelector('p').textContent = 'Generando PDF... (1/2)';
+    dom.loadingOverlay.querySelector('p').textContent = 'Generando PDF...';
 
     try {
-        // --- 1. Create PDF and Draw Manual Header ---
         const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
         const logoBase64 = await getLogoBase64();
-        const PAGE_MARGIN = 10; // Reduced margin for wider content
+        const PAGE_MARGIN = 10;
         const PAGE_WIDTH = doc.internal.pageSize.width;
-        let cursorY = 15;
+        let cursorY = 10; // Reduced top margin
 
-        // --- Styled Header ---
+        // --- Start Header ---
         const titleBarHeight = 10;
-        doc.setFillColor('#3B82F6'); // Blue background for title
+        doc.setFillColor('#3B82F6');
         doc.rect(PAGE_MARGIN, cursorY, PAGE_WIDTH - (PAGE_MARGIN * 2), titleBarHeight, 'F');
-
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(16);
-        doc.setTextColor('#FFFFFF'); // White text
+        doc.setTextColor('#FFFFFF');
         doc.text('COMPOSICIÓN DE PIEZAS - BOM', PAGE_WIDTH / 2, cursorY + titleBarHeight / 2, { align: 'center', baseline: 'middle' });
         cursorY += titleBarHeight + 3;
 
-        // Logo and Product Info Box
         if (logoBase64) {
             const img = new Image();
             img.src = logoBase64;
-            await new Promise(resolve => {
-                if (img.complete) {
-                    resolve();
-                } else {
-                    img.onload = resolve;
-                }
-            });
-
+            await new Promise(resolve => { if (img.complete) resolve(); else img.onload = resolve; });
             const logoWidth = 35;
             const logoAspectRatio = img.naturalWidth / img.naturalHeight;
             const logoHeight = logoWidth / logoAspectRatio;
-
             const boxHeight = 28;
-            const logoY = cursorY + (boxHeight - logoHeight) / 2; // Center logo vertically in the box
-
+            const logoY = cursorY + (boxHeight - logoHeight) / 2;
             doc.addImage(logoBase64, 'PNG', PAGE_MARGIN, logoY, logoWidth, logoHeight);
         }
 
@@ -4418,113 +4400,142 @@ async function exportSinopticoTabularToPdf() {
         const boxY = cursorY;
         const NA = 'N/A';
         const createdAt = product.createdAt ? new Date(product.createdAt.seconds * 1000).toLocaleDateString('es-AR') : NA;
-
-        // --- New 3-Column Layout Logic ---
-        const PADDING = 4;
-        const LINE_HEIGHT = 4.5;
-        const ROW_SPACING = 4;
-        const COL_GAP = 8;
-        let currentY = boxY + PADDING;
-
-        // Set a fixed total height that is likely large enough to avoid pre-calculation complexity.
-        const totalHeight = 40;
+        const totalHeight = 30; // Reduced height
         doc.setFillColor('#44546A');
         doc.rect(boxX, boxY, boxWidth, totalHeight, 'F');
         doc.setTextColor('#FFFFFF');
 
-        // 1. Draw Product Title (larger font, full width)
+        const PADDING = 4;
+        const LINE_HEIGHT = 4.5;
+        const ROW_SPACING = 3;
+        let currentY = boxY + PADDING;
+
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(8);
-        doc.text('PRODUCTO:', boxX + PADDING, currentY + 3);
-        doc.setFontSize(11); // Increased font size for the title
-        const productTitleLines = doc.splitTextToSize(product.descripcion || NA, boxWidth - PADDING * 2 - 20); // Give it more space
-        doc.text(productTitleLines, boxX + PADDING + 20, currentY + 3);
-        currentY += (productTitleLines.length * (LINE_HEIGHT - 0.5)) + ROW_SPACING;
+        doc.text('PRODUCTO:', boxX + PADDING, currentY + 2);
+        doc.setFontSize(10);
+        const productTitleLines = doc.splitTextToSize(product.descripcion || NA, boxWidth - PADDING * 2 - 18);
+        doc.text(productTitleLines, boxX + PADDING + 18, currentY + 2);
+        currentY += (productTitleLines.length * (LINE_HEIGHT - 1)) + ROW_SPACING;
 
-        // 2. Separator Line
         doc.setDrawColor('#6b7280');
         doc.line(boxX + PADDING, currentY, boxX + boxWidth - PADDING, currentY);
-        currentY += ROW_SPACING;
+        currentY += ROW_SPACING - 1;
 
-        // 3. Draw remaining data in a 3-column layout
-        const colWidth = (boxWidth - (PADDING * 2) - (COL_GAP * 2)) / 3;
+        const colWidth = (boxWidth - (PADDING * 2) - 10) / 3;
         const col1X = boxX + PADDING;
-        const col2X = col1X + colWidth + COL_GAP;
-        const col3X = col2X + colWidth + COL_GAP;
+        const col2X = col1X + colWidth + 5;
+        const col3X = col2X + colWidth + 5;
 
-        doc.setFontSize(8);
-
-        // Row 1
+        doc.setFontSize(7);
         let row1Y = currentY;
         doc.setFont('helvetica', 'bold');
-        doc.text('NÚMERO DE PIEZA:', col1X, row1Y);
-        doc.text('REALIZÓ:', col2X, row1Y);
-        doc.text('FECHA DE CREACIÓN:', col3X, row1Y);
+        doc.text('NÚMERO DE PIEZA:', col1X, row1Y); doc.text('REALIZÓ:', col2X, row1Y); doc.text('FECHA DE CREACIÓN:', col3X, row1Y);
         doc.setFont('helvetica', 'normal');
-        doc.text(product.id || NA, col1X, row1Y + LINE_HEIGHT);
-        doc.text(product.lastUpdatedBy || NA, col2X, row1Y + LINE_HEIGHT);
-        doc.text(createdAt, col3X, row1Y + LINE_HEIGHT);
+        doc.text(product.id || NA, col1X, row1Y + LINE_HEIGHT); doc.text(product.lastUpdatedBy || NA, col2X, row1Y + LINE_HEIGHT); doc.text(createdAt, col3X, row1Y + LINE_HEIGHT);
 
-        // Row 2
-        let row2Y = row1Y + (LINE_HEIGHT * 2) + ROW_SPACING;
+        let row2Y = row1Y + (LINE_HEIGHT * 2);
         doc.setFont('helvetica', 'bold');
-        doc.text('VERSIÓN:', col1X, row2Y);
-        doc.text('APROBÓ:', col2X, row2Y);
-        doc.text('FECHA DE REVISIÓN:', col3X, row2Y);
+        doc.text('VERSIÓN:', col1X, row2Y); doc.text('APROBÓ:', col2X, row2Y); doc.text('FECHA DE REVISIÓN:', col3X, row2Y);
         doc.setFont('helvetica', 'normal');
-        doc.text(product.version || NA, col1X, row2Y + LINE_HEIGHT);
-        doc.text(product.aprobadoPor || NA, col2X, row2Y + LINE_HEIGHT);
-        doc.text(product.fechaRevision || NA, col3X, row2Y + LINE_HEIGHT);
+        doc.text(product.version || NA, col1X, row2Y + LINE_HEIGHT); doc.text(product.aprobadoPor || NA, col2X, row2Y + LINE_HEIGHT); doc.text(product.fechaRevision || NA, col3X, row2Y + LINE_HEIGHT);
 
-        cursorY += totalHeight + 7; // Move main cursor down
+        const finalHeaderY = boxY + totalHeight + 5;
+        // --- End Header ---
 
-        // --- 2. Capture Table with html2canvas ---
-        dom.loadingOverlay.querySelector('p').textContent = 'Capturando tabla... (2/2)';
+        // --- Prepare data for autoTable ---
+        const flattenedData = getFlattenedData(product, state.activeFilters.niveles);
+        const head = [['Nivel', 'Descripción', 'Código de pieza', 'Proceso', 'Peso (gr)', 'Proveedor', 'Cantidad', 'Unidad', 'Comentarios']];
+        const body = flattenedData.map(rowData => {
+            const { node, item, level, isLast, lineage } = rowData;
+            const NA_BODY = '-';
 
-        const originalBoxShadow = tableElement.style.boxShadow;
-        tableElement.style.boxShadow = 'none';
+            let prefix = lineage.map(parentIsNotLast => parentIsNotLast ? '│  ' : '   ').join('');
+            if (level > 0) prefix += isLast ? '└─ ' : '├─ ';
+            const descripcion = `${prefix}${item.descripcion || item.nombre || ''}`;
+            const nivel = node.originalLevel ?? level;
+            const cantidad = node.quantity ?? NA_BODY;
+            const comentarios = node.comment || NA_BODY;
+            const codigo_pieza = item.codigo_pieza || NA_BODY;
 
-        // Ocultar columnas no deseadas antes de la captura
-        const columnsToHide = tableElement.querySelectorAll('.col-nivel, .col-comentarios');
-        columnsToHide.forEach(col => col.style.display = 'none');
+            let proceso = NA_BODY;
+            if (node.tipo === 'semiterminado' && item.proceso) {
+                const procesoData = appState.collectionsById[COLLECTIONS.PROCESOS]?.get(item.proceso);
+                proceso = procesoData ? procesoData.descripcion : item.proceso;
+            }
 
-        let canvas;
-        try {
-            canvas = await html2canvas(tableElement, {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-            });
-        } finally {
-            // Siempre volver a mostrar las columnas, incluso si hay un error
-            columnsToHide.forEach(col => col.style.display = '');
-            tableElement.style.boxShadow = originalBoxShadow;
-        }
+            let peso_display = NA_BODY;
+            if (node.tipo === 'semiterminado' && item.peso_gr) {
+                peso_display = item.peso_gr.toString();
+                if (item.tolerancia_gr) peso_display += ` ± ${item.tolerancia_gr}`;
+            }
 
-        const imgData = canvas.toDataURL('image/png');
-        const imgProps = doc.getImageProperties(imgData);
+            let proveedor = NA_BODY;
+            if (node.tipo === 'insumo' && item.proveedor) {
+                const proveedorData = appState.collectionsById[COLLECTIONS.PROVEEDORES]?.get(item.proveedor);
+                proveedor = proveedorData ? proveedorData.descripcion : item.proveedor;
+            }
 
-        // --- 3. Add Table Image to PDF with Scaling ---
-        const availableWidth = PAGE_WIDTH - (PAGE_MARGIN * 2);
-        const availableHeight = doc.internal.pageSize.height - cursorY - PAGE_MARGIN;
+            let unidad_medida = NA_BODY;
+            if (node.tipo === 'insumo' && item.unidad_medida) {
+                const unidadData = appState.collectionsById[COLLECTIONS.UNIDADES]?.get(item.unidad_medida);
+                unidad_medida = unidadData ? unidadData.id : item.unidad_medida;
+            }
 
-        const imgAspectRatio = imgProps.width / imgProps.height;
+            return [
+                nivel,
+                descripcion,
+                codigo_pieza,
+                proceso,
+                peso_display,
+                proveedor,
+                cantidad,
+                unidad_medida,
+                comentarios
+            ];
+        });
 
-        const finalImgWidth = availableWidth;
-        const finalImgHeight = finalImgWidth / imgAspectRatio;
+        doc.autoTable({
+            head: head,
+            body: body,
+            startY: finalHeaderY,
+            theme: 'grid',
+            headStyles: {
+                fillColor: [41, 104, 217], // Dark Blue
+                textColor: 255,
+                fontStyle: 'bold'
+            },
+            styles: {
+                fontSize: 7,
+                cellPadding: 1.5,
+                valign: 'middle'
+            },
+            columnStyles: {
+                0: { cellWidth: 10, halign: 'center' }, // Nivel
+                1: { cellWidth: 85 }, // Descripción
+                2: { cellWidth: 25 }, // Código
+                3: { cellWidth: 25 }, // Proceso
+                4: { cellWidth: 20, halign: 'right' }, // Peso
+                5: { cellWidth: 25 }, // Proveedor
+                6: { cellWidth: 15, halign: 'center' }, // Cantidad
+                7: { cellWidth: 15, halign: 'center' }, // Unidad
+                8: { cellWidth: 'auto' }, // Comentarios
+            },
+            didDrawPage: (data) => {
+                // Page Footer
+                const pageCount = doc.internal.getNumberOfPages();
+                doc.setFontSize(8);
+                doc.setTextColor(100, 116, 139);
+                doc.text(`Página ${data.pageNumber} de ${pageCount}`, doc.internal.pageSize.getWidth() / 2, doc.internal.pageSize.getHeight() - 5, { align: 'center' });
+            }
+        });
 
-        // Add the image, scaled to the full width of the page.
-        // The height will adjust proportionally. This might make the content very small
-        // if the table is long, but it will always use the full width as requested.
-        doc.addImage(imgData, 'PNG', PAGE_MARGIN, cursorY, finalImgWidth, finalImgHeight);
-
-        // --- 4. Save PDF ---
         const fileName = `Reporte_BOM_${product.id.replace(/[^a-z0-9]/gi, '_')}.pdf`;
         doc.save(fileName);
-        showToast('PDF híbrido generado con éxito.', 'success');
+        showToast('PDF generado con éxito.', 'success');
 
     } catch (error) {
-        console.error("Error exporting hybrid PDF:", error);
+        console.error("Error exporting PDF:", error);
         showToast('Error al generar el PDF.', 'error');
     } finally {
         dom.loadingOverlay.style.display = 'none';
