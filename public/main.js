@@ -3987,7 +3987,7 @@ function runSinopticoTabularLogic() {
 
         if (data.length === 0) return `<p class="text-slate-500 p-4 text-center">El producto seleccionado no tiene una estructura definida.</p>`;
 
-        let tableHTML = `<table class="w-full text-sm text-left text-gray-600">`;
+        let tableHTML = `<table class="w-full text-sm text-left text-gray-600" style="table-layout: fixed; width: 100%;">`;
         // 7. Column alignment adjusted in headers
         tableHTML += `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>
             <th scope="col" class="px-4 py-3">Descripción</th>
@@ -4393,7 +4393,24 @@ async function exportSinopticoTabularToPdf() {
 
         // Logo and Product Info Box
         if (logoBase64) {
-            doc.addImage(logoBase64, 'PNG', PAGE_MARGIN, cursorY, 35, 28); // Adjusted logo size
+            const img = new Image();
+            img.src = logoBase64;
+            await new Promise(resolve => {
+                if (img.complete) {
+                    resolve();
+                } else {
+                    img.onload = resolve;
+                }
+            });
+
+            const logoWidth = 35;
+            const logoAspectRatio = img.naturalWidth / img.naturalHeight;
+            const logoHeight = logoWidth / logoAspectRatio;
+
+            const boxHeight = 28;
+            const logoY = cursorY + (boxHeight - logoHeight) / 2; // Center logo vertically in the box
+
+            doc.addImage(logoBase64, 'PNG', PAGE_MARGIN, logoY, logoWidth, logoHeight);
         }
 
         const boxX = PAGE_MARGIN + 40;
