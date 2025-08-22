@@ -3988,23 +3988,23 @@ function runSinopticoTabularLogic() {
         if (data.length === 0) return `<p class="text-slate-500 p-4 text-center">El producto seleccionado no tiene una estructura definida.</p>`;
 
         let tableHTML = `<table class="w-full text-sm text-left text-gray-600" style="table-layout: fixed; width: 100%;">`;
-        // 7. Column alignment adjusted in headers
+        // 7. Column alignment and width adjusted in headers
         tableHTML += `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>
-            <th scope="col" class="px-4 py-3">Descripción</th>
-            <th scope="col" class="px-4 py-3 text-center col-nivel">Nivel</th>
-            <th scope="col" class="px-4 py-3 col-comentarios">Comentarios</th>
-            <th scope="col" class="px-4 py-3 text-center">LC / KD</th>
-            <th scope="col" class="px-4 py-3">Versión Vehículo</th>
-            <th scope="col" class="px-4 py-3">Código de pieza</th>
-            <th scope="col" class="px-4 py-3 text-center">Versión</th>
-            <th scope="col" class="px-4 py-3 text-center">Imágen (URL)</th>
-            <th scope="col" class="px-4 py-3">Proceso</th>
-            <th scope="col" class="px-4 py-3">Aspecto</th>
-            <th scope="col" class="px-4 py-3 text-right">Peso (gr)</th>
-            <th scope="col" class="px-4 py-3">Proveedor</th>
-            <th scope="col" class="px-4 py-3 text-center">Cantidad / Pieza</th>
-            <th scope="col" class="px-4 py-3 text-center">Unidad</th>
-            <th scope="col" class="px-4 py-3 text-center">Acciones</th>
+            <th scope="col" class="px-4 py-3" style="width: 20%;">Descripción</th>
+            <th scope="col" class="px-4 py-3 text-center col-nivel" style="width: 3%;">Nivel</th>
+            <th scope="col" class="px-4 py-3 col-comentarios" style="width: 10%;">Comentarios</th>
+            <th scope="col" class="px-4 py-3 text-center" style="width: 4%;">LC / KD</th>
+            <th scope="col" class="px-4 py-3" style="width: 8%;">Versión Vehículo</th>
+            <th scope="col" class="px-4 py-3" style="width: 7%;">Código de pieza</th>
+            <th scope="col" class="px-4 py-3 text-center" style="width: 4%;">Versión</th>
+            <th scope="col" class="px-4 py-3 text-center" style="width: 4%;">Imágen (URL)</th>
+            <th scope="col" class="px-4 py-3" style="width: 6%;">Proceso</th>
+            <th scope="col" class="px-4 py-3" style="width: 5%;">Aspecto</th>
+            <th scope="col" class="px-4 py-3 text-right" style="width: 5%;">Peso (gr)</th>
+            <th scope="col" class="px-4 py-3" style="width: 8%;">Proveedor</th>
+            <th scope="col" class="px-4 py-3 text-center" style="width: 5%;">Cantidad / Pieza</th>
+            <th scope="col" class="px-4 py-3 text-center" style="width: 3%;">Unidad</th>
+            <th scope="col" class="px-4 py-3 text-center" style="width: 5%;">Acciones</th>
         </tr></thead><tbody>`;
 
         data.forEach(rowData => {
