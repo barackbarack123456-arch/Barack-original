@@ -1,6 +1,6 @@
 # Gestión PRO - App de Gestión de Producción
 
-**Gestión PRO** es una aplicación web completa diseñada para la gestión integral de procesos de producción industrial. Permite administrar productos, subproductos, insumos, clientes, proveedores y otras entidades clave del negocio. Su funcionalidad central es la capacidad de construir y visualizar las complejas relaciones jerárquicas entre componentes a través de "árboles de producto" dinámicos.
+**Gestión PRO** es una aplicación web completa diseñada para la gestión integral de procesos de producción industrial. Permite administrar productos, semiterminados, insumos, clientes, proveedores y otras entidades clave del negocio. Su funcionalidad central es la capacidad de construir y visualizar las complejas relaciones jerárquicas entre componentes a través de "árboles de producto" dinámicos.
 
 La aplicación está construida con HTML, CSS y JavaScript puro, y utiliza **Firebase** como backend para la autenticación, base de datos en tiempo real (Cloud Firestore) y hosting.
 

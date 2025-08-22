@@ -25,9 +25,17 @@ const db = getFirestore(app);
 // --- CONSTANTES Y CONFIGURACIÓN ---
 // =================================================================================
 const LOCK_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutos en milisegundos
+const PREDEFINED_AVATARS = [
+    'https://api.dicebear.com/8.x/identicon/svg?seed=Maria%20Mitchell',
+    'https://api.dicebear.com/8.x/identicon/svg?seed=Mary%20Jackson',
+    'https://api.dicebear.com/8.x/identicon/svg?seed=Grace%20Hopper',
+    'https://api.dicebear.com/8.x/identicon/svg?seed=Hedy%20Lamarr',
+    'https://api.dicebear.com/8.x/identicon/svg?seed=Ada%20Lovelace',
+    'https://api.dicebear.com/8.x/identicon/svg?seed=Katherine%20Johnson'
+];
 const COLLECTIONS = {
     PRODUCTOS: 'productos',
-    SUBPRODUCTOS: 'subproductos',
+    SEMITERMINADOS: 'semiterminados',
     INSUMOS: 'insumos',
     CLIENTES: 'clientes',
     SECTORES: 'sectores',
@@ -35,7 +43,8 @@ const COLLECTIONS = {
     PROVEEDORES: 'proveedores',
     UNIDADES: 'unidades',
     USUARIOS: 'usuarios',
-    TAREAS: 'tareas'
+    TAREAS: 'tareas',
+    PROYECTOS: 'proyectos'
 };
 
 // =================================================================================
@@ -50,39 +59,60 @@ const viewConfig = {
     arboles: { title: 'Editor de Árboles', singular: 'Árbol' },
     profile: { title: 'Mi Perfil', singular: 'Mi Perfil' },
     tareas: { title: 'Gestor de Tareas', singular: 'Tarea' },
-    productos: {
-        title: 'Productos',
-        singular: 'Producto',
-        dataKey: COLLECTIONS.PRODUCTOS,
-        columns: [
-            { key: 'codigo', label: 'Código' },
-            { key: 'descripcion', label: 'Descripción' },
-            { key: 'codigo_cliente', label: 'Cód. Cliente' }
-        ],
-        fields: [
-            { key: 'codigo', label: 'Código Interno', type: 'text', required: true },
-            { key: 'codigo_cliente', label: 'Código de Cliente', type: 'text' },
-            { key: 'descripcion', label: 'Descripción', type: 'textarea', required: true },
-            { key: 'version', label: 'Versión', type: 'text' },
-            // Aquí irían más campos si los necesitas
-        ]
-    },
-    subproductos: {
-        title: 'Subproductos',
-        singular: 'Subproducto',
-        dataKey: COLLECTIONS.SUBPRODUCTOS,
+    proyectos: {
+        title: 'Proyectos',
+        singular: 'Proyecto',
+        dataKey: COLLECTIONS.PROYECTOS,
         columns: [
             { key: 'codigo', label: 'Código' },
             { key: 'nombre', label: 'Nombre' },
-            { key: 'peso', label: 'Peso' }
+            { key: 'descripcion', label: 'Descripción' }
         ],
         fields: [
             { key: 'codigo', label: 'Código', type: 'text', required: true },
             { key: 'nombre', label: 'Nombre', type: 'text', required: true },
             { key: 'descripcion', label: 'Descripción', type: 'textarea' },
-            { key: 'peso', label: 'Peso (ej: 150kg)', type: 'text' },
-            { key: 'medidas', label: 'Medidas (ej: 10x20x5 cm)', type: 'text' },
-            { key: 'observaciones', label: 'Observaciones', type: 'textarea' },
+        ]
+    },
+    productos: {
+        title: 'Productos',
+        singular: 'Producto',
+        dataKey: COLLECTIONS.PRODUCTOS,
+        columns: [
+            { key: 'codigo_pieza', label: 'Código de pieza' },
+            { key: 'descripcion', label: 'Descripción' },
+            { key: 'version_vehiculo', label: 'Versión Vehículo' },
+        ],
+        fields: [
+            { key: 'lc_kd', label: 'LC / KD', type: 'select', options: ['LC', 'KD'], required: true },
+            { key: 'version_vehiculo', label: 'Versión del Vehículo', type: 'text', required: true },
+            { key: 'descripcion', label: 'Descripción', type: 'textarea', required: true },
+            { key: 'codigo_pieza', label: 'Código de pieza', type: 'text', required: true },
+            { key: 'version', label: 'Versión', type: 'text' },
+            { key: 'imagen', label: 'Imágen (URL)', type: 'text' },
+            { key: 'fecha_modificacion', label: 'Fecha de Modificación', type: 'date' },
+        ]
+    },
+    semiterminados: {
+        title: 'Semiterminados',
+        singular: 'Semiterminado',
+        dataKey: COLLECTIONS.SEMITERMINADOS,
+        columns: [
+            { key: 'codigo_pieza', label: 'Código de pieza' },
+            { key: 'descripcion', label: 'Descripción' },
+            { key: 'proceso', label: 'Proceso' },
+        ],
+        fields: [
+            { key: 'lc_kd', label: 'LC / KD', type: 'select', options: ['LC', 'KD'], required: true },
+            { key: 'descripcion', label: 'Descripción', type: 'textarea', required: true },
+            { key: 'codigo_pieza', label: 'Código de pieza', type: 'text', required: true },
+            { key: 'version', label: 'Versión', type: 'text' },
+            { key: 'imagen', label: 'Imágen (URL)', type: 'text' },
+            { key: 'proceso', label: 'Proceso', type: 'select', searchKey: COLLECTIONS.PROCESOS, required: true },
+            { key: 'aspecto', label: 'Aspecto', type: 'select', options: ['Crítico', 'No Crítico'], required: true },
+            { key: 'peso_gr', label: 'Peso (gr)', type: 'number' },
+            { key: 'tolerancia_gr', label: 'Tolerancia (gr)', type: 'number' },
+            { key: 'fecha_modificacion', label: 'Fecha de Modificación', type: 'date' },
         ]
     },
     insumos: {
@@ -90,19 +120,20 @@ const viewConfig = {
         singular: 'Insumo',
         dataKey: COLLECTIONS.INSUMOS,
         columns: [
-            { key: 'codigo', label: 'Código' },
+            { key: 'codigo_pieza', label: 'Código de pieza' },
             { key: 'descripcion', label: 'Descripción' },
-            { key: 'material', label: 'Material' }
+            { key: 'proveedor', label: 'Proveedor' },
         ],
         fields: [
-            { key: 'codigo', label: 'Código', type: 'text', required: true },
+            { key: 'lc_kd', label: 'LC / KD', type: 'select', options: ['LC', 'KD'], required: true },
             { key: 'descripcion', label: 'Descripción', type: 'textarea', required: true },
-            { key: 'unidad_medida', label: 'Unidad de Medida', type: 'select', options: ['m', 'ml', 'm2', 'm3', 'kg', 'g', 'l', 'un', 'cj', 'pq'], required: true },
-            { key: 'material', label: 'Material', type: 'text' },
-            { key: 'codigo_proveedor', label: 'Código Proveedor', type: 'text' },
-            { key: 'piezas_por_vehiculo', label: 'Piezas por Vehículo', type: 'number' },
-            { key: 'proceso', label: 'Proceso', type: 'text' },
-            { key: 'color', label: 'Color', type: 'text' },
+            { key: 'codigo_pieza', label: 'Código de pieza', type: 'text', required: true },
+            { key: 'version', label: 'Versión', type: 'text' },
+            { key: 'imagen', label: 'Imágen (URL)', type: 'text' },
+            { key: 'proveedor', label: 'Proveedor', type: 'select', searchKey: COLLECTIONS.PROVEEDORES, required: true },
+            { key: 'costo', label: 'Costo', type: 'number' },
+            { key: 'unidad_medida', label: 'Unidad de Medida', type: 'select', searchKey: COLLECTIONS.UNIDADES, required: true },
+            { key: 'fecha_modificacion', label: 'Fecha de Modificación', type: 'date' },
         ]
     },
     clientes: { title: 'Clientes', singular: 'Cliente', dataKey: COLLECTIONS.CLIENTES, columns: [ { key: 'id', label: 'Código' }, { key: 'descripcion', label: 'Descripción' } ], fields: [ { key: 'id', label: 'Código', type: 'text', required: true }, { key: 'descripcion', label: 'Descripción', type: 'text', required: true } ] },
@@ -174,21 +205,22 @@ let appState = {
     currentViewCleanup: null,
     isAppInitialized: false,
     collections: {
-        [COLLECTIONS.PRODUCTOS]: [], [COLLECTIONS.SUBPRODUCTOS]: [], [COLLECTIONS.INSUMOS]: [], [COLLECTIONS.CLIENTES]: [],
+        [COLLECTIONS.PRODUCTOS]: [], [COLLECTIONS.SEMITERMINADOS]: [], [COLLECTIONS.INSUMOS]: [], [COLLECTIONS.CLIENTES]: [],
         [COLLECTIONS.SECTORES]: [], [COLLECTIONS.PROCESOS]: [],
         [COLLECTIONS.PROVEEDORES]: [], [COLLECTIONS.UNIDADES]: [],
-        [COLLECTIONS.USUARIOS]: []
+        [COLLECTIONS.USUARIOS]: [], [COLLECTIONS.PROYECTOS]: []
     },
     collectionsById: {
         [COLLECTIONS.PRODUCTOS]: new Map(),
-        [COLLECTIONS.SUBPRODUCTOS]: new Map(),
+        [COLLECTIONS.SEMITERMINADOS]: new Map(),
         [COLLECTIONS.INSUMOS]: new Map(),
         [COLLECTIONS.CLIENTES]: new Map(),
         [COLLECTIONS.SECTORES]: new Map(),
         [COLLECTIONS.PROCESOS]: new Map(),
         [COLLECTIONS.PROVEEDORES]: new Map(),
         [COLLECTIONS.UNIDADES]: new Map(),
-        [COLLECTIONS.USUARIOS]: new Map()
+        [COLLECTIONS.USUARIOS]: new Map(),
+        [COLLECTIONS.PROYECTOS]: new Map()
     },
     unsubscribeListeners: [],
     sinopticoState: null,
@@ -240,37 +272,128 @@ async function waitForUsers() {
 // =================================================================================
 
 function startRealtimeListeners() {
-    const collectionNames = Object.keys(appState.collections);
-    collectionNames.forEach(name => {
-        const q = query(collection(db, name));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const data = [];
-            const dataMap = new Map();
-            querySnapshot.forEach((doc) => {
-                const item = { ...doc.data(), docId: doc.id };
-                data.push(item);
-                if (name === COLLECTIONS.USUARIOS) {
-                    // Los usuarios se identifican por su UID (doc.id), no por un campo 'id'
-                    dataMap.set(doc.id, item);
-                } else if(item.id) {
-                    dataMap.set(item.id, item);
-                }
-            });
-            appState.collections[name] = data;
-            if(appState.collectionsById[name]) appState.collectionsById[name] = dataMap;
-            
-            // If the users collection was updated, try to populate the task modal dropdown
-            if (name === COLLECTIONS.USUARIOS) {
-                populateTaskAssigneeDropdown();
-            }
+    appState.isAppInitialized = false;
+    return new Promise((resolve, reject) => {
+        // Essential collections needed for the first paint (dashboard)
+        const essentialCollections = new Set([
+            COLLECTIONS.PRODUCTOS,
+            COLLECTIONS.INSUMOS,
+            COLLECTIONS.CLIENTES,
+            COLLECTIONS.USUARIOS
+        ]);
 
-            if (appState.currentView === 'dashboard') runDashboardLogic();
-            if (appState.currentView === 'sinoptico' && appState.sinopticoState) initSinoptico();
-        }, (error) => {
-            console.error(`Error listening to ${name} collection:`, error);
-            showToast(`Error al cargar datos de ${name}.`, 'error');
+        if (appState.unsubscribeListeners.length > 0) {
+            stopRealtimeListeners();
+        }
+
+        const collectionNames = Object.keys(appState.collections);
+        let loadedCount = 0;
+
+        collectionNames.forEach(name => {
+            const q = query(collection(db, name));
+            const unsubscribe = onSnapshot(q, (querySnapshot) => {
+                const data = [];
+                const dataMap = new Map();
+                querySnapshot.forEach((doc) => {
+                    const item = { ...doc.data(), docId: doc.id };
+                    data.push(item);
+                    if (name === COLLECTIONS.USUARIOS) {
+                        dataMap.set(doc.id, item);
+                    } else if(item.id) {
+                        dataMap.set(item.id, item);
+                    }
+                });
+                appState.collections[name] = data;
+                if(appState.collectionsById[name]) appState.collectionsById[name] = dataMap;
+
+                // Check if the initial load is complete
+                if (essentialCollections.has(name)) {
+                    essentialCollections.delete(name);
+                    if (essentialCollections.size === 0 && !appState.isAppInitialized) {
+                        console.log("Essential data loaded.");
+                        appState.isAppInitialized = true;
+                        resolve();
+                    }
+                }
+
+                // After initial load, these can run on subsequent updates
+                if (appState.isAppInitialized) {
+                    if (name === COLLECTIONS.USUARIOS) populateTaskAssigneeDropdown();
+                    if (appState.currentView === 'dashboard') runDashboardLogic();
+                    if (appState.currentView === 'sinoptico' && appState.sinopticoState) initSinoptico();
+                }
+
+            }, (error) => {
+                console.error(`Error listening to ${name} collection:`, error);
+                showToast(`Error al cargar datos de ${name}.`, 'error');
+                // Reject the promise if a critical listener fails
+                reject(error);
+            });
+            appState.unsubscribeListeners.push(unsubscribe);
         });
-        appState.unsubscribeListeners.push(unsubscribe);
+    });
+}
+
+function openAvatarSelectionModal() {
+    const modalId = 'avatar-selection-modal';
+    let avatarsHTML = '';
+    PREDEFINED_AVATARS.forEach(avatarUrl => {
+        avatarsHTML += `
+            <button data-avatar-url="${avatarUrl}" class="rounded-full overflow-hidden border-2 border-transparent hover:border-blue-500 focus:border-blue-500 transition-all duration-200 w-24 h-24">
+                <img src="${avatarUrl}" alt="Avatar" class="w-full h-full object-cover">
+            </button>
+        `;
+    });
+
+    const modalHTML = `
+        <div id="${modalId}" class="fixed inset-0 z-[60] flex items-center justify-center modal-backdrop animate-fade-in">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl m-4 modal-content">
+                <div class="flex justify-between items-center p-5 border-b">
+                    <h3 class="text-xl font-bold">Seleccionar un Avatar</h3>
+                    <button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button>
+                </div>
+                <div class="p-6">
+                    <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
+                        ${avatarsHTML}
+                    </div>
+                </div>
+                 <div class="flex justify-end items-center p-4 border-t bg-gray-50">
+                    <button data-action="close" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    dom.modalContainer.insertAdjacentHTML('beforeend', modalHTML);
+    lucide.createIcons();
+
+    const modalElement = document.getElementById(modalId);
+    modalElement.addEventListener('click', async (e) => {
+        const button = e.target.closest('button');
+        if (!button) return;
+
+        const action = button.dataset.action;
+        const avatarUrl = button.dataset.avatarUrl;
+
+        if (action === 'close') {
+            modalElement.remove();
+        } else if (avatarUrl) {
+            // This is a simplified version of handleProfileUpdate
+            const user = auth.currentUser;
+            const userDocRef = doc(db, COLLECTIONS.USUARIOS, user.uid);
+            try {
+                await updateProfile(user, { photoURL: avatarUrl });
+                await updateDoc(userDocRef, { photoURL: avatarUrl });
+                appState.currentUser.avatarUrl = avatarUrl;
+                showToast('Avatar actualizado con éxito.', 'success');
+                renderUserMenu();
+                runProfileLogic();
+                modalElement.remove();
+            } catch (error) {
+                console.error("Error updating avatar:", error);
+                showToast("Error al actualizar el avatar.", "error");
+            }
+        }
     });
 }
 
@@ -304,6 +427,23 @@ async function saveDocument(collectionName, data, docId = null) {
     }
 }
 
+async function getLogoBase64() {
+    try {
+        const response = await fetch('logo.png');
+        if (!response.ok) return null;
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    } catch (error) {
+        console.error("Could not fetch logo.png:", error);
+        return null;
+    }
+}
+
 async function deleteDocument(collectionName, docId) {
     try {
         await deleteDoc(doc(db, collectionName, docId));
@@ -331,17 +471,56 @@ function deleteItem(docId) {
     );
 }
 
+async function clearAllCollections() {
+    showToast('Limpiando base de datos actual...', 'info', 5000);
+    // Usar Object.values para obtener los nombres de colección correctos (ej: "productos")
+    // en lugar de las claves del objeto (ej: "PRODUCTOS").
+    const collectionNames = Object.values(COLLECTIONS);
+    for (const name of collectionNames) {
+        // No borrar la colección de usuarios para preservar las cuentas existentes.
+        if (name === COLLECTIONS.USUARIOS) {
+            console.log(`Se omite la limpieza de la colección '${name}' para preservar los usuarios.`);
+            continue;
+        }
+        try {
+            const collectionRef = collection(db, name);
+            const snapshot = await getDocs(collectionRef);
+            if (snapshot.empty) continue;
+
+            const batch = writeBatch(db);
+            snapshot.docs.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+            await batch.commit();
+            console.log(`Colección '${name}' limpiada.`);
+        } catch (error) {
+            console.error(`Error limpiando la colección ${name}:`, error);
+            showToast(`Error al limpiar la colección ${name}.`, 'error');
+        }
+    }
+    showToast('Limpieza de base de datos completada.', 'success');
+}
+
 async function seedDatabase() {
-    showToast('Iniciando carga de datos de prueba...', 'info');
+    await clearAllCollections();
+    showToast('Iniciando carga de datos de prueba completos...', 'info');
     const batch = writeBatch(db);
 
-    // Helper para crear un nuevo documento en el batch
+    // Helper para crear un nuevo documento en el batch con un ID predefinido
     const setInBatch = (collectionName, data) => {
-        const docRef = doc(collection(db, collectionName), data.id);
+        // Usamos el campo 'id' de los datos como el ID del documento de Firestore
+        const docRef = doc(db, collectionName, data.id);
         batch.set(docRef, data);
     };
 
-    // Datos de ejemplo
+    // Helper para añadir un documento con un ID autogenerado por Firestore
+    const addInBatch = (collectionName, data) => {
+        const docRef = doc(collection(db, collectionName));
+        batch.set(docRef, data);
+    };
+
+    // --- DATOS DE PRUEBA ---
+
     const clientes = [
         { id: 'C001', descripcion: 'Cliente Automotriz Global' },
         { id: 'C002', descripcion: 'Cliente Industrial Pesado' },
@@ -358,26 +537,48 @@ async function seedDatabase() {
         { id: 'l', descripcion: 'Litros' },
         { id: 'm2', descripcion: 'Metros Cuadrados' },
     ];
-    const insumos = [
-        { id: 'INS001', descripcion: 'Chapa de Acero 2mm', material: 'Acero', proveedorId: 'P001', unidadMedidaId: 'm2', costo: 25.50 },
-        { id: 'INS002', descripcion: 'Polipropileno en Grano', material: 'Plástico', proveedorId: 'P002', unidadMedidaId: 'kg', costo: 3.20 },
-        { id: 'INS003', descripcion: 'Tornillo Allen M5', material: 'Acero Inox', proveedorId: 'P003', unidadMedidaId: 'un', costo: 0.15 },
-        { id: 'INS004', descripcion: 'Pintura Epoxi Negra', material: 'Químico', proveedorId: 'P002', unidadMedidaId: 'l', costo: 15.00 },
+     const sectores = [
+        { id: 'ingenieria', descripcion: 'Ingeniería de Producto', icon: 'pencil-ruler' },
+        { id: 'calidad', descripcion: 'Control de Calidad', icon: 'award' },
+        { id: 'produccion', descripcion: 'Producción', icon: 'factory' },
+        { id: 'logistica', descripcion: 'Logística y Almacén', icon: 'truck' },
     ];
-    const subproductos = [
-        { id: 'SUB001', descripcion: 'Soporte Metálico Principal', peso_gr: 1200, tiempo_ciclo_seg: 300 },
-        { id: 'SUB002', descripcion: 'Carcasa Plástica Superior', peso_gr: 450, tiempo_ciclo_seg: 180 },
-        { id: 'SUB003', descripcion: 'Carcasa Plástica Inferior', peso_gr: 480, tiempo_ciclo_seg: 185 },
-        { id: 'SUB004', descripcion: 'Ensamblaje Carcasas', peso_gr: 930, tiempo_ciclo_seg: 90 },
+     const procesos = [
+        { id: 'estampado', descripcion: 'Estampado' },
+        { id: 'inyeccion', descripcion: 'Inyección de Plástico' },
+        { id: 'ensamblaje', descripcion: 'Ensamblaje Manual' },
+        { id: 'pintura', descripcion: 'Pintura y Acabado' },
+        { id: 'soldadura', descripcion: 'Soldadura por Puntos' },
+     ];
+    const proyectos = [
+        { id: 'PROJ-A', codigo: 'PROJ-A', nombre: 'Proyecto Halcón', descripcion: 'Desarrollo de nuevo sistema de suspensión para vehículos 4x4.' },
+        { id: 'PROJ-B', codigo: 'PROJ-B', nombre: 'Proyecto Titán', descripcion: 'Optimización de componentes de motor para reducción de emisiones.' },
+    ];
+    const insumos = [
+        { id: 'INS001', codigo_pieza: 'INS001', lc_kd: 'LC', descripcion: 'Chapa de Acero 2mm', version: '1.0', proveedor: 'P001', unidad_medida: 'm2', costo: 25.50, fecha_modificacion: '2023-10-01', imagen: 'https://images.pexels.com/photos/38293/metal-panels-metal-structure-steel-38293.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1' },
+        { id: 'INS002', codigo_pieza: 'INS002', lc_kd: 'LC', descripcion: 'Polipropileno en Grano', version: '2.1', proveedor: 'P002', unidad_medida: 'kg', costo: 3.20, fecha_modificacion: '2023-11-15', imagen: 'https://static.interplas.com/product-images/polypropylene-homopolymer-pellets-1000x1000.jpg' },
+        { id: 'INS003', codigo_pieza: 'INS003', lc_kd: 'KD', descripcion: 'Tornillo Allen M5', version: '1.0', proveedor: 'P003', unidad_medida: 'un', costo: 0.15, fecha_modificacion: '2023-09-20', imagen: 'https://www.pdq-s.com/wp-content/uploads/2022/01/Socket-Head-Cap-Screw.jpg' },
+        { id: 'INS004', codigo_pieza: 'INS004', lc_kd: 'LC', descripcion: 'Pintura Epoxi Negra', version: '3.0', proveedor: 'P002', unidad_medida: 'l', costo: 15.00, fecha_modificacion: '2024-01-05', imagen: 'https://www.masterbond.com/sites/default/files/images/products/main_ep30-2.jpg' },
+    ];
+    const semiterminados = [
+        { id: 'SUB001', codigo_pieza: 'SUB001', lc_kd: 'LC', descripcion: 'Soporte Metálico Principal', version: '1.2', proceso: 'estampado', aspecto: 'Crítico', peso_gr: 1200, tolerancia_gr: 50, fecha_modificacion: '2024-01-10', imagen: 'https://www.shutterstock.com/image-photo/metal-stamping-part-automotive-industry-600nw-2160938473.jpg' },
+        { id: 'SUB002', codigo_pieza: 'SUB002', lc_kd: 'LC', descripcion: 'Carcasa Plástica Superior', version: '2.0', proceso: 'inyeccion', aspecto: 'No Crítico', peso_gr: 450, tolerancia_gr: 10, fecha_modificacion: '2024-01-12', imagen: 'https://www.revpart.com/wp-content/uploads/2021/04/injection-molding-complex-parts.jpg' },
+        { id: 'SUB003', codigo_pieza: 'SUB003', lc_kd: 'LC', descripcion: 'Carcasa Plástica Inferior', version: '2.0', proceso: 'inyeccion', aspecto: 'No Crítico', peso_gr: 480, tolerancia_gr: 10, fecha_modificacion: '2024-01-12', imagen: 'https://www.machinedesign.com/source/objects/sites/machinedesign.com/files/styles/facebook_og_image/public/injection-molded-parts-promo.jpg?itok=z2bLzH-1' },
+        { id: 'SUB004', codigo_pieza: 'SUB004', lc_kd: 'LC', descripcion: 'Ensamblaje Carcasas', version: '1.0', proceso: 'ensamblaje', aspecto: 'No Crítico', peso_gr: 930, tolerancia_gr: 20, fecha_modificacion: '2024-01-15', imagen: 'https://t4.ftcdn.net/jpg/05/52/63/33/360_F_552633333_sA2m5s4sYJ5b2yV4IIM2Tjhz2K3A4lus.jpg' },
     ];
 
-    // Producto final con su estructura de árbol
     const productoPrincipal = {
         id: 'PROD001',
+        codigo_pieza: 'PROD001',
+        lc_kd: 'LC',
+        version_vehiculo: 'SUV 4x4 Premium',
         descripcion: 'Ensamblaje de Soporte de Motor Delantero',
-        codigo_cliente: 'CLI-558-A',
-        clienteId: 'C001',
         version: '3.1',
+        fecha_modificacion: '2024-01-20',
+        imagen: 'https://media.istockphoto.com/id/1357283286/photo/engine-mount.jpg?s=612x612&w=0&k=20&c=M0T5S5g_sPx3yJz_s-kI6tSu_zOaWkaR2uAd2h02iW0=',
+        // Campos extra para la lógica de la app
+        clienteId: 'C001',
+        proyectoId: 'PROJ-A',
         createdAt: new Date(),
         estructura: [
             {
@@ -387,23 +588,23 @@ async function seedDatabase() {
                 icon: 'package',
                 children: [
                     {
-                        id: 'comp_sub001', refId: 'SUB001', tipo: 'subproducto', icon: 'box', quantity: 1,
+                        id: 'comp_sub001', refId: 'SUB001', tipo: 'semiterminado', icon: 'box', quantity: 1,
                         children: [
                             { id: 'comp_ins001', refId: 'INS001', tipo: 'insumo', icon: 'beaker', quantity: 1.5, children: [] },
                             { id: 'comp_ins004_1', refId: 'INS004', tipo: 'insumo', icon: 'beaker', quantity: 0.2, children: [] }
                         ]
                     },
                     {
-                        id: 'comp_sub004', refId: 'SUB004', tipo: 'subproducto', icon: 'box', quantity: 1,
+                        id: 'comp_sub004', refId: 'SUB004', tipo: 'semiterminado', icon: 'box', quantity: 1,
                         children: [
                              {
-                                id: 'comp_sub002', refId: 'SUB002', tipo: 'subproducto', icon: 'box', quantity: 1,
+                                id: 'comp_sub002', refId: 'SUB002', tipo: 'semiterminado', icon: 'box', quantity: 1,
                                 children: [
                                     { id: 'comp_ins002_1', refId: 'INS002', tipo: 'insumo', icon: 'beaker', quantity: 0.45, children: [] }
                                 ]
                             },
                             {
-                                id: 'comp_sub003', refId: 'SUB003', tipo: 'subproducto', icon: 'box', quantity: 1,
+                                id: 'comp_sub003', refId: 'SUB003', tipo: 'semiterminado', icon: 'box', quantity: 1,
                                 children: [
                                     { id: 'comp_ins002_2', refId: 'INS002', tipo: 'insumo', icon: 'beaker', quantity: 0.48, children: [] }
                                 ]
@@ -416,19 +617,111 @@ async function seedDatabase() {
         ]
     };
 
+    const productoSecundario = {
+        id: 'PROD002',
+        codigo_pieza: 'PROD002',
+        lc_kd: 'KD',
+        version_vehiculo: 'Sedan Compacto Eco',
+        descripcion: 'Inyector de combustible optimizado',
+        version: '1.0',
+        fecha_modificacion: '2024-02-01',
+        imagen: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR_x-XfVqg_iY7dYw_Z_w_q_Y7bY9H_z5O_A&s',
+        // Campos extra
+        clienteId: 'C002',
+        proyectoId: 'PROJ-B',
+        createdAt: new Date(),
+        estructura: [
+            {
+                id: 'comp_root_prod002',
+                refId: 'PROD002',
+                tipo: 'producto',
+                icon: 'package',
+                children: [
+                    {
+                        id: 'comp_sub002_p2', refId: 'SUB002', tipo: 'semiterminado', icon: 'box', quantity: 2,
+                        children: [
+                            { id: 'comp_ins002_p2', refId: 'INS002', tipo: 'insumo', icon: 'beaker', quantity: 0.9, children: [] }
+                        ]
+                    },
+                    { id: 'comp_ins003_p2', refId: 'INS003', tipo: 'insumo', icon: 'beaker', quantity: 4, children: [] }
+                ]
+            }
+        ]
+    };
+
+    // Obtener UIDs de usuarios para asignar tareas
+    const users = appState.collections.usuarios || [];
+    const currentUserUid = appState.currentUser?.uid;
+    const otherUser = users.find(u => u.docId !== currentUserUid);
+    const otherUserUid = otherUser?.docId;
+
+    const tareas = [];
+    if (currentUserUid) {
+        tareas.push({
+            title: 'Revisar diseño de Soporte Motor (PROD001)',
+            description: 'Verificar que el diseño 3D cumpla con las especificaciones del cliente C001 y los requerimientos del Proyecto Halcón.',
+            status: 'todo',
+            priority: 'high',
+            creatorUid: currentUserUid,
+            assigneeUid: currentUserUid,
+            isPublic: true,
+            createdAt: new Date(new Date().setDate(new Date().getDate() - 5)),
+            dueDate: new Date(new Date().setDate(new Date().getDate() + 10)).toISOString().split('T')[0],
+            subtasks: [
+                { id: `sub_${Date.now()}_1`, title: 'Analizar plano 2D', completed: true },
+                { id: `sub_${Date.now()}_2`, title: 'Correr simulación FEA', completed: false },
+                { id: `sub_${Date.now()}_3`, title: 'Documentar resultados', completed: false },
+            ]
+        });
+        tareas.push({
+            title: 'Cotizar material INS002',
+            description: 'Pedir cotización actualizada a Plásticos Industriales SRL para el polipropileno en grano. Necesario para PROD002.',
+            status: 'inprogress',
+            priority: 'medium',
+            creatorUid: currentUserUid,
+            assigneeUid: otherUserUid || currentUserUid, // Asignar a otro usuario si existe
+            isPublic: true,
+            createdAt: new Date(new Date().setDate(new Date().getDate() - 2)),
+            dueDate: new Date(new Date().setDate(new Date().getDate() + 5)).toISOString().split('T')[0],
+            subtasks: []
+        });
+        tareas.push({
+            title: 'Organizar reunión de kickoff Proyecto Titán',
+            description: 'Coordinar con todos los stakeholders para el inicio del proyecto.',
+            status: 'done',
+            priority: 'low',
+            creatorUid: currentUserUid,
+            assigneeUid: currentUserUid,
+            isPublic: false, // Tarea privada
+            createdAt: new Date(new Date().setDate(new Date().getDate() - 10)),
+            dueDate: new Date(new Date().setDate(new Date().getDate() - 8)).toISOString().split('T')[0],
+            subtasks: [
+                { id: `sub_${Date.now()}_4`, title: 'Definir agenda', completed: true },
+                { id: `sub_${Date.now()}_5`, title: 'Enviar invitaciones', completed: true },
+            ]
+        });
+    }
+
     // Añadir todo al batch
     try {
         clientes.forEach(c => setInBatch(COLLECTIONS.CLIENTES, c));
         proveedores.forEach(p => setInBatch(COLLECTIONS.PROVEEDORES, p));
         unidades.forEach(u => setInBatch(COLLECTIONS.UNIDADES, u));
+        sectores.forEach(s => setInBatch(COLLECTIONS.SECTORES, s));
+        procesos.forEach(p => setInBatch(COLLECTIONS.PROCESOS, p));
+        proyectos.forEach(p => setInBatch(COLLECTIONS.PROYECTOS, p));
         insumos.forEach(i => setInBatch(COLLECTIONS.INSUMOS, i));
-        subproductos.forEach(s => setInBatch(COLLECTIONS.SUBPRODUCTOS, s));
+        semiterminados.forEach(s => setInBatch(COLLECTIONS.SEMITERMINADOS, s));
         setInBatch(COLLECTIONS.PRODUCTOS, productoPrincipal);
+        setInBatch(COLLECTIONS.PRODUCTOS, productoSecundario);
+
+        // Añadir tareas con ID autogenerado
+        tareas.forEach(t => addInBatch(COLLECTIONS.TAREAS, t));
 
         await batch.commit();
-        showToast('Datos de prueba cargados exitosamente.', 'success');
-        // Forzar actualización del dashboard y vistas
-        if (appState.currentView === 'dashboard') runDashboardLogic();
+        showToast('Datos de prueba completos cargados exitosamente.', 'success');
+
+        // Forzar actualización de la vista
         switchView('dashboard');
 
     } catch (error) {
@@ -480,7 +773,12 @@ function setupGlobalEventListeners() {
     });
     
     dom.viewContent.addEventListener('click', handleViewContentActions);
-    dom.authContainer.addEventListener('submit', handleAuthForms);
+
+    // Attach listeners directly to forms for more reliable submission
+    document.getElementById('login-form')?.addEventListener('submit', handleAuthForms);
+    document.getElementById('register-form')?.addEventListener('submit', handleAuthForms);
+    document.getElementById('reset-form')?.addEventListener('submit', handleAuthForms);
+
     document.addEventListener('click', handleGlobalClick);
 }
 
@@ -494,6 +792,14 @@ function switchView(viewName) {
     appState.currentView = viewName;
     const config = viewConfig[viewName];
     dom.viewTitle.textContent = config.title;
+
+    // Hide the title for the tabular view to save space, but show it for all other views.
+    if (viewName === 'sinoptico_tabular') {
+        dom.viewTitle.style.display = 'none';
+    } else {
+        dom.viewTitle.style.display = 'block';
+    }
+
     // Update active link styling
     document.querySelectorAll('#main-nav .nav-link').forEach(link => {
         link.classList.remove('active');
@@ -544,6 +850,8 @@ function handleViewContentActions(e) {
     
     const id = button.dataset.id;
     const docId = button.dataset.docId;
+    const userId = button.dataset.userId;
+
     const actions = {
         'delete-task': () => {
             showConfirmationModal(
@@ -551,6 +859,28 @@ function handleViewContentActions(e) {
                 '¿Estás seguro de que deseas eliminar esta tarea?',
                 () => deleteDocument(COLLECTIONS.TAREAS, docId)
             );
+        },
+        'add-task-to-column': () => {
+            const status = button.dataset.status;
+            openTaskFormModal(null, status);
+        },
+        'view-user-tasks': () => {
+            if (!userId) return;
+            taskState.selectedUserId = userId;
+            runTasksLogic();
+        },
+        'assign-task-to-user': () => {
+            if (!userId) return;
+            openTaskFormModal(null, 'todo', userId);
+        },
+        'admin-back-to-supervision': () => {
+            taskState.selectedUserId = null;
+            runTasksLogic(); // This will call renderAdminUserList because activeFilter is 'supervision'
+        },
+        'admin-back-to-board': () => {
+            taskState.selectedUserId = null;
+            taskState.activeFilter = 'engineering'; // Go back to default view
+            runKanbanBoardLogic(); // Go directly to the board, bypassing the new main logic
         },
         'details': () => openDetailsModal(appState.currentData.find(d => d.id == id)),
         'edit': () => openFormModal(appState.currentData.find(d => d.id == id)),
@@ -566,40 +896,12 @@ function handleViewContentActions(e) {
         },
         'guardar-arbol': () => guardarEstructura(button),
         'add-node': () => openComponentSearchModal(button.dataset.nodeId, button.dataset.childType),
+        'edit-node-details': () => openSinopticoEditModal(button.dataset.nodeId),
         'delete-node': () => eliminarNodo(button.dataset.nodeId),
         'delete-account': handleDeleteAccount,
         'seed-database': seedDatabase,
         'clone-product': () => cloneProduct(),
         'view-history': () => showToast('La función de historial de cambios estará disponible próximamente.', 'info'),
-        'edit-node-field': () => {
-            const container = button.closest('.inline-edit-container');
-            container.querySelector('.display-mode').classList.add('hidden');
-            container.querySelector('.edit-mode').classList.remove('hidden');
-            container.querySelector('input').focus();
-            container.querySelector('input').select();
-        },
-        'cancel-node-field': () => {
-            const container = button.closest('.inline-edit-container');
-            container.querySelector('.display-mode').classList.remove('hidden');
-            container.querySelector('.edit-mode').classList.add('hidden');
-        },
-        'save-node-field': () => {
-            const container = button.closest('.inline-edit-container');
-            const nodeId = container.dataset.nodeId;
-            const field = container.dataset.field;
-            const input = container.querySelector('input');
-            let value = input.value;
-
-            const node = findNode(nodeId, appState.arbolActivo.estructura);
-            if(node) {
-                if(input.type === 'number') {
-                    value = parseFloat(value);
-                    if(isNaN(value)) value = 1;
-                }
-                node[field] = value;
-                renderArbol();
-            }
-        },
     };
     
     if (actions[action]) actions[action]();
@@ -675,9 +977,13 @@ function handleGlobalClick(e) {
     if (!target.closest('#export-menu-container')) document.getElementById('export-dropdown')?.classList.add('hidden'); 
     if (!target.closest('#type-filter-btn')) document.getElementById('type-filter-dropdown')?.classList.add('hidden'); 
     if (!target.closest('#add-client-filter-btn')) document.getElementById('add-client-filter-dropdown')?.classList.add('hidden');
+    if (!e.target.closest('#level-filter-btn') && !e.target.closest('#level-filter-dropdown')) {
+        document.getElementById('level-filter-dropdown')?.classList.add('hidden');
+    }
     
     if(target.closest('#user-menu-button')) { userDropdown?.classList.toggle('hidden'); }
     if(target.closest('#logout-button')) { e.preventDefault(); logOutUser(); }
+    if(target.closest('#resend-verification-btn')) { handleResendVerificationEmail(); }
 }
 
 // =================================================================================
@@ -824,82 +1130,75 @@ async function handleSearch() {
     }
 }
 
-// CAMBIO: La función de exportación ahora tiene un título estilizado y mejor posicionado para el PDF.
 function handleExport(type) {
     const config = viewConfig[appState.currentView];
     const data = appState.currentData;
     const title = config.title;
 
-    const headers = config.fields.map(field => field.label);
-    const body = data.map(item => {
-        return config.fields.map(field => {
-            let value = item[field.key] || '';
-            if (field.type === 'search-select' && value) {
-                const sourceCollection = appState.collections[field.searchKey];
-                const relatedItem = sourceCollection.find(d => d.id === value);
-                return relatedItem ? relatedItem.descripcion : value;
-            }
-            return value;
-        });
-    });
-
     if (type === 'pdf') {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ orientation: 'landscape' });
-        
-        // Dibujar el título personalizado
-        doc.setFontSize(18);
-        doc.setTextColor(37, 99, 235); // Azul similar a text-blue-600
-        doc.setFont('helvetica', 'bold');
-        doc.text(title, 14, 20);
 
-        const tableStartY = 30; // Posición inicial de la tabla para que no se superponga
-
-        const columnStyles = {};
-        if (config.dataKey === COLLECTIONS.INSUMOS) {
-            Object.assign(columnStyles, {
-                0: { cellWidth: 30 }, // Código
-                1: { cellWidth: 50 }, // Descripción
-                2: { cellWidth: 30 }, // Material
-                3: { cellWidth: 30 }, // Proveedor
-                4: { cellWidth: 25 }, // Unidad de Medida
-                5: { cellWidth: 20 }, // Costo
-                6: { cellWidth: 20 }, // Stock Mínimo
-                7: { cellWidth: 'auto' }, // Observaciones
-                8: { cellWidth: 20 }  // Sourcing
+        // Use the columns from the config for headers to match the screen
+        const headers = config.columns.map(col => col.label);
+        const body = data.map(item => {
+            return config.columns.map(col => {
+                const value = col.format ? col.format(item[col.key]) : (item[col.key] || 'N/A');
+                return value;
             });
-        }
+        });
 
         doc.autoTable({
             head: [headers],
             body: body,
-            startY: tableStartY,
-            styles: { fontSize: 8 },
-            headStyles: { fillColor: '#44546A' },
-            columnStyles: columnStyles
+            startY: 25, // Start table lower to make space for header
+            styles: { fontSize: 8, cellPadding: 1.5 },
+            headStyles: { fillColor: [41, 104, 217], textColor: 255, fontStyle: 'bold' },
+            alternateRowStyles: { fillColor: [241, 245, 249] },
+            // Let the library handle column widths automatically for a generic solution
+            columnStyles: {},
+            didDrawPage: (data) => {
+                // Page Header
+                doc.setFontSize(16);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(15, 23, 42);
+                doc.text(title, 14, 15);
+
+                // Page Footer
+                const pageCount = doc.internal.getNumberOfPages();
+                doc.setFontSize(8);
+                doc.setTextColor(100, 116, 139);
+                doc.text(`Página ${data.pageNumber} de ${pageCount}`, doc.internal.pageSize.getWidth() / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+            }
         });
-        doc.save(`${config.dataKey}_export_completo.pdf`);
+
+        const fileName = `${config.dataKey}_export_${new Date().toISOString().split('T')[0]}.pdf`;
+        doc.save(fileName);
 
     } else if (type === 'excel') {
-        const dataToExport = data.map(item => {
+        // Excel export can use the more detailed field list
+        const excelData = data.map(item => {
             let row = {};
             config.fields.forEach(field => {
                 let value = item[field.key] || '';
-                if (field.type === 'search-select' && value) {
-                    const sourceCollection = appState.collections[field.searchKey];
-                    const relatedItem = sourceCollection.find(d => d.id === value);
-                    value = relatedItem ? relatedItem.descripcion : value;
+                // Resolve IDs to descriptions for 'select' fields with a searchKey
+                if (field.type === 'select' && field.searchKey && value) {
+                    const sourceCollection = appState.collectionsById[field.searchKey];
+                    const relatedItem = sourceCollection?.get(value);
+                    value = relatedItem ? (relatedItem.descripcion || relatedItem.name) : value; // Use 'name' as fallback for users
                 }
                 row[field.label] = value;
             });
             return row;
         });
-        const ws = XLSX.utils.json_to_sheet(dataToExport);
+
+        const ws = XLSX.utils.json_to_sheet(excelData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, title);
-        XLSX.writeFile(wb, `${config.dataKey}_export_completo.xlsx`);
+        const fileName = `${config.dataKey}_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+        XLSX.writeFile(wb, fileName);
     }
-    showToast(`Exportación completa a ${type.toUpperCase()} iniciada.`, 'success');
+    showToast(`Exportación a ${type.toUpperCase()} iniciada.`, 'success');
 }
 
 async function openFormModal(item = null) {
@@ -955,7 +1254,7 @@ async function openFormModal(item = null) {
         }
         
         fieldsHTML += `<div class="${field.type === 'textarea' || field.type === 'search-select' || field.key === 'id' || field.type === 'select' ? 'md:col-span-2' : ''}">
-            <label for="${field.key}" class="block text-sm font-medium text-gray-700 mb-1">${field.label}</label>
+            <label for="${field.type === 'search-select' ? field.key + '-display' : field.key}" class="block text-sm font-medium text-gray-700 mb-1">${field.label}</label>
             ${inputHTML}
             <p id="error-${field.key}" class="text-xs text-red-600 mt-1 h-4"></p>
         </div>`;
@@ -1073,7 +1372,7 @@ function openDetailsModal(item) {
             const foundItem = sourceDB.find(dbItem => dbItem.id === value);
             value = foundItem ? foundItem.descripcion : 'N/A';
         }
-        fieldsHTML += `<div class="${field.type === 'textarea' || field.key === 'id' ? 'md:col-span-2' : ''}"><label class="block text-sm font-medium text-gray-500">${field.label}</label><div class="mt-1 text-sm text-gray-900 bg-gray-100 p-2 rounded-md border min-h-[38px]">${value}</div></div>`;
+        fieldsHTML += `<div class="${field.type === 'textarea' || field.key === 'id' ? 'md:col-span-2' : ''}"><label class="block text-sm font-medium text-gray-500">${field.label}</label><div class="mt-1 text-sm text-gray-900 bg-gray-100 p-2 rounded-md border min-h-[38px] break-words">${value}</div></div>`;
     });
     
     const modalHTML = `<div id="details-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop animate-fade-in"><div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col m-4 modal-content"><div class="flex justify-between items-center p-5 border-b"><h3 class="text-xl font-bold">Detalles de ${config.singular}</h3><button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button></div><div class="p-6 overflow-y-auto"><div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">${fieldsHTML}</div></div><div class="flex justify-end items-center p-4 border-t bg-gray-50"><button data-action="close" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-semibold">Cerrar</button></div></div></div>`;
@@ -1274,30 +1573,888 @@ async function guardarEstructura(button) {
 // =================================================================================
 
 let taskState = {
-    activeFilter: 'engineering', // 'engineering', 'personal', 'all'
-    unsubscribers: []
+    activeFilter: 'engineering', // 'engineering', 'personal', 'all', 'supervision'
+    searchTerm: '',
+    priorityFilter: 'all',
+    unsubscribers: [],
+    selectedUserId: null // For admin view
 };
 
 function runTasksLogic() {
+    runKanbanBoardLogic();
+}
+
+function renderTaskDashboardView() {
+    const isAdmin = appState.currentUser.role === 'admin';
+    const title = isAdmin ? "Estadísticas del Equipo" : "Mis Estadísticas";
+    const subtitle = isAdmin ? "Analiza, filtra y gestiona las tareas del equipo." : "Un resumen de tu carga de trabajo y progreso.";
+
+    // Main layout is the same, but we will hide elements for non-admins
+    dom.viewContent.innerHTML = `
+        <div class="space-y-4">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">${title}</h2>
+                    <p class="text-sm text-slate-500">${subtitle}</p>
+                </div>
+                <button data-action="admin-back-to-board" class="bg-slate-200 text-slate-800 px-4 py-2 rounded-md hover:bg-slate-300 font-semibold flex items-center flex-shrink-0">
+                    <i data-lucide="arrow-left" class="mr-2 h-5 w-5"></i>
+                    <span>Volver al Tablero</span>
+                </button>
+            </div>
+
+            <!-- Global Admin Filters (Admin only) -->
+            <div id="admin-filters-container" class="bg-white p-3 rounded-xl shadow-sm border items-center gap-4 ${isAdmin ? 'flex' : 'hidden'}">
+                 <label for="admin-view-filter" class="text-sm font-bold text-slate-600 flex-shrink-0">Vista:</label>
+                 <select id="admin-view-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white text-sm">
+                    <option value="all">Todas las Tareas</option>
+                    <option value="my-tasks">Mis Tareas</option>
+                 </select>
+                 <div id="admin-user-filter-container" class="hidden">
+                    <label for="admin-specific-user-filter" class="text-sm font-bold text-slate-600 flex-shrink-0 ml-4">Usuario:</label>
+                    <select id="admin-specific-user-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white text-sm">
+                        <!-- User options will be populated here -->
+                    </select>
+                 </div>
+            </div>
+        </div>
+
+        <!-- Tabs Navigation (Admin only) -->
+        <div id="admin-tabs-container" class="border-b border-gray-200 ${isAdmin ? 'block' : 'hidden'}">
+            <nav id="admin-task-tabs" class="-mb-px flex space-x-6" aria-label="Tabs">
+                <button data-tab="dashboard" class="admin-task-tab active-tab group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm">
+                    <i data-lucide="layout-dashboard" class="mr-2"></i><span>Dashboard</span>
+                </button>
+                <button data-tab="calendar" class="admin-task-tab group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm">
+                    <i data-lucide="calendar-days" class="mr-2"></i><span>Calendario</span>
+                </button>
+                <button data-tab="table" class="admin-task-tab group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm">
+                    <i data-lucide="table" class="mr-2"></i><span>Tabla de Tareas</span>
+                </button>
+            </nav>
+        </div>
+
+        <div class="py-6 animate-fade-in-up">
+            <!-- Tab Panels -->
+            <div id="admin-tab-content">
+                <!-- Dashboard Panel (Always visible) -->
+                <div id="tab-panel-dashboard" class="admin-tab-panel">
+                    <div id="task-charts-container" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white p-6 rounded-xl shadow-lg"><h3 class="text-lg font-bold text-slate-800 mb-4">Tareas por Estado</h3><div id="status-chart-container" class="h-64 flex items-center justify-center"><canvas id="status-chart"></canvas></div></div>
+                        <div class="bg-white p-6 rounded-xl shadow-lg"><h3 class="text-lg font-bold text-slate-800 mb-4">Tareas por Prioridad</h3><div id="priority-chart-container" class="h-64 flex items-center justify-center"><canvas id="priority-chart"></canvas></div></div>
+                        <div id="user-load-chart-wrapper" class="bg-white p-6 rounded-xl shadow-lg ${isAdmin ? 'block' : 'hidden'} lg:col-span-2"><h3 class="text-lg font-bold text-slate-800 mb-4">Carga por Usuario (Tareas Abiertas)</h3><div id="user-load-chart-container" class="h-64 flex items-center justify-center"><canvas id="user-load-chart"></canvas></div></div>
+                    </div>
+                </div>
+
+                <!-- Calendar Panel (Admin only) -->
+                <div id="tab-panel-calendar" class="admin-tab-panel hidden">
+                    <div class="bg-white p-6 rounded-xl shadow-lg">
+                        <div id="calendar-header" class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+                            <div class="flex items-center gap-4">
+                                <button id="prev-calendar-btn" class="p-2 rounded-full hover:bg-slate-100"><i data-lucide="chevron-left" class="h-6 w-6"></i></button>
+                                <h3 id="calendar-title" class="text-2xl font-bold text-slate-800 text-center w-48"></h3>
+                                <button id="next-calendar-btn" class="p-2 rounded-full hover:bg-slate-100"><i data-lucide="chevron-right" class="h-6 w-6"></i></button>
+                                <button id="today-calendar-btn" class="bg-slate-200 text-slate-700 px-4 py-2 rounded-md hover:bg-slate-300 text-sm font-semibold">Hoy</button>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <select id="calendar-priority-filter" class="pl-4 pr-8 py-2 border rounded-full bg-white shadow-sm appearance-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+                                    <option value="all">Prioridad (todas)</option>
+                                    <option value="high">Alta</option>
+                                    <option value="medium">Media</option>
+                                    <option value="low">Baja</option>
+                                </select>
+                                <div class="flex items-center gap-2 rounded-lg bg-slate-200 p-1">
+                                    <button data-view="monthly" class="calendar-view-btn px-4 py-1.5 text-sm font-semibold rounded-md">Mensual</button>
+                                    <button data-view="weekly" class="calendar-view-btn px-4 py-1.5 text-sm font-semibold rounded-md">Semanal</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="calendar-grid" class="mt-6">
+                            <!-- Calendar will be rendered here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table Panel (Admin only) -->
+                <div id="tab-panel-table" class="admin-tab-panel hidden">
+                    <div class="bg-white p-6 rounded-xl shadow-lg">
+                        <div id="task-table-controls" class="flex flex-col md:flex-row gap-4 mb-4">
+                            <div class="relative flex-grow"><i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i><input type="text" id="admin-task-search" placeholder="Buscar por título..." class="w-full pl-10 pr-4 py-2 border rounded-full bg-slate-50 focus:bg-white"></div>
+                            <div class="flex items-center gap-4 flex-wrap">
+                                <select id="admin-task-user-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white"><option value="all">Todos los usuarios</option></select>
+                                <select id="admin-task-priority-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white"><option value="all">Todas las prioridades</option><option value="high">Alta</option><option value="medium">Media</option><option value="low">Baja</option></select>
+                                <select id="admin-task-status-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white">
+                                    <option value="active">Activas</option>
+                                    <option value="all">Todos los estados</option>
+                                    <option value="todo">Por Hacer</option>
+                                    <option value="inprogress">En Progreso</option>
+                                    <option value="done">Completada</option>
+                                </select>
+                            </div>
+                            <button id="add-new-task-admin-btn" class="bg-blue-600 text-white px-5 py-2 rounded-full hover:bg-blue-700 flex items-center shadow-md transition-transform transform hover:scale-105 flex-shrink-0"><i data-lucide="plus" class="mr-2 h-5 w-5"></i>Nueva Tarea</button>
+                        </div>
+                        <div id="task-data-table-container" class="overflow-x-auto"><p class="text-center py-16 text-slate-500 flex items-center justify-center gap-3"><i data-lucide="loader" class="h-6 w-6 animate-spin"></i>Cargando tabla de tareas...</p></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    lucide.createIcons();
+
+    // Tab switching logic for admins
+    if (isAdmin) {
+        const tabs = document.querySelectorAll('.admin-task-tab');
+        const panels = document.querySelectorAll('.admin-tab-panel');
+
+        document.getElementById('admin-task-tabs').addEventListener('click', (e) => {
+            const tabButton = e.target.closest('.admin-task-tab');
+            if (!tabButton) return;
+
+            const tabName = tabButton.dataset.tab;
+
+            tabs.forEach(tab => {
+                tab.classList.remove('active-tab');
+            });
+            tabButton.classList.add('active-tab');
+
+            panels.forEach(panel => {
+                if (panel.id === `tab-panel-${tabName}`) {
+                    panel.classList.remove('hidden');
+                } else {
+                    panel.classList.add('hidden');
+                }
+            });
+        });
+    }
+
+    const tasksRef = collection(db, COLLECTIONS.TAREAS);
+    const q = query(tasksRef);
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const allTasks = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+
+        if(isAdmin) {
+            adminTaskViewState.tasks = allTasks;
+            updateAdminDashboardData(allTasks);
+        } else {
+            const myTasks = allTasks.filter(t => t.assigneeUid === appState.currentUser.uid || t.creatorUid === appState.currentUser.uid);
+            renderAdminTaskCharts(myTasks); // Directly render charts with user's tasks
+        }
+    }, (error) => {
+        console.error("Error fetching tasks for dashboard:", error);
+        showToast('Error al cargar las tareas del dashboard.', 'error');
+    });
+
+    // Initial render of components for admins
+    if(isAdmin) {
+        renderCalendar(); // Initialize the calendar structure once
+        setupAdminTaskViewListeners();
+        updateAdminDashboardData([]); // Initial call with empty data to render skeletons
+    }
+
+    appState.currentViewCleanup = () => {
+        unsubscribe();
+        destroyAdminTaskCharts();
+        adminTaskViewState = {
+            tasks: [],
+            filters: { searchTerm: '', user: 'all', priority: 'all', status: 'all' },
+            sort: { by: 'createdAt', order: 'desc' },
+            pagination: { currentPage: 1, pageSize: 10 },
+            calendar: {
+                currentDate: new Date(),
+                view: 'monthly' // 'monthly' or 'weekly'
+            }
+        };
+    };
+}
+
+function updateAdminDashboardData(tasks) {
+    let filteredTasks = [...tasks];
+    const { viewMode } = adminTaskViewState;
+    const currentUser = appState.currentUser;
+
+    if (viewMode === 'my-tasks') {
+        filteredTasks = tasks.filter(t => t.creatorUid === currentUser.uid || t.assigneeUid === currentUser.uid);
+    } else if (viewMode !== 'all') {
+        // A specific user's UID is selected
+        filteredTasks = tasks.filter(t => t.assigneeUid === viewMode);
+    }
+
+    // The components below will use the globally filtered task list
+    renderAdminTaskCharts(filteredTasks);
+    renderCalendar(adminTaskViewState.calendar.currentDate, adminTaskViewState.calendar.view);
+
+
+    // This function has its own internal filtering based on table controls
+    renderFilteredAdminTaskTable();
+}
+
+let adminCharts = { statusChart: null, priorityChart: null, userLoadChart: null };
+
+function destroyAdminTaskCharts() {
+    Object.keys(adminCharts).forEach(key => {
+        if (adminCharts[key]) {
+            adminCharts[key].destroy();
+            adminCharts[key] = null;
+        }
+    });
+}
+
+function renderAdminTaskCharts(tasks) {
+    destroyAdminTaskCharts();
+    renderStatusChart(tasks);
+    renderPriorityChart(tasks);
+    renderUserLoadChart(tasks);
+}
+
+function renderStatusChart(tasks) {
+    const ctx = document.getElementById('status-chart')?.getContext('2d');
+    if (!ctx) return;
+
+    const activeTasks = tasks.filter(t => t.status !== 'done');
+    const statusCounts = activeTasks.reduce((acc, task) => {
+        const status = task.status || 'todo';
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+    }, { todo: 0, inprogress: 0 });
+
+    adminCharts.statusChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Por Hacer', 'En Progreso'],
+            datasets: [{
+                data: [statusCounts.todo, statusCounts.inprogress],
+                backgroundColor: ['#f59e0b', '#3b82f6'],
+                borderColor: '#ffffff',
+                borderWidth: 2,
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    });
+}
+
+function renderPriorityChart(tasks) {
+    const ctx = document.getElementById('priority-chart')?.getContext('2d');
+    if (!ctx) return;
+
+    const activeTasks = tasks.filter(t => t.status !== 'done');
+    const priorityCounts = activeTasks.reduce((acc, task) => {
+        const priority = task.priority || 'medium';
+        acc[priority] = (acc[priority] || 0) + 1;
+        return acc;
+    }, { low: 0, medium: 0, high: 0 });
+
+    adminCharts.priorityChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ['Baja', 'Media', 'Alta'],
+            datasets: [{
+                data: [priorityCounts.low, priorityCounts.medium, priorityCounts.high],
+                backgroundColor: ['#6b7280', '#f59e0b', '#ef4444'],
+                borderColor: '#ffffff',
+                borderWidth: 2,
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    });
+}
+
+function renderUserLoadChart(tasks) {
+    const ctx = document.getElementById('user-load-chart')?.getContext('2d');
+    if (!ctx) return;
+
+    const openTasks = tasks.filter(t => t.status !== 'done');
+    const userTaskCounts = openTasks.reduce((acc, task) => {
+        const assigneeUid = task.assigneeUid || 'unassigned';
+        acc[assigneeUid] = (acc[assigneeUid] || 0) + 1;
+        return acc;
+    }, {});
+
+    const userMap = appState.collectionsById.usuarios;
+    const labels = Object.keys(userTaskCounts).map(uid => userMap.get(uid)?.name || 'No Asignado');
+    const data = Object.values(userTaskCounts);
+
+    adminCharts.userLoadChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Tareas Abiertas',
+                data: data,
+                backgroundColor: '#3b82f6',
+                borderColor: '#1d4ed8',
+                borderWidth: 1,
+                maxBarThickness: data.length < 3 ? 50 : undefined
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+    });
+}
+
+let adminTaskViewState = {
+    tasks: [],
+    viewMode: 'all', // 'all', 'my-tasks', or a specific user's UID
+    filters: {
+        searchTerm: '',
+        user: 'all',
+        priority: 'all',
+        status: 'active'
+    },
+    sort: {
+        by: 'createdAt',
+        order: 'desc'
+    },
+    pagination: {
+        currentPage: 1,
+        pageSize: 10
+    },
+    calendar: {
+        currentDate: new Date(),
+        view: 'monthly' // 'monthly' or 'weekly'
+    }
+};
+
+function setupAdminTaskViewListeners() {
+    const controls = {
+        // Main view filters
+        viewFilter: document.getElementById('admin-view-filter'),
+        specificUserFilter: document.getElementById('admin-specific-user-filter'),
+        specificUserContainer: document.getElementById('admin-user-filter-container'),
+        // Table-specific filters
+        search: document.getElementById('admin-task-search'),
+        user: document.getElementById('admin-task-user-filter'),
+        priority: document.getElementById('admin-task-priority-filter'),
+        status: document.getElementById('admin-task-status-filter'),
+        addNew: document.getElementById('add-new-task-admin-btn'),
+        tableContainer: document.getElementById('task-data-table-container'),
+        // Timeline filters are removed, so no controls to declare.
+    };
+
+    if (!controls.viewFilter) return; // Exit if the main controls aren't rendered
+
+    // --- Populate User Dropdowns ---
+    const users = appState.collections.usuarios || [];
+    const userOptionsHTML = users.map(u => `<option value="${u.docId}">${u.name || u.email}</option>`).join('');
+    controls.specificUserFilter.innerHTML = userOptionsHTML;
+    // Add a "Select a user" prompt
+    controls.specificUserFilter.insertAdjacentHTML('afterbegin', '<option value="" disabled selected>Seleccionar usuario...</option>');
+    controls.user.innerHTML = '<option value="all">Todos los asignados</option>' + userOptionsHTML;
+
+    // --- Main View Filter Logic ---
+    controls.viewFilter.addEventListener('change', (e) => {
+        const selection = e.target.value;
+        if (selection === 'all' || selection === 'my-tasks') {
+            controls.specificUserContainer.classList.add('hidden');
+            adminTaskViewState.viewMode = selection;
+            updateAdminDashboardData(adminTaskViewState.tasks);
+        } else {
+             // This logic can be extended if more options are added
+        }
+    });
+
+    // Add a specific option to trigger user selection
+    if(!controls.viewFilter.querySelector('option[value="specific-user"]')) {
+        controls.viewFilter.insertAdjacentHTML('beforeend', '<option value="specific-user">Usuario específico...</option>');
+    }
+
+    controls.viewFilter.addEventListener('change', (e) => {
+        if (e.target.value === 'specific-user') {
+            controls.specificUserContainer.classList.remove('hidden');
+        } else {
+            controls.specificUserContainer.classList.add('hidden');
+            adminTaskViewState.viewMode = e.target.value;
+            updateAdminDashboardData(adminTaskViewState.tasks);
+        }
+    });
+
+    controls.specificUserFilter.addEventListener('change', (e) => {
+        adminTaskViewState.viewMode = e.target.value;
+        updateAdminDashboardData(adminTaskViewState.tasks);
+    });
+
+
+    // --- Table Filter Logic ---
+    const rerenderTable = () => {
+        adminTaskViewState.pagination.currentPage = 1;
+        renderFilteredAdminTaskTable();
+    };
+
+    controls.search.addEventListener('input', (e) => { adminTaskViewState.filters.searchTerm = e.target.value.toLowerCase(); rerenderTable(); });
+    controls.user.addEventListener('change', (e) => { adminTaskViewState.filters.user = e.target.value; rerenderTable(); });
+    controls.priority.addEventListener('change', (e) => { adminTaskViewState.filters.priority = e.target.value; rerenderTable(); });
+    controls.status.addEventListener('change', (e) => { adminTaskViewState.filters.status = e.target.value; rerenderTable(); });
+    controls.addNew.addEventListener('click', () => openTaskFormModal(null, 'todo'));
+
+    // --- Table-specific Click Logic ---
+    controls.tableContainer.addEventListener('click', (e) => {
+        const header = e.target.closest('th[data-sort]');
+        if (header) {
+            const sortBy = header.dataset.sort;
+            if (adminTaskViewState.sort.by === sortBy) {
+                adminTaskViewState.sort.order = adminTaskViewState.sort.order === 'asc' ? 'desc' : 'asc';
+            } else {
+                adminTaskViewState.sort.by = sortBy;
+                adminTaskViewState.sort.order = 'asc';
+            }
+            rerenderTable();
+            return;
+        }
+
+        const actionButton = e.target.closest('button[data-action]');
+        if (actionButton) {
+            const action = actionButton.dataset.action;
+            const taskId = actionButton.dataset.docId;
+            const task = adminTaskViewState.tasks.find(t => t.docId === taskId);
+
+            if (action === 'edit-task' && task) {
+                openTaskFormModal(task);
+            } else if (action === 'delete-task' && task) {
+                 showConfirmationModal('Eliminar Tarea',`¿Estás seguro de que deseas eliminar la tarea "${task.title}"?`,() => deleteDocument(COLLECTIONS.TAREAS, taskId));
+            }
+        }
+
+        const pageButton = e.target.closest('button[data-page]');
+        if (pageButton) {
+            adminTaskViewState.pagination.currentPage = parseInt(pageButton.dataset.page, 10);
+            renderFilteredAdminTaskTable();
+        }
+    });
+
+    // --- Calendar Controls Logic ---
+    const calendarControls = {
+        prevBtn: document.getElementById('prev-calendar-btn'),
+        nextBtn: document.getElementById('next-calendar-btn'),
+        todayBtn: document.getElementById('today-calendar-btn'),
+        viewBtns: document.querySelectorAll('.calendar-view-btn')
+    };
+
+    if (calendarControls.prevBtn) {
+        calendarControls.prevBtn.addEventListener('click', () => {
+            const date = adminTaskViewState.calendar.currentDate;
+            if (adminTaskViewState.calendar.view === 'monthly') {
+                date.setMonth(date.getMonth() - 1);
+            } else {
+                date.setDate(date.getDate() - 7);
+            }
+            renderCalendar(date, adminTaskViewState.calendar.view);
+        });
+
+        calendarControls.nextBtn.addEventListener('click', () => {
+            const date = adminTaskViewState.calendar.currentDate;
+            if (adminTaskViewState.calendar.view === 'monthly') {
+                date.setMonth(date.getMonth() + 1);
+            } else {
+                date.setDate(date.getDate() + 7);
+            }
+            renderCalendar(date, adminTaskViewState.calendar.view);
+        });
+
+        calendarControls.todayBtn.addEventListener('click', () => {
+            renderCalendar(new Date(), adminTaskViewState.calendar.view);
+        });
+
+        calendarControls.viewBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const view = btn.dataset.view;
+                renderCalendar(adminTaskViewState.calendar.currentDate, view);
+            });
+        });
+
+        const calendarPriorityFilter = document.getElementById('calendar-priority-filter');
+        if(calendarPriorityFilter) {
+            calendarPriorityFilter.addEventListener('change', (e) => {
+                adminTaskViewState.filters.priority = e.target.value;
+                renderCalendar(adminTaskViewState.calendar.currentDate, adminTaskViewState.calendar.view);
+            });
+        }
+
+        const calendarGrid = document.getElementById('calendar-grid');
+        if (calendarGrid) {
+            calendarGrid.addEventListener('click', (e) => {
+                if (e.target.closest('[data-task-id]')) {
+                    return;
+                }
+                const dayCell = e.target.closest('.relative.p-2');
+                if (dayCell) {
+                    const taskList = dayCell.querySelector('.task-list[data-date]');
+                    if (taskList) {
+                        const dateStr = taskList.dataset.date;
+                        openTaskFormModal(null, 'todo', null, dateStr);
+                    }
+                }
+            });
+        }
+    }
+}
+
+function renderFilteredAdminTaskTable() {
+    let filteredTasks = [...adminTaskViewState.tasks];
+    const { searchTerm, user, priority, status } = adminTaskViewState.filters;
+
+    if (searchTerm) filteredTasks = filteredTasks.filter(t => t.title.toLowerCase().includes(searchTerm) || (t.description && t.description.toLowerCase().includes(searchTerm)));
+    if (user !== 'all') filteredTasks = filteredTasks.filter(t => t.assigneeUid === user);
+    if (priority !== 'all') filteredTasks = filteredTasks.filter(t => (t.priority || 'medium') === priority);
+    if (status === 'active') {
+        filteredTasks = filteredTasks.filter(t => t.status !== 'done');
+    } else if (status !== 'all') {
+        filteredTasks = filteredTasks.filter(t => (t.status || 'todo') === status);
+    }
+
+    const { by, order } = adminTaskViewState.sort;
+    filteredTasks.sort((a, b) => {
+        let valA = a[by] || '';
+        let valB = b[by] || '';
+
+        if (by === 'dueDate' || by === 'createdAt') {
+            valA = valA ? new Date(valA).getTime() : 0;
+            valB = valB ? new Date(valB).getTime() : 0;
+        }
+
+        if (valA < valB) return order === 'asc' ? -1 : 1;
+        if (valA > valB) return order === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    renderAdminTaskTable(filteredTasks);
+}
+
+function renderAdminTaskTable(tasksToRender) {
+    const container = document.getElementById('task-data-table-container');
+    if (!container) return;
+
+    const { currentPage, pageSize } = adminTaskViewState.pagination;
+    const totalPages = Math.ceil(tasksToRender.length / pageSize);
+    if (currentPage > totalPages && totalPages > 0) adminTaskViewState.pagination.currentPage = totalPages;
+    const paginatedTasks = tasksToRender.slice((adminTaskViewState.pagination.currentPage - 1) * pageSize, adminTaskViewState.pagination.currentPage * pageSize);
+
+    const userMap = appState.collectionsById.usuarios;
+    const priorityMap = { high: 'Alta', medium: 'Media', low: 'Baja' };
+    const statusMap = { todo: 'Por Hacer', inprogress: 'En Progreso', done: 'Completada' };
+    const priorityColorMap = { high: 'bg-red-100 text-red-800', medium: 'bg-yellow-100 text-yellow-800', low: 'bg-slate-100 text-slate-800'};
+    const statusColorMap = { todo: 'bg-yellow-100 text-yellow-800', inprogress: 'bg-blue-100 text-blue-800', done: 'bg-green-100 text-green-800'};
+
+    const getSortIndicator = (column) => {
+        if (adminTaskViewState.sort.by === column) {
+            return adminTaskViewState.sort.order === 'asc' ? '▲' : '▼';
+        }
+        return '';
+    };
+
+    let tableHTML = `<table class="w-full text-sm text-left text-gray-600">
+        <thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>
+            <th scope="col" class="px-6 py-3 cursor-pointer hover:bg-gray-200" data-sort="title">Tarea ${getSortIndicator('title')}</th>
+            <th scope="col" class="px-6 py-3 cursor-pointer hover:bg-gray-200" data-sort="assigneeUid">Asignado a ${getSortIndicator('assigneeUid')}</th>
+            <th scope="col" class="px-6 py-3 cursor-pointer hover:bg-gray-200" data-sort="priority">Prioridad ${getSortIndicator('priority')}</th>
+            <th scope="col" class="px-6 py-3 cursor-pointer hover:bg-gray-200" data-sort="dueDate">Fecha Límite ${getSortIndicator('dueDate')}</th>
+            <th scope="col" class="px-6 py-3 cursor-pointer hover:bg-gray-200" data-sort="status">Estado ${getSortIndicator('status')}</th>
+            <th scope="col" class="px-6 py-3 text-right">Acciones</th>
+        </tr></thead><tbody>`;
+
+    if (paginatedTasks.length === 0) {
+        tableHTML += `<tr><td colspan="6" class="text-center py-16 text-gray-500"><div class="flex flex-col items-center gap-3"><i data-lucide="search-x" class="w-12 h-12 text-gray-300"></i><h4 class="font-semibold">No se encontraron tareas</h4><p>Intente ajustar los filtros de búsqueda.</p></div></td></tr>`;
+    } else {
+        paginatedTasks.forEach(task => {
+            const assignee = userMap.get(task.assigneeUid);
+            const assigneeName = assignee ? assignee.name : '<span class="italic text-slate-400">No asignado</span>';
+            const priority = task.priority || 'medium';
+            const status = task.status || 'todo';
+            const dueDate = task.dueDate ? new Date(task.dueDate + 'T00:00:00').toLocaleDateString('es-AR') : 'N/A';
+
+            tableHTML += `<tr class="bg-white border-b hover:bg-gray-50">
+                <td class="px-6 py-4 font-medium text-gray-900">${task.title}</td>
+                <td class="px-6 py-4">${assigneeName}</td>
+                <td class="px-6 py-4"><span class="px-2 py-1 font-semibold leading-tight rounded-full text-xs ${priorityColorMap[priority]}">${priorityMap[priority]}</span></td>
+                <td class="px-6 py-4">${dueDate}</td>
+                <td class="px-6 py-4"><span class="px-2 py-1 font-semibold leading-tight rounded-full text-xs ${statusColorMap[status]}">${statusMap[status]}</span></td>
+                <td class="px-6 py-4 text-right">
+                    <button data-action="edit-task" data-doc-id="${task.docId}" class="p-2 text-gray-500 hover:text-blue-600"><i data-lucide="edit" class="h-4 w-4 pointer-events-none"></i></button>
+                    <button data-action="delete-task" data-doc-id="${task.docId}" class="p-2 text-gray-500 hover:text-red-600"><i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i></button>
+                </td>
+            </tr>`;
+        });
+    }
+    tableHTML += `</tbody></table>`;
+
+    if(totalPages > 1) {
+        tableHTML += `<div class="flex justify-between items-center pt-4">`;
+        tableHTML += `<button data-page="${currentPage - 1}" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed" ${currentPage === 1 ? 'disabled' : ''}>Anterior</button>`;
+        tableHTML += `<span class="text-sm font-semibold text-gray-600">Página ${currentPage} de ${totalPages}</span>`;
+        tableHTML += `<button data-page="${currentPage + 1}" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed" ${currentPage === totalPages ? 'disabled' : ''}>Siguiente</button>`;
+        tableHTML += `</div>`;
+    }
+
+    container.innerHTML = tableHTML;
+    lucide.createIcons();
+}
+
+// =================================================================================
+// --- 8. LÓGICA DEL CALENDARIO ---
+// =================================================================================
+// Helper para obtener el número de la semana ISO 8601.
+Date.prototype.getWeekNumber = function() {
+  var d = new Date(Date.UTC(this.getFullYear(), this.getMonth(), this.getDate()));
+  var dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+};
+
+function renderCalendar(date, view) {
+    if (!adminTaskViewState.calendar) return; // Don't render if state is not ready
+
+    const calendarGrid = document.getElementById('calendar-grid');
+    const calendarTitle = document.getElementById('calendar-title');
+
+    if (!calendarGrid || !calendarTitle) return;
+
+    const aDate = date || adminTaskViewState.calendar.currentDate;
+    const aView = view || adminTaskViewState.calendar.view;
+
+    adminTaskViewState.calendar.currentDate = aDate;
+    adminTaskViewState.calendar.view = aView;
+
+    // Update view switcher buttons UI
+    document.querySelectorAll('.calendar-view-btn').forEach(btn => {
+        if (btn.dataset.view === aView) {
+            btn.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
+            btn.classList.remove('text-slate-600', 'hover:bg-slate-300/50');
+        } else {
+            btn.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
+            btn.classList.add('text-slate-600', 'hover:bg-slate-300/50');
+        }
+    });
+
+    if (aView === 'monthly') {
+        renderMonthlyView(aDate);
+    } else { // weekly
+        renderWeeklyView(aDate);
+    }
+
+    // After rendering the grid, display tasks
+    displayTasksOnCalendar(adminTaskViewState.tasks);
+}
+
+function renderMonthlyView(date) {
+    const calendarGrid = document.getElementById('calendar-grid');
+    const calendarTitle = document.getElementById('calendar-title');
+
+    const year = date.getFullYear();
+    const month = date.getMonth();
+
+    calendarTitle.textContent = date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase());
+
+    let html = `
+        <div class="grid grid-cols-[auto_1fr_1fr_1fr_1fr_1fr] gap-px bg-slate-200 border border-slate-200 rounded-lg overflow-hidden">
+            <div class="font-bold text-sm text-center py-2 bg-slate-50 text-slate-600">Sem</div>
+            <div class="font-bold text-sm text-center py-2 bg-slate-50 text-slate-600">Lunes</div>
+            <div class="font-bold text-sm text-center py-2 bg-slate-50 text-slate-600">Martes</div>
+            <div class="font-bold text-sm text-center py-2 bg-slate-50 text-slate-600">Miércoles</div>
+            <div class="font-bold text-sm text-center py-2 bg-slate-50 text-slate-600">Jueves</div>
+            <div class="font-bold text-sm text-center py-2 bg-slate-50 text-slate-600">Viernes</div>
+    `;
+
+    const firstDayOfMonth = new Date(year, month, 1);
+    const lastDayOfMonth = new Date(year, month + 1, 0);
+
+    let currentDate = new Date(firstDayOfMonth);
+    let dayOfWeek = currentDate.getDay();
+    let dateOffset = (dayOfWeek === 0) ? 6 : dayOfWeek - 1;
+    currentDate.setDate(currentDate.getDate() - dateOffset);
+
+    let weekHasContent = true;
+    while(weekHasContent) {
+        let weekNumber = currentDate.getWeekNumber();
+        html += `<div class="bg-slate-100 text-center p-2 font-bold text-slate-500 text-sm flex items-center justify-center">${weekNumber}</div>`;
+
+        let daysInThisWeekFromMonth = 0;
+        for (let i = 0; i < 5; i++) { // Monday to Friday
+            const dayClass = (currentDate.getMonth() === month) ? 'bg-white' : 'bg-slate-50 text-slate-400';
+            const dateStr = currentDate.toISOString().split('T')[0];
+            html += `
+                <div class="relative p-2 min-h-[120px] ${dayClass}">
+                    <time datetime="${dateStr}" class="font-semibold text-sm">${currentDate.getDate()}</time>
+                    <div class="task-list mt-1 space-y-1" data-date="${dateStr}"></div>
+                </div>
+            `;
+            if (currentDate.getMonth() === month) {
+                daysInThisWeekFromMonth++;
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+        currentDate.setDate(currentDate.getDate() + 2);
+
+        if (daysInThisWeekFromMonth === 0 && currentDate > lastDayOfMonth) {
+            weekHasContent = false;
+        }
+    }
+
+    html += `</div>`;
+    calendarGrid.innerHTML = html;
+}
+
+function renderWeeklyView(date) {
+    const calendarGrid = document.getElementById('calendar-grid');
+    const calendarTitle = document.getElementById('calendar-title');
+
+    let dayOfWeek = date.getDay();
+    let dateOffset = (dayOfWeek === 0) ? 6 : dayOfWeek - 1;
+    let monday = new Date(date);
+    monday.setDate(date.getDate() - dateOffset);
+
+    let friday = new Date(monday);
+    friday.setDate(monday.getDate() + 4);
+
+    const weekNumber = monday.getWeekNumber();
+    calendarTitle.textContent = `Semana ${weekNumber}`;
+
+    const dayHeaders = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+    let headerHtml = '';
+    for(let i=0; i<5; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        headerHtml += `<div class="font-bold text-sm text-center py-2 bg-slate-50 text-slate-600">${dayHeaders[i]} ${d.getDate()}</div>`;
+    }
+
+    let html = `
+        <div class="grid grid-cols-5 gap-px bg-slate-200 border border-slate-200 rounded-lg overflow-hidden">
+            ${headerHtml}
+    `;
+
+    for (let i = 0; i < 5; i++) {
+        const currentDate = new Date(monday);
+        currentDate.setDate(monday.getDate() + i);
+        const dateStr = currentDate.toISOString().split('T')[0];
+        html += `
+            <div class="relative bg-white p-2 min-h-[200px]">
+                <div class="task-list mt-1 space-y-1" data-date="${dateStr}"></div>
+            </div>
+        `;
+    }
+
+    html += `</div>`;
+    calendarGrid.innerHTML = html;
+}
+
+function displayTasksOnCalendar(tasks) {
+    // Clear any existing tasks from the calendar
+    document.querySelectorAll('#calendar-grid .task-list').forEach(list => {
+        list.innerHTML = '';
+    });
+
+    if (!tasks) return;
+
+    const tasksToDisplay = tasks.filter(task => {
+        const { priority } = adminTaskViewState.filters;
+        if (priority !== 'all' && (task.priority || 'medium') !== priority) {
+            return false;
+        }
+        return true;
+    });
+
+    tasksToDisplay.forEach(task => {
+        if (task.dueDate) {
+            const taskDateStr = task.dueDate;
+            const dayCell = document.querySelector(`#calendar-grid .task-list[data-date="${taskDateStr}"]`);
+
+            if (dayCell) {
+                const priorityClasses = {
+                    high: 'bg-red-100 border-l-4 border-red-500 text-red-800',
+                    medium: 'bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800',
+                    low: 'bg-slate-100 border-l-4 border-slate-500 text-slate-800',
+                };
+                const priority = task.priority || 'medium';
+
+                const taskElement = document.createElement('div');
+                taskElement.className = `p-1.5 rounded-md text-xs font-semibold cursor-pointer hover:opacity-80 truncate ${priorityClasses[priority]}`;
+                taskElement.textContent = task.title;
+                taskElement.title = task.title;
+                taskElement.dataset.taskId = task.docId;
+
+                taskElement.addEventListener('click', () => {
+                    openTaskFormModal(task);
+                });
+
+                dayCell.appendChild(taskElement);
+            }
+        }
+    });
+}
+
+
+function runKanbanBoardLogic() {
+    if (taskState.activeFilter === 'supervision' && !taskState.selectedUserId) {
+        renderAdminUserList();
+        return;
+    }
+
+    let topBarHTML = '';
+    if (taskState.selectedUserId) {
+        const selectedUser = appState.collections.usuarios.find(u => u.docId === taskState.selectedUserId);
+        topBarHTML = `
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-bold">Tareas de ${selectedUser?.name || 'Usuario'}</h3>
+            <button data-action="admin-back-to-supervision" class="bg-slate-200 text-slate-700 px-4 py-2 rounded-md hover:bg-slate-300 text-sm font-semibold">Volver a Supervisión</button>
+        </div>
+        `;
+    }
+
     // 1. Set up the basic HTML layout for the board
     dom.viewContent.innerHTML = `
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        ${topBarHTML}
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-6 ${taskState.selectedUserId ? 'hidden' : ''}">
             <div id="task-filters" class="flex items-center gap-2 rounded-lg bg-slate-200 p-1 flex-wrap"></div>
-            <button id="add-new-task-btn" class="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 flex items-center shadow-md transition-transform transform hover:scale-105 flex-shrink-0">
-                <i data-lucide="plus" class="mr-2 h-5 w-5"></i>Nueva Tarea
-            </button>
+
+            <div class="flex items-center gap-2 flex-grow w-full md:w-auto">
+                <div class="relative flex-grow">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
+                    <input type="text" id="task-search-input" placeholder="Buscar tareas..." class="w-full pl-10 pr-4 py-2 border rounded-full bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                </div>
+                <div class="relative">
+                    <select id="task-priority-filter" class="pl-4 pr-8 py-2 border rounded-full bg-white shadow-sm appearance-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                        <option value="all">Prioridad (todas)</option>
+                        <option value="high">Alta</option>
+                        <option value="medium">Media</option>
+                        <option value="low">Baja</option>
+                    </select>
+                    <i data-lucide="chevron-down" class="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none"></i>
+                </div>
+            </div>
+
+            <div id="kanban-header-buttons" class="flex items-center gap-4 flex-shrink-0">
+                <button id="go-to-stats-view-btn" class="bg-slate-700 text-white px-5 py-2.5 rounded-full hover:bg-slate-800 flex items-center shadow-md transition-transform transform hover:scale-105 flex-shrink-0">
+                    <i data-lucide="bar-chart-2" class="mr-2 h-5 w-5"></i>Ver Estadísticas
+                </button>
+                <button id="add-new-task-btn" class="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 flex items-center shadow-md transition-transform transform hover:scale-105">
+                    <i data-lucide="plus" class="mr-2 h-5 w-5"></i>Nueva Tarea
+                </button>
+            </div>
         </div>
         <div id="task-board" class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="task-column bg-slate-100/80 rounded-xl" data-status="todo">
-                <h3 class="font-bold text-slate-800 p-3 border-b-2 border-slate-300 mb-4 flex items-center gap-3"><i data-lucide="list-todo" class="w-5 h-5 text-yellow-600"></i>Por Hacer</h3>
+                <h3 class="font-bold text-slate-800 p-3 border-b-2 border-slate-300 mb-4 flex justify-between items-center cursor-pointer kanban-column-header">
+                    <span class="flex items-center gap-3"><i data-lucide="list-todo" class="w-5 h-5 text-yellow-600"></i>Por Hacer</span>
+                    <button class="kanban-toggle-btn p-1 hover:bg-slate-200 rounded-full"><i data-lucide="chevron-down" class="w-5 h-5 transition-transform"></i></button>
+                </h3>
                 <div class="task-list min-h-[300px] p-4 space-y-4 overflow-y-auto"></div>
             </div>
             <div class="task-column bg-slate-100/80 rounded-xl" data-status="inprogress">
-                <h3 class="font-bold text-slate-800 p-3 border-b-2 border-slate-300 mb-4 flex items-center gap-3"><i data-lucide="timer" class="w-5 h-5 text-blue-600"></i>En Progreso</h3>
+                <h3 class="font-bold text-slate-800 p-3 border-b-2 border-slate-300 mb-4 flex justify-between items-center cursor-pointer kanban-column-header">
+                    <span class="flex items-center gap-3"><i data-lucide="timer" class="w-5 h-5 text-blue-600"></i>En Progreso</span>
+                    <button class="kanban-toggle-btn p-1 hover:bg-slate-200 rounded-full"><i data-lucide="chevron-down" class="w-5 h-5 transition-transform"></i></button>
+                </h3>
                 <div class="task-list min-h-[300px] p-4 space-y-4 overflow-y-auto"></div>
             </div>
             <div class="task-column bg-slate-100/80 rounded-xl" data-status="done">
-                <h3 class="font-bold text-slate-800 p-3 border-b-2 border-slate-300 mb-4 flex items-center gap-3"><i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>Completadas</h3>
+                <h3 class="font-bold text-slate-800 p-3 border-b-2 border-slate-300 mb-4 flex justify-between items-center cursor-pointer kanban-column-header">
+                    <span class="flex items-center gap-3"><i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>Completadas</span>
+                    <button class="kanban-toggle-btn p-1 hover:bg-slate-200 rounded-full"><i data-lucide="chevron-down" class="w-5 h-5 transition-transform"></i></button>
+                </h3>
                 <div class="task-list min-h-[300px] p-4 space-y-4 overflow-y-auto"></div>
             </div>
         </div>
@@ -1306,17 +2463,111 @@ function runTasksLogic() {
 
     // 2. Set up event listeners for filters and the add button
     document.getElementById('add-new-task-btn').addEventListener('click', () => openTaskFormModal());
+    document.getElementById('go-to-stats-view-btn').addEventListener('click', renderTaskDashboardView);
+
+    document.getElementById('task-board').addEventListener('click', e => {
+        const header = e.target.closest('.kanban-column-header');
+        if (header) {
+            header.parentElement.classList.toggle('collapsed');
+        }
+    });
+
+    document.getElementById('task-search-input').addEventListener('input', e => {
+        taskState.searchTerm = e.target.value.toLowerCase();
+        fetchAndRenderTasks();
+    });
+    document.getElementById('task-priority-filter').addEventListener('change', e => {
+        taskState.priorityFilter = e.target.value;
+        fetchAndRenderTasks();
+    });
     setupTaskFilters();
 
     // 3. Initial fetch and render
     renderTaskFilters();
     fetchAndRenderTasks();
 
+    // The admin button is no longer needed as the entry point is unified.
+    // Admins can switch between dashboard and board using the back button.
+
     // 4. Cleanup logic
     appState.currentViewCleanup = () => {
         taskState.unsubscribers.forEach(unsub => unsub());
         taskState.unsubscribers = [];
+        // Reset filters when leaving view
+        taskState.searchTerm = '';
+        taskState.priorityFilter = 'all';
+        taskState.selectedUserId = null;
     };
+}
+
+function renderAdminUserList() {
+    const users = appState.collections.usuarios || [];
+    const tasks = appState.collections.tareas || [];
+    const adminId = appState.currentUser.uid;
+
+    const userTaskStats = users
+        .filter(user => user.docId !== adminId)
+        .map(user => {
+            const userTasks = tasks.filter(task => task.assigneeUid === user.docId);
+            return {
+                ...user,
+                stats: {
+                    todo: userTasks.filter(t => t.status === 'todo').length,
+                    inprogress: userTasks.filter(t => t.status === 'inprogress').length,
+                    done: userTasks.filter(t => t.status === 'done').length
+                }
+            };
+        });
+
+    let content = `
+        <div class="bg-white p-6 rounded-xl shadow-lg animate-fade-in-up">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold">Supervisión de Tareas de Usuarios</h3>
+                <button data-action="admin-back-to-board" class="bg-slate-200 text-slate-700 px-4 py-2 rounded-md hover:bg-slate-300 text-sm font-semibold">Volver al Tablero</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    `;
+
+    if (userTaskStats.length === 0) {
+        content += `<p class="text-slate-500 col-span-full text-center py-12">No hay otros usuarios para supervisar.</p>`;
+    } else {
+        userTaskStats.forEach(user => {
+            content += `
+            <div class="border rounded-lg p-4 hover:shadow-md transition-shadow animate-fade-in-up">
+                    <div class="flex items-center space-x-4">
+                        <img src="${user.photoURL || `https://api.dicebear.com/8.x/identicon/svg?seed=${encodeURIComponent(user.name || user.email)}`}" alt="Avatar" class="w-12 h-12 rounded-full">
+                        <div>
+                            <p class="font-bold text-slate-800">${user.name || user.email}</p>
+                            <p class="text-sm text-slate-500">${user.email}</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex justify-around text-center">
+                        <div>
+                            <p class="text-2xl font-bold text-yellow-600">${user.stats.todo}</p>
+                            <p class="text-xs text-slate-500">Por Hacer</p>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold text-blue-600">${user.stats.inprogress}</p>
+                            <p class="text-xs text-slate-500">En Progreso</p>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold text-green-600">${user.stats.done}</p>
+                            <p class="text-xs text-slate-500">Completadas</p>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex gap-2">
+                        <button data-action="view-user-tasks" data-user-id="${user.docId}" class="flex-1 bg-slate-200 text-slate-700 px-4 py-2 rounded-md hover:bg-slate-300 text-sm font-semibold">Ver Tareas</button>
+                        <button data-action="assign-task-to-user" data-user-id="${user.docId}" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm font-semibold">Asignar Tarea</button>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    content += `</div></div>`;
+
+    dom.viewContent.innerHTML = content;
+    lucide.createIcons();
 }
 
 function setupTaskFilters() {
@@ -1338,6 +2589,7 @@ function renderTaskFilters() {
     ];
     if (appState.currentUser.role === 'admin') {
         filters.push({ key: 'all', label: 'Todas' });
+        filters.push({ key: 'supervision', label: 'Supervisión' });
     }
     const filterContainer = document.getElementById('task-filters');
     filterContainer.innerHTML = filters.map(f => `
@@ -1361,74 +2613,103 @@ function fetchAndRenderTasks() {
 
     const handleError = (error) => {
         console.error("Error fetching tasks: ", error);
-        showToast("Error al cargar las tareas. Es posible que necesite crear un índice en Firestore.", "error");
+        let message = "Error al cargar las tareas.";
+        if (error.code === 'failed-precondition') {
+            message = "Error: Faltan índices en Firestore. Revise la consola para crear el índice necesario.";
+        }
+        showToast(message, "error", 5000);
         document.querySelectorAll('.task-list').forEach(list => list.innerHTML = `<div class="p-8 text-center text-red-500"><i data-lucide="alert-triangle" class="h-8 w-8 mx-auto"></i><p class="mt-2">Error al cargar.</p></div>`);
         lucide.createIcons();
     };
 
-    if (taskState.activeFilter === 'personal') {
-        // Use a single OR query to get tasks assigned to or created by the user.
-        // This is more efficient and avoids race conditions from multiple listeners.
-        const q = query(tasksRef,
-            or(
-                where('assigneeUid', '==', user.uid),
-                where('creatorUid', '==', user.uid)
-            ),
-            orderBy('createdAt', 'desc')
-        );
-        const unsub = onSnapshot(q, (snapshot) => {
-            const tasks = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
-            renderTasks(tasks);
-        }, handleError);
-        taskState.unsubscribers.push(unsub);
+    let queryConstraints = [orderBy('createdAt', 'desc')];
 
-    } else {
-        let q;
-        if (taskState.activeFilter === 'engineering') {
-             q = query(tasksRef, where('isPublic', '==', true), orderBy('createdAt', 'desc'));
-        } else if (taskState.activeFilter === 'all' && user.role === 'admin') {
-             q = query(tasksRef, orderBy('createdAt', 'desc'));
-        } else {
-            // Fallback for non-admins or unknown filters
-            q = query(tasksRef, where('isPublic', '==', true), orderBy('createdAt', 'desc'));
+    // Add base filter (personal, engineering, all)
+    if (taskState.selectedUserId) {
+        queryConstraints.unshift(where('assigneeUid', '==', taskState.selectedUserId));
+    } else if (taskState.activeFilter === 'personal') {
+        queryConstraints.unshift(or(
+            where('assigneeUid', '==', user.uid),
+            where('creatorUid', '==', user.uid)
+        ));
+    } else if (taskState.activeFilter === 'engineering') {
+        queryConstraints.unshift(where('isPublic', '==', true));
+    } else if (taskState.activeFilter !== 'all' || user.role !== 'admin') {
+        // For admin 'all' view, no additional filter is needed.
+        // For non-admin, default to public tasks if no other filter matches.
+        if (taskState.activeFilter !== 'all') {
+            queryConstraints.unshift(where('isPublic', '==', true));
+        }
+    }
+
+    // Add priority filter
+    if (taskState.priorityFilter !== 'all') {
+        queryConstraints.unshift(where('priority', '==', taskState.priorityFilter));
+    }
+
+    const q = query(tasksRef, ...queryConstraints);
+
+    const unsub = onSnapshot(q, (snapshot) => {
+        let tasks = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+
+        // Apply client-side text search
+        if (taskState.searchTerm) {
+            tasks = tasks.filter(task =>
+                task.title.toLowerCase().includes(taskState.searchTerm) ||
+                (task.description && task.description.toLowerCase().includes(taskState.searchTerm))
+            );
         }
 
-        const unsub = onSnapshot(q, (snapshot) => {
-            const tasks = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
-            renderTasks(tasks);
-        }, handleError);
-        taskState.unsubscribers.push(unsub);
-    }
+        renderTasks(tasks);
+    }, handleError);
+
+    taskState.unsubscribers.push(unsub);
 }
 
 function renderTasks(tasks) {
-    // Defer rendering to the next event loop cycle to ensure the DOM is ready
+    const getEmptyColumnHTML = (status) => {
+        const statusMap = { todo: 'Por Hacer', inprogress: 'En Progreso', done: 'Completada' };
+        return `
+            <div class="p-4 text-center text-slate-500 border-2 border-dashed border-slate-200 rounded-lg h-full flex flex-col justify-center items-center no-drag animate-fade-in">
+                <i data-lucide="inbox" class="h-10 w-10 mx-auto text-slate-400"></i>
+                <h4 class="mt-4 font-semibold text-slate-600">Columna Vacía</h4>
+                <p class="text-sm mt-1 mb-4">No hay tareas en estado "${statusMap[status]}".</p>
+                <button data-action="add-task-to-column" data-status="${status}" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-sm py-1.5 px-3 rounded-full mx-auto flex items-center">
+                    <i data-lucide="plus" class="mr-1.5 h-4 w-4"></i>Añadir Tarea
+                </button>
+            </div>
+        `;
+    };
+
+    // Defer rendering to the next event loop cycle
     setTimeout(() => {
-        document.querySelectorAll('.task-list').forEach(list => {
-            list.innerHTML = ''; // Clear loaders
+        const tasksByStatus = { todo: [], inprogress: [], done: [] };
+        tasks.forEach(task => {
+            tasksByStatus[task.status || 'todo'].push(task);
         });
 
-        if (tasks.length === 0) {
-            document.querySelectorAll('.task-list').forEach(list => {
-                list.innerHTML = `<div class="p-8 text-center text-slate-500"><i data-lucide="inbox" class="h-8 w-8 mx-auto"></i><p class="mt-2">No hay tareas aquí.</p></div>`;
-            });
-            lucide.createIcons();
-        } else {
-            tasks.forEach(task => {
-                const taskCardHTML = createTaskCard(task);
-                const column = document.querySelector(`.task-column[data-status="${task.status || 'todo'}"] .task-list`);
-                if (column) {
-                const template = document.createElement('template');
-                template.innerHTML = taskCardHTML.trim();
-                const cardNode = template.content.firstChild;
-                cardNode.addEventListener('click', (e) => {
+        document.querySelectorAll('.task-column').forEach(columnEl => {
+            const status = columnEl.dataset.status;
+            const taskListEl = columnEl.querySelector('.task-list');
+            const columnTasks = tasksByStatus[status];
+
+            if (columnTasks.length === 0) {
+                taskListEl.innerHTML = getEmptyColumnHTML(status);
+            } else {
+                taskListEl.innerHTML = '';
+                columnTasks.forEach(task => {
+                    const taskCardHTML = createTaskCard(task);
+                    const template = document.createElement('template');
+                    template.innerHTML = taskCardHTML.trim();
+                    const cardNode = template.content.firstChild;
+                    cardNode.addEventListener('click', (e) => {
                         if (e.target.closest('.task-actions')) return;
                         openTaskFormModal(task);
                     });
-                column.appendChild(cardNode);
-                }
-            });
-        }
+                    taskListEl.appendChild(cardNode);
+                });
+            }
+        });
 
         initTasksSortable();
         lucide.createIcons();
@@ -1451,6 +2732,13 @@ function createTaskCard(task) {
     const dueDateStr = dueDate ? dueDate.toLocaleDateString('es-AR') : 'Sin fecha';
     const urgencyClass = isOverdue ? 'border-red-400 bg-red-50/50' : 'border-slate-200';
     const dateClass = isOverdue ? 'text-red-600 font-bold' : 'text-slate-500';
+
+    const creationDate = task.createdAt?.seconds ? new Date(task.createdAt.seconds * 1000) : null;
+    const creationDateStr = creationDate ? creationDate.toLocaleDateString('es-AR') : 'N/A';
+
+    const taskTypeIcon = task.isPublic
+        ? `<span title="Tarea de Ingeniería (Pública)"><i data-lucide="briefcase" class="w-4 h-4 text-slate-400"></i></span>`
+        : `<span title="Tarea Privada"><i data-lucide="lock" class="w-4 h-4 text-slate-400"></i></span>`;
 
     let subtaskProgressHTML = '';
     if (task.subtasks && task.subtasks.length > 0) {
@@ -1475,25 +2763,39 @@ function createTaskCard(task) {
     }
 
     return `
-        <div class="task-card bg-white rounded-lg p-4 shadow-sm border ${urgencyClass} cursor-pointer hover:shadow-md hover:border-blue-400 animate-fade-in-up" data-task-id="${task.docId}">
-            <h4 class="font-bold text-slate-800">${task.title}</h4>
-            <p class="text-sm text-slate-600 mt-1 mb-3 break-words">${task.description || ''}</p>
-            ${subtaskProgressHTML}
-            <div class="flex justify-between items-center text-xs mt-3">
-                <span class="px-2 py-0.5 rounded-full font-semibold ${priority.color}">${priority.label}</span>
-                <span class="flex items-center gap-1 font-medium ${dateClass}">
-                    <i data-lucide="calendar" class="w-3.5 h-3.5"></i> ${dueDateStr}
-                </span>
+        <div class="task-card bg-white rounded-lg p-4 shadow-sm border ${urgencyClass} cursor-pointer hover:shadow-md hover:border-blue-400 animate-fade-in-up flex flex-col gap-3" data-task-id="${task.docId}">
+            <div class="flex justify-between items-start gap-2">
+                <h4 class="font-bold text-slate-800 flex-grow">${task.title}</h4>
+                ${taskTypeIcon}
             </div>
-            <div class="flex items-center justify-between mt-4 pt-3 border-t border-slate-200/80">
-                <div class="flex items-center gap-2">
-                    ${assignee ? `<img src="${assignee.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(assignee.name || assignee.email)}&background=random`}" title="Asignada a: ${assignee.name || assignee.email}" class="w-6 h-6 rounded-full">` : '<div class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center" title="No asignada"><i data-lucide="user-x" class="w-4 h-4 text-gray-500"></i></div>'}
-                    <span class="text-sm text-slate-500">${assignee ? (assignee.name || assignee.email.split('@')[0]) : 'No asignada'}</span>
+
+            <p class="text-sm text-slate-600 break-words flex-grow">${task.description || ''}</p>
+
+            ${subtaskProgressHTML}
+
+            <div class="mt-auto pt-3 border-t border-slate-200/80 space-y-3">
+                <div class="flex justify-between items-center text-xs text-slate-500">
+                    <span class="px-2 py-0.5 rounded-full font-semibold ${priority.color}">${priority.label}</span>
+                    <div class="flex items-center gap-3">
+                        <span class="flex items-center gap-1.5 font-medium" title="Fecha de creación">
+                            <i data-lucide="calendar-plus" class="w-3.5 h-3.5"></i> ${creationDateStr}
+                        </span>
+                        <span class="flex items-center gap-1.5 font-medium ${dateClass}" title="Fecha de entrega">
+                            <i data-lucide="calendar-check" class="w-3.5 h-3.5"></i> ${dueDateStr}
+                        </span>
+                    </div>
                 </div>
-                <div class="task-actions">
-                    <button data-action="delete-task" data-doc-id="${task.docId}" class="text-gray-400 hover:text-red-600 p-1 rounded-full" title="Eliminar tarea">
-                        <i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i>
-                    </button>
+
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        ${assignee ? `<img src="${assignee.photoURL || `https://api.dicebear.com/8.x/identicon/svg?seed=${encodeURIComponent(assignee.name || assignee.email)}`}" title="Asignada a: ${assignee.name || assignee.email}" class="w-6 h-6 rounded-full">` : '<div class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center" title="No asignada"><i data-lucide="user-x" class="w-4 h-4 text-gray-500"></i></div>'}
+                        <span class="text-sm text-slate-500">${assignee ? (assignee.name || assignee.email.split('@')[0]) : 'No asignada'}</span>
+                    </div>
+                    <div class="task-actions">
+                        <button data-action="delete-task" data-doc-id="${task.docId}" class="text-gray-400 hover:text-red-600 p-1 rounded-full" title="Eliminar tarea">
+                            <i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1502,11 +2804,15 @@ function createTaskCard(task) {
 
 function renderSubtask(subtask) {
     const titleClass = subtask.completed ? 'line-through text-slate-500' : 'text-slate-800';
+    const containerClass = subtask.completed ? 'opacity-70' : '';
+    const checkboxId = `subtask-checkbox-${subtask.id}`;
     return `
-        <div class="subtask-item flex items-center gap-3 p-2 bg-slate-100 rounded-md" data-subtask-id="${subtask.id}">
-            <input type="checkbox" class="subtask-checkbox h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300 cursor-pointer" ${subtask.completed ? 'checked' : ''}>
-            <span class="flex-grow text-sm font-medium ${titleClass}">${subtask.title}</span>
-            <button type="button" class="subtask-delete-btn text-slate-400 hover:text-red-500 p-1 rounded-full"><i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i></button>
+        <div class="subtask-item group flex items-center gap-3 p-2 bg-slate-100 hover:bg-slate-200/70 rounded-md transition-all duration-150 ${containerClass}" data-subtask-id="${subtask.id}">
+            <label for="${checkboxId}" class="flex-grow flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" id="${checkboxId}" name="${checkboxId}" class="subtask-checkbox h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300 cursor-pointer" ${subtask.completed ? 'checked' : ''}>
+                <span class="flex-grow text-sm font-medium ${titleClass}">${subtask.title}</span>
+            </label>
+            <button type="button" class="subtask-delete-btn text-slate-400 hover:text-red-500 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i></button>
         </div>
     `;
 }
@@ -1523,6 +2829,7 @@ function initTasksSortable() {
             group: 'tasks',
             animation: 150,
             ghostClass: 'sortable-ghost',
+            filter: '.no-drag', // Ignore elements with the 'no-drag' class
             onEnd: async (evt) => {
                 const taskId = evt.item.dataset.taskId;
                 const newStatus = evt.to.closest('.task-column').dataset.status;
@@ -1539,15 +2846,18 @@ function initTasksSortable() {
     });
 }
 
-async function openTaskFormModal(task = null) {
+async function openTaskFormModal(task = null, defaultStatus = 'todo', defaultAssigneeUid = null, defaultDate = null) {
     const isEditing = task !== null;
 
     // Determine the UID to be pre-selected in the dropdown.
-    let selectedUid = '';
-    if (isEditing && task.assigneeUid) {
-        selectedUid = task.assigneeUid;
-    } else if (!isEditing && taskState.activeFilter === 'personal') {
-        selectedUid = appState.currentUser.uid;
+    let selectedUid = defaultAssigneeUid || ''; // Prioritize passed-in UID
+    if (!selectedUid) { // If no default is provided, use existing logic
+        if (isEditing && task.assigneeUid) {
+            selectedUid = task.assigneeUid;
+        } else if (!isEditing && taskState.activeFilter === 'personal') {
+            // When creating a new personal task, assign it to self by default
+            selectedUid = appState.currentUser.uid;
+        }
     }
 
     const modalHTML = `
@@ -1559,6 +2869,7 @@ async function openTaskFormModal(task = null) {
             </div>
             <form id="task-form" class="p-6 overflow-y-auto space-y-4" novalidate>
                 <input type="hidden" name="taskId" value="${isEditing ? task.docId : ''}">
+                <input type="hidden" name="status" value="${isEditing ? task.status : defaultStatus}">
                 <div>
                     <label for="task-title" class="block text-sm font-medium text-gray-700 mb-1">Título</label>
                     <input type="text" id="task-title" name="title" value="${isEditing && task.title ? task.title : ''}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required>
@@ -1572,11 +2883,12 @@ async function openTaskFormModal(task = null) {
                     <label class="block text-sm font-medium text-gray-700">Sub-tareas</label>
                     <div id="subtasks-list" class="space-y-2 max-h-48 overflow-y-auto p-2 rounded-md bg-slate-50 border"></div>
                     <div class="flex items-center gap-2">
-                        <input type="text" id="new-subtask-title" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Añadir sub-tarea y presionar Enter">
+                        <label for="new-subtask-title" class="sr-only">Añadir sub-tarea</label>
+                        <input type="text" id="new-subtask-title" name="new-subtask-title" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder="Añadir sub-tarea y presionar Enter">
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label for="task-assignee" class="block text-sm font-medium text-gray-700 mb-1">Asignar a</label>
                         <select id="task-assignee" name="assigneeUid" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" data-selected-uid="${selectedUid}">
@@ -1592,10 +2904,23 @@ async function openTaskFormModal(task = null) {
                         </select>
                     </div>
                     <div>
+                        <label for="task-startdate" class="block text-sm font-medium text-gray-700 mb-1">Fecha de Inicio</label>
+                        <input type="date" id="task-startdate" name="startDate" value="${isEditing && task.startDate ? task.startDate : (defaultDate || '')}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                    </div>
+                    <div>
                         <label for="task-duedate" class="block text-sm font-medium text-gray-700 mb-1">Fecha Límite</label>
-                        <input type="date" id="task-duedate" name="dueDate" value="${isEditing && task.dueDate ? task.dueDate : ''}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                        <input type="date" id="task-duedate" name="dueDate" value="${isEditing && task.dueDate ? task.dueDate : (defaultDate || '')}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
                     </div>
                 </div>
+
+                ${appState.currentUser.role === 'admin' ? `
+                <div class="pt-2">
+                    <label class="flex items-center space-x-3 cursor-pointer">
+                        <input type="checkbox" id="task-is-public" name="isPublic" class="h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300" ${isEditing && task.isPublic ? 'checked' : ''}>
+                        <span class="text-sm font-medium text-gray-700">Tarea Pública (Visible para todos en Ingeniería)</span>
+                    </label>
+                </div>
+                ` : ''}
             </form>
             <div class="flex justify-end items-center p-4 border-t bg-gray-50 space-x-3">
                 ${isEditing ? `<button data-action="delete" class="text-red-600 font-semibold mr-auto px-4 py-2 rounded-md hover:bg-red-50">Eliminar Tarea</button>` : ''}
@@ -1700,6 +3025,7 @@ async function handleTaskFormSubmit(e) {
         description: form.querySelector('[name="description"]').value,
         assigneeUid: form.querySelector('[name="assigneeUid"]').value,
         priority: form.querySelector('[name="priority"]').value,
+        startDate: form.querySelector('[name="startDate"]').value,
         dueDate: form.querySelector('[name="dueDate"]').value,
         updatedAt: new Date(),
         subtasks: modalElement.dataset.subtasks ? JSON.parse(modalElement.dataset.subtasks) : []
@@ -1708,6 +3034,16 @@ async function handleTaskFormSubmit(e) {
     if (!data.title) {
         showToast('El título es obligatorio.', 'error');
         return;
+    }
+
+    // Handle task visibility (public/private)
+    const isPublicCheckbox = form.querySelector('[name="isPublic"]');
+    if (isPublicCheckbox) {
+        data.isPublic = isPublicCheckbox.checked;
+    } else if (!isEditing) {
+        // Fallback for non-admins creating tasks.
+        // When editing, non-admins won't see the checkbox, so the value remains unchanged.
+        data.isPublic = taskState.activeFilter === 'engineering';
     }
 
     const saveButton = form.closest('.modal-content').querySelector('button[type="submit"]');
@@ -1725,8 +3061,7 @@ async function handleTaskFormSubmit(e) {
         } else {
             data.creatorUid = appState.currentUser.uid;
             data.createdAt = new Date();
-            data.status = 'todo';
-            data.isPublic = taskState.activeFilter === 'engineering';
+            data.status = form.querySelector('[name="status"]').value || 'todo';
             await addDoc(collection(db, COLLECTIONS.TAREAS), data);
             showToast('Tarea creada con éxito.', 'success');
         }
@@ -1770,43 +3105,62 @@ function populateTaskAssigneeDropdown() {
 
 
 onAuthStateChanged(auth, async (user) => {
-    dom.loadingOverlay.style.display = 'none';
     if (user) {
-        if (user.emailVerified) {
-            const isNewLogin = !appState.currentUser;
+        // Forzar la recarga del estado del usuario para obtener el estado de emailVerified más reciente.
+        await user.reload();
 
-            // --- Fetch user role ---
+        if (user.emailVerified) {
+            const wasAlreadyLoggedIn = !!appState.currentUser;
+
+            // Show loading overlay with appropriate message
+            const loadingText = dom.loadingOverlay.querySelector('p');
+            loadingText.textContent = wasAlreadyLoggedIn ? 'Recargando datos...' : 'Verificación exitosa, cargando datos...';
+            dom.loadingOverlay.style.display = 'flex';
+
+            // Fetch user profile
             const userDocRef = doc(db, COLLECTIONS.USUARIOS, user.uid);
             const userDocSnap = await getDoc(userDocRef);
-            let userRole = 'lector'; // Default role
-            if (userDocSnap.exists()) {
-                userRole = userDocSnap.data().role || 'lector';
-            }
-            // --- End fetch user role ---
 
             appState.currentUser = {
                 uid: user.uid,
                 name: user.displayName || user.email.split('@')[0],
                 email: user.email,
-                avatarUrl: user.photoURL || `https://placehold.co/40x40/1e40af/ffffff?text=${(user.displayName || user.email).charAt(0).toUpperCase()}`,
-                role: userRole
+                avatarUrl: user.photoURL || `https://api.dicebear.com/8.x/identicon/svg?seed=${encodeURIComponent(user.displayName || user.email)}`,
+                role: userDocSnap.exists() ? userDocSnap.data().role || 'lector' : 'lector'
             };
 
-            await seedDefaultSectors(); // Ensure default data exists
+            await seedDefaultSectors();
 
-            updateAuthView(true);
-            if (isNewLogin) {
+            // Show app shell behind overlay
+            dom.authContainer.classList.add('hidden');
+            dom.appView.classList.remove('hidden');
+            renderUserMenu();
+
+            // Wait for essential data to load
+            await startRealtimeListeners();
+
+            // Hide overlay and render the initial view
+            switchView('dashboard');
+            dom.loadingOverlay.style.display = 'none';
+
+            if (!wasAlreadyLoggedIn) {
                 showToast(`¡Bienvenido de nuevo, ${appState.currentUser.name}!`, 'success');
             }
         } else {
+            dom.loadingOverlay.style.display = 'none';
             showToast('Por favor, verifica tu correo electrónico para continuar.', 'info');
-            updateAuthView(false);
             showAuthScreen('verify-email');
         }
     } else {
+        dom.loadingOverlay.style.display = 'none';
         const wasLoggedIn = !!appState.currentUser;
+
+        stopRealtimeListeners();
         appState.currentUser = null;
-        updateAuthView(false);
+        dom.authContainer.classList.remove('hidden');
+        dom.appView.classList.add('hidden');
+        showAuthScreen('login');
+
         if (wasLoggedIn) {
             showToast(`Sesión cerrada.`, 'info');
         }
@@ -1814,26 +3168,15 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 function updateAuthView(isLoggedIn) {
-    if (isLoggedIn) {
-        dom.authContainer.classList.add('hidden');
-        dom.appView.classList.remove('hidden');
-        renderUserMenu();
-        if (appState.unsubscribeListeners.length === 0) {
-             startRealtimeListeners();
-        }
-        // Show/hide admin-only UI elements
-        const userManagementLink = document.querySelector('a[data-view="user_management"]');
-        if (userManagementLink) {
-            userManagementLink.style.display = appState.currentUser.role === 'admin' ? 'flex' : 'none';
-        }
-        switchView('dashboard');
-    } else {
+    // This function is now only used for logout and unverified email scenarios.
+    if (!isLoggedIn) {
         stopRealtimeListeners();
         dom.authContainer.classList.remove('hidden');
         dom.appView.classList.add('hidden');
         appState.currentUser = null;
         showAuthScreen('login');
     }
+    // The logged-in logic is now handled directly in onAuthStateChanged
 }
 
 function renderUserMenu() {
@@ -1862,12 +3205,53 @@ function showAuthScreen(screenName) {
     document.getElementById(`${screenName}-panel`).classList.remove('hidden');
 }
 
+async function handleResendVerificationEmail() {
+    const resendButton = document.getElementById('resend-verification-btn');
+    const timerElement = document.getElementById('resend-timer');
+    if (!resendButton || !timerElement) return;
+
+    resendButton.disabled = true;
+    timerElement.textContent = 'Enviando...';
+
+    try {
+        await sendEmailVerification(auth.currentUser);
+        showToast('Se ha enviado un nuevo correo de verificación.', 'success');
+
+        // Cooldown timer
+        let seconds = 60;
+        timerElement.textContent = `Puedes reenviar de nuevo en ${seconds}s.`;
+        const interval = setInterval(() => {
+            seconds--;
+            if (seconds > 0) {
+                timerElement.textContent = `Puedes reenviar de nuevo en ${seconds}s.`;
+            } else {
+                clearInterval(interval);
+                timerElement.textContent = '';
+                resendButton.disabled = false;
+            }
+        }, 1000);
+
+    } catch (error) {
+        console.error("Error resending verification email:", error);
+        showToast(`Error al reenviar el correo: ${error.message}`, 'error');
+        timerElement.textContent = 'Hubo un error. Inténtalo de nuevo.';
+        resendButton.disabled = false;
+    }
+}
+
 async function handleAuthForms(e) {
     e.preventDefault();
     const formId = e.target.id;
     const email = e.target.querySelector('input[type="email"]').value;
     const passwordInput = e.target.querySelector('input[type="password"]');
     const password = passwordInput ? passwordInput.value : null;
+
+    const submitButton = e.target.querySelector('button[type="submit"]');
+    const originalButtonHTML = submitButton.innerHTML;
+    submitButton.disabled = true;
+    submitButton.innerHTML = `<i data-lucide="loader" class="animate-spin h-5 w-5 mx-auto"></i>`;
+    lucide.createIcons();
+
     try {
         if (formId === 'login-form') {
             await signInWithEmailAndPassword(auth, email, password);
@@ -1876,6 +3260,8 @@ async function handleAuthForms(e) {
             const name = e.target.querySelector('#register-name').value;
             if (!email.toLowerCase().endsWith('@barackmercosul.com')) {
                 showToast('Dominio no autorizado. Use un correo de @barackmercosul.com.', 'error');
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalButtonHTML;
                 return;
             }
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -1891,9 +3277,21 @@ async function handleAuthForms(e) {
                 createdAt: new Date()
             });
 
-            await sendEmailVerification(userCredential.user);
-            showToast('Registro exitoso. Se ha enviado un correo de verificación.', 'info');
-            showAuthScreen('verify-email');
+            try {
+                console.log("Attempting to send verification email to:", userCredential.user.email);
+                await sendEmailVerification(userCredential.user);
+                console.log("sendEmailVerification call completed without throwing an error.");
+                showToast('Registro exitoso. Se ha enviado un correo de verificación a tu casilla.', 'success');
+                showAuthScreen('verify-email');
+            } catch (emailError) {
+                console.error("Error sending verification email:", emailError.code, emailError.message, emailError);
+                let errorMessage = 'Usuario registrado, pero no se pudo enviar el correo de verificación. ';
+                errorMessage += 'Por favor, inténtelo de nuevo desde la pantalla de verificación o contacte a un administrador.';
+                showToast(errorMessage, 'error', 6000);
+                // A pesar del error en el email, se muestra la pantalla de verificación
+                // porque el usuario SÍ fue creado y puede intentar el reenvío.
+                showAuthScreen('verify-email');
+            }
         }
         else if (formId === 'reset-form') {
             await sendPasswordResetEmail(auth, email);
@@ -1919,6 +3317,8 @@ async function handleAuthForms(e) {
                 friendlyMessage = 'Error de autenticación. Intente de nuevo.';
         }
         showToast(friendlyMessage, 'error');
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalButtonHTML;
     }
 }
 
@@ -1983,7 +3383,7 @@ function renderArbolDetalle(highlightNodeId = null) {
         treeContentHTML += `<div class="text-center p-6 bg-blue-50 border-t border-blue-200 rounded-b-lg">
             <i data-lucide="mouse-pointer-click" class="h-10 w-10 mx-auto text-blue-400 mb-3"></i>
             <h4 class="font-semibold text-blue-800">¡Tu árbol está listo para crecer!</h4>
-            <p class="text-sm text-blue-700">Comienza agregando componentes usando los botones <span class="font-mono bg-green-100 text-green-800 px-1 rounded">+ subproducto</span> o <span class="font-mono bg-green-100 text-green-800 px-1 rounded">+ insumo</span>.</p>
+            <p class="text-sm text-blue-700">Comienza agregando componentes usando los botones <span class="font-mono bg-green-100 text-green-800 px-1 rounded">+ semiterminado</span> o <span class="font-mono bg-green-100 text-green-800 px-1 rounded">+ insumo</span>.</p>
         </div>`;
     }
     dom.viewContent.innerHTML = `<div class="bg-white rounded-xl shadow-md p-6 animate-fade-in-up"><div class="flex justify-between items-start mb-4 pb-4 border-b"><div><h3 class="text-2xl font-bold">${appState.arbolActivo.nombre}</h3><p class="text-sm text-gray-500">Cliente: <span class="font-semibold">${cliente?.descripcion || 'N/A'}</span></p></div><div class="flex space-x-2"><button data-action="volver-a-busqueda" class="bg-gray-500 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-gray-600">Buscar Otro</button><button data-action="guardar-arbol" class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-blue-700 flex items-center justify-center w-28 transition-all duration-300">Guardar</button></div></div>${treeContentHTML}</div>`;
@@ -2013,38 +3413,20 @@ function renderNodo(nodo) {
     const item = appState.collectionsById[collectionName]?.get(nodo.refId);
     if (!item) return '';
 
-    const addableChildren = { producto: ['subproducto', 'insumo'], subproducto: ['subproducto', 'insumo'], insumo: [] };
+    const addableChildren = { producto: ['semiterminado', 'insumo'], semiterminado: ['semiterminado', 'insumo'], insumo: [] };
     let addButtons = (addableChildren[nodo.tipo] || []).map(tipo => `<button data-action="add-node" data-node-id="${nodo.id}" data-child-type="${tipo}" class="px-2 py-1 bg-green-100 text-green-800 rounded-md hover:bg-green-200 text-xs font-semibold" title="Agregar ${tipo}">+ ${tipo}</button>`).join(' ');
 
     const isDraggable = nodo.tipo !== 'producto';
 
-    const quantityHTML = nodo.tipo !== 'producto' ? `
-        <div class="inline-edit-container" data-field="quantity" data-node-id="${nodo.id}">
-            <span data-action="edit-node-field" class="display-mode flex items-center gap-1 cursor-pointer hover:bg-slate-200 p-1 rounded-md text-sm text-slate-600" title="Editar cantidad">
-                x <span class="font-bold">${nodo.quantity ?? 1}</span>
-                <i data-lucide="pencil" class="w-3 h-3 ml-1 opacity-0 group-hover:opacity-50 transition-opacity pointer-events-none"></i>
-            </span>
-            <span class="edit-mode hidden">
-                <input type="number" value="${nodo.quantity ?? 1}" class="w-20 border-slate-300 rounded-md py-1 px-2 text-sm">
-                <button data-action="save-node-field" class="p-1 text-green-600 hover:bg-green-100 rounded-md"><i data-lucide="check" class="w-5 h-5 pointer-events-none"></i></button>
-                <button data-action="cancel-node-field" class="p-1 text-red-600 hover:bg-red-100 rounded-md"><i data-lucide="x" class="w-5 h-5 pointer-events-none"></i></button>
-            </span>
-        </div>
-    ` : '';
+    const quantityText = '';
 
-    const commentIcon = nodo.comment ? 'message-square-text' : 'message-square';
-    const commentHTML = `
-        <div class="inline-edit-container" data-field="comment" data-node-id="${nodo.id}">
-            <span data-action="edit-node-field" class="display-mode cursor-pointer hover:bg-slate-200 p-1 rounded-md text-slate-500" title="${nodo.comment || 'Añadir comentario'}">
-                <i data-lucide="${commentIcon}" class="w-5 h-5"></i>
-            </span>
-            <span class="edit-mode hidden">
-                <input type="text" value="${nodo.comment || ''}" placeholder="Comentario..." class="w-48 border-slate-300 rounded-md py-1 px-2 text-sm">
-                <button data-action="save-node-field" class="p-1 text-green-600 hover:bg-green-100 rounded-md"><i data-lucide="check" class="w-5 h-5 pointer-events-none"></i></button>
-                <button data-action="cancel-node-field" class="p-1 text-red-600 hover:bg-red-100 rounded-md"><i data-lucide="x" class="w-5 h-5 pointer-events-none"></i></button>
-            </span>
-        </div>
-    `;
+    const commentText = nodo.comment ? `<p class="pl-8 text-sm text-slate-500 italic flex items-center gap-2"><i data-lucide="message-square" class="w-3.5 h-3.5"></i>${nodo.comment}</p>` : '';
+
+    const editButton = nodo.tipo !== 'producto' ? `
+        <button data-action="edit-node-details" data-node-id="${nodo.id}" class="text-blue-600 hover:text-blue-700" title="Editar Cantidad/Comentario">
+            <i data-lucide="pencil" class="h-4 w-4 pointer-events-none"></i>
+        </button>
+    ` : '';
 
     return `<li data-node-id="${nodo.id}" class="group">
                 <div class="node-content ${isDraggable ? '' : 'cursor-default'}" data-type="${nodo.tipo}">
@@ -2052,16 +3434,16 @@ function renderNodo(nodo) {
                         <i data-lucide="${nodo.icon}" class="h-5 w-5 text-gray-600 flex-shrink-0"></i>
                         <span class="font-semibold truncate" title="${item.descripcion}">${item.descripcion}</span>
                         <span class="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full flex-shrink-0">${nodo.tipo}</span>
+                        ${quantityText}
                     </div>
                     <div class="flex items-center space-x-2 flex-shrink-0">
-                        ${quantityHTML}
-                        ${commentHTML}
-                        <div class="h-5 border-l border-slate-200"></div>
                         ${addButtons}
+                        ${editButton}
                         ${nodo.tipo !== 'producto' ? `<button data-action="delete-node" data-node-id="${nodo.id}" class="text-red-500 hover:text-red-700" title="Eliminar"><i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i></button>` : ''}
                     </div>
                 </div>
-                ${(nodo.children && nodo.children.length > 0) ? `<ul class="node-children-list">${nodo.children.map(renderNodo).join('')}</ul>` : ''}
+                ${commentText}
+                ${addableChildren[nodo.tipo].length > 0 ? `<ul class="node-children-list">${(nodo.children || []).map(renderNodo).join('')}</ul>` : ''}
             </li>`;
 }
 
@@ -2154,7 +3536,7 @@ function handleProductSearchInTree(term, clientId, resultsContainer) {
 }
 
 function openComponentSearchModal(padreId, tipoHijo) {
-    const dataKey = tipoHijo === 'subproducto' ? COLLECTIONS.SUBPRODUCTOS : COLLECTIONS.INSUMOS;
+    const dataKey = tipoHijo === 'semiterminado' ? COLLECTIONS.SEMITERMINADOS : COLLECTIONS.INSUMOS;
     const modalId = `comp-search-modal-${Date.now()}`;
     const modalHTML = `<div id="${modalId}" class="fixed inset-0 z-[60] flex items-center justify-center modal-backdrop animate-fade-in"><div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col m-4 modal-content"><div class="flex justify-between items-center p-5 border-b"><h3 class="text-xl font-bold">Seleccionar ${tipoHijo}</h3><button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button></div><div class="p-6"><input type="text" id="search-comp-term" placeholder="Buscar..." class="w-full border-gray-300 rounded-md shadow-sm"></div><div id="search-comp-results" class="p-6 border-t overflow-y-auto flex-1"></div></div></div>`;
     dom.modalContainer.insertAdjacentHTML('beforeend', modalHTML);
@@ -2219,7 +3601,7 @@ function crearComponente(tipo, datos) {
         id: `comp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, 
         refId: datos.id, 
         tipo: tipo, 
-        icon: { producto: 'package', subproducto: 'box', insumo: 'beaker' }[tipo], 
+        icon: { producto: 'package', semiterminado: 'box', insumo: 'beaker' }[tipo],
         children: [], 
         quantity: 1,
         comment: ''
@@ -2227,7 +3609,7 @@ function crearComponente(tipo, datos) {
 }
 
 function handleComponentSelect(padreId, itemId, itemType) {
-    const item = appState.collections[itemType === 'subproducto' ? COLLECTIONS.SUBPRODUCTOS : COLLECTIONS.INSUMOS].find(i => i.id === itemId);
+    const item = appState.collections[itemType === 'semiterminado' ? COLLECTIONS.SEMITERMINADOS : COLLECTIONS.INSUMOS].find(i => i.id === itemId);
     if (!item) return;
     let nuevoNodo;
     const addComponent = () => {
@@ -2267,54 +3649,48 @@ function renderCaratula(producto, cliente) {
     if (!container) return;
 
     if (producto && cliente) {
-        const lastUpdated = producto.lastUpdated ? new Date(producto.lastUpdated.seconds * 1000).toLocaleString('es-AR') : 'N/A';
-        const created = producto.createdAt ? new Date(producto.createdAt.seconds * 1000).toLocaleDateString('es-AR') : 'N/A';
+        const createdAt = producto.createdAt ? new Date(producto.createdAt.seconds * 1000).toLocaleDateString('es-AR') : 'N/A';
+
+        const createEditableField = (label, value, fieldName, placeholder = 'N/A') => {
+            const val = value || '';
+            return `
+                <div class="caratula-field group cursor-pointer" data-field="${fieldName}" data-value="${val}">
+                    <p class="font-bold opacity-80 uppercase flex items-center">${label}
+                        <i data-lucide="pencil" class="w-3 h-3 ml-2 opacity-0 group-hover:opacity-50 transition-opacity"></i>
+                    </p>
+                    <div class="value-display min-h-[1em]">${val || `<span class="italic opacity-50">${placeholder}</span>`}</div>
+                    <div class="edit-controls hidden">
+                        <input type="text" class="bg-slate-800 border-b-2 border-slate-400 focus:outline-none w-full text-white" value="${val}">
+                    </div>
+                </div>
+            `;
+        };
 
         container.innerHTML = `
-            <div class="bg-white p-6 rounded-xl shadow-lg animate-fade-in-up">
-                <div class="flex flex-col md:flex-row gap-6">
-                    <!-- Columna de Producto -->
-                    <div class="flex-1">
-                        <h3 class="text-sm font-bold uppercase text-blue-600 tracking-wider">Producto Principal del Árbol</h3>
-                        <p class="text-2xl font-bold text-slate-800 mt-1">${producto.descripcion}</p>
-                        <div class="flex items-center gap-4 mt-2 text-sm text-slate-500">
-                            <span>Código: <span class="font-semibold text-slate-700">${producto.id}</span></span>
-                            <span class="border-l pl-4">Versión: <span class="font-semibold text-slate-700">${producto.version || 'N/A'}</span></span>
-                        </div>
-                    </div>
-                    <!-- Columna de Cliente -->
-                    <div class="flex-1 md:border-l md:pl-6 border-slate-200">
-                         <h3 class="text-sm font-bold uppercase text-indigo-600 tracking-wider">Cliente</h3>
-                         <p class="text-2xl font-bold text-slate-800 mt-1">${cliente.descripcion}</p>
-                         <p class="text-sm text-slate-500 mt-2">Código: <span class="font-semibold text-slate-700">${cliente.id}</span></p>
+        <div class="bg-white rounded-xl shadow-lg animate-fade-in-up overflow-hidden">
+            <h3 class="text-center font-bold text-xl py-3 bg-blue-600 text-white">COMPOSICIÓN DE PIEZAS - BOM</h3>
+            <div class="flex">
+                <div class="w-1/3 bg-white flex items-center justify-center p-4 border-r border-slate-200">
+                    <img src="logo.png" alt="Logo" class="max-h-20">
+                </div>
+                <div class="w-2/3 bg-[#44546A] text-white p-4 flex items-center" id="caratula-fields-container">
+                    <div class="grid grid-cols-2 gap-x-6 gap-y-4 text-sm w-full">
+                        <div><p class="font-bold opacity-80 uppercase">PRODUCTO</p><p>${producto.descripcion || 'N/A'}</p></div>
+                        <div><p class="font-bold opacity-80 uppercase">NÚMERO DE PIEZA</p><p>${producto.id || 'N/A'}</p></div>
+                        <div><p class="font-bold opacity-80 uppercase">VERSIÓN</p><p>${producto.version || 'N/A'}</p></div>
+                        <div><p class="font-bold opacity-80 uppercase">FECHA DE CREACIÓN</p><p>${createdAt}</p></div>
+
+                        ${createEditableField('REALIZÓ', producto.lastUpdatedBy, 'lastUpdatedBy', 'N/A')}
+                        ${createEditableField('APROBÓ', producto.aprobadoPor, 'aprobadoPor', 'N/A')}
+                        ${createEditableField('FECHA DE REVISIÓN', producto.fechaRevision, 'fechaRevision', 'YYYY-MM-DD')}
                     </div>
                 </div>
-                <!-- Historial de Cambios -->
-                <div class="mt-4 pt-4 border-t border-slate-200">
-                    <h3 class="text-sm font-bold uppercase text-slate-500 tracking-wider">Información de Cambios</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-2 text-sm">
-                        <div>
-                            <p class="text-slate-500">Fecha de Creación</p>
-                            <p class="font-semibold text-slate-700">${created}</p>
-                        </div>
-                        <div>
-                            <p class="text-slate-500">Última Modificación</p>
-                            <p class="font-semibold text-slate-700">${lastUpdated}</p>
-                        </div>
-                        <div>
-                            <p class="text-slate-500">Revisado por</p>
-                            <p class="font-semibold text-slate-700">${producto.lastUpdatedBy || 'N/A'}</p>
-                        </div>
-                        <div>
-                            <p class="text-slate-500">Historial Completo</p>
-                            <p class="font-semibold text-slate-400 italic">Próximamente</p>
-                        </div>
-                    </div>
-                </div>
-            </div>`;
+            </div>
+        </div>`;
+
     } else {
         container.innerHTML = `
-            <div class="bg-white p-6 rounded-xl shadow-lg text-center animate-fade-in">
+            <div class="bg-white p-6 rounded-xl shadow-lg text-center animate-fade-in border border-slate-200">
                 <p class="text-slate-500 flex items-center justify-center">
                     <i data-lucide="info" class="inline-block mr-3 h-5 w-5 text-slate-400"></i>
                     <span>La información del producto y cliente aparecerá aquí cuando selecciones un elemento del árbol.</span>
@@ -2324,11 +3700,255 @@ function renderCaratula(producto, cliente) {
     lucide.createIcons();
 }
 
+function openSinopticoEditModal(nodeId) {
+    let activeProductDocId;
+    switch (appState.currentView) {
+        case 'arboles':
+            activeProductDocId = appState.arbolActivo?.docId;
+            break;
+        case 'sinoptico_tabular':
+            activeProductDocId = appState.sinopticoTabularState?.selectedProduct?.docId;
+            break;
+        case 'sinoptico':
+            activeProductDocId = appState.sinopticoState?.activeTreeDocId;
+            break;
+        default:
+            activeProductDocId = null;
+    }
+
+    if (!activeProductDocId) {
+        showToast('Error: No hay un producto activo seleccionado.', 'error');
+        return;
+    }
+
+    const product = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.docId === activeProductDocId);
+    if (!product) {
+        showToast('Error: Producto no encontrado en la colección.', 'error');
+        return;
+    }
+    const node = findNode(nodeId, product.estructura);
+    if (!node) return;
+
+    const itemData = appState.collectionsById[node.tipo + 's']?.get(node.refId);
+
+    const modalId = `sinoptico-edit-modal-${Date.now()}`;
+    const modalHTML = `
+        <div id="${modalId}" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop animate-fade-in">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col m-4 modal-content">
+                <div class="flex justify-between items-center p-5 border-b">
+                    <h3 class="text-xl font-bold">Editar: ${itemData.descripcion}</h3>
+                    <button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button>
+                </div>
+                <form id="sinoptico-edit-form" class="p-6 overflow-y-auto space-y-4" novalidate>
+                    <input type="hidden" name="nodeId" value="${nodeId}">
+                    <div>
+                        <label for="sinoptico-quantity" class="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
+                        <input type="number" id="sinoptico-quantity" name="quantity" value="${node.quantity ?? 1}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" step="any" min="0">
+                    </div>
+                    <div>
+                        <label for="sinoptico-comment" class="block text-sm font-medium text-gray-700 mb-1">Comentario</label>
+                        <textarea id="sinoptico-comment" name="comment" rows="3" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">${node.comment || ''}</textarea>
+                    </div>
+                </form>
+                <div class="flex justify-end items-center p-4 border-t bg-gray-50 space-x-3">
+                    <button data-action="close" type="button" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
+                    <button type="submit" form="sinoptico-edit-form" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-semibold">Guardar Cambios</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    dom.modalContainer.innerHTML = modalHTML;
+    lucide.createIcons();
+    const modalElement = document.getElementById(modalId);
+    modalElement.querySelector('form').addEventListener('submit', handleSinopticoFormSubmit);
+    modalElement.addEventListener('click', e => {
+        if (e.target.closest('button')?.dataset.action === 'close') {
+            modalElement.remove();
+        }
+    });
+}
+
+async function handleSinopticoFormSubmit(e) {
+    e.preventDefault();
+    const form = e.target;
+    const nodeId = form.querySelector('[name="nodeId"]').value;
+    const newQuantity = parseFloat(form.querySelector('[name="quantity"]').value);
+    const newComment = form.querySelector('[name="comment"]').value;
+
+    if (isNaN(newQuantity) || newQuantity < 0) {
+        showToast('Por favor, ingrese una cantidad válida.', 'error');
+        return;
+    }
+
+    let activeProductDocId;
+    switch (appState.currentView) {
+        case 'arboles':
+            activeProductDocId = appState.arbolActivo?.docId;
+            break;
+        case 'sinoptico_tabular':
+            activeProductDocId = appState.sinopticoTabularState?.selectedProduct?.docId;
+            break;
+        case 'sinoptico':
+            activeProductDocId = appState.sinopticoState?.activeTreeDocId;
+            break;
+        default:
+            activeProductDocId = null;
+    }
+
+    if (!activeProductDocId) {
+        showToast('Error: No se pudo encontrar el producto activo.', 'error');
+        return;
+    }
+    const product = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.docId === activeProductDocId);
+
+    if (!product) {
+        showToast('Error: No se pudo encontrar el producto activo.', 'error');
+        return;
+    }
+    const nodeToUpdate = findNode(nodeId, product.estructura);
+
+    if (nodeToUpdate) {
+        nodeToUpdate.quantity = newQuantity;
+        nodeToUpdate.comment = newComment;
+
+        const saveButton = form.closest('.modal-content').querySelector('button[type="submit"]');
+        saveButton.disabled = true;
+        saveButton.innerHTML = `<i data-lucide="loader" class="animate-spin h-5 w-5"></i>`;
+        lucide.createIcons();
+
+        try {
+            const productRef = doc(db, COLLECTIONS.PRODUCTOS, product.docId);
+            await updateDoc(productRef, { estructura: product.estructura });
+            showToast('Componente actualizado.', 'success');
+
+            document.getElementById(form.closest('.fixed').id).remove();
+
+            switch (appState.currentView) {
+                case 'arboles':
+                    renderArbolDetalle(nodeId);
+                    break;
+                case 'sinoptico_tabular':
+                    if(appState.sinopticoTabularState.selectedProduct && appState.sinopticoTabularState.selectedProduct.docId === product.docId) {
+                        appState.sinopticoTabularState.selectedProduct.estructura = product.estructura;
+                    }
+                    runSinopticoTabularLogic();
+                    break;
+                case 'sinoptico':
+                    renderTree();
+                    renderDetailView(nodeId);
+                    break;
+            }
+        } catch (error) {
+            console.error("Error saving sinoptico node:", error);
+            showToast('Error al guardar los cambios.', 'error');
+            saveButton.disabled = false;
+            saveButton.innerHTML = `Guardar Cambios`;
+        }
+    }
+}
+
 function runSinopticoLogic() {
     dom.viewContent.innerHTML = `<div class="animate-fade-in-up">${renderSinopticoLayout()}</div>`;
     lucide.createIcons();
     initSinoptico();
 }
+
+const getFlattenedData = (product, levelFilters) => {
+    // Helper to flatten a tree structure for display.
+    // This helper now assumes the nodes passed to it may already have an 'originalLevel'.
+    // The 'level' parameter here is the *display* level after filtering.
+    const flattenTree = (nodes, level, lineage) => {
+        const result = [];
+        nodes.forEach((node, index) => {
+            const isLast = index === nodes.length - 1;
+            const collectionName = node.tipo + 's';
+            const item = appState.collectionsById[collectionName]?.get(node.refId);
+            if (!item) return;
+
+            // The node is pushed as is. If it has originalLevel, it will be preserved.
+            result.push({ node, item, level, isLast, lineage });
+            if (node.children && node.children.length > 0) {
+                result.push(...flattenTree(node.children, level + 1, [...lineage, !isLast]));
+            }
+        });
+        return result;
+    };
+
+    if (!product || !product.estructura) return [];
+
+    // If no filter is applied, we still need to add originalLevel.
+    if (!levelFilters || levelFilters.size === 0) {
+        const addOriginalLevel = (nodes, level) => {
+            return nodes.map(node => {
+                const newNode = { ...node, originalLevel: level };
+                if (newNode.children && newNode.children.length > 0) {
+                    newNode.children = addOriginalLevel(newNode.children, level + 1);
+                }
+                return newNode;
+            });
+        };
+        const structureWithLevels = addOriginalLevel(product.estructura, 0);
+        return flattenTree(structureWithLevels, 0, []);
+    }
+
+    // --- New, robust logic for filtered levels ---
+    const sortedSelectedLevels = [...levelFilters].map(Number).sort((a, b) => a - b);
+
+    // Recursively finds the next set of visible descendants for a given node.
+    // It receives the absolute parentLevel.
+    const findVisibleDescendants = (parentNode, parentLevel) => {
+        const results = [];
+        if (!parentNode.children) return results;
+
+        // Find the next level to show from the sorted list of selected levels.
+        const nextTargetLevel = sortedSelectedLevels.find(l => l > parentLevel);
+        if (nextTargetLevel === undefined) return []; // No more levels to show below this one.
+
+        // Search through descendants to find nodes at the target level.
+        function search(nodes, currentLevel) {
+            nodes.forEach(node => {
+                if (currentLevel === nextTargetLevel) {
+                    // Found a visible node. Attach its original level and find its visible children.
+                    const newNode = { ...node, originalLevel: currentLevel };
+                    newNode.children = findVisibleDescendants(node, currentLevel);
+                    results.push(newNode);
+                } else if (currentLevel < nextTargetLevel && node.children) {
+                    // This node is not visible, but its children might be. Keep searching deeper.
+                    search(node.children, currentLevel + 1);
+                }
+            });
+        }
+
+        search(parentNode.children, parentLevel + 1);
+        return results;
+    };
+
+    // Builds the initial filtered tree, starting from the original structure.
+    const buildFilteredTree = (nodes, currentLevel) => {
+        const result = [];
+        nodes.forEach(node => {
+            if (sortedSelectedLevels.includes(currentLevel)) {
+                // This node is visible. Keep it, attach its original level, and find its filtered children.
+                const newNode = { ...node, originalLevel: currentLevel };
+                newNode.children = findVisibleDescendants(node, currentLevel);
+                result.push(newNode);
+            } else {
+                // This node is not visible. Skip it, but check its children to see if they should be promoted.
+                if (node.children) {
+                    result.push(...buildFilteredTree(node.children, currentLevel + 1));
+                }
+            }
+        });
+        return result;
+    };
+
+    const filteredEstructura = buildFilteredTree(product.estructura, 0);
+
+    // Pass 2: Flatten the newly created filtered tree for display.
+    // The 'level' passed to flattenTree (0) is the starting *display* level.
+    return flattenTree(filteredEstructura, 0, []);
+};
 
 function runSinopticoTabularLogic() {
     // Initialize state for the view
@@ -2343,13 +3963,204 @@ function runSinopticoTabularLogic() {
 
     const state = appState.sinopticoTabularState;
 
+    // --- RENDER FUNCTIONS ---
+
+    const renderTabularTable = (data) => {
+        // 1. Columns updated: Cantidad & Comentarios added, Costo, Fecha Modif, Tolerancia removed.
+        const columns = [
+            { key: 'descripcion', label: 'Descripción' },
+            { key: 'nivel', label: 'Nivel' },
+            { key: 'cantidad', label: 'Cantidad / Pieza' },
+            { key: 'comentarios', label: 'Comentarios' },
+            { key: 'lc_kd', label: 'LC / KD' },
+            { key: 'version_vehiculo', label: 'Versión Vehículo' },
+            { key: 'codigo_pieza', label: 'Código de pieza' },
+            { key: 'version', label: 'Versión' },
+            { key: 'imagen', label: 'Imágen (URL)' },
+            { key: 'proceso', label: 'Proceso' },
+            { key: 'aspecto', label: 'Aspecto' },
+            { key: 'peso_gr', label: 'Peso (gr)' },
+            { key: 'proveedor', label: 'Proveedor' },
+            { key: 'unidad_medida', label: 'Unidad' },
+            { key: 'acciones', label: 'Acciones' }
+        ];
+
+        if (data.length === 0) return `<p class="text-slate-500 p-4 text-center">El producto seleccionado no tiene una estructura definida.</p>`;
+
+        let tableHTML = `<table class="w-full text-sm text-left text-gray-600" style="table-layout: fixed; width: 100%;">`;
+        // 7. Column alignment adjusted in headers
+        tableHTML += `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>
+            <th scope="col" class="px-4 py-3">Descripción</th>
+            <th scope="col" class="px-4 py-3 text-center col-nivel">Nivel</th>
+            <th scope="col" class="px-4 py-3 col-comentarios">Comentarios</th>
+            <th scope="col" class="px-4 py-3 text-center">LC / KD</th>
+            <th scope="col" class="px-4 py-3">Versión Vehículo</th>
+            <th scope="col" class="px-4 py-3">Código de pieza</th>
+            <th scope="col" class="px-4 py-3 text-center">Versión</th>
+            <th scope="col" class="px-4 py-3 text-center">Imágen (URL)</th>
+            <th scope="col" class="px-4 py-3">Proceso</th>
+            <th scope="col" class="px-4 py-3">Aspecto</th>
+            <th scope="col" class="px-4 py-3 text-right">Peso (gr)</th>
+            <th scope="col" class="px-4 py-3">Proveedor</th>
+            <th scope="col" class="px-4 py-3 text-center">Cantidad / Pieza</th>
+            <th scope="col" class="px-4 py-3 text-center">Unidad</th>
+            <th scope="col" class="px-4 py-3 text-center">Acciones</th>
+        </tr></thead><tbody>`;
+
+        data.forEach(rowData => {
+            const { node, item, level, isLast, lineage } = rowData;
+            const NA = '<span class="text-slate-400">N/A</span>';
+
+            // 4. Increased indentation
+            let prefix = lineage.map(parentIsNotLast => parentIsNotLast ? '│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' : '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;').join('');
+            if (level > 0)  prefix += isLast ? '└─ ' : '├─ ';
+
+            const descripcion = `<span class="font-sans">${prefix}</span>${item.descripcion || item.nombre || ''}`;
+            const nivel = node.originalLevel ?? level;
+            // 4. Cantidad added
+            const cantidad = node.quantity ?? NA;
+            // 5. Comentarios added
+            const comentarios = node.comment ? `<span class="whitespace-normal">${node.comment}</span>` : NA;
+            const lc_kd = item.lc_kd || NA;
+            const version_vehiculo = node.tipo === 'producto' ? (item.version_vehiculo || NA) : NA;
+            const codigo_pieza = item.codigo_pieza || NA;
+            const version = item.version || NA;
+            const imagen = item.imagen ? `<a href="${item.imagen}" target="_blank" class="text-blue-600 hover:underline">Ver</a>` : NA;
+
+            let proceso = NA;
+            if (node.tipo === 'semiterminado' && item.proceso) {
+                const procesoData = appState.collectionsById[COLLECTIONS.PROCESOS]?.get(item.proceso);
+                proceso = procesoData ? procesoData.descripcion : item.proceso;
+            }
+
+            const aspecto = node.tipo === 'semiterminado' ? (item.aspecto || NA) : NA;
+
+            // 6. Merged Peso and Tolerancia
+            let peso_display = NA;
+            if (node.tipo === 'semiterminado' && item.peso_gr) {
+                peso_display = item.peso_gr;
+                if (item.tolerancia_gr) {
+                    peso_display += ` ± ${item.tolerancia_gr}`;
+                }
+            }
+
+            let proveedor = NA;
+            if (node.tipo === 'insumo' && item.proveedor) {
+                const proveedorData = appState.collectionsById[COLLECTIONS.PROVEEDORES]?.get(item.proveedor);
+                proveedor = proveedorData ? proveedorData.descripcion : item.proveedor;
+            }
+
+            let unidad_medida = NA;
+            if (node.tipo === 'insumo' && item.unidad_medida) {
+                const unidadData = appState.collectionsById[COLLECTIONS.UNIDADES]?.get(item.unidad_medida);
+                unidad_medida = unidadData ? unidadData.id : item.unidad_medida;
+            }
+
+            const actionsHTML = `<button data-action="edit-tabular-node" data-node-id="${node.id}" class="p-1 text-blue-600 hover:bg-blue-100 rounded-md" title="Editar"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>`;
+
+            // 7. Column alignment adjusted in cells
+            tableHTML += `<tr class="bg-white border-b hover:bg-gray-100" data-node-id="${node.id}">
+                <td class="px-4 py-2 font-mono font-medium text-gray-900 whitespace-nowrap">${descripcion}</td>
+                <td class="px-4 py-2 text-center col-nivel">${nivel}</td>
+                <td class="px-4 py-2 col-comentarios">${comentarios}</td>
+                <td class="px-4 py-2 text-center">${lc_kd}</td>
+                <td class="px-4 py-2">${version_vehiculo}</td>
+                <td class="px-4 py-2">${codigo_pieza}</td>
+                <td class="px-4 py-2 text-center">${version}</td>
+                <td class="px-4 py-2 text-center">${imagen}</td>
+                <td class="px-4 py-2">${proceso}</td>
+                <td class="px-4 py-2">${aspecto}</td>
+                <td class="px-4 py-2 text-right">${peso_display}</td>
+                <td class="px-4 py-2">${proveedor}</td>
+                <td class="px-4 py-2 text-center">${cantidad}</td>
+                <td class="px-4 py-2 text-center">${unidad_medida}</td>
+                <td class="px-4 py-2 text-center">${actionsHTML}</td>
+            </tr>`;
+        });
+        tableHTML += `</tbody></table>`;
+        return tableHTML;
+    };
+
+    const renderReportView = () => {
+        const product = state.selectedProduct;
+        if (!product) {
+            renderInitialView();
+            return;
+        }
+
+        const client = appState.collectionsById[COLLECTIONS.CLIENTES].get(product.clienteId);
+
+        const getOriginalMaxDepth = (nodes, level = 0) => {
+            if (!nodes || nodes.length === 0) return level > 0 ? level - 1 : 0;
+            let max = level;
+            for (const node of nodes) {
+                const depth = getOriginalMaxDepth(node.children, level + 1);
+                if (depth > max) max = depth;
+            }
+            return max;
+        };
+
+        const flattenedData = getFlattenedData(product, state.activeFilters.niveles);
+        const tableHTML = renderTabularTable(flattenedData);
+
+        const maxLevel = getOriginalMaxDepth(product.estructura);
+        let levelFilterOptionsHTML = '';
+        for (let i = 0; i <= maxLevel; i++) {
+            const isChecked = !state.activeFilters.niveles.size || state.activeFilters.niveles.has(i.toString());
+            levelFilterOptionsHTML += `
+                <label class="flex items-center gap-3 p-2 hover:bg-slate-100 rounded-md cursor-pointer">
+                    <input type="checkbox" data-level="${i}" class="level-filter-cb h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300" ${isChecked ? 'checked' : ''}>
+                    <span class="text-sm">Nivel ${i}</span>
+                </label>
+            `;
+        }
+
+        dom.viewContent.innerHTML = `<div class="animate-fade-in-up">
+            <div id="caratula-container" class="mb-6"></div>
+            <div class="bg-white p-6 rounded-xl shadow-lg">
+                <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                    <div><h3 class="text-xl font-bold text-slate-800">Detalle de: ${product.descripcion}</h3><p class="text-sm text-slate-500">${product.id}</p></div>
+                    <div class="flex items-center gap-2">
+                        <div class="relative">
+                            <button id="level-filter-btn" class="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-md text-sm font-semibold hover:bg-slate-50 flex items-center gap-2">
+                                <i data-lucide="filter" class="h-4 w-4"></i>Filtrar por Nivel<i data-lucide="chevron-down" class="h-4 w-4 ml-1"></i>
+                            </button>
+                            <div id="level-filter-dropdown" class="absolute z-10 right-0 mt-2 w-48 bg-white border rounded-lg shadow-xl hidden p-2 dropdown-menu">
+                                ${levelFilterOptionsHTML}
+                                <div class="border-t my-2"></div>
+                                <button data-action="apply-level-filter" class="w-full bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700">Aplicar</button>
+                            </div>
+                        </div>
+                        <button data-action="select-another-product-tabular" class="bg-gray-500 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-gray-600 flex items-center">
+                            <i data-lucide="search" class="mr-2 h-4 w-4"></i>Seleccionar Otro
+                        </button>
+                        <button data-action="export-sinoptico-pdf" class="bg-red-600 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-red-700 flex items-center">
+                            <i data-lucide="file-text" class="mr-2 h-4 w-4"></i>Exportar a PDF
+                        </button>
+                    </div>
+                </div>
+                <div id="sinoptico-tabular-container" class="mt-6 overflow-x-auto">${tableHTML}</div>
+            </div>
+        </div>`;
+
+        renderCaratula(product, client);
+        lucide.createIcons();
+    };
+
     // --- Event Handlers ---
     const handleViewClick = (e) => {
         const button = e.target.closest('button[data-action]');
+
+        // Handle dropdown toggle separately to prevent it from closing immediately
+        if (e.target.closest('#level-filter-btn')) {
+            const dropdown = document.getElementById('level-filter-dropdown');
+            if (dropdown) dropdown.classList.toggle('hidden');
+            return;
+        }
+
         if (!button) return;
 
         const action = button.dataset.action;
-        const row = button.closest('tr');
 
         switch (action) {
             case 'open-product-search-modal-tabular':
@@ -2360,101 +4171,64 @@ function runSinopticoTabularLogic() {
                 state.activeFilters.niveles.clear();
                 renderInitialView();
                 break;
-            case 'save-tabular-field':
-                handleSaveTableCell(row);
+            case 'edit-tabular-node':
+                openSinopticoEditModal(button.dataset.nodeId);
                 break;
-            case 'cancel-tabular-field':
-                renderReportView(); // Re-render to cancel edit
+            case 'apply-level-filter':
+                const dropdown = document.getElementById('level-filter-dropdown');
+                const selectedLevels = new Set();
+                dropdown.querySelectorAll('.level-filter-cb:checked').forEach(cb => {
+                    selectedLevels.add(cb.dataset.level);
+                });
+
+                const allLevelsCount = dropdown.querySelectorAll('.level-filter-cb').length;
+                // If all are selected, it's the same as no filter.
+                if (selectedLevels.size === allLevelsCount) {
+                    state.activeFilters.niveles.clear();
+                } else {
+                    state.activeFilters.niveles = selectedLevels;
+                }
+
+                dropdown.classList.add('hidden');
+
+                const tableContainer = document.getElementById('sinoptico-tabular-container');
+                if (tableContainer) {
+                    // 1. Store scroll position & show loading state
+                    const savedScrollY = window.scrollY;
+                    tableContainer.innerHTML = `
+                        <div class="flex items-center justify-center p-16 text-slate-500">
+                            <i data-lucide="loader" class="animate-spin h-8 w-8 mr-3"></i>
+                            <span>Cargando tabla...</span>
+                        </div>
+                    `;
+                    lucide.createIcons();
+
+                    // 2. Set up promises for minimum delay and data processing
+                    const minDelayPromise = new Promise(resolve => setTimeout(resolve, 400));
+
+                    const processDataPromise = new Promise(resolve => {
+                        const product = state.selectedProduct;
+                        const flattenedData = getFlattenedData(product, state.activeFilters.niveles);
+                        const newTableHTML = renderTabularTable(flattenedData);
+                        resolve(newTableHTML);
+                    });
+
+                    // 3. Wait for both to complete
+                    Promise.all([minDelayPromise, processDataPromise]).then(([_, newTableHTML]) => {
+                        // 4. Render new table
+                        tableContainer.innerHTML = newTableHTML;
+                        lucide.createIcons();
+
+                        // 5. Restore scroll position
+                        window.scrollTo(0, savedScrollY);
+                    });
+                }
+                break;
+            case 'export-sinoptico-pdf':
+                exportSinopticoTabularToPdf();
                 break;
         }
     };
-
-    const handleViewDblClick = (e) => {
-        const cell = e.target.closest('td[data-field]');
-        const row = cell?.closest('tr[data-node-id]');
-        if (!row || row.classList.contains('is-editing') || !cell) return;
-
-        const nodeId = row.dataset.nodeId;
-        const product = state.selectedProduct;
-        const nodeToEdit = findNode(nodeId, product.estructura);
-
-        if (!nodeToEdit || nodeToEdit.tipo === 'producto') {
-            showToast('Solo se puede editar la cantidad y comentarios de subproductos e insumos.', 'info');
-            return;
-        }
-
-        const field = cell.dataset.field;
-        if (field === 'quantity') {
-            enterTableCellEditMode(row, nodeId, nodeToEdit.quantity, 'number');
-        } else if (field === 'comment') {
-            enterTableCellEditMode(row, nodeId, nodeToEdit.comment || '', 'text');
-        }
-    };
-
-    const enterTableCellEditMode = (row, nodeId, currentValue, inputType) => {
-        const otherEditingRow = dom.viewContent.querySelector('tr.is-editing');
-        if (otherEditingRow) {
-            renderReportView();
-        }
-
-        row.classList.add('is-editing');
-        const field = inputType === 'number' ? 'quantity' : 'comment';
-        const cell = row.querySelector(`td[data-field="${field}"]`);
-        const actionsCell = row.cells[row.cells.length - 1];
-
-        const originalValue = currentValue ?? '';
-        if (inputType === 'number') {
-            cell.innerHTML = `<input type="number" class="w-24 text-right border rounded-md p-1 bg-white" value="${originalValue}" step="any" min="0">`;
-        } else {
-            cell.innerHTML = `<input type="text" class="w-full border rounded-md p-1 bg-white" value="${originalValue}">`;
-        }
-
-        actionsCell.innerHTML = `
-            <div class="flex items-center justify-center gap-1">
-                <button data-action="save-tabular-field" class="p-1 text-green-600 hover:bg-green-100 rounded-md"><i data-lucide="check" class="w-5 h-5 pointer-events-none"></i></button>
-                <button data-action="cancel-tabular-field" class="p-1 text-red-600 hover:bg-red-100 rounded-md"><i data-lucide="x" class="w-5 h-5 pointer-events-none"></i></button>
-            </div>
-        `;
-        lucide.createIcons();
-        const input = cell.querySelector('input');
-        input.focus();
-        input.select();
-    };
-
-    const handleSaveTableCell = async (row) => {
-        const nodeId = row.dataset.nodeId;
-        const input = row.querySelector('input');
-        const cell = input.closest('td');
-        const field = cell.dataset.field;
-        let newValue = input.value;
-
-        if (input.type === 'number') {
-            newValue = parseFloat(newValue);
-            if (isNaN(newValue)) {
-                showToast('Por favor, ingrese una cantidad válida.', 'error');
-                return;
-            }
-        }
-
-        const product = state.selectedProduct;
-        const nodeToUpdate = findNode(nodeId, product.estructura);
-
-        if (nodeToUpdate) {
-            nodeToUpdate[field] = newValue;
-            const productRef = doc(db, COLLECTIONS.PRODUCTOS, product.docId);
-
-            try {
-                await updateDoc(productRef, { estructura: product.estructura });
-                showToast('Campo actualizado.', 'success');
-            } catch (error) {
-                showToast('Error al guardar el campo.', 'error');
-                console.error("Error updating table cell:", error);
-            } finally {
-                renderReportView();
-            }
-        }
-    };
-
 
     // --- PRODUCT SELECTION ---
     const openProductSearchModal = () => {
@@ -2499,7 +4273,6 @@ function runSinopticoTabularLogic() {
         }
     };
 
-    // --- RENDER FUNCTIONS ---
     const renderInitialView = () => {
         dom.viewContent.innerHTML = `<div class="flex flex-col items-center justify-center h-full bg-white rounded-xl shadow-lg p-6 text-center animate-fade-in-up">
             <i data-lucide="file-search-2" class="h-24 w-24 text-gray-300 mb-6"></i>
@@ -2510,174 +4283,6 @@ function runSinopticoTabularLogic() {
             </button>
         </div>`;
         lucide.createIcons();
-    };
-
-    const renderReportView = () => {
-        const product = state.selectedProduct;
-        if (!product) {
-            renderInitialView();
-            return;
-        }
-
-        const client = appState.collectionsById[COLLECTIONS.CLIENTES].get(product.clienteId);
-        const clientName = client ? client.descripcion : 'N/A';
-
-        const createEditableField = (label, value, fieldName, placeholder = 'N/A') => {
-            const val = value || '';
-            return `
-                <div>
-                    <p class="font-bold opacity-80 uppercase">${label}</p>
-                    <div class="editable-field mt-1" data-field="${fieldName}" data-value="${val}">
-                        <span class="value-display cursor-pointer hover:bg-slate-500/50 rounded px-1 min-h-[1em] inline-block">${val || placeholder}</span>
-                        <div class="edit-controls hidden">
-                            <input type="text" class="bg-slate-800 border-b-2 border-slate-400 focus:outline-none w-full text-white" value="${val}">
-                        </div>
-                    </div>
-                </div>
-            `;
-        };
-
-        const getFlattenedData = (product) => {
-            const flattenedData = [];
-            function flattenTree(nodes, level, lineage) {
-                nodes.forEach((node, index) => {
-                    const isLast = index === nodes.length - 1;
-                    const collectionName = node.tipo + 's';
-                    const item = appState.collectionsById[collectionName]?.get(node.refId);
-                    if (!item) return;
-                    flattenedData.push({ node, item, level, isLast, lineage });
-                    if (node.children && node.children.length > 0) {
-                        flattenTree(node.children, level + 1, [...lineage, !isLast]);
-                    }
-                });
-            }
-            if (product && product.estructura) {
-                flattenTree(product.estructura, 0, []);
-            }
-            return flattenedData;
-        };
-        const flattenedData = getFlattenedData(product);
-
-        const headerHTML = `
-            <div class="bg-white rounded-xl shadow-lg animate-fade-in-up overflow-hidden mb-6">
-                <h3 class="text-center font-bold text-lg py-2 bg-slate-200 text-slate-700">COMPOSICIÓN DE PIEZAS - BOM</h3>
-                <div class="flex">
-                    <div class="w-1/3 bg-white flex items-center justify-center p-4 border-r border-slate-200">
-                        <img src="logo.png" alt="Logo" class="max-h-20">
-                    </div>
-                    <div class="w-2/3 bg-[#44546A] text-white p-4 flex items-center" id="caratula-fields-container">
-                        <div class="grid grid-cols-2 gap-x-6 gap-y-3 text-xs w-full">
-                            ${createEditableField('PROYECTO', product.descripcion, 'descripcion')}
-                            ${createEditableField('Fecha de Emisión', product.fecha_emision, 'fecha_emision', 'Sin fecha')}
-                            ${createEditableField('Revisión', product.revision_code, 'revision_code', 'Sin revisión')}
-                            <div>
-                                <p class="font-bold opacity-80 uppercase">Nombre de Pieza</p>
-                                <p>${clientName}</p>
-                            </div>
-                            ${createEditableField('Realizó', product.realizo, 'realizo', 'No asignado')}
-                            ${createEditableField('Fecha Revisión', product.fecha_revision, 'fecha_revision', 'Sin fecha')}
-                            <div>
-                                <p class="font-bold opacity-80 uppercase">Número de Pieza</p>
-                                <p>${product.id}</p>
-                            </div>
-                            ${createEditableField('Versión', product.version, 'version')}
-                        </div>
-                    </div>
-                </div>
-            </div>`;
-
-        const renderTabularTable = (data) => {
-            const columns = [
-                { key: 'descripcion', label: 'Descripción' }, { key: 'nivel', label: 'Nivel' },
-                { key: 'codigo', label: 'Código' }, { key: 'tipo', label: 'Tipo' },
-                { key: 'cantidad', label: 'Cantidad por pieza' }, { key: 'unidad', label: 'Unidad' },
-                { key: 'proveedor', label: 'Proveedor' }, { key: 'material', label: 'Material' },
-                { key: 'observaciones', label: 'Comentarios' }, { key: 'acciones', label: 'Acciones' }
-            ];
-
-            if (data.length === 0) return `<p class="text-slate-500 p-4 text-center">El producto seleccionado no tiene una estructura definida.</p>`;
-
-            let tableHTML = `<table class="w-full text-sm text-left text-gray-600">`;
-            tableHTML += `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>`;
-            columns.forEach(col => { tableHTML += `<th scope="col" class="px-4 py-3">${col.label}</th>`; });
-            tableHTML += `</tr></thead><tbody>`;
-
-            data.forEach(rowData => {
-                const { node, item, level, isLast, lineage } = rowData;
-                const NA = '<span class="text-slate-400">N/A</span>';
-
-                let prefix = lineage.map(parentIsNotLast => parentIsNotLast ? '│&nbsp;&nbsp;&nbsp;&nbsp;' : '&nbsp;&nbsp;&nbsp;&nbsp;').join('');
-                if (level > 0)  prefix += isLast ? '└─ ' : '├─ ';
-
-                const cantidad = node.tipo === 'producto' ? NA : (node.quantity ?? NA);
-                let unidad = NA, proveedor = NA, material = NA;
-
-                if (node.tipo === 'insumo') {
-                    const unidadData = item.unidadMedidaId ? appState.collectionsById[COLLECTIONS.UNIDADES].get(item.unidadMedidaId) : null;
-                    unidad = unidadData ? unidadData.id : '';
-                    const proveedorData = item.proveedorId ? appState.collectionsById[COLLECTIONS.PROVEEDORES].get(item.proveedorId) : null;
-                    proveedor = proveedorData ? proveedorData.descripcion : '';
-                    material = item.material || '';
-                }
-
-                tableHTML += `<tr class="bg-white border-b hover:bg-gray-100" data-node-id="${node.id}">
-                    <td class="px-4 py-2 font-mono font-medium text-gray-900 whitespace-nowrap"><span class="font-sans">${prefix}</span>${item.descripcion || item.nombre}</td>
-                    <td class="px-4 py-2 text-center">${level}</td>
-                    <td class="px-4 py-2">${item.id}</td>
-                    <td class="px-4 py-2"><span class="px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-700">${node.tipo}</span></td>
-                    <td class="px-4 py-2 text-right cursor-pointer" data-field="quantity" title="Doble clic para editar">${cantidad}</td>
-                    <td class="px-4 py-2 text-center">${unidad}</td>
-                    <td class="px-4 py-2">${proveedor}</td>
-                    <td class="px-4 py-2">${material}</td>
-                    <td class="px-4 py-2 cursor-pointer" data-field="comment" title="Doble clic para editar">${node.comment || ''}</td>
-                    <td class="px-4 py-2 text-center" id="actions-cell-${node.id}">&nbsp;</td>
-                </tr>`;
-            });
-            tableHTML += `</tbody></table>`;
-            return tableHTML;
-        };
-
-        const tableHTML = renderTabularTable(flattenedData);
-
-        dom.viewContent.innerHTML = `<div class="animate-fade-in-up">
-            ${headerHTML}
-            <div class="bg-white p-6 rounded-xl shadow-lg">
-                <div class="flex items-center justify-between mb-4">
-                    <div><h3 class="text-xl font-bold text-slate-800">Detalle de: ${product.descripcion}</h3><p class="text-sm text-slate-500">${product.id}</p></div>
-                    <button data-action="select-another-product-tabular" class="bg-gray-500 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-gray-600 flex items-center">
-                        <i data-lucide="search" class="mr-2 h-4 w-4"></i>Seleccionar Otro Producto
-                    </button>
-                </div>
-                <div id="sinoptico-tabular-container" class="mt-6 overflow-x-auto">${tableHTML}</div>
-            </div>
-        </div>`;
-        lucide.createIcons();
-
-        // Attach listener right after render
-        const reviewedByInput = dom.viewContent.querySelector('#revisado-por-input');
-        if (reviewedByInput) {
-            reviewedByInput.addEventListener('blur', async (e) => {
-                const newValue = e.target.value;
-                if (newValue === (product.reviewedBy || '')) return; // No change
-
-                e.target.disabled = true;
-                e.target.classList.add('opacity-50');
-
-                const productRef = doc(db, COLLECTIONS.PRODUCTOS, product.docId);
-                try {
-                    await updateDoc(productRef, { reviewedBy: newValue, lastUpdated: new Date(), lastUpdatedBy: appState.currentUser.name });
-                    state.selectedProduct.reviewedBy = newValue; // Optimistic update
-                    showToast('Campo "Revisado por" actualizado.', 'success');
-                } catch (error) {
-                    console.error("Error updating reviewedBy:", error);
-                    showToast('Error al actualizar el campo.', 'error');
-                    e.target.value = product.reviewedBy || ''; // Revert
-                } finally {
-                    e.target.disabled = false;
-                    e.target.classList.remove('opacity-50');
-                }
-            });
-        }
     };
 
     // --- MAIN LOGIC & CLEANUP ---
@@ -2738,16 +4343,248 @@ function runSinopticoTabularLogic() {
     };
 
     dom.viewContent.addEventListener('click', handleViewClick);
-    dom.viewContent.addEventListener('dblclick', handleViewDblClick);
-    dom.viewContent.addEventListener('click', caratulaFieldsHandler);
+    dom.viewContent.addEventListener('click', handleCaratulaClick);
 
     appState.currentViewCleanup = () => {
         dom.viewContent.removeEventListener('click', handleViewClick);
-        dom.viewContent.removeEventListener('dblclick', handleViewDblClick);
-        dom.viewContent.removeEventListener('click', caratulaFieldsHandler);
+        dom.viewContent.removeEventListener('click', handleCaratulaClick);
         appState.sinopticoTabularState = null;
     };
 }
+
+async function exportSinopticoTabularToPdf() {
+    const { jsPDF } = window.jspdf;
+    const state = appState.sinopticoTabularState;
+    const product = state.selectedProduct;
+
+    if (!product) {
+        showToast('No hay producto seleccionado para exportar.', 'error');
+        return;
+    }
+
+    const tableElement = document.getElementById('sinoptico-tabular-container');
+    if (!tableElement) {
+        showToast('Error: No se encontró el contenedor de la tabla para exportar.', 'error');
+        return;
+    }
+
+    showToast('Generando PDF híbrido...', 'info');
+    dom.loadingOverlay.style.display = 'flex';
+    dom.loadingOverlay.querySelector('p').textContent = 'Generando PDF... (1/2)';
+
+    try {
+        // --- 1. Create PDF and Draw Manual Header ---
+        const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
+        const logoBase64 = await getLogoBase64();
+        const PAGE_MARGIN = 10; // Reduced margin for wider content
+        const PAGE_WIDTH = doc.internal.pageSize.width;
+        let cursorY = 15;
+
+        // --- Styled Header ---
+        const titleBarHeight = 10;
+        doc.setFillColor('#3B82F6'); // Blue background for title
+        doc.rect(PAGE_MARGIN, cursorY, PAGE_WIDTH - (PAGE_MARGIN * 2), titleBarHeight, 'F');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.setTextColor('#FFFFFF'); // White text
+        doc.text('COMPOSICIÓN DE PIEZAS - BOM', PAGE_WIDTH / 2, cursorY + titleBarHeight / 2, { align: 'center', baseline: 'middle' });
+        cursorY += titleBarHeight + 3;
+
+        // Logo and Product Info Box
+        if (logoBase64) {
+            const img = new Image();
+            img.src = logoBase64;
+            await new Promise(resolve => {
+                if (img.complete) {
+                    resolve();
+                } else {
+                    img.onload = resolve;
+                }
+            });
+
+            const logoWidth = 35;
+            const logoAspectRatio = img.naturalWidth / img.naturalHeight;
+            const logoHeight = logoWidth / logoAspectRatio;
+
+            const boxHeight = 28;
+            const logoY = cursorY + (boxHeight - logoHeight) / 2; // Center logo vertically in the box
+
+            doc.addImage(logoBase64, 'PNG', PAGE_MARGIN, logoY, logoWidth, logoHeight);
+        }
+
+        const boxX = PAGE_MARGIN + 40;
+        const boxWidth = PAGE_WIDTH - boxX - PAGE_MARGIN;
+        const boxY = cursorY;
+        const boxHeight = 28;
+        doc.setFillColor('#44546A'); // Dark blue-grey background
+        doc.rect(boxX, boxY, boxWidth, boxHeight, 'F');
+
+        // Product info inside the box
+        doc.setTextColor('#FFFFFF'); // White text for info box
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        const col1X = boxX + 3;
+        const col2X = boxX + (boxWidth / 2) + 3;
+        const labelCol1X = col1X;
+        const valueCol1X = col1X + 32;
+        const labelCol2X = col2X;
+        const valueCol2X = col2X + 32;
+
+        const row1Y = boxY + 5;
+        const row2Y = row1Y + 5;
+        const row3Y = row2Y + 5;
+        const row4Y = row3Y + 5;
+
+        const NA = 'N/A';
+        const createdAt = product.createdAt ? new Date(product.createdAt.seconds * 1000).toLocaleDateString('es-AR') : NA;
+
+        // Draw labels
+        doc.text('PRODUCTO:', labelCol1X, row1Y);
+        doc.text('NÚMERO DE PIEZA:', labelCol2X, row1Y);
+        doc.text('VERSIÓN:', labelCol1X, row2Y);
+        doc.text('FECHA DE CREACIÓN:', labelCol2X, row2Y);
+        doc.text('REALIZÓ:', labelCol1X, row3Y);
+        doc.text('APROBÓ:', labelCol2X, row3Y);
+        doc.text('FECHA DE REVISIÓN:', labelCol1X, row4Y);
+
+        // Draw values
+        doc.setFont('helvetica', 'normal');
+        doc.text(product.descripcion || NA, valueCol1X, row1Y);
+        doc.text(product.id || NA, valueCol2X, row1Y);
+        doc.text(product.version || NA, valueCol1X, row2Y);
+        doc.text(createdAt, valueCol2X, row2Y);
+        doc.text(product.lastUpdatedBy || NA, valueCol1X, row3Y);
+        doc.text(product.aprobadoPor || NA, valueCol2X, row3Y);
+        doc.text(product.fechaRevision || NA, valueCol1X, row4Y);
+
+        cursorY += boxHeight + 7; // Move cursor down past the header
+
+        // --- 2. Capture Table with html2canvas ---
+        dom.loadingOverlay.querySelector('p').textContent = 'Capturando tabla... (2/2)';
+
+        const originalBoxShadow = tableElement.style.boxShadow;
+        tableElement.style.boxShadow = 'none';
+
+        // Ocultar columnas no deseadas antes de la captura
+        const columnsToHide = tableElement.querySelectorAll('.col-nivel, .col-comentarios');
+        columnsToHide.forEach(col => col.style.display = 'none');
+
+        let canvas;
+        try {
+            canvas = await html2canvas(tableElement, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+            });
+        } finally {
+            // Siempre volver a mostrar las columnas, incluso si hay un error
+            columnsToHide.forEach(col => col.style.display = '');
+            tableElement.style.boxShadow = originalBoxShadow;
+        }
+
+        const imgData = canvas.toDataURL('image/png');
+        const imgProps = doc.getImageProperties(imgData);
+
+        // --- 3. Add Table Image to PDF with Scaling ---
+        const availableWidth = PAGE_WIDTH - (PAGE_MARGIN * 2);
+        const availableHeight = doc.internal.pageSize.height - cursorY - PAGE_MARGIN;
+
+        const imgAspectRatio = imgProps.width / imgProps.height;
+
+        const finalImgWidth = availableWidth;
+        const finalImgHeight = finalImgWidth / imgAspectRatio;
+
+        // Add the image, scaled to the full width of the page.
+        // The height will adjust proportionally. This might make the content very small
+        // if the table is long, but it will always use the full width as requested.
+        doc.addImage(imgData, 'PNG', PAGE_MARGIN, cursorY, finalImgWidth, finalImgHeight);
+
+        // --- 4. Save PDF ---
+        const fileName = `Reporte_BOM_${product.id.replace(/[^a-z0-9]/gi, '_')}.pdf`;
+        doc.save(fileName);
+        showToast('PDF híbrido generado con éxito.', 'success');
+
+    } catch (error) {
+        console.error("Error exporting hybrid PDF:", error);
+        showToast('Error al generar el PDF.', 'error');
+    } finally {
+        dom.loadingOverlay.style.display = 'none';
+    }
+}
+
+function handleCaratulaClick(e) {
+    const fieldContainer = e.target.closest('.caratula-field');
+    if (fieldContainer && !fieldContainer.classList.contains('is-editing')) {
+        const currentlyEditing = document.querySelector('.caratula-field.is-editing');
+        if (currentlyEditing) {
+            // Si ya hay otro campo editándose, lo cerramos (sin guardar)
+            const valueDisplay = currentlyEditing.querySelector('.value-display');
+            const editControls = currentlyEditing.querySelector('.edit-controls');
+            valueDisplay.classList.remove('hidden');
+            editControls.classList.add('hidden');
+            currentlyEditing.classList.remove('is-editing');
+        }
+
+        fieldContainer.classList.add('is-editing');
+        const valueDisplay = fieldContainer.querySelector('.value-display');
+        const editControls = fieldContainer.querySelector('.edit-controls');
+        const input = editControls.querySelector('input');
+
+        valueDisplay.classList.add('hidden');
+        editControls.classList.remove('hidden');
+        input.focus();
+        input.select();
+
+        const saveField = async () => {
+            const newValue = input.value;
+            const fieldName = fieldContainer.dataset.field;
+            const originalValue = fieldContainer.dataset.value;
+
+            fieldContainer.classList.remove('is-editing');
+            valueDisplay.classList.remove('hidden');
+            editControls.classList.add('hidden');
+
+            if (newValue !== originalValue) {
+                const activeProductDocId = appState.sinopticoState?.activeTreeDocId || appState.sinopticoTabularState?.selectedProduct?.docId;
+                if (!activeProductDocId) return;
+
+                const productRef = doc(db, COLLECTIONS.PRODUCTOS, activeProductDocId);
+                try {
+                    await updateDoc(productRef, { [fieldName]: newValue });
+                    showToast('Campo de carátula actualizado.', 'success');
+
+                    // Actualizar estado local y re-renderizar la vista actual
+                    if(appState.currentView === 'sinoptico') {
+                        const product = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.docId === activeProductDocId);
+                        product[fieldName] = newValue;
+                        renderDetailView(appState.sinopticoState.activeElementId);
+                    } else if (appState.currentView === 'sinoptico_tabular') {
+                        appState.sinopticoTabularState.selectedProduct[fieldName] = newValue;
+                        const { renderReportView } = runSinopticoTabularLogic; // Re-run to get access to inner function
+                        if(renderReportView) renderReportView();
+                    }
+                } catch (error) {
+                    showToast('Error al guardar el campo.', 'error');
+                    console.error("Error updating caratula field:", error);
+                }
+            }
+        };
+
+        input.addEventListener('blur', saveField, { once: true });
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') input.blur();
+            if (e.key === 'Escape') {
+                input.removeEventListener('blur', saveField);
+                input.value = fieldContainer.dataset.value; // Revert value
+                fieldContainer.classList.remove('is-editing');
+                valueDisplay.classList.remove('hidden');
+                editControls.classList.add('hidden');
+            }
+        });
+    }
+}
+
 
 function runFlujogramaLogic() {
     dom.viewContent.innerHTML = `<div class="bg-white p-6 rounded-xl shadow-lg animate-fade-in-up">
@@ -2775,7 +4612,7 @@ function renderSinopticoLayout() {
                             </button>
                             <div id="type-filter-dropdown" class="absolute z-10 right-0 mt-2 w-56 bg-white border rounded-lg shadow-xl hidden p-2 dropdown-menu">
                                 <label class="flex items-center gap-3 p-2 hover:bg-slate-100 rounded-md cursor-pointer"><input type="checkbox" data-type="producto" class="type-filter-cb" checked><span>Producto</span></label>
-                                <label class="flex items-center gap-3 p-2 hover:bg-slate-100 rounded-md cursor-pointer"><input type="checkbox" data-type="subproducto" class="type-filter-cb" checked><span>Subproducto</span></label>
+                                <label class="flex items-center gap-3 p-2 hover:bg-slate-100 rounded-md cursor-pointer"><input type="checkbox" data-type="semiterminado" class="type-filter-cb" checked><span>Semiterminado</span></label>
                                 <label class="flex items-center gap-3 p-2 hover:bg-slate-100 rounded-md cursor-pointer"><input type="checkbox" data-type="insumo" class="type-filter-cb" checked><span>Insumo</span></label>
                             </div>
                         </div>
@@ -2814,7 +4651,7 @@ function initSinoptico() {
         appState.sinopticoState = {
             activeElementId: null,
             activeTreeDocId: null,
-            activeFilters: { clients: new Set(), types: new Set(['producto', 'subproducto', 'insumo']) },
+            activeFilters: { clients: new Set(), types: new Set(['producto', 'semiterminado', 'insumo']) },
             expandedNodes: new Set()
         };
     }
@@ -2910,7 +4747,7 @@ function initSinoptico() {
         if (isLast) li.classList.add('is-last');
         
         const hasChildren = node.children?.length > 0;
-        const iconMap = { producto: 'package', subproducto: 'box', insumo: 'beaker' };
+        const iconMap = { producto: 'package', semiterminado: 'box', insumo: 'beaker' };
         
         const div = document.createElement('div');
         div.className = 'sinoptico-tree-item-content flex items-center p-2 cursor-pointer hover:bg-slate-100 rounded-lg min-h-[2.75rem]';
@@ -3006,7 +4843,7 @@ function initSinoptico() {
         const item = appState.collectionsById[collectionName]?.get(targetNode.refId);
         if (!item) { return; }
     
-        const iconMap = { producto: 'package', subproducto: 'box', insumo: 'beaker' };
+        const iconMap = { producto: 'package', semiterminado: 'box', insumo: 'beaker' };
         const name = item.descripcion;
         let content = `<div class="bg-white rounded-xl shadow-lg p-6 h-full overflow-y-auto custom-scrollbar animate-fade-in">
             <div class="flex items-start mb-6 pb-4 border-b">
@@ -3026,6 +4863,13 @@ function initSinoptico() {
                     <i data-lucide="file-text" class="mr-2 h-4 w-4"></i>Exportar Sinóptico a PDF
                 </button>
             </div>`;
+        } else {
+            // Botón para abrir el modal de edición
+            content += `<div class="mb-4">
+                <button data-action="open-sinoptico-edit-modal" data-node-id="${targetNode.id}" class="w-full bg-blue-600 text-white px-4 py-2.5 rounded-md hover:bg-blue-700 flex items-center justify-center text-sm font-semibold shadow-sm">
+                    <i data-lucide="pencil" class="mr-2 h-4 w-4"></i>Editar Cantidad y Comentario
+                </button>
+            </div>`;
         }
     
         const createSection = (title) => `<h3 class="sinoptico-detail-section-header">${title}</h3>`;
@@ -3043,32 +4887,11 @@ function initSinoptico() {
         if (targetNode.tipo !== 'producto') {
             const unidadData = appState.collectionsById[COLLECTIONS.UNIDADES].get(item.unidadMedidaId);
             const unidadLabel = unidadData ? `(${unidadData.id})` : '';
-            const quantityLabel = `Cantidad Requerida ${unidadLabel}`;
-            
             const quantityValue = targetNode.quantity;
             const isQuantitySet = quantityValue !== null && quantityValue !== undefined;
-            const quantityDisplay = isQuantitySet ? quantityValue : '<span class="text-red-500 italic font-normal">Sin asignar</span>';
-            const quantityInputDefault = isQuantitySet ? quantityValue : '';
-
-            content += `<div class="py-3 border-b border-slate-100" id="quantity-section" data-node-id="${targetNode.id}" data-current-quantity="${quantityValue}">
-                <div id="quantity-display-mode">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm text-slate-500">${quantityLabel}</p>
-                            <p class="font-semibold text-lg">${quantityDisplay}</p>
-                        </div>
-                        <button data-action="edit-quantity" class="text-blue-600 hover:text-blue-800 p-2 rounded-md hover:bg-blue-100"><i data-lucide="pencil" class="h-5 w-5 pointer-events-none"></i></button>
-                    </div>
-                </div>
-                <div id="quantity-edit-mode" class="hidden">
-                    <label for="quantity-input-synoptic" class="block text-sm text-slate-500 mb-2">${quantityLabel}</label>
-                    <div class="flex items-center gap-2">
-                        <input type="number" id="quantity-input-synoptic" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" value="${quantityInputDefault}" step="any" min="0" placeholder="Ingresar consumo...">
-                        <button data-action="cancel-edit-quantity" class="p-2 text-slate-500 hover:bg-slate-200 rounded-md"><i data-lucide="x" class="h-5 w-5 pointer-events-none"></i></button>
-                        <button data-action="save-quantity" class="p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 w-12"><i data-lucide="check" class="h-5 w-5 pointer-events-none"></i></button>
-                    </div>
-                </div>
-            </div>`;
+            const quantityDisplay = isQuantitySet ? quantityValue : '<span class="text-red-500 italic">Sin asignar</span>';
+            content += createRow('package-plus', `Cantidad Requerida ${unidadLabel}`, quantityDisplay);
+            content += createRow('message-square', 'Comentario', targetNode.comment || '<span class="text-slate-400 italic">Sin comentario</span>');
         }
     
         if (targetNode.children && targetNode.children.length > 0) {
@@ -3094,7 +4917,7 @@ function initSinoptico() {
                 content += createRow('scale', 'Peso', item.peso_gr ? `${item.peso_gr} gr` : null);
                 content += createRow('move-3d', 'Dimensiones (X*Y*Z)', item.dimensiones_xyz);
                 break;
-            case 'subproducto':
+            case 'semiterminado':
                 const tiempoCiclo = item.tiempo_ciclo_seg ? `${item.tiempo_ciclo_seg} seg` : null;
                 const peso = item.peso_gr ? `${item.peso_gr} gr` : null;
                 const tolerancia = item.tolerancia_peso_gr ? `± ${item.tolerancia_peso_gr} gr` : null;
@@ -3122,163 +4945,205 @@ function initSinoptico() {
         lucide.createIcons();
     }
     
-    async function exportProductTreePdf(productNode) {
-        showToast('Iniciando exportación a PDF...', 'info', 1000);
-        
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-        
-        const PAGE_MARGIN = 15;
-        const PAGE_WIDTH = doc.internal.pageSize.width;
-        const PAGE_HEIGHT = doc.internal.pageSize.height;
-        const FONT_SIZES = { H1: 16, H2: 10, BODY: 9, HEADER_TABLE: 8, FOOTER: 8 };
-        const ROW_HEIGHT = 8;
-        const LINE_COLOR = '#CCCCCC';
-        const HEADER_BG_COLOR = '#44546A';
-        const TEXT_COLOR = '#2d3748';
-        const TEXT_COLOR_LIGHT = '#2d3748';
-        const TITLE_COLOR = '#2563eb';
-        const TYPE_COLORS = {
-            producto: '#3b82f6', subproducto: '#16a34a', insumo: '#64748b'
-        };
-        
-        let cursorY = 0;
-        
-        const flattenedData = [];
-        function flattenTree(node, level, parentLineage = []) {
-            const item = appState.collectionsById[node.tipo + 's']?.get(node.refId);
-            if (!item) return;
-
-            flattenedData.push({ node, item, level, lineage: parentLineage });
-
-            if (node.children && node.children.length > 0) {
-                node.children.forEach((child, index) => {
-                    const isLast = index === node.children.length - 1;
-                    flattenTree(child, level + 1, [...parentLineage, !isLast]);
-                });
-            }
-        }
-        flattenTree(productNode, 0);
-
-        async function drawPageHeader() {
-            const productItem = appState.collectionsById[COLLECTIONS.PRODUCTOS].get(productNode.refId);
-            const clientItem = appState.collectionsById[COLLECTIONS.CLIENTES].get(productItem.clienteId);
-            
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(FONT_SIZES.H1);
-            doc.setTextColor(TITLE_COLOR);
-            doc.text('Sinóptico de Producto', PAGE_WIDTH - PAGE_MARGIN, 18, { align: 'right' });
-            
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(FONT_SIZES.H2);
-            doc.setTextColor(TEXT_COLOR_LIGHT);
-            doc.text(`Producto: ${productItem.descripcion} (${productItem.id})`, PAGE_WIDTH - PAGE_MARGIN, 25, { align: 'right' });
-            doc.text(`Cliente: ${clientItem?.descripcion || 'N/A'}`, PAGE_WIDTH - PAGE_MARGIN, 30, { align: 'right' });
-
-            cursorY = 40;
-        }
-
-        function drawTableHeaders() {
-            doc.setFillColor(HEADER_BG_COLOR);
-            doc.rect(PAGE_MARGIN, cursorY, PAGE_WIDTH - (PAGE_MARGIN * 2), ROW_HEIGHT, 'F');
-            
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(FONT_SIZES.HEADER_TABLE);
-            doc.setTextColor('#FFFFFF');
-            
-            const headers = ['Componente', 'Tipo', 'Cantidad', 'Código'];
-            const colX = [PAGE_MARGIN + 2, 110, 135, 160];
-            headers.forEach((header, i) => {
-                doc.text(header, colX[i], cursorY + ROW_HEIGHT / 2, { baseline: 'middle' });
-            });
-            
-            cursorY += ROW_HEIGHT;
-        }
-
-        function drawRow(data) {
-            const { item, node, level, lineage } = data;
-            const TEXT_Y = cursorY + ROW_HEIGHT / 2 + 1;
-            
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(FONT_SIZES.BODY);
-            doc.setTextColor(TEXT_COLOR);
-            
-            if (node.tipo === 'producto') {
-                doc.setFont('helvetica', 'bold');
-            }
-
-            const INDENT_WIDTH = 5;
-            const treeX = PAGE_MARGIN + (level * INDENT_WIDTH);
-            doc.setDrawColor(LINE_COLOR);
-            
-            lineage.forEach((continues, i) => {
-                if (continues) {
-                    const parentX = PAGE_MARGIN + (i * INDENT_WIDTH);
-                    doc.line(parentX, cursorY, parentX, cursorY + ROW_HEIGHT);
-                }
-            });
-            
-            if (level > 0) {
-                const isLast = !lineage[level];
-                doc.line(treeX - INDENT_WIDTH, cursorY + (isLast ? 0 : ROW_HEIGHT), treeX - INDENT_WIDTH, cursorY + ROW_HEIGHT/2);
-                doc.line(treeX - INDENT_WIDTH, cursorY + ROW_HEIGHT/2, treeX, cursorY + ROW_HEIGHT/2);
-            }
-            
-            const circleX = treeX - 1.5;
-            const circleY = cursorY + ROW_HEIGHT / 2;
-            doc.setFillColor(TYPE_COLORS[node.tipo] || '#000000');
-            doc.circle(circleX, circleY, 1.2, 'F');
-
-            const unitData = appState.collectionsById[COLLECTIONS.UNIDADES].get(item.unidadMedidaId);
-            const unit = unitData ? unitData.id : 'Un';
-            
-            const quantityValue = node.quantity;
-            const isQuantitySet = quantityValue !== null && quantityValue !== undefined;
-            const quantityText = isQuantitySet ? `${quantityValue} ${unit}` : '---';
-
-            const descriptionX = treeX + 2;
-            const descriptionMaxWidth = 110 - descriptionX;
-            doc.text(item.descripcion, descriptionX, TEXT_Y, { maxWidth: descriptionMaxWidth });
-
-            doc.text(node.tipo.charAt(0).toUpperCase() + node.tipo.slice(1), 110, TEXT_Y);
-            doc.text(node.tipo !== 'producto' ? quantityText : '', 135, TEXT_Y);
-            doc.text(item.id, 160, TEXT_Y);
-        }
-
-        function drawPageFooter(pageNumber, pageCount) {
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(FONT_SIZES.FOOTER);
-            doc.setTextColor(TEXT_COLOR_LIGHT);
-            const date = new Date().toLocaleDateString('es-AR');
-            doc.text(`Generado el ${date}`, PAGE_MARGIN, PAGE_HEIGHT - 10);
-            doc.text(`Página ${pageNumber} de ${pageCount}`, PAGE_WIDTH - PAGE_MARGIN, PAGE_HEIGHT - 10, { align: 'right' });
-        }
-
-        await drawPageHeader();
-        drawTableHeaders();
-
-        for (const data of flattenedData) {
-            if (cursorY + ROW_HEIGHT > PAGE_HEIGHT - PAGE_MARGIN) {
-                doc.addPage();
-                await drawPageHeader();
-                drawTableHeaders();
-            }
-            drawRow(data);
-            cursorY += ROW_HEIGHT;
-        }
-
-        const pageCount = doc.internal.getNumberOfPages();
-        for (let i = 1; i <= pageCount; i++) {
-            doc.setPage(i);
-            drawPageFooter(i, pageCount);
-        }
-
-        doc.save(`Sinoptico_Grafico_${productNode.refId.replace(/\s+/g, '_')}.pdf`);
-        showToast('PDF con árbol gráfico generado con éxito.', 'success');
+async function getLogoBase64() {
+    try {
+        const response = await fetch('logo.png');
+        if (!response.ok) return null;
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    } catch (error) {
+        console.error("Could not fetch logo.png:", error);
+        return null;
     }
+}
+
+
+async function exportProductTreePdf(productNode) {
+    showToast('Iniciando exportación a PDF...', 'info');
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+    const logoBase64 = await getLogoBase64();
+
+    const PAGE_MARGIN = 15;
+    const PAGE_WIDTH = doc.internal.pageSize.width;
+    const PAGE_HEIGHT = doc.internal.pageSize.height;
+    const FONT_SIZES = { H1: 16, H2: 10, BODY: 8, HEADER_TABLE: 8, FOOTER: 8 };
+    const BASE_ROW_HEIGHT = 7;
+    const LINE_SPACING = 4;
+    const INDENT_WIDTH = 5;
+    const LINE_COLOR = '#CCCCCC';
+    const HEADER_BG_COLOR = '#44546A';
+    const TEXT_COLOR = '#2d3748';
+    const TITLE_COLOR = '#2563eb';
+    const TYPE_COLORS = {
+        producto: '#3b82f6', semiterminado: '#16a34a', insumo: '#64748b'
+    };
+
+    let cursorY = 0;
+
+    const flattenedData = [];
+    function flattenTree(node, level, parentLineage = []) {
+        const item = appState.collectionsById[node.tipo + 's']?.get(node.refId);
+        if (!item) return;
+
+        flattenedData.push({ node, item, level, lineage: parentLineage });
+
+        if (node.children && node.children.length > 0) {
+            const visibleChildren = node.children.filter(child => appState.collectionsById[child.tipo + 's']?.get(child.refId));
+            visibleChildren.forEach((child, index) => {
+                const isLast = index === visibleChildren.length - 1;
+                flattenTree(child, level + 1, [...parentLineage, !isLast]);
+            });
+        }
+    }
+    flattenTree(productNode, 0);
+
+    async function drawPageHeader() {
+        const productItem = appState.collectionsById[COLLECTIONS.PRODUCTOS].get(productNode.refId);
+        const clientItem = appState.collectionsById[COLLECTIONS.CLIENTES].get(productItem.clienteId);
+
+        if (logoBase64) {
+            doc.addImage(logoBase64, 'PNG', PAGE_MARGIN, 12, 40, 15);
+        }
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(FONT_SIZES.H1);
+        doc.setTextColor(TITLE_COLOR);
+        doc.text('Sinóptico de Producto', PAGE_WIDTH - PAGE_MARGIN, 18, { align: 'right' });
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(FONT_SIZES.H2);
+        doc.setTextColor(TEXT_COLOR);
+        doc.text(`Producto: ${productItem.descripcion} (${productItem.id})`, PAGE_WIDTH - PAGE_MARGIN, 25, { align: 'right' });
+        doc.text(`Cliente: ${clientItem?.descripcion || 'N/A'}`, PAGE_WIDTH - PAGE_MARGIN, 30, { align: 'right' });
+
+        cursorY = 40;
+    }
+
+    function drawTableHeaders() {
+        doc.setFillColor(HEADER_BG_COLOR);
+        doc.rect(PAGE_MARGIN, cursorY, PAGE_WIDTH - (PAGE_MARGIN * 2), BASE_ROW_HEIGHT, 'F');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(FONT_SIZES.HEADER_TABLE);
+        doc.setTextColor('#FFFFFF');
+
+        const headers = ['Componente', 'Tipo', 'Cantidad', 'Código'];
+        const colX = [PAGE_MARGIN + 2, 110, 135, 160];
+        headers.forEach((header, i) => {
+            doc.text(header, colX[i], cursorY + BASE_ROW_HEIGHT / 2, { baseline: 'middle' });
+        });
+
+        cursorY += BASE_ROW_HEIGHT;
+    }
+
+    function drawRow(data) {
+        const { item, node, level, lineage } = data;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(FONT_SIZES.BODY);
+
+        const descriptionX = PAGE_MARGIN + (level * INDENT_WIDTH) + 3;
+        const descriptionMaxWidth = 108 - descriptionX;
+        const descriptionLines = doc.splitTextToSize(item.descripcion, descriptionMaxWidth);
+        const rowHeight = Math.max(BASE_ROW_HEIGHT, descriptionLines.length * LINE_SPACING + 2);
+
+        if (cursorY + rowHeight > PAGE_HEIGHT - (PAGE_MARGIN + 10)) {
+            return false;
+        }
+
+        doc.setTextColor(TEXT_COLOR);
+        if (node.tipo === 'producto') doc.setFont('helvetica', 'bold');
+
+        const textY = cursorY + rowHeight / 2;
+
+        doc.setDrawColor(LINE_COLOR);
+        const parentX = PAGE_MARGIN + ((level - 1) * INDENT_WIDTH);
+        lineage.forEach((continues, i) => {
+            const currentParentX = PAGE_MARGIN + (i * INDENT_WIDTH);
+            if (continues) {
+                doc.line(currentParentX, cursorY, currentParentX, cursorY + rowHeight);
+            }
+        });
+
+        if (level > 0) {
+            const isLast = !lineage[level-1];
+            doc.line(parentX, textY, descriptionX - 3, textY);
+            if (!isLast) {
+                 doc.line(parentX, cursorY, parentX, cursorY + rowHeight);
+            } else {
+                 doc.line(parentX, cursorY, parentX, textY);
+            }
+        }
+
+        doc.setFillColor(TYPE_COLORS[node.tipo] || '#000000');
+        doc.circle(descriptionX - 2.5, textY, 1.2, 'F');
+
+        doc.text(descriptionLines, descriptionX, cursorY + 3.5);
+        doc.text(node.tipo.charAt(0).toUpperCase() + node.tipo.slice(1), 110, textY, { baseline: 'middle' });
+
+        const unitData = appState.collectionsById[COLLECTIONS.UNIDADES].get(item.unidadMedidaId);
+        const unit = unitData ? unitData.id : 'Un';
+        const quantityValue = node.quantity;
+        const isQuantitySet = quantityValue !== null && quantityValue !== undefined;
+        const quantityText = isQuantitySet ? `${quantityValue} ${unit}` : '---';
+        doc.text(node.tipo !== 'producto' ? quantityText : '', 135, textY, { baseline: 'middle' });
+
+        doc.text(item.id, 160, textY, { baseline: 'middle' });
+
+        cursorY += rowHeight;
+        return true;
+    }
+
+    function drawPageFooter(pageNumber, pageCount) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(FONT_SIZES.FOOTER);
+        doc.setTextColor(TEXT_COLOR);
+        const date = new Date().toLocaleDateString('es-AR');
+        doc.text(`Generado el ${date}`, PAGE_MARGIN, PAGE_HEIGHT - 10);
+        doc.text(`Página ${pageNumber} de ${pageCount}`, PAGE_WIDTH - PAGE_MARGIN, PAGE_HEIGHT - 10, { align: 'right' });
+    }
+
+    await drawPageHeader();
+    drawTableHeaders();
+
+    for (const data of flattenedData) {
+        const rowDrawn = drawRow(data);
+        if (!rowDrawn) {
+            doc.addPage();
+            await drawPageHeader();
+            drawTableHeaders();
+            drawRow(data);
+        }
+    }
+
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        drawPageFooter(i, pageCount);
+    }
+
+    doc.save(`Sinoptico_Grafico_${productNode.refId.replace(/\s+/g, '_')}.pdf`);
+    showToast('PDF con árbol gráfico generado con éxito.', 'success');
+}
     
     const handleSinopticoClick = async (e) => {
         const target = e.target;
+        const button = target.closest('button[data-action]');
+
+        if (button) {
+            const action = button.dataset.action;
+            if (action === 'open-sinoptico-edit-modal') {
+                openSinopticoEditModal(button.dataset.nodeId);
+                return;
+            }
+        }
         
         if (target.closest('#sinoptico-toggle-details')) {
             document.getElementById('sinoptico-main-view').classList.toggle('expanded');
@@ -3296,69 +5161,6 @@ function initSinoptico() {
                 }
             }
             return;
-        }
-    
-        const quantitySection = target.closest('#quantity-section');
-        if (quantitySection) {
-            const displayMode = quantitySection.querySelector('#quantity-display-mode');
-            const editMode = quantitySection.querySelector('#quantity-edit-mode');
-            const action = target.closest('button')?.dataset.action;
-    
-            if (action === 'edit-quantity') {
-                displayMode.classList.add('hidden');
-                editMode.classList.remove('hidden');
-                editMode.querySelector('input').focus();
-            }
-    
-            if (action === 'cancel-edit-quantity') {
-                displayMode.classList.remove('hidden');
-                editMode.classList.add('hidden');
-            }
-            
-            if (action === 'save-quantity') {
-                const saveButton = target.closest('button');
-                const nodeId = quantitySection.dataset.nodeId;
-                const quantityInput = quantitySection.querySelector('#quantity-input-synoptic');
-                const inputValue = quantityInput.value.trim();
-                let newQuantity;
-
-                if (inputValue === '') {
-                    newQuantity = null;
-                } else {
-                    newQuantity = parseFloat(inputValue);
-                    if (isNaN(newQuantity) || newQuantity < 0) {
-                        showToast('Por favor, ingrese una cantidad numérica válida y positiva.', 'error');
-                        return;
-                    }
-                }
-    
-                const product = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.docId === appState.sinopticoState.activeTreeDocId);
-                if (!product || !product.estructura) { showToast('Error: No se pudo encontrar el producto activo.', 'error'); return; }
-    
-                const nodeToUpdate = findNode(nodeId, product.estructura);
-    
-                if (nodeToUpdate) {
-                    nodeToUpdate.quantity = newQuantity;
-                    saveButton.innerHTML = `<i data-lucide="loader" class="h-5 w-5 animate-spin mx-auto"></i>`;
-                    lucide.createIcons();
-                    saveButton.disabled = true;
-    
-                    try {
-                        const productRef = doc(db, COLLECTIONS.PRODUCTOS, product.docId);
-                        await updateDoc(productRef, { estructura: product.estructura });
-                        showToast('Cantidad actualizada con éxito.', 'success');
-                        renderTree();
-                        renderDetailView(nodeId);
-                    } catch (error) {
-                        showToast("Error al guardar la cantidad.", "error");
-                        renderDetailView(nodeId);
-                    }
-    
-                } else {
-                    showToast('Error: No se pudo actualizar el nodo.', 'error');
-                }
-            }
-            return; 
         }
         
         const treeItem = target.closest('.sinoptico-tree-item');
@@ -3418,6 +5220,7 @@ function initSinoptico() {
     };
     
     dom.viewContent.addEventListener('click', handleSinopticoClick);
+    dom.viewContent.addEventListener('click', handleCaratulaClick);
     
     const searchHandler = () => {
         const searchTerm = searchInput.value.toLowerCase();
@@ -3643,33 +5446,113 @@ function showPromptModal(title, message) {
 function runProfileLogic() {
     const user = appState.currentUser;
     if (!user) return;
+
+    const roleBadges = {
+        admin: '<span class="bg-red-100 text-red-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full">Administrador</span>',
+        editor: '<span class="bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full">Editor</span>',
+        lector: '<span class="bg-gray-100 text-gray-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full">Lector</span>'
+    };
+
     dom.viewContent.innerHTML = `<div class="max-w-4xl mx-auto space-y-8 animate-fade-in-up">
-            <div class="bg-white p-8 rounded-xl shadow-lg flex items-center space-x-6">
-                <img src="${user.avatarUrl}" alt="Avatar" class="w-24 h-24 rounded-full border-4 border-slate-200">
+        <!-- Profile Header -->
+        <div class="bg-white p-8 rounded-xl shadow-lg flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6">
+            <div class="relative group">
+                <img src="${user.avatarUrl}" alt="Avatar" class="w-24 h-24 rounded-full border-4 border-slate-200 object-cover">
+                <button id="change-avatar-btn" class="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <i data-lucide="camera" class="w-8 h-8 text-white"></i>
+                </button>
+            </div>
+            <div class="text-center sm:text-left">
+                <div class="flex items-center justify-center sm:justify-start">
+                    <h3 id="display-name" class="text-3xl font-bold text-slate-800">${user.name}</h3>
+                    <button id="edit-name-btn" class="ml-2 text-slate-400 hover:text-slate-600"><i data-lucide="pencil" class="w-5 h-5"></i></button>
+                </div>
+                <p class="text-slate-500">${user.email}</p>
+                <div class="mt-2">${roleBadges[user.role] || ''}</div>
+            </div>
+        </div>
+
+        <!-- General Settings -->
+        <div class="bg-white p-8 rounded-xl shadow-lg">
+            <h4 class="text-xl font-bold text-slate-800 border-b pb-4 mb-6">Configuración General</h4>
+            <form id="profile-settings-form" class="space-y-4 max-w-md">
                 <div>
-                    <h3 class="text-3xl font-bold text-slate-800">${user.name}</h3>
-                    <p class="text-slate-500">${user.email}</p>
+                    <label for="profile-name" class="block text-sm font-medium text-gray-700 mb-1">Nombre para mostrar</label>
+                    <input type="text" id="profile-name" value="${user.name}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
                 </div>
-            </div>
-            <div class="bg-white p-8 rounded-xl shadow-lg">
-                <h4 class="text-xl font-bold text-slate-800 border-b pb-4 mb-6">Cambiar Contraseña</h4>
-                <form id="change-password-form" class="space-y-4 max-w-md">
-                    <div><label for="current-password" class="block text-sm font-medium text-gray-700 mb-1">Contraseña Actual</label><input type="password" id="current-password" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required></div>
-                    <div><label for="new-password" class="block text-sm font-medium text-gray-700 mb-1">Nueva Contraseña</label><input type="password" id="new-password" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required></div>
-                    <div><label for="confirm-password" class="block text-sm font-medium text-gray-700 mb-1">Confirmar Nueva Contraseña</label><input type="password" id="confirm-password" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required></div>
-                    <div class="pt-2"><button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 font-semibold">Guardar Cambios</button></div>
-                </form>
-            </div>
-            <div class="bg-white p-8 rounded-xl shadow-lg border-2 border-red-200">
-                <h4 class="text-xl font-bold text-red-700 border-b border-red-200 pb-4 mb-6">Zona de Peligro</h4>
-                <div class="flex items-center justify-between">
-                    <div><p class="font-semibold">Eliminar esta cuenta</p><p class="text-sm text-slate-500">Una vez que elimine su cuenta, no hay vuelta atrás. Por favor, esté seguro.</p></div>
-                    <button data-action="delete-account" class="bg-red-600 text-white px-6 py-2 rounded-md hover:bg-red-700 font-semibold flex-shrink-0">Eliminar Cuenta</button>
+                <div>
+                    <label for="profile-avatar" class="block text-sm font-medium text-gray-700 mb-1">URL de la foto de perfil</label>
+                    <input type="url" id="profile-avatar" value="${user.avatarUrl}" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
                 </div>
+                <div class="pt-2"><button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 font-semibold">Guardar Perfil</button></div>
+            </form>
+        </div>
+
+        <!-- Password Change -->
+        <div class="bg-white p-8 rounded-xl shadow-lg">
+            <h4 class="text-xl font-bold text-slate-800 border-b pb-4 mb-6">Cambiar Contraseña</h4>
+            <form id="change-password-form" class="space-y-4 max-w-md">
+                <div><label for="current-password" class="block text-sm font-medium text-gray-700 mb-1">Contraseña Actual</label><input type="password" id="current-password" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required></div>
+                <div><label for="new-password" class="block text-sm font-medium text-gray-700 mb-1">Nueva Contraseña</label><input type="password" id="new-password" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required></div>
+                <div><label for="confirm-password" class="block text-sm font-medium text-gray-700 mb-1">Confirmar Nueva Contraseña</label><input type="password" id="confirm-password" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required></div>
+                <div class="pt-2"><button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 font-semibold">Guardar Cambios</button></div>
+            </form>
+        </div>
+
+        <!-- Danger Zone -->
+        <div class="bg-white p-8 rounded-xl shadow-lg border-2 border-red-200">
+            <h4 class="text-xl font-bold text-red-700 border-b border-red-200 pb-4 mb-6">Zona de Peligro</h4>
+            <div class="flex items-center justify-between">
+                <div><p class="font-semibold">Eliminar esta cuenta</p><p class="text-sm text-slate-500">Una vez que elimine su cuenta, no hay vuelta atrás. Por favor, esté seguro.</p></div>
+                <button data-action="delete-account" class="bg-red-600 text-white px-6 py-2 rounded-md hover:bg-red-700 font-semibold flex-shrink-0">Eliminar Cuenta</button>
             </div>
-        </div>`;
+        </div>
+    </div>`;
     lucide.createIcons();
+
     document.getElementById('change-password-form').addEventListener('submit', handleChangePassword);
+    document.getElementById('profile-settings-form').addEventListener('submit', handleProfileUpdate);
+
+    // Quick edit buttons
+    document.getElementById('edit-name-btn').addEventListener('click', () => {
+        document.getElementById('profile-name').focus();
+    });
+    document.getElementById('change-avatar-btn').addEventListener('click', openAvatarSelectionModal);
+}
+
+async function handleProfileUpdate(e) {
+    e.preventDefault();
+    const newName = document.getElementById('profile-name').value;
+    const newAvatarUrl = document.getElementById('profile-avatar').value;
+
+    const user = auth.currentUser;
+    const userDocRef = doc(db, COLLECTIONS.USUARIOS, user.uid);
+
+    try {
+        // Update Firebase Auth profile
+        await updateProfile(user, {
+            displayName: newName,
+            photoURL: newAvatarUrl
+        });
+
+        // Update Firestore user document
+        await updateDoc(userDocRef, {
+            name: newName,
+            photoURL: newAvatarUrl
+        });
+
+        // Update local app state
+        appState.currentUser.name = newName;
+        appState.currentUser.avatarUrl = newAvatarUrl;
+
+        showToast('Perfil actualizado con éxito.', 'success');
+        renderUserMenu(); // Refresh the user menu in the navbar
+        runProfileLogic(); // Re-render the profile page with new data
+
+    } catch (error) {
+        console.error("Error updating profile:", error);
+        showToast("Error al actualizar el perfil.", "error");
+    }
 }
 
 async function handleChangePassword(e) {

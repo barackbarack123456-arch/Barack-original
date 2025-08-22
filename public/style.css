@@ -21,6 +21,18 @@ body { font-family: 'Inter', sans-serif; background-color: #ffffff; color: #1e29
 .modal-backdrop { background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); }
 .modal-content { animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
 .toast { display: flex; align-items: center; padding: 12px 20px; border-radius: 8px; color: white; font-weight: 500; box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 1100; opacity: 0; transform: translateX(100%); transition: all 0.4s cubic-bezier(0.215, 0.610, 0.355, 1.000); }
 .toast.show { opacity: 1; transform: translateX(0); }
 .toast.success { background-color: #16a34a; } .toast.error { background-color: #dc2626; } .toast.info { background-color: #2563eb; }
@@ -57,13 +69,13 @@ body {
 }
 
 /* --- Estilos de Árboles (Gestión y Sinóptico) --- */
-.tree ul { padding-left: 22px; position: relative; margin: 4px 0; border-radius: 8px; }
+.tree ul { padding-left: 28px; position: relative; margin: 4px 0; border-radius: 8px; }
 .tree li { list-style-type: none; position: relative; padding: 2px 0 2px 25px; }
 .tree li::before, .tree li::after { content: ''; position: absolute; left: 0; }
 .tree li::before { border-left: 1px solid #d1d5db; height: 100%; top: 0; width: 1px; }
 .tree li:last-child::before { height: 22px; }
 .tree li::after { border-top: 1px solid #d1d5db; height: 1px; top: 22px; width: 20px; }
-.node-content { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 8px; transition: background-color 0.2s; cursor: grab; border: 1px solid transparent;}
+.node-content { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; border-radius: 8px; transition: background-color 0.2s; cursor: grab; border: 1px solid transparent;}
 .node-content:hover { background-color: #f3f4f6; }
 .node-content:active { cursor: grabbing; }
 
@@ -73,7 +85,8 @@ body {
     border: 2px dashed #60a5fa; /* blue-400 */
     border-radius: 8px;
     opacity: 0.6;
-    height: 44px;
+    height: 54px;
+    margin-top: 4px;
     margin-bottom: 4px;
 }
 .sortable-ghost > * {
@@ -112,11 +125,11 @@ ul.sortable-drag-over {
 .sinoptico-tree-container > li > ul > .sinoptico-tree-item:not(:last-child) {
     margin-bottom: 1rem; /* 16px de espacio entre productos principales */
 }
-.sinoptico-tree-item[data-type="subproducto"] {
-    padding-top: 0.5rem; /* 8px de espacio sobre cada subproducto */
+.sinoptico-tree-item[data-type="semiterminado"] {
+    padding-top: 0.5rem; /* 8px de espacio sobre cada semiterminado */
 }
-.sinoptico-tree-item[data-type="subproducto"] > .sinoptico-tree-item-content + ul {
-    padding-top: 0.5rem; /* Espacio entre un subproducto y sus hijos */
+.sinoptico-tree-item[data-type="semiterminado"] > .sinoptico-tree-item-content + ul {
+    padding-top: 0.5rem; /* Espacio entre un semiterminado y sus hijos */
 }
 
 /* --- VISTA SINÓPTICA MEJORADA --- */
@@ -143,8 +156,8 @@ ul.sortable-drag-over {
     border-left: 4px solid #3b82f6 !important; /* blue-500 */
 }
 
-.node-content[data-type="subproducto"],
-.sinoptico-tree-item-content[data-type="subproducto"] {
+.node-content[data-type="semiterminado"],
+.sinoptico-tree-item-content[data-type="semiterminado"] {
     border-left: 4px solid #22c55e !important; /* green-500 */
 }
 
@@ -257,4 +270,149 @@ table.data-table .actions-cell button:hover {
 
 #sinoptico-tabular-container .text-slate-400 {
     font-style: italic;
+}
+
+/* --- Estilos para Vis.js Timeline --- */
+.vis-timeline {
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    font-family: 'Inter', sans-serif;
+    position: relative; /* Corregir el contexto de posicionamiento */
+}
+.vis-item {
+    border-radius: 0.375rem;
+    box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px 0 rgba(0,0,0,0.06);
+    padding: 8px 12px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+.vis-item.vis-selected {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.4);
+}
+
+/* Colores por prioridad */
+.vis-item.priority-high {
+    background-color: #fee2e2; /* red-100 */
+    border-color: #ef4444; /* red-500 */
+    color: #991b1b; /* red-800 */
+}
+.vis-item.priority-medium {
+    background-color: #fef3c7; /* yellow-100 */
+    border-color: #f59e0b; /* amber-500 */
+    color: #92400e; /* amber-800 */
+}
+.vis-item.priority-low {
+    background-color: #f1f5f9; /* slate-100 */
+    border-color: #64748b; /* slate-500 */
+    color: #334155; /* slate-700 */
+}
+.vis-current-time {
+    background-color: #ef4444; /* red-500 */
+    width: 2px;
+}
+
+/* --- Estilos para Pestañas (Tabs) --- */
+.admin-task-tab {
+    border-color: transparent;
+    color: #475569; /* slate-600 */
+}
+.admin-task-tab:hover {
+    border-color: #d1d5db; /* gray-300 */
+    color: #1f2937; /* gray-800 */
+}
+.admin-task-tab.active-tab {
+    border-color: #2563eb; /* blue-600 */
+    color: #1e40af; /* blue-800 */
+    font-weight: 700;
+}
+.admin-task-tab .lucide {
+    color: #64748b; /* slate-500 */
+    transition: color 0.2s;
+}
+.admin-task-tab:hover .lucide {
+    color: #334155; /* slate-700 */
+}
+.admin-task-tab.active-tab .lucide {
+    color: #1e40af; /* blue-800 */
+}
+
+/* --- Custom Timeline Item Styles --- */
+.timeline-item-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 100%;
+}
+
+.timeline-item-title {
+    flex-grow: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.timeline-item-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.timeline-item-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* Status colors for the dot indicator */
+.timeline-item-status.status-todo { background-color: #f59e0b; } /* amber-500 */
+.timeline-item-status.status-inprogress { background-color: #3b82f6; } /* blue-500 */
+.timeline-item-status.status-done { background-color: #22c55e; } /* green-500 */
+
+/* Overriding vis-item styles based on status */
+.vis-item.status-done {
+    background-color: #f1f5f9; /* slate-100 */
+    border-color: #e2e8f0; /* slate-200 */
+    color: #64748b; /* slate-500 */
+}
+
+.vis-item.status-done .timeline-item-title {
+    text-decoration: line-through;
+}
+
+/* Style for overdue tasks */
+.vis-item.overdue {
+    background-color: #fff1f2; /* red-50 */
+    border-color: #fca5a5; /* red-300 */
+}
+.vis-item.overdue::before {
+    content: '❗';
+    position: absolute;
+    top: 50%;
+    left: -20px;
+    transform: translateY(-50%);
+    font-size: 14px;
+}
+
+/* --- Kanban Column Collapsing --- */
+.task-column.collapsed .task-list {
+    display: none;
+}
+
+.task-column.collapsed .kanban-toggle-btn .lucide {
+    transform: rotate(-90deg);
+}
+
+/* --- Mejora de Espaciado Visual en Árbol Sinóptico --- */
+.sinoptico-tree-container > li > ul > .sinoptico-tree-item:not(:last-child) {
+    margin-bottom: 1rem; /* 16px de espacio entre productos principales */
+}
+.sinoptico-tree-item[data-type="semiterminado"] {
+    padding-top: 0.5rem; /* 8px de espacio sobre cada semiterminado */
+}
+.sinoptico-tree-item[data-type="semiterminado"] > .sinoptico-tree-item-content + ul {
+    padding-top: 0.5rem; /* Espacio entre un semiterminado y sus hijos */
 }

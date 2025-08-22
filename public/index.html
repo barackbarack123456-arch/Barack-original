@@ -16,6 +16,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-white">
@@ -105,10 +106,15 @@
         <!-- Panel de Verificar Email -->
         <div id="verify-email-panel" class="p-8 bg-white shadow-2xl rounded-2xl hidden">
              <div class="text-center">
-                <i data-lucide="mail-check" class="mx-auto text-green-500 h-16 w-16"></i>
-                <h1 class="text-4xl font-extrabold mt-4 text-slate-800">¡Casi listo!</h1>
-                <p class="text-slate-500 mt-2 mb-8">Hemos enviado un enlace de verificación a tu correo. Por favor, haz clic en él para activar tu cuenta y luego inicia sesión.</p>
-                <a href="#" data-auth-screen="login" class="w-full block bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 font-semibold">Volver a Iniciar Sesión</a>
+                <i data-lucide="mail-warning" class="mx-auto text-amber-500 h-16 w-16"></i>
+                <h1 class="text-4xl font-extrabold mt-4 text-slate-800">Verifica tu Correo</h1>
+                <p class="text-slate-500 mt-2 mb-6">Hemos enviado un enlace de verificación a tu correo. Por favor, haz clic en él para activar tu cuenta. <br><strong>Revisa tu carpeta de spam si no lo encuentras.</strong></p>
+
+                <div class="space-y-4">
+                    <button id="resend-verification-btn" class="w-full bg-slate-600 text-white px-6 py-3 rounded-md hover:bg-slate-700 font-semibold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">Reenviar Correo de Verificación</button>
+                    <a href="#" data-auth-screen="login" class="w-full block bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 font-semibold">Ya lo verifiqué, ir a Iniciar Sesión</a>
+                </div>
+                <p id="resend-timer" class="text-sm text-slate-400 mt-4 h-5"></p>
             </div>
         </div>
     </div>
@@ -131,17 +137,9 @@
                         <i data-lucide="layout-dashboard" class="inline-block w-4 h-4 mr-1.5 -mt-0.5"></i>Dashboard
                     </a>
 
-                    <!-- Dropdown de Gestión BOM -->
-                    <div class="relative nav-dropdown">
-                        <button class="nav-link dropdown-toggle px-4 py-2 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-100 flex items-center">
-                            <i data-lucide="git-merge" class="inline-block w-4 h-4 mr-1.5 -mt-0.5"></i>Gestión BOM
-                            <i data-lucide="chevron-down" class="w-4 h-4 ml-1"></i>
-                        </button>
-                        <div class="dropdown-menu absolute mt-2 w-56 bg-white border rounded-lg shadow-xl">
-                            <a href="#" data-view="arboles" class="nav-link flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="pencil-ruler" class="w-5 h-5 text-slate-500"></i>Editor de Árboles</a>
-                            <a href="#" data-view="sinoptico_tabular" class="nav-link flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="table" class="w-5 h-5 text-slate-500"></i>Reporte BOM (Tabular)</a>
-                        </div>
-                    </div>
+                    <a href="#" data-view="tareas" class="nav-link px-4 py-2 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-100">
+                        <i data-lucide="clipboard-check" class="inline-block w-4 h-4 mr-1.5 -mt-0.5"></i>Tareas
+                    </a>
 
                     <!-- Dropdown de Gestión -->
                     <div class="relative nav-dropdown">
@@ -149,12 +147,14 @@
                             <i data-lucide="folder-kanban" class="inline-block w-4 h-4 mr-1.5 -mt-0.5"></i>Gestión
                             <i data-lucide="chevron-down" class="w-4 h-4 ml-1"></i>
                         </button>
-                        <div class="dropdown-menu absolute mt-2 w-56 bg-white border rounded-lg shadow-xl">
+                        <div class="dropdown-menu absolute mt-2 w-60 bg-white border rounded-lg shadow-xl">
+                            <a href="#" data-view="arboles" class="nav-link flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="pencil-ruler" class="w-5 h-5 text-slate-500"></i>Editor de Árboles BOM</a>
+                            <a href="#" data-view="sinoptico_tabular" class="nav-link flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="table" class="w-5 h-5 text-slate-500"></i>Reporte BOM (Tabular)</a>
+                            <div class="border-t my-1"></div>
                             <a href="#" data-view="productos" class="nav-link flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="package" class="w-5 h-5 text-slate-500"></i>Productos</a>
-                            <a href="#" data-view="subproductos" class="nav-link flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="box" class="w-5 h-5 text-slate-500"></i>Subproductos</a>
+                            <a href="#" data-view="proyectos" class="nav-link flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="kanban-square" class="w-5 h-5 text-slate-500"></i>Proyectos</a>
+                            <a href="#" data-view="semiterminados" class="nav-link flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="box" class="w-5 h-5 text-slate-500"></i>Semiterminados</a>
                             <a href="#" data-view="insumos" class="nav-link flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="beaker" class="w-5 h-5 text-slate-500"></i>Insumos</a>
-                            <a href="#" data-view="tareas" class="nav-link flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="clipboard-check" class="w-5 h-5 text-slate-500"></i>Tareas</a>
-                            <a href="#" data-view="user_management" class="nav-link flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="user-cog" class="w-5 h-5 text-slate-500"></i>Gestion de Usuarios</a>
                         </div>
                     </div>
 
@@ -165,8 +165,11 @@
                             <i data-lucide="chevron-down" class="w-4 h-4 ml-1"></i>
                         </button>
                         <div class="dropdown-menu absolute mt-2 w-56 bg-white border rounded-lg shadow-xl">
+                            <a href="#" data-view="user_management" class="nav-link flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="user-cog" class="w-5 h-5 text-slate-500"></i>Usuarios</a>
+                             <div class="border-t my-1"></div>
                             <a href="#" data-view="clientes" class="nav-link flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="users" class="w-5 h-5 text-slate-500"></i>Clientes</a>
                             <a href="#" data-view="proveedores" class="nav-link flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="truck" class="w-5 h-5 text-slate-500"></i>Proveedores</a>
+                             <div class="border-t my-1"></div>
                             <a href="#" data-view="sectores" class="nav-link flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="factory" class="w-5 h-5 text-slate-500"></i>Sectores</a>
                             <a href="#" data-view="procesos" class="nav-link flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="cpu" class="w-5 h-5 text-slate-500"></i>Procesos</a>
                         </div>
