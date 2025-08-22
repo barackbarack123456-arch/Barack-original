@@ -4416,49 +4416,54 @@ async function exportSinopticoTabularToPdf() {
         const boxX = PAGE_MARGIN + 40;
         const boxWidth = PAGE_WIDTH - boxX - PAGE_MARGIN;
         const boxY = cursorY;
-        const boxHeight = 28;
-        doc.setFillColor('#44546A'); // Dark blue-grey background
-        doc.rect(boxX, boxY, boxWidth, boxHeight, 'F');
-
-        // Product info inside the box
-        doc.setTextColor('#FFFFFF'); // White text for info box
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
-        const col1X = boxX + 3;
-        const col2X = boxX + (boxWidth / 2) + 3;
-        const labelCol1X = col1X;
-        const valueCol1X = col1X + 32;
-        const labelCol2X = col2X;
-        const valueCol2X = col2X + 32;
-
-        const row1Y = boxY + 5;
-        const row2Y = row1Y + 5;
-        const row3Y = row2Y + 5;
-        const row4Y = row3Y + 5;
-
         const NA = 'N/A';
         const createdAt = product.createdAt ? new Date(product.createdAt.seconds * 1000).toLocaleDateString('es-AR') : NA;
 
-        // Draw labels
-        doc.text('PRODUCTO:', labelCol1X, row1Y);
-        doc.text('NÚMERO DE PIEZA:', labelCol2X, row1Y);
-        doc.text('VERSIÓN:', labelCol1X, row2Y);
-        doc.text('FECHA DE CREACIÓN:', labelCol2X, row2Y);
-        doc.text('REALIZÓ:', labelCol1X, row3Y);
-        doc.text('APROBÓ:', labelCol2X, row3Y);
-        doc.text('FECHA DE REVISIÓN:', labelCol1X, row4Y);
+        const infoItems = [
+            { label: 'PRODUCTO:', value: product.descripcion || NA },
+            { label: 'NÚMERO DE PIEZA:', value: product.id || NA },
+            { label: 'VERSIÓN:', value: product.version || NA },
+            { label: 'FECHA DE CREACIÓN:', value: createdAt },
+            { label: 'REALIZÓ:', value: product.lastUpdatedBy || NA },
+            { label: 'APROBÓ:', value: product.aprobadoPor || NA },
+            { label: 'FECHA DE REVISIÓN:', value: product.fechaRevision || NA }
+        ];
 
-        // Draw values
         doc.setFont('helvetica', 'normal');
-        doc.text(product.descripcion || NA, valueCol1X, row1Y);
-        doc.text(product.id || NA, valueCol2X, row1Y);
-        doc.text(product.version || NA, valueCol1X, row2Y);
-        doc.text(createdAt, valueCol2X, row2Y);
-        doc.text(product.lastUpdatedBy || NA, valueCol1X, row3Y);
-        doc.text(product.aprobadoPor || NA, valueCol2X, row3Y);
-        doc.text(product.fechaRevision || NA, valueCol1X, row4Y);
+        doc.setFontSize(8);
 
-        cursorY += boxHeight + 7; // Move cursor down past the header
+        const PADDING = 3;
+        const LINE_HEIGHT = 4;
+        const LABEL_WIDTH = 35;
+        const valueX = boxX + LABEL_WIDTH;
+        const valueWidth = boxWidth - LABEL_WIDTH - (PADDING * 2);
+
+        let totalHeight = PADDING;
+        infoItems.forEach(item => {
+            const lines = doc.splitTextToSize(item.value, valueWidth);
+            totalHeight += (lines.length * LINE_HEIGHT) + 2; // Spacing between items
+        });
+        totalHeight += PADDING - 2; // Add final padding, remove last spacing
+
+        // Draw the box
+        doc.setFillColor('#44546A');
+        doc.rect(boxX, boxY, boxWidth, totalHeight, 'F');
+
+        // Draw the text
+        doc.setTextColor('#FFFFFF');
+        let infoCursorY = boxY + PADDING + LINE_HEIGHT;
+        infoItems.forEach(item => {
+            doc.setFont('helvetica', 'bold');
+            doc.text(item.label, boxX + PADDING, infoCursorY, { align: 'left' });
+
+            doc.setFont('helvetica', 'normal');
+            const lines = doc.splitTextToSize(item.value, valueWidth);
+            doc.text(lines, valueX, infoCursorY);
+
+            infoCursorY += (lines.length * LINE_HEIGHT) + 2;
+        });
+
+        cursorY += totalHeight + 7; // Move main cursor down
 
         // --- 2. Capture Table with html2canvas ---
         dom.loadingOverlay.querySelector('p').textContent = 'Capturando tabla... (2/2)';
