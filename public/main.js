@@ -4454,16 +4454,23 @@ async function exportSinopticoTabularToPdf() {
         const imgData = canvas.toDataURL('image/png');
         const imgProps = doc.getImageProperties(imgData);
 
-        // --- 3. Add Table Image to PDF ---
-        const pdfImgWidth = PAGE_WIDTH - (PAGE_MARGIN * 2);
-        const pdfImgHeight = (imgProps.height * pdfImgWidth) / imgProps.width;
+        // --- 3. Add Table Image to PDF with Scaling ---
+        const availableWidth = PAGE_WIDTH - (PAGE_MARGIN * 2);
+        const availableHeight = doc.internal.pageSize.height - cursorY - PAGE_MARGIN;
 
-        if (cursorY + pdfImgHeight > doc.internal.pageSize.height - PAGE_MARGIN) {
-            doc.addPage();
-            cursorY = PAGE_MARGIN;
+        const imgAspectRatio = imgProps.width / imgProps.height;
+
+        let finalImgWidth = availableWidth;
+        let finalImgHeight = finalImgWidth / imgAspectRatio;
+
+        // If the scaled height is still too tall, scale again based on height
+        if (finalImgHeight > availableHeight) {
+            finalImgHeight = availableHeight;
+            finalImgWidth = finalImgHeight * imgAspectRatio;
         }
 
-        doc.addImage(imgData, 'PNG', PAGE_MARGIN, cursorY, pdfImgWidth, pdfImgHeight);
+        // We don't need to add a new page, as we are scaling to fit.
+        doc.addImage(imgData, 'PNG', PAGE_MARGIN, cursorY, finalImgWidth, finalImgHeight);
 
         // --- 4. Save PDF ---
         const fileName = `Reporte_BOM_${product.id.replace(/[^a-z0-9]/gi, '_')}.pdf`;
