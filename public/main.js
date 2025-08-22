@@ -4362,76 +4362,117 @@ async function exportSinopticoTabularToPdf() {
         return;
     }
 
-    const caratulaElement = document.getElementById('caratula-container');
     const tableElement = document.getElementById('sinoptico-tabular-container');
-
-    if (!caratulaElement || !tableElement) {
-        showToast('Error: No se encontraron los elementos para exportar.', 'error');
+    if (!tableElement) {
+        showToast('Error: No se encontró el contenedor de la tabla para exportar.', 'error');
         return;
     }
 
-    showToast('Iniciando reconstrucción visual para PDF...', 'info');
+    showToast('Generando PDF híbrido...', 'info');
     dom.loadingOverlay.style.display = 'flex';
-    dom.loadingOverlay.querySelector('p').textContent = 'Generando PDF de alta fidelidad...';
-
-    // Create a temporary container for printing
-    const printContainer = document.createElement('div');
-    printContainer.style.position = 'absolute';
-    printContainer.style.left = '-9999px';
-    printContainer.style.width = '1200px'; // A reasonable width for a landscape A4 paper at 96 DPI
-    printContainer.style.backgroundColor = 'white';
-    printContainer.style.padding = '20px';
-
-    // Clone elements
-    const clonedCaratula = caratulaElement.cloneNode(true);
-    const clonedTable = tableElement.cloneNode(true);
-
-    // Style cloned elements for printing
-    clonedCaratula.style.transform = 'scale(0.9)';
-    clonedCaratula.style.transformOrigin = 'top center';
-    clonedCaratula.style.marginBottom = '10px';
-
-    printContainer.appendChild(clonedCaratula);
-    printContainer.appendChild(clonedTable);
-    document.body.appendChild(printContainer);
+    dom.loadingOverlay.querySelector('p').textContent = 'Generando PDF... (1/2)';
 
     try {
-        const canvas = await html2canvas(printContainer, {
+        // --- 1. Create PDF and Draw Manual Header ---
+        const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
+        const logoBase64 = await getLogoBase64();
+        const PAGE_MARGIN = 15;
+        const PAGE_WIDTH = doc.internal.pageSize.width;
+        let cursorY = 15;
+
+        // Header Title
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.text('COMPOSICIÓN DE PIEZAS - BOM', PAGE_WIDTH / 2, cursorY, { align: 'center' });
+        cursorY += 8;
+
+        // Logo and Product Info Box
+        if (logoBase64) {
+            doc.addImage(logoBase64, 'PNG', PAGE_MARGIN, cursorY, 35, 12);
+        }
+
+        const boxX = PAGE_MARGIN + 40;
+        const boxWidth = PAGE_WIDTH - boxX - PAGE_MARGIN;
+        const boxY = cursorY;
+        const boxHeight = 28;
+        doc.setDrawColor(150);
+        doc.rect(boxX, boxY, boxWidth, boxHeight);
+
+        // Product info inside the box
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        const col1X = boxX + 3;
+        const col2X = boxX + (boxWidth / 2) + 3;
+        const labelCol1X = col1X;
+        const valueCol1X = col1X + 32;
+        const labelCol2X = col2X;
+        const valueCol2X = col2X + 32;
+
+        const row1Y = boxY + 5;
+        const row2Y = row1Y + 5;
+        const row3Y = row2Y + 5;
+        const row4Y = row3Y + 5;
+
+        const NA = 'N/A';
+        const createdAt = product.createdAt ? new Date(product.createdAt.seconds * 1000).toLocaleDateString('es-AR') : NA;
+
+        // Draw labels
+        doc.text('PRODUCTO:', labelCol1X, row1Y);
+        doc.text('NÚMERO DE PIEZA:', labelCol2X, row1Y);
+        doc.text('VERSIÓN:', labelCol1X, row2Y);
+        doc.text('FECHA DE CREACIÓN:', labelCol2X, row2Y);
+        doc.text('REALIZÓ:', labelCol1X, row3Y);
+        doc.text('APROBÓ:', labelCol2X, row3Y);
+        doc.text('FECHA DE REVISIÓN:', labelCol1X, row4Y);
+
+        // Draw values
+        doc.setFont('helvetica', 'normal');
+        doc.text(product.descripcion || NA, valueCol1X, row1Y);
+        doc.text(product.id || NA, valueCol2X, row1Y);
+        doc.text(product.version || NA, valueCol1X, row2Y);
+        doc.text(createdAt, valueCol2X, row2Y);
+        doc.text(product.lastUpdatedBy || NA, valueCol1X, row3Y);
+        doc.text(product.aprobadoPor || NA, valueCol2X, row3Y);
+        doc.text(product.fechaRevision || NA, valueCol1X, row4Y);
+
+        cursorY += boxHeight + 7; // Move cursor down past the header
+
+        // --- 2. Capture Table with html2canvas ---
+        dom.loadingOverlay.querySelector('p').textContent = 'Capturando tabla... (2/2)';
+
+        const originalBoxShadow = tableElement.style.boxShadow;
+        tableElement.style.boxShadow = 'none';
+
+        const canvas = await html2canvas(tableElement, {
             scale: 2,
             useCORS: true,
-            width: printContainer.scrollWidth,
-            height: printContainer.scrollHeight,
-            windowWidth: printContainer.scrollWidth,
-            windowHeight: printContainer.scrollHeight
+            logging: false,
         });
 
-        document.body.removeChild(printContainer);
+        tableElement.style.boxShadow = originalBoxShadow;
 
         const imgData = canvas.toDataURL('image/png');
-        const imgProps = await new Promise(resolve => {
-            const img = new Image();
-            img.onload = () => resolve({ width: img.width, height: img.height });
-            img.src = imgData;
-        });
+        const imgProps = doc.getImageProperties(imgData);
 
-        const doc = new jsPDF({
-            orientation: imgProps.width > imgProps.height ? 'l' : 'p',
-            unit: 'px',
-            format: [imgProps.width, imgProps.height]
-        });
+        // --- 3. Add Table Image to PDF ---
+        const pdfImgWidth = PAGE_WIDTH - (PAGE_MARGIN * 2);
+        const pdfImgHeight = (imgProps.height * pdfImgWidth) / imgProps.width;
 
-        doc.addImage(imgData, 'PNG', 0, 0, imgProps.width, imgProps.height);
+        if (cursorY + pdfImgHeight > doc.internal.pageSize.height - PAGE_MARGIN) {
+            doc.addPage();
+            cursorY = PAGE_MARGIN;
+        }
 
-        const fileName = `Reporte_Unificado_${product.id.replace(/[^a-z0-9]/gi, '_')}.pdf`;
+        doc.addImage(imgData, 'PNG', PAGE_MARGIN, cursorY, pdfImgWidth, pdfImgHeight);
+
+        // --- 4. Save PDF ---
+        const fileName = `Reporte_BOM_${product.id.replace(/[^a-z0-9]/gi, '_')}.pdf`;
         doc.save(fileName);
-        showToast('PDF de página única generado con éxito.', 'success');
+        showToast('PDF híbrido generado con éxito.', 'success');
 
     } catch (error) {
-        console.error("Error exporting with html2canvas:", error);
-        showToast('Error al generar el PDF visual.', 'error');
-        if (document.body.contains(printContainer)) {
-            document.body.removeChild(printContainer);
-        }
+        console.error("Error exporting hybrid PDF:", error);
+        showToast('Error al generar el PDF.', 'error');
     } finally {
         dom.loadingOverlay.style.display = 'none';
     }
