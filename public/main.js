@@ -4483,16 +4483,12 @@ async function exportSinopticoTabularToPdf() {
 
         const imgAspectRatio = imgProps.width / imgProps.height;
 
-        let finalImgWidth = availableWidth;
-        let finalImgHeight = finalImgWidth / imgAspectRatio;
+        const finalImgWidth = availableWidth;
+        const finalImgHeight = finalImgWidth / imgAspectRatio;
 
-        // If the scaled height is still too tall, scale again based on height
-        if (finalImgHeight > availableHeight) {
-            finalImgHeight = availableHeight;
-            finalImgWidth = finalImgHeight * imgAspectRatio;
-        }
-
-        // We don't need to add a new page, as we are scaling to fit.
+        // Add the image, scaled to the full width of the page.
+        // The height will adjust proportionally. This might make the content very small
+        // if the table is long, but it will always use the full width as requested.
         doc.addImage(imgData, 'PNG', PAGE_MARGIN, cursorY, finalImgWidth, finalImgHeight);
 
         // --- 4. Save PDF ---
