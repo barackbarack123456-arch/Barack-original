@@ -3747,7 +3747,8 @@ function openSinopticoEditModal(nodeId) {
                     </div>
                     <div>
                         <label for="sinoptico-comment" class="block text-sm font-medium text-gray-700 mb-1">Comentario</label>
-                        <textarea id="sinoptico-comment" name="comment" rows="3" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">${node.comment || ''}</textarea>
+                        <textarea id="sinoptico-comment" name="comment" rows="3" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" maxlength="140">${node.comment || ''}</textarea>
+                        <p class="text-xs text-gray-500 mt-1 text-right"><span id="comment-char-count">0</span> / 140</p>
                     </div>
                 </form>
                 <div class="flex justify-end items-center p-4 border-t bg-gray-50 space-x-3">
@@ -3761,6 +3762,16 @@ function openSinopticoEditModal(nodeId) {
     dom.modalContainer.innerHTML = modalHTML;
     lucide.createIcons();
     const modalElement = document.getElementById(modalId);
+    const commentTextarea = modalElement.querySelector('#sinoptico-comment');
+    const charCountSpan = modalElement.querySelector('#comment-char-count');
+
+    const updateCharCount = () => {
+        charCountSpan.textContent = commentTextarea.value.length;
+    };
+
+    commentTextarea.addEventListener('input', updateCharCount);
+    updateCharCount(); // Initial count
+
     modalElement.querySelector('form').addEventListener('submit', handleSinopticoFormSubmit);
     modalElement.addEventListener('click', e => {
         if (e.target.closest('button')?.dataset.action === 'close') {
@@ -3997,14 +4008,14 @@ function runSinopticoTabularLogic() {
             <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Versión Vehículo</th>
             <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Código de pieza</th>
             <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Versión</th>
-            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Imágen (URL)</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap col-imagen">Imágen (URL)</th>
             <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Proceso</th>
             <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Aspecto</th>
             <th scope="col" class="px-4 py-3 text-right align-middle whitespace-nowrap">Peso (gr)</th>
             <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Proveedor</th>
             <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Cantidad / Pieza</th>
             <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Unidad</th>
-            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Acciones</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap col-acciones">Acciones</th>
         </tr></thead><tbody>`;
 
         data.forEach(rowData => {
@@ -4067,14 +4078,14 @@ function runSinopticoTabularLogic() {
                 <td class="px-4 py-2 text-center align-middle">${version_vehiculo}</td>
                 <td class="px-4 py-2 text-center align-middle">${codigo_pieza}</td>
                 <td class="px-4 py-2 text-center align-middle">${version}</td>
-                <td class="px-4 py-2 text-center align-middle">${imagen}</td>
+                <td class="px-4 py-2 text-center align-middle col-imagen">${imagen}</td>
                 <td class="px-4 py-2 text-center align-middle">${proceso}</td>
                 <td class="px-4 py-2 text-center align-middle">${aspecto}</td>
                 <td class="px-4 py-2 text-right align-middle">${peso_display}</td>
                 <td class="px-4 py-2 text-center align-middle">${proveedor}</td>
                 <td class="px-4 py-2 text-center align-middle">${cantidad}</td>
                 <td class="px-4 py-2 text-center align-middle">${unidad_medida}</td>
-                <td class="px-4 py-2 text-center align-middle">${actionsHTML}</td>
+                <td class="px-4 py-2 text-center align-middle col-acciones">${actionsHTML}</td>
             </tr>`;
         });
         tableHTML += `</tbody></table>`;
@@ -4495,7 +4506,7 @@ async function exportSinopticoTabularToPdf() {
                 overflow-wrap: break-word;
             }
             /* Hide columns that are not essential for the PDF version */
-            .pdf-export-mode .col-nivel, .pdf-export-mode .col-comentarios {
+            .pdf-export-mode .col-acciones, .pdf-export-mode .col-imagen {
                  display: none !important;
             }
         `;
