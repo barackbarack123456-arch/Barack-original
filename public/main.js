@@ -4376,29 +4376,35 @@ async function exportSinopticoTabularToPdf() {
         // --- 1. Create PDF and Draw Manual Header ---
         const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
         const logoBase64 = await getLogoBase64();
-        const PAGE_MARGIN = 15;
+        const PAGE_MARGIN = 10; // Reduced margin for wider content
         const PAGE_WIDTH = doc.internal.pageSize.width;
         let cursorY = 15;
 
-        // Header Title
+        // --- Styled Header ---
+        const titleBarHeight = 10;
+        doc.setFillColor('#3B82F6'); // Blue background for title
+        doc.rect(PAGE_MARGIN, cursorY, PAGE_WIDTH - (PAGE_MARGIN * 2), titleBarHeight, 'F');
+
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(16);
-        doc.text('COMPOSICIÓN DE PIEZAS - BOM', PAGE_WIDTH / 2, cursorY, { align: 'center' });
-        cursorY += 8;
+        doc.setTextColor('#FFFFFF'); // White text
+        doc.text('COMPOSICIÓN DE PIEZAS - BOM', PAGE_WIDTH / 2, cursorY + titleBarHeight / 2, { align: 'center', baseline: 'middle' });
+        cursorY += titleBarHeight + 3;
 
         // Logo and Product Info Box
         if (logoBase64) {
-            doc.addImage(logoBase64, 'PNG', PAGE_MARGIN, cursorY, 35, 12);
+            doc.addImage(logoBase64, 'PNG', PAGE_MARGIN, cursorY, 35, 28); // Adjusted logo size
         }
 
         const boxX = PAGE_MARGIN + 40;
         const boxWidth = PAGE_WIDTH - boxX - PAGE_MARGIN;
         const boxY = cursorY;
         const boxHeight = 28;
-        doc.setDrawColor(150);
-        doc.rect(boxX, boxY, boxWidth, boxHeight);
+        doc.setFillColor('#44546A'); // Dark blue-grey background
+        doc.rect(boxX, boxY, boxWidth, boxHeight, 'F');
 
         // Product info inside the box
+        doc.setTextColor('#FFFFFF'); // White text for info box
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(8);
         const col1X = boxX + 3;
