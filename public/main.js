@@ -3990,21 +3990,21 @@ function runSinopticoTabularLogic() {
         let tableHTML = `<table class="w-full text-sm text-left text-gray-600" style="table-layout: fixed; width: 100%;">`;
         // 7. Column alignment and width adjusted in headers
         tableHTML += `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>
-            <th scope="col" class="px-4 py-3" style="width: 18%;">Descripción</th>
-            <th scope="col" class="px-4 py-3 text-center col-nivel" style="width: 3%;">Nivel</th>
-            <th scope="col" class="px-4 py-3 col-comentarios" style="width: 9%;">Comentarios</th>
-            <th scope="col" class="px-4 py-3 text-center" style="width: 4%;">LC / KD</th>
-            <th scope="col" class="px-4 py-3" style="width: 8%;">Versión Vehículo</th>
-            <th scope="col" class="px-4 py-3" style="width: 7%;">Código de pieza</th>
-            <th scope="col" class="px-4 py-3 text-center" style="width: 4%;">Versión</th>
-            <th scope="col" class="px-4 py-3 text-center" style="width: 4%;">Imágen (URL)</th>
-            <th scope="col" class="px-4 py-3" style="width: 6%;">Proceso</th>
-            <th scope="col" class="px-4 py-3" style="width: 5%;">Aspecto</th>
-            <th scope="col" class="px-4 py-3 text-right" style="width: 5%;">Peso (gr)</th>
-            <th scope="col" class="px-4 py-3" style="width: 8%;">Proveedor</th>
-            <th scope="col" class="px-4 py-3 text-center" style="width: 7%;">Cantidad / Pieza</th>
-            <th scope="col" class="px-4 py-3 text-center" style="width: 4%;">Unidad</th>
-            <th scope="col" class="px-4 py-3 text-center" style="width: 5%;">Acciones</th>
+            <th scope="col" class="px-4 py-3 align-middle">Descripción</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap col-nivel">Nivel</th>
+            <th scope="col" class="px-4 py-3 align-middle col-comentarios">Comentarios</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">LC / KD</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Versión Vehículo</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Código de pieza</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Versión</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Imágen (URL)</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Proceso</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Aspecto</th>
+            <th scope="col" class="px-4 py-3 text-right align-middle whitespace-nowrap">Peso (gr)</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Proveedor</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Cantidad / Pieza</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Unidad</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Acciones</th>
         </tr></thead><tbody>`;
 
         data.forEach(rowData => {
@@ -4060,21 +4060,21 @@ function runSinopticoTabularLogic() {
 
             // 7. Column alignment adjusted in cells
             tableHTML += `<tr class="bg-white border-b hover:bg-gray-100" data-node-id="${node.id}">
-                <td class="px-4 py-2 font-mono font-medium text-gray-900 whitespace-nowrap">${descripcion}</td>
-                <td class="px-4 py-2 text-center col-nivel">${nivel}</td>
-                <td class="px-4 py-2 col-comentarios">${comentarios}</td>
-                <td class="px-4 py-2 text-center">${lc_kd}</td>
-                <td class="px-4 py-2">${version_vehiculo}</td>
-                <td class="px-4 py-2">${codigo_pieza}</td>
-                <td class="px-4 py-2 text-center">${version}</td>
-                <td class="px-4 py-2 text-center">${imagen}</td>
-                <td class="px-4 py-2">${proceso}</td>
-                <td class="px-4 py-2">${aspecto}</td>
-                <td class="px-4 py-2 text-right">${peso_display}</td>
-                <td class="px-4 py-2">${proveedor}</td>
-                <td class="px-4 py-2 text-center">${cantidad}</td>
-                <td class="px-4 py-2 text-center">${unidad_medida}</td>
-                <td class="px-4 py-2 text-center">${actionsHTML}</td>
+                <td class="px-4 py-2 font-mono font-medium text-gray-900 align-middle">${descripcion}</td>
+                <td class="px-4 py-2 text-center align-middle col-nivel">${nivel}</td>
+                <td class="px-4 py-2 align-middle col-comentarios">${comentarios}</td>
+                <td class="px-4 py-2 text-center align-middle">${lc_kd}</td>
+                <td class="px-4 py-2 text-center align-middle">${version_vehiculo}</td>
+                <td class="px-4 py-2 text-center align-middle">${codigo_pieza}</td>
+                <td class="px-4 py-2 text-center align-middle">${version}</td>
+                <td class="px-4 py-2 text-center align-middle">${imagen}</td>
+                <td class="px-4 py-2 text-center align-middle">${proceso}</td>
+                <td class="px-4 py-2 text-center align-middle">${aspecto}</td>
+                <td class="px-4 py-2 text-right align-middle">${peso_display}</td>
+                <td class="px-4 py-2 text-center align-middle">${proveedor}</td>
+                <td class="px-4 py-2 text-center align-middle">${cantidad}</td>
+                <td class="px-4 py-2 text-center align-middle">${unidad_medida}</td>
+                <td class="px-4 py-2 text-center align-middle">${actionsHTML}</td>
             </tr>`;
         });
         tableHTML += `</tbody></table>`;
@@ -4419,49 +4419,80 @@ async function exportSinopticoTabularToPdf() {
         const NA = 'N/A';
         const createdAt = product.createdAt ? new Date(product.createdAt.seconds * 1000).toLocaleDateString('es-AR') : NA;
 
-        const infoItems = [
+        // Re-implementing two-column layout with better spacing
+        const col1Items = [
             { label: 'PRODUCTO:', value: product.descripcion || NA },
-            { label: 'NÚMERO DE PIEZA:', value: product.id || NA },
             { label: 'VERSIÓN:', value: product.version || NA },
-            { label: 'FECHA DE CREACIÓN:', value: createdAt },
             { label: 'REALIZÓ:', value: product.lastUpdatedBy || NA },
-            { label: 'APROBÓ:', value: product.aprobadoPor || NA },
             { label: 'FECHA DE REVISIÓN:', value: product.fechaRevision || NA }
+        ];
+
+        const col2Items = [
+            { label: 'NÚMERO DE PIEZA:', value: product.id || NA },
+            { label: 'FECHA DE CREACIÓN:', value: createdAt },
+            { label: 'APROBÓ:', value: product.aprobadoPor || NA }
         ];
 
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
 
-        const PADDING = 3;
+        const PADDING = 4;
         const LINE_HEIGHT = 4;
-        const LABEL_WIDTH = 35;
-        const valueX = boxX + LABEL_WIDTH;
-        const valueWidth = boxWidth - LABEL_WIDTH - (PADDING * 2);
+        const ROW_SPACING = 3;
+        const COL_GAP = 5;
 
-        let totalHeight = PADDING;
-        infoItems.forEach(item => {
-            const lines = doc.splitTextToSize(item.value, valueWidth);
-            totalHeight += (lines.length * LINE_HEIGHT) + 2; // Spacing between items
-        });
-        totalHeight += PADDING - 2; // Add final padding, remove last spacing
+        const col1LabelWidth = 22;
+        const col2LabelWidth = 30;
+
+        const col1X = boxX + PADDING;
+        const col1ValueX = col1X + col1LabelWidth;
+        const col1ValueWidth = (boxWidth / 2) - col1LabelWidth - PADDING - (COL_GAP / 2);
+
+        const col2X = boxX + (boxWidth / 2) + (COL_GAP / 2);
+        const col2ValueX = col2X + col2LabelWidth;
+        const col2ValueWidth = (boxWidth / 2) - col2LabelWidth - PADDING - (COL_GAP / 2);
+
+        // Pre-calculate row heights
+        const rowHeights = [];
+        const numRows = Math.max(col1Items.length, col2Items.length);
+        for(let i = 0; i < numRows; i++) {
+            const item1 = col1Items[i];
+            const item2 = col2Items[i];
+            const lines1 = item1 ? doc.splitTextToSize(item1.value, col1ValueWidth) : [''];
+            const lines2 = item2 ? doc.splitTextToSize(item2.value, col2ValueWidth) : [''];
+            rowHeights.push(Math.max(lines1.length, lines2.length) * LINE_HEIGHT);
+        }
+
+        const totalHeight = rowHeights.reduce((sum, height) => sum + height + ROW_SPACING, 0) + PADDING * 2 - ROW_SPACING;
 
         // Draw the box
         doc.setFillColor('#44546A');
         doc.rect(boxX, boxY, boxWidth, totalHeight, 'F');
+        doc.setTextColor('#FFFFFF');
 
         // Draw the text
-        doc.setTextColor('#FFFFFF');
-        let infoCursorY = boxY + PADDING + LINE_HEIGHT;
-        infoItems.forEach(item => {
-            doc.setFont('helvetica', 'bold');
-            doc.text(item.label, boxX + PADDING, infoCursorY, { align: 'left' });
+        let infoCursorY = boxY + PADDING + (LINE_HEIGHT / 2);
+        for(let i = 0; i < numRows; i++) {
+            const rowHeight = rowHeights[i];
+            const textY = infoCursorY + (rowHeight / 2); // Center text vertically in the allocated row space
 
-            doc.setFont('helvetica', 'normal');
-            const lines = doc.splitTextToSize(item.value, valueWidth);
-            doc.text(lines, valueX, infoCursorY);
+            const item1 = col1Items[i];
+            if(item1) {
+                doc.setFont('helvetica', 'bold');
+                doc.text(item1.label, col1X, textY, { baseline: 'middle' });
+                doc.setFont('helvetica', 'normal');
+                doc.text(doc.splitTextToSize(item1.value, col1ValueWidth), col1ValueX, textY, { baseline: 'middle' });
+            }
 
-            infoCursorY += (lines.length * LINE_HEIGHT) + 2;
-        });
+            const item2 = col2Items[i];
+            if(item2) {
+                doc.setFont('helvetica', 'bold');
+                doc.text(item2.label, col2X, textY, { baseline: 'middle' });
+                doc.setFont('helvetica', 'normal');
+                doc.text(doc.splitTextToSize(item2.value, col2ValueWidth), col2ValueX, textY, { baseline: 'middle' });
+            }
+            infoCursorY += rowHeight + ROW_SPACING;
+        }
 
         cursorY += totalHeight + 7; // Move main cursor down
 
