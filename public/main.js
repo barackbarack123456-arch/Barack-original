@@ -3990,7 +3990,7 @@ function runSinopticoTabularLogic() {
         let tableHTML = `<table class="w-full text-sm text-left text-gray-600">`;
         // 7. Column alignment and width adjusted in headers
         tableHTML += `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>
-            <th scope="col" class="px-4 py-3 align-middle">Descripción</th>
+            <th scope="col" class="px-4 py-3 align-middle" style="min-width: 400px;">Descripción</th>
             <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap col-nivel">Nivel</th>
             <th scope="col" class="px-4 py-3 align-middle col-comentarios">Comentarios</th>
             <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">LC / KD</th>
@@ -4060,7 +4060,7 @@ function runSinopticoTabularLogic() {
 
             // 7. Column alignment adjusted in cells
             tableHTML += `<tr class="bg-white border-b hover:bg-gray-100" data-node-id="${node.id}">
-                <td class="px-4 py-2 font-mono font-medium text-gray-900 align-middle">${descripcion}</td>
+                <td class="px-4 py-2 font-mono font-medium text-gray-900 align-middle" style="min-width: 400px;">${descripcion}</td>
                 <td class="px-4 py-2 text-center align-middle col-nivel">${nivel}</td>
                 <td class="px-4 py-2 align-middle col-comentarios">${comentarios}</td>
                 <td class="px-4 py-2 text-center align-middle">${lc_kd}</td>
