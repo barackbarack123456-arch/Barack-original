@@ -1409,27 +1409,36 @@ async function handleSearch() {
     showToast(`Buscando "${searchTerm}"...`, 'info');
     try {
         const collectionRef = collection(db, config.dataKey);
-        const queryById = query(collectionRef, where('id', '>=', searchTerm), where('id', '<=', searchTerm + '\uf8ff'));
-        const queryByDesc = query(collectionRef, where('descripcion', '>=', searchTerm), where('descripcion', '<=', searchTerm + '\uf8ff'));
         
-        const [idSnapshots, descSnapshots] = await Promise.all([
-            getDocs(queryById),
-            getDocs(queryByDesc)
-        ]);
+        // Generic search based on columns defined in viewConfig
+        const searchFields = config.columns.map(col => col.key);
+        const searchPromises = searchFields.map(field => {
+            // Firestore queries are case-sensitive. This range query helps with "starts with" searches.
+            const q = query(collectionRef, where(field, '>=', searchTerm), where(field, '<=', searchTerm + '\uf8ff'));
+            return getDocs(q);
+        });
+
+        const snapshots = await Promise.all(searchPromises);
+
         const resultsMap = new Map();
-        idSnapshots.forEach(doc => resultsMap.set(doc.id, { ...doc.data(), docId: doc.id }));
-        descSnapshots.forEach(doc => resultsMap.set(doc.id, { ...doc.data(), docId: doc.id }));
+        snapshots.forEach(querySnapshot => {
+            querySnapshot.forEach(doc => {
+                resultsMap.set(doc.id, { ...doc.data(), docId: doc.id });
+            });
+        });
         
         const combinedResults = Array.from(resultsMap.values());
         appState.currentData = combinedResults;
         renderTable(combinedResults, config);
+
         const paginationControls = dom.viewContent.querySelector('.flex.justify-between.items-center.pt-4');
         if (paginationControls) {
             paginationControls.style.display = 'none';
         }
+
     } catch (error) {
         console.error('Error durante la búsqueda:', error);
-        showToast('Error al realizar la búsqueda.', 'error');
+        showToast('Error al realizar la búsqueda. Es posible que necesite crear índices en Firestore.', 'error');
     }
 }
 
@@ -1599,6 +1608,19 @@ async function openFormModal(item = null) {
     });
 }
 
+function getUniqueKeyForCollection(collectionName) {
+    switch (collectionName) {
+        case COLLECTIONS.PRODUCTOS:
+        case COLLECTIONS.SEMITERMINADOS:
+        case COLLECTIONS.INSUMOS:
+            return 'codigo_pieza';
+        case COLLECTIONS.PROYECTOS:
+            return 'codigo';
+        default:
+            return 'id';
+    }
+}
+
 function validateField(fieldConfig, inputElement) {
     const errorElement = document.getElementById(`error-${fieldConfig.key}`);
     let isValid = true;
@@ -1643,7 +1665,14 @@ async function handleFormSubmit(e, fields) {
         }
     }
     
-    // La propiedad 'lock' ya no se utiliza.
+    // Ensure a consistent 'id' field for uniqueness checks and references.
+    if (!docId) { // Only on creation
+        const uniqueKey = getUniqueKeyForCollection(config.dataKey);
+        if (newItem[uniqueKey]) {
+            newItem.id = newItem[uniqueKey];
+        }
+    }
+
     if (!docId) {
         newItem.createdAt = new Date();
     }
