@@ -11,6 +11,9 @@ service cloud.firestore {
 
     // --- USUARIOS ---
     match /usuarios/{userId} {
+      // Los admins pueden listar todos los usuarios.
+      allow list: if isUserAdmin();
+
       // Un usuario puede leer su propio perfil. Los admins pueden leer todos.
       allow read: if request.auth.uid == userId || isUserAdmin();
 
