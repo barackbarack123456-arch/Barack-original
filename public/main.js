@@ -893,7 +893,12 @@ function switchView(viewName) {
     else if (config?.dataKey) {
         dom.headerActions.style.display = 'flex';
         dom.searchInput.style.display = 'block';
-        dom.addButtonText.textContent = `Agregar ${config.singular}`;
+        if (checkUserPermission('create')) {
+            dom.addNewButton.style.display = 'flex';
+            dom.addButtonText.textContent = `Agregar ${config.singular}`;
+        } else {
+            dom.addNewButton.style.display = 'none';
+        }
         runTableLogic();
     }
     dom.searchInput.value = '';
@@ -1140,8 +1145,8 @@ function renderTable(data, config) {
             });
             tableHTML += `<td class="px-6 py-4 flex items-center justify-end space-x-3">
                 <button data-action="details" data-id="${item.id}" data-doc-id="${item.docId}" class="text-gray-500 hover:text-blue-600" title="Ver Detalles"><i data-lucide="info" class="h-5 w-5 pointer-events-none"></i></button>
-                <button data-action="edit" data-id="${item.id}" data-doc-id="${item.docId}" class="text-gray-500 hover:text-green-600" title="Editar"><i data-lucide="edit" class="h-5 w-5 pointer-events-none"></i></button>
-                <button data-action="delete" data-id="${item.id}" data-doc-id="${item.docId}" class="text-gray-500 hover:text-red-600" title="Eliminar"><i data-lucide="trash-2" class="h-5 w-5 pointer-events-none"></i></button>
+                ${checkUserPermission('edit', item) ? `<button data-action="edit" data-id="${item.id}" data-doc-id="${item.docId}" class="text-gray-500 hover:text-green-600" title="Editar"><i data-lucide="edit" class="h-5 w-5 pointer-events-none"></i></button>` : ''}
+                ${checkUserPermission('delete', item) ? `<button data-action="delete" data-id="${item.id}" data-doc-id="${item.docId}" class="text-gray-500 hover:text-red-600" title="Eliminar"><i data-lucide="trash-2" class="h-5 w-5 pointer-events-none"></i></button>` : ''}
             </td></tr>`;
         });
     }
