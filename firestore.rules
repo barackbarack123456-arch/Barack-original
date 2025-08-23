@@ -9,6 +9,11 @@ service cloud.firestore {
           || request.auth.uid == 'KTIQRzPBRcOFtBRjoFViZPSsbSq2';
     }
 
+    function canCreateUpdate() {
+      let userRole = get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.role;
+      return userRole == 'admin' || userRole == 'editor';
+    }
+
     // --- USUARIOS ---
     match /usuarios/{userId} {
       // Los admins pueden listar todos los usuarios.
@@ -28,23 +33,26 @@ service cloud.firestore {
       allow delete: if isUserAdmin();
     }
 
-    // Reglas para colecciones existentes...
-    
-    // Regla para la colección de Unidades de Medida
-    match /unidades/{unidadId} {
-      allow read: if request.auth != null;
-      allow write: if isUserAdmin();
-      allow create: if request.auth != null;
-    }
+    // --- REGLA GENÉRICA PARA COLECCIONES DE DATOS ---
+    // Esta regla se aplica a todas las colecciones que no tienen una regla más específica.
+    // Define los permisos basados en los roles: Lector, Editor, Admin.
+    match /{collection}/{docId}
+      where collection in [
+        'productos', 'semiterminados', 'insumos', 'clientes', 'sectores',
+        'procesos', 'proveedores', 'unidades', 'proyectos'
+      ] {
+        // Cualquier usuario autenticado puede leer los datos.
+        allow read: if request.auth != null;
 
-    // Regla para la colección de Proveedores
-    match /proveedores/{proveedorId} {
-      allow read: if request.auth != null;
-      allow write: if isUserAdmin();
-      allow create: if request.auth != null;
+        // Solo los roles 'admin' y 'editor' pueden crear y actualizar.
+        allow create, update: if canCreateUpdate();
+
+        // Solo el rol 'admin' puede eliminar.
+        allow delete: if isUserAdmin();
     }
 
     // --- TAREAS ---
+    // Las tareas tienen su propia lógica de permisos más detallada.
     match /tareas/{taskId} {
       // Cualquier usuario autenticado puede crear una tarea.
       allow create: if request.auth != null;
@@ -68,13 +76,6 @@ service cloud.firestore {
       // Los administradores pueden eliminar cualquier tarea.
       allow delete: if request.auth != null &&
                       (isUserAdmin() || resource.data.creatorUid == request.auth.uid);
-    }
-
-    // El resto de tus reglas
-    match /{document=**} {
-      allow read: if request.auth != null;
-      allow write: if isUserAdmin();
-      allow create: if request.auth != null;
     }
   }
 }
