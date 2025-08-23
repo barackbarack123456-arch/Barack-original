@@ -2829,9 +2829,10 @@ function createTaskCard(task) {
             </div>
         `;
     }
+    const dragClass = checkUserPermission('edit', task) ? '' : 'no-drag';
 
     return `
-        <div class="task-card bg-white rounded-lg p-4 shadow-sm border ${urgencyClass} cursor-pointer hover:shadow-md hover:border-blue-400 animate-fade-in-up flex flex-col gap-3" data-task-id="${task.docId}">
+        <div class="task-card bg-white rounded-lg p-4 shadow-sm border ${urgencyClass} cursor-pointer hover:shadow-md hover:border-blue-400 animate-fade-in-up flex flex-col gap-3 ${dragClass}" data-task-id="${task.docId}">
             <div class="flex justify-between items-start gap-2">
                 <h4 class="font-bold text-slate-800 flex-grow">${task.title}</h4>
                 ${taskTypeIcon}
@@ -2860,9 +2861,11 @@ function createTaskCard(task) {
                         <span class="text-sm text-slate-500">${assignee ? (assignee.name || assignee.email.split('@')[0]) : 'No asignada'}</span>
                     </div>
                     <div class="task-actions">
+                    ${checkUserPermission('delete', task) ? `
                         <button data-action="delete-task" data-doc-id="${task.docId}" class="text-gray-400 hover:text-red-600 p-1 rounded-full" title="Eliminar tarea">
                             <i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i>
                         </button>
+                        ` : ''}
                     </div>
                 </div>
             </div>
