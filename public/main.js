@@ -3454,7 +3454,7 @@ function renderArbolDetalle(highlightNodeId = null) {
             <p class="text-sm text-blue-700">Comienza agregando componentes usando los botones <span class="font-mono bg-green-100 text-green-800 px-1 rounded">+ semiterminado</span> o <span class="font-mono bg-green-100 text-green-800 px-1 rounded">+ insumo</span>.</p>
         </div>`;
     }
-    dom.viewContent.innerHTML = `<div class="bg-white rounded-xl shadow-md p-6 animate-fade-in-up"><div class="flex justify-between items-start mb-4 pb-4 border-b"><div><h3 class="text-2xl font-bold">${appState.arbolActivo.nombre}</h3><p class="text-sm text-gray-500">Cliente: <span class="font-semibold">${cliente?.descripcion || 'N/A'}</span></p></div><div class="flex space-x-2"><button data-action="volver-a-busqueda" class="bg-gray-500 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-gray-600">Buscar Otro</button><button data-action="guardar-arbol" class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-blue-700 flex items-center justify-center w-28 transition-all duration-300">Guardar</button></div></div>${treeContentHTML}</div>`;
+    dom.viewContent.innerHTML = `<div class="bg-white rounded-xl shadow-md p-6 animate-fade-in-up"><div class="flex justify-between items-start mb-4 pb-4 border-b"><div><h3 class="text-2xl font-bold">${appState.arbolActivo.nombre}</h3><p class="text-sm text-gray-500">Cliente: <span class="font-semibold">${cliente?.descripcion || 'N/A'}</span></p></div><div class="flex space-x-2"><button data-action="volver-a-busqueda" class="bg-gray-500 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-gray-600">Buscar Otro</button>${checkUserPermission('edit') ? `<button data-action="guardar-arbol" class="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-blue-700 flex items-center justify-center w-28 transition-all duration-300">Guardar</button>` : ''}</div></div>${treeContentHTML}</div>`;
     renderArbol(highlightNodeId);
     lucide.createIcons();
 }
@@ -3482,7 +3482,9 @@ function renderNodo(nodo) {
     if (!item) return '';
 
     const addableChildren = { producto: ['semiterminado', 'insumo'], semiterminado: ['semiterminado', 'insumo'], insumo: [] };
-    let addButtons = (addableChildren[nodo.tipo] || []).map(tipo => `<button data-action="add-node" data-node-id="${nodo.id}" data-child-type="${tipo}" class="px-2 py-1 bg-green-100 text-green-800 rounded-md hover:bg-green-200 text-xs font-semibold" title="Agregar ${tipo}">+ ${tipo}</button>`).join(' ');
+    let addButtons = checkUserPermission('edit')
+        ? (addableChildren[nodo.tipo] || []).map(tipo => `<button data-action="add-node" data-node-id="${nodo.id}" data-child-type="${tipo}" class="px-2 py-1 bg-green-100 text-green-800 rounded-md hover:bg-green-200 text-xs font-semibold" title="Agregar ${tipo}">+ ${tipo}</button>`).join(' ')
+        : '';
 
     const isDraggable = nodo.tipo !== 'producto';
 
@@ -3490,7 +3492,7 @@ function renderNodo(nodo) {
 
     const commentText = nodo.comment ? `<p class="pl-8 text-sm text-slate-500 italic flex items-center gap-2"><i data-lucide="message-square" class="w-3.5 h-3.5"></i>${nodo.comment}</p>` : '';
 
-    const editButton = nodo.tipo !== 'producto' ? `
+    const editButton = (checkUserPermission('edit') && nodo.tipo !== 'producto') ? `
         <button data-action="edit-node-details" data-node-id="${nodo.id}" class="text-blue-600 hover:text-blue-700" title="Editar Cantidad/Comentario">
             <i data-lucide="pencil" class="h-4 w-4 pointer-events-none"></i>
         </button>
@@ -3507,7 +3509,7 @@ function renderNodo(nodo) {
                     <div class="flex items-center space-x-2 flex-shrink-0">
                         ${addButtons}
                         ${editButton}
-                        ${nodo.tipo !== 'producto' ? `<button data-action="delete-node" data-node-id="${nodo.id}" class="text-red-500 hover:text-red-700" title="Eliminar"><i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i></button>` : ''}
+                        ${(checkUserPermission('delete') && nodo.tipo !== 'producto') ? `<button data-action="delete-node" data-node-id="${nodo.id}" class="text-red-500 hover:text-red-700" title="Eliminar"><i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i></button>` : ''}
                     </div>
                 </div>
                 ${commentText}
@@ -3516,6 +3518,9 @@ function renderNodo(nodo) {
 }
 
 function initSortable(treeArea) {
+    if (!checkUserPermission('edit')) {
+        return; // Desactiva el drag and drop para no-administradores
+    }
     const lists = treeArea.querySelectorAll('ul');
     lists.forEach(list => {
         if (list.sortable) list.sortable.destroy();
