@@ -38,6 +38,21 @@ El proyecto ha evolucionado desde un prototipo hasta convertirse en una aplicaci
 - **Exportación de BOM a PDF Profesional:** Se ha implementado una función de exportación que genera un listado de materiales (BOM) en formato PDF tabular. El reporte se presenta en formato horizontal e incluye columnas detalladas para Nivel, Descripción, Código, Cantidad y Unidad de Medida.
 - **Próximamente: Flujograma de Procesos:** Se está implementando una nueva vista dedicada que leerá la información de los árboles de producto para generar automáticamente un flujograma visual del proceso de fabricación completo.
 
+## Panel de Administración del Dashboard
+
+El dashboard incluye un panel de administración con herramientas potentes para gestionar el estado de la base de datos. Estas acciones son delicadas y deben usarse con precaución.
+
+-   **Limpiar y Cargar Datos:** Esta es la acción de reinicio principal. Borra todas las colecciones de datos (productos, insumos, etc.) **excepto los usuarios** y luego carga el conjunto de datos de demostración. Es ideal para restaurar el entorno a un estado conocido.
+-   **Borrar Solo Datos:** Una opción más segura que la anterior. Borra todas las colecciones de datos pero **deja intacta la colección de usuarios**. Útil para limpiar el entorno de trabajo sin afectar las cuentas existentes.
+-   **Borrar Otros Usuarios:** Esta es una acción delicada. Elimina **únicamente** los documentos de la colección `usuarios`, preservando siempre al usuario administrador principal.
+
+### Usuario Administrador Principal
+
+Para facilitar las pruebas y la gestión, existe un usuario "Dios" con privilegios de administrador.
+
+-   **Email:** `god@barackmercosul.com`
+-   **Contraseña:** `123456`
+
 ## Entorno de Desarrollo y CLI
 
 Esta sección contiene información técnica para desarrolladores sobre cómo interactuar con el backend de Firebase a través de la línea de comandos (CLI).

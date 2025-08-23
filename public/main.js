@@ -472,13 +472,10 @@ function deleteItem(docId) {
     );
 }
 
-async function clearAllCollections() {
-    showToast('Limpiando base de datos actual...', 'info', 5000);
-    // Usar Object.values para obtener los nombres de colección correctos (ej: "productos")
-    // en lugar de las claves del objeto (ej: "PRODUCTOS").
+async function clearDataOnly() {
+    showToast('Limpiando colecciones de datos...', 'info', 5000);
     const collectionNames = Object.values(COLLECTIONS);
     for (const name of collectionNames) {
-        // No borrar la colección de usuarios para preservar las cuentas existentes.
         if (name === COLLECTIONS.USUARIOS) {
             console.log(`Se omite la limpieza de la colección '${name}' para preservar los usuarios.`);
             continue;
@@ -499,11 +496,44 @@ async function clearAllCollections() {
             showToast(`Error al limpiar la colección ${name}.`, 'error');
         }
     }
-    showToast('Limpieza de base de datos completada.', 'success');
+    showToast('Limpieza de datos completada.', 'success');
+}
+
+async function clearOtherUsers() {
+    showToast('Eliminando otros usuarios...', 'info', 4000);
+    const adminUID = 'HyM0eC3pujQtg8EgTXMu3h6AmMw2';
+    const usersRef = collection(db, COLLECTIONS.USUARIOS);
+
+    try {
+        const snapshot = await getDocs(usersRef);
+        if (snapshot.empty) {
+            showToast('No hay otros usuarios para eliminar.', 'info');
+            return;
+        }
+
+        const batch = writeBatch(db);
+        let deletedCount = 0;
+        snapshot.docs.forEach(doc => {
+            if (doc.id !== adminUID) {
+                batch.delete(doc.ref);
+                deletedCount++;
+            }
+        });
+
+        if (deletedCount > 0) {
+            await batch.commit();
+            showToast(`${deletedCount} usuario(s) han sido eliminados.`, 'success');
+        } else {
+            showToast('No se encontraron otros usuarios para eliminar.', 'info');
+        }
+    } catch (error) {
+        console.error("Error eliminando otros usuarios:", error);
+        showToast('Error al eliminar los otros usuarios.', 'error');
+    }
 }
 
 async function seedDatabase() {
-    await clearAllCollections();
+    await clearDataOnly();
     showToast('Iniciando carga de datos de prueba completos...', 'info');
     const batch = writeBatch(db);
 
@@ -968,7 +998,27 @@ function handleViewContentActions(e) {
         'edit-node-details': () => openSinopticoEditModal(button.dataset.nodeId),
         'delete-node': () => eliminarNodo(button.dataset.nodeId),
         'delete-account': handleDeleteAccount,
-        'seed-database': seedDatabase,
+        'seed-database': () => {
+            showConfirmationModal(
+                'Limpiar y Cargar Datos',
+                '¿Estás seguro? Esto borrará todos los datos (excepto usuarios) y los reemplazará con los datos de demostración.',
+                seedDatabase
+            );
+        },
+        'clear-data-only': () => {
+            showConfirmationModal(
+                'Borrar Solo Datos',
+                '¿Estás seguro? Esto borrará todos los datos de productos, insumos, etc., pero mantendrá a todos los usuarios.',
+                clearDataOnly
+            );
+        },
+        'clear-other-users': () => {
+            showConfirmationModal(
+                'Borrar Otros Usuarios',
+                '¿Estás seguro? Esto eliminará a TODOS los usuarios excepto al administrador principal. Esta acción es irreversible.',
+                clearOtherUsers
+            );
+        },
         'clone-product': () => cloneProduct(),
         'view-history': () => showToast('La función de historial de cambios estará disponible próximamente.', 'info'),
     };
@@ -1552,12 +1602,37 @@ function runDashboardLogic() {
     let adminActionsHTML = '';
     if (checkUserPermission('delete')) { // Use 'delete' as a proxy for top-level admin actions
         adminActionsHTML = `
-        <div class="lg:col-span-3 border border-yellow-300 bg-yellow-50 p-6 rounded-xl">
-            <h3 class="text-xl font-bold text-yellow-800 mb-2">Acciones de Administrador</h3>
-            <p class="text-sm text-yellow-700 mb-4">Esta acción borrará todos los datos existentes (excepto usuarios) y los reemplazará con datos de demostración.</p>
-            <button data-action="seed-database" class="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 font-semibold">
-                <i data-lucide="database-zap" class="inline-block mr-2 -mt-1"></i>Cargar Datos de Prueba
-            </button>
+        <div class="lg:col-span-3 bg-slate-50 p-6 rounded-xl border border-slate-200">
+            <h3 class="text-xl font-bold text-slate-800 mb-4">Panel de Administración</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                <!-- Limpiar y Cargar Datos -->
+                <div class="border border-yellow-300 bg-yellow-50 p-4 rounded-lg">
+                    <h4 class="font-bold text-yellow-800">Limpiar y Cargar Datos</h4>
+                    <p class="text-xs text-yellow-700 my-2">Opción principal: Borra todo (productos, insumos, etc.) excepto los usuarios y carga los datos de prueba.</p>
+                    <button data-action="seed-database" class="w-full bg-yellow-500 text-white px-3 py-2 rounded-md hover:bg-yellow-600 font-semibold text-sm">
+                        <i data-lucide="database-zap" class="inline-block mr-1.5 h-4 w-4"></i>Ejecutar
+                    </button>
+                </div>
+
+                <!-- Borrar Solo Datos -->
+                <div class="border border-orange-300 bg-orange-50 p-4 rounded-lg">
+                    <h4 class="font-bold text-orange-800">Borrar Solo Datos</h4>
+                    <p class="text-xs text-orange-700 my-2">Acción segura: Borra todas las colecciones de datos pero deja intacta la colección de usuarios.</p>
+                    <button data-action="clear-data-only" class="w-full bg-orange-500 text-white px-3 py-2 rounded-md hover:bg-orange-600 font-semibold text-sm">
+                        <i data-lucide="shield-check" class="inline-block mr-1.5 h-4 w-4"></i>Ejecutar
+                    </button>
+                </div>
+
+                <!-- Borrar Otros Usuarios -->
+                <div class="border border-red-300 bg-red-50 p-4 rounded-lg">
+                    <h4 class="font-bold text-red-800">Borrar Otros Usuarios</h4>
+                    <p class="text-xs text-red-700 my-2">Acción delicada: Elimina a todos los usuarios excepto al administrador principal (ID: ...AmMw2).</p>
+                    <button data-action="clear-other-users" class="w-full bg-red-600 text-white px-3 py-2 rounded-md hover:bg-red-700 font-semibold text-sm">
+                        <i data-lucide="user-x" class="inline-block mr-1.5 h-4 w-4"></i>Ejecutar
+                    </button>
+                </div>
+            </div>
         </div>`;
     }
 
