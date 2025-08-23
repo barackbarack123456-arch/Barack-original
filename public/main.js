@@ -3205,6 +3205,7 @@ onAuthStateChanged(auth, async (user) => {
             // Show app shell behind overlay
             dom.authContainer.classList.add('hidden');
             dom.appView.classList.remove('hidden');
+            updateNavForRole();
             renderUserMenu();
 
             // Wait for essential data to load
@@ -3230,6 +3231,7 @@ onAuthStateChanged(auth, async (user) => {
         appState.currentUser = null;
         dom.authContainer.classList.remove('hidden');
         dom.appView.classList.add('hidden');
+        updateNavForRole();
         showAuthScreen('login');
 
         if (wasLoggedIn) {
@@ -3248,6 +3250,20 @@ function updateAuthView(isLoggedIn) {
         showAuthScreen('login');
     }
     // The logged-in logic is now handled directly in onAuthStateChanged
+}
+
+function updateNavForRole() {
+    const userManagementLink = document.querySelector('[data-view="user_management"]');
+    if (!userManagementLink) return;
+
+    const shouldShow = appState.currentUser && appState.currentUser.role === 'admin';
+
+    userManagementLink.style.display = shouldShow ? 'flex' : 'none';
+
+    const divider = userManagementLink.nextElementSibling;
+    if (divider && divider.matches('.border-t')) {
+        divider.style.display = shouldShow ? 'block' : 'none';
+    }
 }
 
 function renderUserMenu() {
