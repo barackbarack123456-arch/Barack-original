@@ -229,7 +229,8 @@ let appState = {
         lastVisibleDoc: null,
         firstVisibleDoc: null,
         currentPage: 1
-    }
+    },
+    godModeState: null
 };
 
 const dom = {
@@ -1006,6 +1007,46 @@ function showConfirmationModal(title, message, onConfirm) {
     });
 }
 
+function updateGodModeIndicator() {
+    const indicator = document.getElementById('god-mode-indicator');
+    if (!indicator) return;
+
+    if (appState.godModeState?.isImpersonating) {
+        const roleLabels = { admin: 'Admin', editor: 'Editor', lector: 'Lector' };
+        const currentRoleLabel = roleLabels[appState.currentUser.role] || 'Desconocido';
+        indicator.innerHTML = `
+            <div class="god-mode-badge">
+                <i data-lucide="shield-alert" class="w-4 h-4"></i>
+                <span>Viendo como: <strong>${currentRoleLabel}</strong></span>
+            </div>
+        `;
+        indicator.style.display = 'block';
+        lucide.createIcons();
+    } else {
+        indicator.innerHTML = '';
+        indicator.style.display = 'none';
+    }
+}
+
+function handleGodModeRoleChange(role) {
+    if (!appState.godModeState) return;
+
+    if (role === 'real') {
+        appState.currentUser.role = appState.godModeState.realRole;
+        appState.godModeState.isImpersonating = false;
+        showToast(`Modo Dios: Rol real restaurado (${appState.currentUser.role}).`, 'info');
+    } else {
+        appState.godModeState.isImpersonating = true;
+        appState.currentUser.role = role;
+        showToast(`Modo Dios: Viendo como ${role}.`, 'success');
+    }
+
+    updateNavForRole();
+    renderUserMenu();
+    switchView(appState.currentView);
+    updateGodModeIndicator();
+}
+
 function handleGlobalClick(e) {
     const target = e.target;
     const authLink = target.closest('a[data-auth-screen]');
@@ -1028,6 +1069,15 @@ function handleGlobalClick(e) {
         return;
     }
     
+    const godModeButton = target.closest('.god-mode-role-btn');
+    if (godModeButton) {
+        e.preventDefault();
+        const roleToSimulate = godModeButton.dataset.godModeRole;
+        handleGodModeRoleChange(roleToSimulate);
+        document.getElementById('user-dropdown')?.classList.add('hidden');
+        return;
+    }
+
     // Close user menu
     const userMenuButton = document.getElementById('user-menu-button');
     const userDropdown = document.getElementById('user-dropdown');
@@ -3209,6 +3259,16 @@ onAuthStateChanged(auth, async (user) => {
                 role: userDocSnap.exists() ? userDocSnap.data().role || 'lector' : 'lector'
             };
 
+            // Initialize God Mode state if applicable
+            if (appState.currentUser.uid === 'KTIQRzPBRcOFtBRjoFViZPSsbSq2') {
+                appState.godModeState = {
+                    realRole: appState.currentUser.role,
+                    isImpersonating: false
+                };
+            } else {
+                appState.godModeState = null;
+            }
+
             await seedDefaultSectors();
 
             // Show app shell behind overlay
@@ -3222,6 +3282,7 @@ onAuthStateChanged(auth, async (user) => {
 
             // Hide overlay and render the initial view
             switchView('dashboard');
+            updateGodModeIndicator(); // Set initial state of indicator
             dom.loadingOverlay.style.display = 'none';
 
             if (!wasAlreadyLoggedIn) {
@@ -3277,6 +3338,39 @@ function updateNavForRole() {
 
 function renderUserMenu() {
     if (appState.currentUser) {
+        const isGodModeUser = appState.currentUser.uid === 'KTIQRzPBRcOFtBRjoFViZPSsbSq2';
+        let godModeHTML = '';
+
+        if (isGodModeUser) {
+            const roles = ['admin', 'editor', 'lector'];
+            const roleLabels = { admin: 'Admin', editor: 'Editor', lector: 'Lector' };
+
+            const buttonsHTML = roles.map(role => {
+                const isActive = appState.currentUser.role === role && appState.godModeState?.isImpersonating;
+                return `<button data-god-mode-role="${role}" class="god-mode-role-btn w-full text-left flex items-center gap-3 px-2 py-1.5 text-sm rounded-md hover:bg-slate-100 ${isActive ? 'bg-blue-100 text-blue-700 font-bold' : ''}">
+                    <i data-lucide="${isActive ? 'check-circle' : 'circle'}" class="w-4 h-4"></i>
+                    Simular ${roleLabels[role]}
+                </button>`;
+            }).join('');
+
+            godModeHTML = `
+                <div class="border-t border-b bg-yellow-50/50">
+                    <div class="px-4 pt-3 pb-2">
+                        <p class="text-xs font-bold uppercase text-yellow-600 flex items-center gap-2">
+                            <i data-lucide="shield-check" class="w-4 h-4"></i>Modo Dios
+                        </p>
+                    </div>
+                    <div class="p-2 space-y-1">
+                        ${buttonsHTML}
+                        <div class="border-t my-1"></div>
+                        <button data-god-mode-role="real" class="god-mode-role-btn w-full text-left flex items-center gap-3 px-2 py-1.5 text-sm rounded-md font-bold text-yellow-800 hover:bg-yellow-100">
+                           <i data-lucide="user-check" class="w-4 h-4"></i> Volver a Rol Real
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
         dom.userMenuContainer.innerHTML = `
             <button id="user-menu-button" class="flex items-center space-x-2">
                 <img src="${appState.currentUser.avatarUrl}" alt="Avatar" class="w-10 h-10 rounded-full border-2 border-slate-300">
@@ -3285,6 +3379,7 @@ function renderUserMenu() {
             </button>
             <div id="user-dropdown" class="absolute z-20 right-0 mt-2 w-56 bg-white border rounded-lg shadow-xl hidden dropdown-menu">
                 <div class="p-4 border-b"><p class="font-bold text-slate-800">${appState.currentUser.name}</p><p class="text-sm text-slate-500">${appState.currentUser.email}</p></div>
+                ${godModeHTML}
                 <a href="#" data-view="profile" class="flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-100"><i data-lucide="user-circle" class="w-5 h-5 text-slate-500"></i>Mi Perfil</a>
                 <a href="#" id="logout-button" class="flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50"><i data-lucide="log-out" class="w-5 h-5"></i>Cerrar Sesión</a>
             </div>`;
