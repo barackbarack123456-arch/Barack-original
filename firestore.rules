@@ -4,7 +4,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function isAdmin() {
-      return request.auth.uid in ['NIFudxxXnea8HqFzeMpxY0kma5b2', '7M6XuPSQf0UHUvet5KnEISxiYBT2'];
+      return request.auth.uid in ['NIFudxxXnea8HqFzeMpxY0kma5b2', '7M6XuPSQf0UHUvet5KnEISxiYBT2', 'KTIQRzPBRcOFtBRjoFViZPSsbSq2'];
     }
 
     // --- USUARIOS ---
