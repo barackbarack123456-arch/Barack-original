@@ -4140,7 +4140,7 @@ function runSinopticoTabularLogic() {
                 unidad_medida = unidadData ? unidadData.id : item.unidad_medida;
             }
 
-            const actionsHTML = `<button data-action="edit-tabular-node" data-node-id="${node.id}" class="p-1 text-blue-600 hover:bg-blue-100 rounded-md" title="Editar"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>`;
+            const actionsHTML = checkUserPermission('edit') ? `<button data-action="edit-tabular-node" data-node-id="${node.id}" class="p-1 text-blue-600 hover:bg-blue-100 rounded-md" title="Editar"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>` : '';
 
             // 7. Column alignment adjusted in cells
             tableHTML += `<tr class="bg-white border-b hover:bg-gray-100" data-node-id="${node.id}">
@@ -4990,11 +4990,13 @@ function initSinoptico() {
             </div>`;
         } else {
             // Botón para abrir el modal de edición
+        if (checkUserPermission('edit')) {
             content += `<div class="mb-4">
                 <button data-action="open-sinoptico-edit-modal" data-node-id="${targetNode.id}" class="w-full bg-blue-600 text-white px-4 py-2.5 rounded-md hover:bg-blue-700 flex items-center justify-center text-sm font-semibold shadow-sm">
                     <i data-lucide="pencil" class="mr-2 h-4 w-4"></i>Editar Cantidad y Comentario
                 </button>
             </div>`;
+        }
         }
     
         const createSection = (title) => `<h3 class="sinoptico-detail-section-header">${title}</h3>`;
