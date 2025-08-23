@@ -3,39 +3,40 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isAdmin() {
-      return request.auth.uid in ['NIFudxxXnea8HqFzeMpxY0kma5b2', '7M6XuPSQf0UHUvet5KnEISxiYBT2', 'KTIQRzPBRcOFtBRjoFViZPSsbSq2'];
+    function isUserAdmin() {
+      // Check if the user has the 'admin' role in their user document.
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.role == 'admin';
     }
 
     // --- USUARIOS ---
     match /usuarios/{userId} {
       // Un usuario puede leer su propio perfil. Los admins pueden leer todos.
-      allow read: if request.auth.uid == userId || isAdmin();
+      allow read: if request.auth.uid == userId || isUserAdmin();
 
       // Un usuario puede crear su propio documento de perfil durante el registro.
       allow create: if request.auth.uid == userId;
 
       // Un usuario puede actualizar su propio perfil (nombre, avatar, etc.).
       // Los administradores pueden actualizar cualquier perfil (para cambiar roles, etc.).
-      allow update: if request.auth.uid == userId || isAdmin();
+      allow update: if request.auth.uid == userId || isUserAdmin();
 
       // Solo los administradores pueden eliminar usuarios.
-      allow delete: if isAdmin();
+      allow delete: if isUserAdmin();
     }
 
     // Reglas para colecciones existentes...
     
-    // Regla para la nueva colección de Unidades de Medida
-    match /unidadesDeMedida/{unidadId} {
+    // Regla para la colección de Unidades de Medida
+    match /unidades/{unidadId} {
       allow read: if request.auth != null;
-      allow write: if isAdmin();
+      allow write: if isUserAdmin();
       allow create: if request.auth != null;
     }
 
     // Regla para la colección de Proveedores
     match /proveedores/{proveedorId} {
       allow read: if request.auth != null;
-      allow write: if isAdmin();
+      allow write: if isUserAdmin();
       allow create: if request.auth != null;
     }
 
@@ -47,7 +48,7 @@ service cloud.firestore {
       // Un usuario puede leer una tarea si es pública, si se le asignó o si la creó.
       // Los administradores pueden leer todas las tareas.
       allow read: if request.auth != null &&
-                    (isAdmin() ||
+                    (isUserAdmin() ||
                      resource.data.isPublic == true ||
                      resource.data.assigneeUid == request.auth.uid ||
                      resource.data.creatorUid == request.auth.uid);
@@ -55,20 +56,20 @@ service cloud.firestore {
       // Un usuario puede actualizar una tarea si se le asignó o si la creó.
       // Los administradores pueden actualizar cualquier tarea.
       allow update: if request.auth != null &&
-                      (isAdmin() ||
+                      (isUserAdmin() ||
                        resource.data.assigneeUid == request.auth.uid ||
                        resource.data.creatorUid == request.auth.uid);
 
       // Un usuario solo puede eliminar una tarea que él mismo creó.
       // Los administradores pueden eliminar cualquier tarea.
       allow delete: if request.auth != null &&
-                      (isAdmin() || resource.data.creatorUid == request.auth.uid);
+                      (isUserAdmin() || resource.data.creatorUid == request.auth.uid);
     }
 
     // El resto de tus reglas
     match /{document=**} {
       allow read: if request.auth != null;
-      allow write: if isAdmin();
+      allow write: if isUserAdmin();
       allow create: if request.auth != null;
     }
   }

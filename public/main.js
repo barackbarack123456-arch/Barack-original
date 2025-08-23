@@ -1499,6 +1499,18 @@ function runDashboardLogic() {
     const recentActivity = [...productos, ...insumos]
         .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
         .slice(0, 5);
+    let adminActionsHTML = '';
+    if (checkUserPermission('delete')) { // Use 'delete' as a proxy for top-level admin actions
+        adminActionsHTML = `
+        <div class="lg:col-span-3 border border-yellow-300 bg-yellow-50 p-6 rounded-xl">
+            <h3 class="text-xl font-bold text-yellow-800 mb-2">Acciones de Administrador</h3>
+            <p class="text-sm text-yellow-700 mb-4">Esta acción borrará todos los datos existentes (excepto usuarios) y los reemplazará con datos de demostración.</p>
+            <button data-action="seed-database" class="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 font-semibold">
+                <i data-lucide="database-zap" class="inline-block mr-2 -mt-1"></i>Cargar Datos de Prueba
+            </button>
+        </div>`;
+    }
+
     let content = `<div class="bg-white p-6 rounded-xl shadow-lg animate-fade-in-up">
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="border border-slate-200 p-6 rounded-xl flex items-center space-x-4">
@@ -1541,10 +1553,7 @@ function runDashboardLogic() {
                 `).join('') : `<li class="text-center text-gray-500 py-8">No hay actividad reciente.</li>`}
             </ul>
         </div>
-        <div class="lg:col-span-3 border border-slate-200 p-6 rounded-xl">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Acciones de Administrador</h3>
-            <button data-action="seed-database" class="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600">Cargar Datos de Prueba</button>
-        </div>
+        ${adminActionsHTML}
     </div>
     </div>`;
     dom.viewContent.innerHTML = content;
