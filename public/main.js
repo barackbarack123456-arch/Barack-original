@@ -430,7 +430,7 @@ async function saveDocument(collectionName, data, docId = null) {
 
 async function getLogoBase64() {
     try {
-        const response = await fetch('logo.png');
+        const response = await fetch('barack_logo.png');
         if (!response.ok) return null;
         const blob = await response.blob();
         return new Promise((resolve, reject) => {
@@ -440,7 +440,7 @@ async function getLogoBase64() {
             reader.readAsDataURL(blob);
         });
     } catch (error) {
-        console.error("Could not fetch logo.png:", error);
+        console.error("Could not fetch barack_logo.png:", error);
         return null;
     }
 }
@@ -458,9 +458,141 @@ async function deleteDocument(collectionName, docId) {
     }
 }
 
+async function deleteProductAndOrphanedSubProducts(productDocId) {
+    showToast('Iniciando eliminación de producto y componentes...', 'info');
+    try {
+        const productRef = doc(db, COLLECTIONS.PRODUCTOS, productDocId);
+        const productSnap = await getDoc(productRef);
+        if (!productSnap.exists()) {
+            showToast('El producto ya no existe.', 'info');
+            return;
+        }
+
+        const productData = productSnap.data();
+        const subProductRefs = new Set();
+
+        function findSubProducts(nodes) {
+            if (!nodes) return;
+            for (const node of nodes) {
+                if (node.tipo === 'semiterminado') {
+                    subProductRefs.add(node.refId);
+                }
+                if (node.children) {
+                    findSubProducts(node.children);
+                }
+            }
+        }
+
+        findSubProducts(productData.estructura);
+
+        // Delete the main product
+        await deleteDoc(productRef);
+        showToast('Producto principal eliminado.', 'success');
+
+        if (subProductRefs.size === 0) {
+            showToast('El producto no tenía sub-componentes para verificar.', 'info');
+            runTableLogic();
+            return;
+        }
+
+        showToast(`Verificando ${subProductRefs.size} sub-componentes...`, 'info');
+
+        const allProductsSnap = await getDocs(collection(db, COLLECTIONS.PRODUCTOS));
+        const allOtherProducts = [];
+        allProductsSnap.forEach(doc => {
+            allOtherProducts.push(doc.data());
+        });
+
+        let deletedCount = 0;
+        for (const subProductRefId of subProductRefs) {
+            let isUsedElsewhere = false;
+            for (const otherProduct of allOtherProducts) {
+                function isSubProductInStructure(nodes) {
+                    if (!nodes) return false;
+                    for (const node of nodes) {
+                        if (node.tipo === 'semiterminado' && node.refId === subProductRefId) {
+                            return true;
+                        }
+                        if (node.children && isSubProductInStructure(node.children)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+
+                if (isSubProductInStructure(otherProduct.estructura)) {
+                    isUsedElsewhere = true;
+                    break;
+                }
+            }
+
+            if (!isUsedElsewhere) {
+                const q = query(collection(db, COLLECTIONS.SEMITERMINADOS), where("id", "==", subProductRefId));
+                const subProductToDeleteSnap = await getDocs(q);
+                if (!subProductToDeleteSnap.empty) {
+                    const subProductDocToDelete = subProductToDeleteSnap.docs[0];
+                    await deleteDoc(doc(db, COLLECTIONS.SEMITERMINADOS, subProductDocToDelete.id));
+                    deletedCount++;
+                }
+            }
+        }
+
+        if (deletedCount > 0) {
+            showToast(`${deletedCount} sub-componentes huérfanos eliminados.`, 'success');
+        } else {
+            showToast('No se eliminaron sub-componentes (están en uso por otros productos).', 'info');
+        }
+
+    } catch (error) {
+        console.error("Error deleting product and orphaned sub-products:", error);
+        showToast('Ocurrió un error durante la eliminación compleja.', 'error');
+    } finally {
+        runTableLogic();
+    }
+}
+
 function deleteItem(docId) {
     const config = viewConfig[appState.currentView];
     if (!config || !config.dataKey) return;
+
+    if (config.dataKey === COLLECTIONS.USUARIOS) {
+        const itemToDelete = appState.currentData.find(d => d.docId === docId);
+        if (itemToDelete?.docId === auth.currentUser.uid) {
+            showToast('No puedes deshabilitar tu propia cuenta desde aquí.', 'error');
+            return;
+        }
+        const itemName = itemToDelete ? (itemToDelete.name || itemToDelete.email) : 'este usuario';
+        showConfirmationModal(
+            `Deshabilitar Usuario`,
+            `¿Estás seguro de que deseas deshabilitar a "${itemName}"? El usuario ya no podrá iniciar sesión.`,
+            async () => {
+                try {
+                    const userDocRef = doc(db, COLLECTIONS.USUARIOS, docId);
+                    await updateDoc(userDocRef, { disabled: true });
+                    showToast('Usuario deshabilitado con éxito.', 'success');
+                    runTableLogic(); // Refresh the table
+                } catch (error) {
+                    console.error("Error disabling user: ", error);
+                    showToast('Error al deshabilitar el usuario.', 'error');
+                }
+            }
+        );
+        return;
+    }
+
+    if (config.dataKey === COLLECTIONS.PRODUCTOS) {
+        const itemToDelete = appState.currentData.find(d => d.docId === docId);
+        const itemName = itemToDelete ? (itemToDelete.descripcion || itemToDelete.id) : 'este producto';
+        showConfirmationModal(
+            `Eliminar Producto y Huérfanos`,
+            `¿Estás seguro de que deseas eliminar "${itemName}"? Esto también intentará eliminar los sub-componentes que no estén en uso por otros productos.`,
+            () => {
+                deleteProductAndOrphanedSubProducts(docId);
+            }
+        );
+        return;
+    }
+
     const itemToDelete = appState.currentData.find(d => d.docId === docId);
     const itemName = itemToDelete ? (itemToDelete.descripcion || itemToDelete.id) : 'este elemento';
     showConfirmationModal(
@@ -1205,6 +1337,9 @@ async function runTableLogic(direction = 'first') {
             return;
         }
         let data = documentSnapshots.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+        if (config.dataKey === COLLECTIONS.USUARIOS) {
+            data = data.filter(user => user.disabled !== true);
+        }
         appState.pagination.lastVisibleDoc = documentSnapshots.docs[documentSnapshots.docs.length - 1];
         appState.pagination.firstVisibleDoc = documentSnapshots.docs[0];
         if (direction === 'next') {
@@ -3296,10 +3431,12 @@ function populateTaskAssigneeDropdown() {
     select.disabled = false;
     const selectedUid = select.dataset.selectedUid;
 
-    const userOptions = users.map(u => {
-        const displayName = u.name || u.email.split('@')[0];
-        return `<option value="${u.docId}">${displayName}</option>`;
-    }).join('');
+    const userOptions = users
+        .filter(u => u.disabled !== true)
+        .map(u => {
+            const displayName = u.name || u.email.split('@')[0];
+            return `<option value="${u.docId}">${displayName}</option>`;
+        }).join('');
 
     select.innerHTML = `<option value="">No asignada</option>${userOptions}`;
 
@@ -3325,6 +3462,13 @@ onAuthStateChanged(auth, async (user) => {
             // Fetch user profile
             const userDocRef = doc(db, COLLECTIONS.USUARIOS, user.uid);
             const userDocSnap = await getDoc(userDocRef);
+
+            if (userDocSnap.exists() && userDocSnap.data().disabled) {
+                await signOut(auth);
+                dom.loadingOverlay.style.display = 'none';
+                showToast('Tu cuenta ha sido deshabilitada por un administrador.', 'error', 5000);
+                return;
+            }
 
             appState.currentUser = {
                 uid: user.uid,
@@ -3942,7 +4086,7 @@ function renderCaratula(producto, cliente) {
             <h3 class="text-center font-bold text-xl py-3 bg-blue-600 text-white">COMPOSICIÓN DE PIEZAS - BOM</h3>
             <div class="flex">
                 <div class="w-1/3 bg-white flex items-center justify-center p-4 border-r border-slate-200">
-                    <img src="logo.png" alt="Logo" class="max-h-20">
+                    <img src="barack_logo.png" alt="Logo" class="max-h-20">
                 </div>
                 <div class="w-2/3 bg-[#44546A] text-white p-4 flex items-center" id="caratula-fields-container">
                     <div class="grid grid-cols-2 gap-x-6 gap-y-4 text-sm w-full">
@@ -5272,7 +5416,7 @@ function initSinoptico() {
     
 async function getLogoBase64() {
     try {
-        const response = await fetch('logo.png');
+        const response = await fetch('barack_logo.png');
         if (!response.ok) return null;
         const blob = await response.blob();
         return new Promise((resolve, reject) => {
@@ -5282,7 +5426,7 @@ async function getLogoBase64() {
             reader.readAsDataURL(blob);
         });
     } catch (error) {
-        console.error("Could not fetch logo.png:", error);
+        console.error("Could not fetch barack_logo.png:", error);
         return null;
     }
 }
