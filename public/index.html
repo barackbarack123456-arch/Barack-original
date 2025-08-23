@@ -186,7 +186,10 @@
     <div class="flex-grow container mx-auto px-6 py-8">
         <main id="main-content">
             <header id="main-header" class="flex flex-wrap justify-between items-center gap-4 mb-6">
-                <h2 id="view-title" class="text-3xl font-bold text-slate-800"></h2>
+                <div class="flex items-center gap-4">
+                    <h2 id="view-title" class="text-3xl font-bold text-slate-800"></h2>
+                    <div id="god-mode-indicator"></div>
+                </div>
                 <!-- Contenedor de acciones de la vista (búsqueda, agregar) -->
                 <div id="header-actions" class="flex items-center space-x-4">
                     <div class="relative"><input type="text" id="search-input" placeholder="Buscar en esta vista..." class="pl-10 pr-4 py-2 border rounded-full w-64 bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"><i data-lucide="search" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 h-5 w-5"></i></div>

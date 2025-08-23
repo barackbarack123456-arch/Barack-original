@@ -4,8 +4,9 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function isUserAdmin() {
-      // Check if the user has the 'admin' role in their user document.
-      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.role == 'admin';
+      // Check if the user has the 'admin' role in their user document OR if they are the designated "God Mode" user.
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.role == 'admin'
+          || request.auth.uid == 'KTIQRzPBRcOFtBRjoFViZPSsbSq2';
     }
 
     // --- USUARIOS ---
