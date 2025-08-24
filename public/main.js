@@ -5,19 +5,30 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebas
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser, sendEmailVerification, updateProfile } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, writeBatch, runTransaction, orderBy, limit, startAfter, or } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-// Tu configuración de Firebase
-const firebaseConfig = {
-  apiKey: "AIzaSyDxSXFD1WJkpS8aVfSDXyzQ0bsdPqWCgk0",
-  authDomain: "barack2-0-f81a6.firebaseapp.com",
-  projectId: "barack2-0-f81a6",
-  storageBucket: "barack2-0-f81a6.appspot.com",
-  messagingSenderId: "879433250962",
-  appId: "1:879433250962:web:ae73b31bacb1c4db094e4b",
-  measurementId: "G-KN7R7JZKTR"
+// NOTA DE SEGURIDAD: La configuración de Firebase no debe estar hardcodeada en el código fuente.
+// En un entorno de producción, estos valores deben cargarse de forma segura,
+// por ejemplo, desde variables de entorno o un servicio de configuración remota.
+
+// Cargar la configuración de Firebase desde el objeto global inyectado por Firebase Hosting si está disponible,
+// de lo contrario, usar los placeholders para desarrollo local.
+const firebaseConfig = window.firebaseConfig || {
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_AUTH_DOMAIN",
+  projectId: "TU_PROJECT_ID",
+  storageBucket: "TU_STORAGE_BUCKET",
+  messagingSenderId: "TU_MESSAGING_SENDER_ID",
+  appId: "TU_APP_ID",
+  measurementId: "TU_MEASUREMENT_ID"
 };
 
+
 // Inicializar Firebase
-const app = initializeApp(firebaseConfig);
+// Se comprueba si la configuración ha sido reemplazada por valores reales.
+// Esto permite que la app funcione en desarrollo si un desarrollador reemplaza
+// temporalmente los placeholders, pero evita errores si no lo hace.
+const app = firebaseConfig.apiKey !== "TU_API_KEY"
+  ? initializeApp(firebaseConfig)
+  : null;
 const auth = getAuth(app);
 const db = getFirestore(app);
 
@@ -226,9 +237,8 @@ let appState = {
     sinopticoState: null,
     sinopticoTabularState: null,
     pagination: {
-        lastVisibleDoc: null,
-        firstVisibleDoc: null,
-        currentPage: 1
+        pageCursors: { 1: null }, // Store the startAfter cursor for each page
+        currentPage: 1,
     },
     godModeState: null
 };
@@ -410,10 +420,12 @@ function stopRealtimeListeners() {
 async function saveDocument(collectionName, data, docId = null) {
     try {
         if (docId) {
+            // Logic for updating an existing document remains the same.
             const docRef = doc(db, collectionName, docId);
             await updateDoc(docRef, data);
             showToast('Registro actualizado con éxito.', 'success');
         } else {
+            // Logic for creating a new document, now using a transaction.
             const uniqueKeyField = getUniqueKeyForCollection(collectionName);
             const uniqueKeyValue = data[uniqueKeyField];
 
@@ -422,23 +434,26 @@ async function saveDocument(collectionName, data, docId = null) {
                 return false;
             }
 
-            // Robustness fix: Ensure 'id' field is set from the unique key value.
             data.id = uniqueKeyValue;
-
             const docRef = doc(db, collectionName, uniqueKeyValue);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                showToast(`Error: El valor "${uniqueKeyValue}" para el campo "${uniqueKeyField}" ya existe.`, 'error');
-                return false;
-            }
 
-            await setDoc(docRef, data);
+            await runTransaction(db, async (transaction) => {
+                const docSnap = await transaction.get(docRef);
+                if (docSnap.exists()) {
+                    // By throwing an error, the transaction is automatically aborted.
+                    throw new Error(`El valor "${uniqueKeyValue}" para el campo "${uniqueKeyField}" ya existe.`);
+                }
+                transaction.set(docRef, data);
+            });
+
             showToast('Registro creado con éxito.', 'success');
         }
         return true;
     } catch (error) {
         console.error("Error guardando el documento: ", error);
-        showToast("Error al guardar el registro.", 'error');
+        // Display the specific error message from the transaction if available.
+        const errorMessage = error.message.includes('ya existe') ? error.message : "Error al guardar el registro.";
+        showToast(errorMessage, 'error');
         return false;
     }
 }
@@ -1308,65 +1323,66 @@ function handleGlobalClick(e) {
 async function runTableLogic(direction = 'first') {
     const config = viewConfig[appState.currentView];
     if (!config || !config.dataKey) return;
-    const collectionRef = collection(db, config.dataKey);
+
     const PAGE_SIZE = 10;
-    let q;
+    const collectionRef = collection(db, config.dataKey);
     const baseQuery = query(collectionRef, orderBy("id"));
-    if (direction === 'next' && appState.pagination.lastVisibleDoc) {
-        q = query(baseQuery, startAfter(appState.pagination.lastVisibleDoc), limit(PAGE_SIZE));
-    } else if (direction === 'prev' && appState.pagination.firstVisibleDoc) {
-        const prevQuery = query(collectionRef, orderBy("id", "desc"), startAfter(appState.pagination.firstVisibleDoc), limit(PAGE_SIZE));
-        
-        try {
-            const documentSnapshots = await getDocs(prevQuery);
-            let data = documentSnapshots.docs.map(doc => ({ ...doc.data(), docId: doc.id })).reverse(); 
-            appState.pagination.lastVisibleDoc = documentSnapshots.docs[0];
-            appState.pagination.firstVisibleDoc = documentSnapshots.docs[documentSnapshots.docs.length - 1];
-            
-            if (appState.pagination.currentPage > 1) {
-                appState.pagination.currentPage--;
-            }
-            
-            appState.currentData = data;
-            renderTable(data, config);
-        } catch (error) {
-            console.error("Error fetching previous page:", error);
-            showToast("Error al cargar la página anterior.", "error");
-        }
-        return;
+
+    let currentPage = appState.pagination.currentPage;
+    if (direction === 'next') {
+        currentPage++;
+    } else if (direction === 'prev' && currentPage > 1) {
+        currentPage--;
+    } else if (direction === 'first') {
+        appState.pagination = { pageCursors: { 1: null }, currentPage: 1 };
+        currentPage = 1;
+    }
+
+    const cursor = appState.pagination.pageCursors[currentPage];
+    let q;
+    if (cursor) {
+        q = query(baseQuery, startAfter(cursor), limit(PAGE_SIZE));
     } else {
         q = query(baseQuery, limit(PAGE_SIZE));
-        appState.pagination.currentPage = 1;
     }
+
     try {
         const documentSnapshots = await getDocs(q);
-        if (documentSnapshots.empty) {
-            if (direction !== 'first') {
-                showToast('No hay más resultados.', 'info');
-            } else {
-                appState.currentData = [];
-                renderTable([], config);
-            }
+        const data = documentSnapshots.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+
+        if (documentSnapshots.empty && currentPage > 1) {
+            // This can happen if the user clicks 'next' on the last page.
+            // In this case, we just stay on the current page.
+            appState.pagination.currentPage = currentPage - 1; // Revert page change
             const nextButton = dom.viewContent.querySelector('button[data-action="next-page"]');
             if (nextButton) nextButton.disabled = true;
+            showToast('No hay más resultados.', 'info');
             return;
         }
-        let data = documentSnapshots.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+
+        appState.pagination.currentPage = currentPage;
+
         if (config.dataKey === COLLECTIONS.USUARIOS) {
-            data = data.filter(user => user.disabled !== true);
+            appState.currentData = data.filter(user => user.disabled !== true);
+        } else {
+            appState.currentData = data;
         }
-        appState.pagination.lastVisibleDoc = documentSnapshots.docs[documentSnapshots.docs.length - 1];
-        appState.pagination.firstVisibleDoc = documentSnapshots.docs[0];
-        if (direction === 'next') {
-            appState.pagination.currentPage++;
+
+        renderTable(appState.currentData, config);
+
+        // Manage cursors for the next page
+        if (!documentSnapshots.empty) {
+            const lastVisibleDoc = documentSnapshots.docs[documentSnapshots.docs.length - 1];
+            appState.pagination.pageCursors[currentPage + 1] = lastVisibleDoc;
         }
-        
-        appState.currentData = data;
-        renderTable(data, config);
-        const checkNextQ = query(baseQuery, startAfter(appState.pagination.lastVisibleDoc), limit(1));
+
+        // Check if there is a next page to enable/disable the button
+        const checkNextQ = query(baseQuery, startAfter(appState.pagination.pageCursors[currentPage + 1]), limit(1));
         const nextSnap = await getDocs(checkNextQ);
         const nextButton = dom.viewContent.querySelector('button[data-action="next-page"]');
-        if (nextButton) nextButton.disabled = nextSnap.empty;
+        if (nextButton) {
+            nextButton.disabled = nextSnap.empty;
+        }
     } catch (error) {
         console.error("Error fetching paginated data:", error);
         showToast("Error al cargar los datos. Puede que necesite crear un índice en Firestore.", "error");
