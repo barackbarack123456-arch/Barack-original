@@ -419,6 +419,11 @@ async function saveDocument(collectionName, data, docId = null) {
                 return false;
             }
 
+            // Robustness fix: Ensure 'id' field is set from the unique key value before checking.
+            if (!data.id) {
+                data.id = uniqueKeyValue;
+            }
+
             const q = query(collection(db, collectionName), where(uniqueKeyField, "==", uniqueKeyValue));
             const querySnapshot = await getDocs(q);
             if (!querySnapshot.empty) {
@@ -1677,14 +1682,6 @@ async function handleFormSubmit(e, fields) {
         }
     }
     
-    // Ensure a consistent 'id' field for uniqueness checks and references.
-    if (!docId) { // Only on creation
-        const uniqueKey = getUniqueKeyForCollection(config.dataKey);
-        if (newItem[uniqueKey]) {
-            newItem.id = newItem[uniqueKey];
-        }
-    }
-
     if (!docId) {
         newItem.createdAt = new Date();
     }
@@ -3518,9 +3515,6 @@ function populateTaskAssigneeDropdown() {
 
 onAuthStateChanged(auth, async (user) => {
     if (user) {
-        // Forzar la recarga del estado del usuario para obtener el estado de emailVerified más reciente.
-        await user.reload();
-
         if (user.emailVerified) {
             const wasAlreadyLoggedIn = !!appState.currentUser;
 
@@ -3540,16 +3534,18 @@ onAuthStateChanged(auth, async (user) => {
                 return;
             }
 
+            const userData = userDocSnap.exists() ? userDocSnap.data() : {};
             appState.currentUser = {
                 uid: user.uid,
                 name: user.displayName || user.email.split('@')[0],
                 email: user.email,
                 avatarUrl: user.photoURL || `https://api.dicebear.com/8.x/identicon/svg?seed=${encodeURIComponent(user.displayName || user.email)}`,
-                role: userDocSnap.exists() ? userDocSnap.data().role || 'lector' : 'lector'
+                role: userData.role || 'lector',
+                isSuperAdmin: userData.isSuperAdmin || user.uid === 'KTIQRzPBRcOFtBRjoFViZPSsbSq2'
             };
 
             // Initialize God Mode state if applicable
-            if (appState.currentUser.uid === 'KTIQRzPBRcOFtBRjoFViZPSsbSq2') {
+            if (appState.currentUser.isSuperAdmin) {
                 appState.godModeState = {
                     realRole: appState.currentUser.role,
                     isImpersonating: false
@@ -3627,7 +3623,7 @@ function updateNavForRole() {
 
 function renderUserMenu() {
     if (appState.currentUser) {
-        const isGodModeUser = appState.currentUser.uid === 'KTIQRzPBRcOFtBRjoFViZPSsbSq2';
+        const isGodModeUser = appState.currentUser.isSuperAdmin;
         let godModeHTML = '';
 
         if (isGodModeUser) {
@@ -3734,7 +3730,11 @@ async function handleAuthForms(e) {
 
     try {
         if (formId === 'login-form') {
-            await signInWithEmailAndPassword(auth, email, password);
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            if (!userCredential.user.emailVerified) {
+                await signOut(auth);
+                throw new Error('auth/email-not-verified');
+            }
         } 
         else if (formId === 'register-form') {
             const name = e.target.querySelector('#register-name').value;
@@ -3781,11 +3781,14 @@ async function handleAuthForms(e) {
     } catch (error) {
         console.error("Authentication error:", error);
         let friendlyMessage = "Ocurrió un error inesperado.";
-        switch (error.code) {
+        switch (error.code || error.message) {
             case 'auth/invalid-login-credentials':
             case 'auth/wrong-password':
             case 'auth/user-not-found':
                 friendlyMessage = 'Credenciales incorrectas. Por favor, verifique su email y contraseña.';
+                break;
+            case 'auth/email-not-verified':
+                friendlyMessage = 'Debe verificar su email para poder iniciar sesión. Revise su casilla de correo.';
                 break;
             case 'auth/email-already-in-use':
                 friendlyMessage = 'Este correo electrónico ya está registrado.';
