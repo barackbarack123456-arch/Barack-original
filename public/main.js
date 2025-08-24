@@ -411,10 +411,18 @@ async function saveDocument(collectionName, data, docId = null) {
             await updateDoc(docRef, data);
             showToast('Registro actualizado con éxito.', 'success');
         } else {
-            const q = query(collection(db, collectionName), where("id", "==", data.id));
+            const uniqueKeyField = getUniqueKeyForCollection(collectionName);
+            const uniqueKeyValue = data[uniqueKeyField];
+
+            if (!uniqueKeyValue) {
+                showToast(`Error: El campo de identificación único '${uniqueKeyField}' está vacío.`, 'error');
+                return false;
+            }
+
+            const q = query(collection(db, collectionName), where(uniqueKeyField, "==", uniqueKeyValue));
             const querySnapshot = await getDocs(q);
             if (!querySnapshot.empty) {
-                showToast(`Error: El código "${data.id}" ya existe.`, 'error');
+                showToast(`Error: El valor "${uniqueKeyValue}" para el campo "${uniqueKeyField}" ya existe.`, 'error');
                 return false;
             }
             await addDoc(collection(db, collectionName), data);
@@ -1398,7 +1406,7 @@ function renderTable(data, config) {
 
 async function handleSearch() {
     const config = viewConfig[appState.currentView];
-    const searchTerm = dom.searchInput.value.trim().toLowerCase();
+    const searchTerm = dom.searchInput.value.trim(); // No toLowerCase, Firestore is case-sensitive
     if (!searchTerm) {
         runTableLogic('first');
         return;
@@ -1409,27 +1417,30 @@ async function handleSearch() {
     showToast(`Buscando "${searchTerm}"...`, 'info');
     try {
         const collectionRef = collection(db, config.dataKey);
-        
-        // Generic search based on columns defined in viewConfig
         const searchFields = config.columns.map(col => col.key);
-        const searchPromises = searchFields.map(field => {
-            // Firestore queries are case-sensitive. This range query helps with "starts with" searches.
-            const q = query(collectionRef, where(field, '>=', searchTerm), where(field, '<=', searchTerm + '\uf8ff'));
-            return getDocs(q);
-        });
 
-        const snapshots = await Promise.all(searchPromises);
-
-        const resultsMap = new Map();
-        snapshots.forEach(querySnapshot => {
-            querySnapshot.forEach(doc => {
-                resultsMap.set(doc.id, { ...doc.data(), docId: doc.id });
-            });
-        });
+        // Firestore 'or' queries have a limit of 30 equality clauses.
+        if (searchFields.length > 30) {
+            showToast('La búsqueda está limitada a los primeros 30 campos.', 'info');
+            searchFields.length = 30;
+        }
         
-        const combinedResults = Array.from(resultsMap.values());
-        appState.currentData = combinedResults;
-        renderTable(combinedResults, config);
+        // Build an array of `where` conditions for the `or` query.
+        const whereClauses = searchFields.map(field => where(field, '==', searchTerm));
+
+        // Add "starts-with" condition for the primary search field (usually the first column)
+        const primarySearchField = searchFields[0];
+        whereClauses.push(where(primarySearchField, '>=', searchTerm));
+        whereClauses.push(where(primarySearchField, '<=', searchTerm + '\uf8ff'));
+
+
+        const q = query(collectionRef, or(...whereClauses));
+
+        const querySnapshot = await getDocs(q);
+        const results = querySnapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+
+        appState.currentData = results;
+        renderTable(results, config);
 
         const paginationControls = dom.viewContent.querySelector('.flex.justify-between.items-center.pt-4');
         if (paginationControls) {
@@ -1438,7 +1449,11 @@ async function handleSearch() {
 
     } catch (error) {
         console.error('Error durante la búsqueda:', error);
-        showToast('Error al realizar la búsqueda. Es posible que necesite crear índices en Firestore.', 'error');
+        if (error.code === 'failed-precondition') {
+             showToast('Error de búsqueda. Es posible que se requiera un índice compuesto en Firestore.', 'error', 5000);
+        } else {
+             showToast('Error al realizar la búsqueda.', 'error');
+        }
     }
 }
 
@@ -1532,20 +1547,17 @@ async function openFormModal(item = null) {
 
             if (field.searchKey) {
                 options.forEach(opt => {
-                    optionsHTML += `<option value="${opt.id}">${opt.descripcion}</option>`;
+                    const isSelected = opt.id === value;
+                    optionsHTML += `<option value="${opt.id}" ${isSelected ? 'selected' : ''}>${opt.descripcion || opt.name}</option>`;
                 });
             } else { // Simple array of options
                 options.forEach(opt => {
-                    optionsHTML += `<option value="${opt.toLowerCase()}">${opt}</option>`;
+                    const optionValue = typeof opt === 'string' ? opt.toLowerCase() : opt;
+                    const isSelected = optionValue === value;
+                    optionsHTML += `<option value="${optionValue}" ${isSelected ? 'selected' : ''}>${opt}</option>`;
                 });
             }
             inputHTML = `<select id="${field.key}" name="${field.key}" class="${commonClasses} ${readonlyClasses}" ${isReadonly ? 'disabled' : ''} ${field.required ? 'required' : ''}>${optionsHTML}</select>`;
-
-            // Set the selected value after the modal is in the DOM
-            setTimeout(() => {
-                const select = document.getElementById(field.key);
-                if (select) select.value = value;
-            }, 0);
 
         } else if (field.type === 'search-select') {
             let selectedItemName = 'Ninguno seleccionado';
