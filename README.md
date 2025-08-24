@@ -112,6 +112,20 @@ En algunos entornos, el comando `firebase` puede no estar en el `PATH` del siste
     node <npm_root_g_output>/firebase-tools/lib/bin/firebase.js <comando>
     ```
 
+## Pruebas Automatizadas
+
+Para garantizar la estabilidad y calidad del código, este proyecto utiliza un sistema de pruebas automatizadas con **Jest**. Estas pruebas verifican que las funciones clave del sistema operen como se espera y ayudan a prevenir errores (regresiones) cuando se introducen nuevas funcionalidades.
+
+### Ejecutar las Pruebas
+
+Para ejecutar el conjunto completo de pruebas, utilice el siguiente comando desde la raíz del proyecto:
+
+```bash
+npm test
+```
+
+Este comando buscará y ejecutará todos los archivos de prueba (con la extensión `.test.js`) y mostrará un resumen de los resultados en la consola. Es una buena práctica ejecutar las pruebas después de realizar cambios significativos en el código.
+
 ## A Note on AGENTS.md
 
 You may notice a file named `AGENTS.md` in this repository. This file is specifically for providing instructions and guidelines to AI assistants (like Jules) who collaborate on this project. It contains technical conventions and lessons learned to make AI collaboration more efficient. For general project documentation, please continue to refer to this `README.md` file.

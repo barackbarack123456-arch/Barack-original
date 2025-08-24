@@ -4,6 +4,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser, sendEmailVerification, updateProfile } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, writeBatch, runTransaction, orderBy, limit, startAfter, or } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { COLLECTIONS, getUniqueKeyForCollection } from './utils.js';
 
 // NOTA DE SEGURIDAD: La configuración de Firebase no debe estar hardcodeada en el código fuente.
 // En un entorno de producción, estos valores deben cargarse de forma segura,
@@ -44,19 +45,6 @@ const PREDEFINED_AVATARS = [
     'https://api.dicebear.com/8.x/identicon/svg?seed=Ada%20Lovelace',
     'https://api.dicebear.com/8.x/identicon/svg?seed=Katherine%20Johnson'
 ];
-const COLLECTIONS = {
-    PRODUCTOS: 'productos',
-    SEMITERMINADOS: 'semiterminados',
-    INSUMOS: 'insumos',
-    CLIENTES: 'clientes',
-    SECTORES: 'sectores',
-    PROCESOS: 'procesos',
-    PROVEEDORES: 'proveedores',
-    UNIDADES: 'unidades',
-    USUARIOS: 'usuarios',
-    TAREAS: 'tareas',
-    PROYECTOS: 'proyectos'
-};
 
 // =================================================================================
 // --- 2. ESTADO GLOBAL Y CONFIGURACIÓN DE LA APP ---
