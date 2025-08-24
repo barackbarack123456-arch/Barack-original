@@ -1,0 +1,24 @@
+{
+  "name": "app",
+  "version": "1.0.0",
+  "description": "**Gestión PRO** es una aplicación web completa diseñada para la gestión integral de procesos de producción industrial. Permite administrar productos, semiterminados, insumos, clientes, proveedores y otras entidades clave del negocio. Su funcionalidad central es la capacidad de construir y visualizar las complejas relaciones jerárquicas entre componentes a través de \"árboles de producto\" dinámicos.",
+  "main": "public/main.js",
+  "type": "module",
+  "scripts": {
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/barackbarack123456-arch/Barack-original.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/barackbarack123456-arch/Barack-original/issues"
+  },
+  "homepage": "https://github.com/barackbarack123456-arch/Barack-original#readme",
+  "devDependencies": {
+    "jest": "^30.0.5"
+  }
+}
