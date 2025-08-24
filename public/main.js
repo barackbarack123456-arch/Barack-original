@@ -322,6 +322,9 @@ function startRealtimeListeners() {
                     if (name === COLLECTIONS.USUARIOS) populateTaskAssigneeDropdown();
                     if (appState.currentView === 'dashboard') runDashboardLogic();
                     if (appState.currentView === 'sinoptico' && appState.sinopticoState) initSinoptico();
+                    if (viewConfig[appState.currentView]?.dataKey === name) {
+                        runTableLogic();
+                    }
                 }
 
             }, (error) => {
@@ -419,18 +422,17 @@ async function saveDocument(collectionName, data, docId = null) {
                 return false;
             }
 
-            // Robustness fix: Ensure 'id' field is set from the unique key value before checking.
-            if (!data.id) {
-                data.id = uniqueKeyValue;
-            }
+            // Robustness fix: Ensure 'id' field is set from the unique key value.
+            data.id = uniqueKeyValue;
 
-            const q = query(collection(db, collectionName), where(uniqueKeyField, "==", uniqueKeyValue));
-            const querySnapshot = await getDocs(q);
-            if (!querySnapshot.empty) {
+            const docRef = doc(db, collectionName, uniqueKeyValue);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
                 showToast(`Error: El valor "${uniqueKeyValue}" para el campo "${uniqueKeyField}" ya existe.`, 'error');
                 return false;
             }
-            await addDoc(collection(db, collectionName), data);
+
+            await setDoc(docRef, data);
             showToast('Registro creado con éxito.', 'success');
         }
         return true;
@@ -1454,8 +1456,19 @@ async function handleSearch() {
 
     } catch (error) {
         console.error('Error durante la búsqueda:', error);
-        if (error.code === 'failed-precondition') {
-             showToast('Error de búsqueda. Es posible que se requiera un índice compuesto en Firestore.', 'error', 5000);
+        if (error.code === 'failed-precondition' && error.message.includes('https://console.firebase.google.com')) {
+            const urlRegex = /(https:\/\/[^\s]+)/;
+            const urlMatch = error.message.match(urlRegex);
+            if (urlMatch) {
+                const firestoreIndexUrl = urlMatch[0].replace('?create_composite=true', '');
+                const toastMessage = `
+                    <span>Se requiere un índice de Firestore.</span>
+                    <a href="${firestoreIndexUrl}" target="_blank" class="toast-link">Crear Índice</a>
+                `;
+                showToast(toastMessage, 'error', 15000);
+            } else {
+                showToast('Error de búsqueda: Se requiere un índice compuesto en Firestore.', 'error', 5000);
+            }
         } else {
              showToast('Error al realizar la búsqueda.', 'error');
         }
@@ -1695,7 +1708,7 @@ async function handleFormSubmit(e, fields) {
     
     if (success) {
         modalElement.remove();
-        runTableLogic('first'); 
+        // No es necesario llamar a runTableLogic, el listener en tiempo real se encargará de actualizar la vista.
     } else {
         // Restore button on failure
         saveButton.disabled = false;

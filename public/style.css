@@ -147,6 +147,21 @@ ul.sortable-drag-over {
     padding-top: 0.5rem; /* Espacio entre un semiterminado y sus hijos */
 }
 
+.toast-link {
+    display: inline-block;
+    margin-left: 1rem;
+    padding: 0.25rem 0.75rem;
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    border-radius: 9999px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: background-color 0.2s;
+}
+.toast-link:hover {
+    background-color: rgba(255, 255, 255, 0.4);
+}
+
 /* --- VISTA SINÓPTICA MEJORADA --- */
 #sinoptico-layout-container {
     display: flex;
