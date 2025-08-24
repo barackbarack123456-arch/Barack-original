@@ -5,6 +5,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebas
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser, sendEmailVerification, updateProfile } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, writeBatch, runTransaction, orderBy, limit, startAfter, or } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { COLLECTIONS, getUniqueKeyForCollection } from './utils.js';
+import { deleteProductAndOrphanedSubProducts } from './data_logic.js';
 
 // NOTA DE SEGURIDAD: La configuración de Firebase no debe estar hardcodeada en el código fuente.
 // En un entorno de producción, estos valores deben cargarse de forma segura,
@@ -476,98 +477,6 @@ async function deleteDocument(collectionName, docId) {
     }
 }
 
-async function deleteProductAndOrphanedSubProducts(productDocId) {
-    showToast('Iniciando eliminación de producto y componentes...', 'info');
-    try {
-        const productRef = doc(db, COLLECTIONS.PRODUCTOS, productDocId);
-        const productSnap = await getDoc(productRef);
-        if (!productSnap.exists()) {
-            showToast('El producto ya no existe.', 'info');
-            return;
-        }
-
-        const productData = productSnap.data();
-        const subProductRefs = new Set();
-
-        function findSubProducts(nodes) {
-            if (!nodes) return;
-            for (const node of nodes) {
-                if (node.tipo === 'semiterminado') {
-                    subProductRefs.add(node.refId);
-                }
-                if (node.children) {
-                    findSubProducts(node.children);
-                }
-            }
-        }
-
-        findSubProducts(productData.estructura);
-
-        // Delete the main product
-        await deleteDoc(productRef);
-        showToast('Producto principal eliminado.', 'success');
-
-        if (subProductRefs.size === 0) {
-            showToast('El producto no tenía sub-componentes para verificar.', 'info');
-            runTableLogic();
-            return;
-        }
-
-        showToast(`Verificando ${subProductRefs.size} sub-componentes...`, 'info');
-
-        const allProductsSnap = await getDocs(collection(db, COLLECTIONS.PRODUCTOS));
-        const allOtherProducts = [];
-        allProductsSnap.forEach(doc => {
-            allOtherProducts.push(doc.data());
-        });
-
-        let deletedCount = 0;
-        for (const subProductRefId of subProductRefs) {
-            let isUsedElsewhere = false;
-            for (const otherProduct of allOtherProducts) {
-                function isSubProductInStructure(nodes) {
-                    if (!nodes) return false;
-                    for (const node of nodes) {
-                        if (node.tipo === 'semiterminado' && node.refId === subProductRefId) {
-                            return true;
-                        }
-                        if (node.children && isSubProductInStructure(node.children)) {
-                            return true;
-                        }
-                    }
-                    return false;
-                }
-
-                if (isSubProductInStructure(otherProduct.estructura)) {
-                    isUsedElsewhere = true;
-                    break;
-                }
-            }
-
-            if (!isUsedElsewhere) {
-                const q = query(collection(db, COLLECTIONS.SEMITERMINADOS), where("id", "==", subProductRefId));
-                const subProductToDeleteSnap = await getDocs(q);
-                if (!subProductToDeleteSnap.empty) {
-                    const subProductDocToDelete = subProductToDeleteSnap.docs[0];
-                    await deleteDoc(doc(db, COLLECTIONS.SEMITERMINADOS, subProductDocToDelete.id));
-                    deletedCount++;
-                }
-            }
-        }
-
-        if (deletedCount > 0) {
-            showToast(`${deletedCount} sub-componentes huérfanos eliminados.`, 'success');
-        } else {
-            showToast('No se eliminaron sub-componentes (están en uso por otros productos).', 'info');
-        }
-
-    } catch (error) {
-        console.error("Error deleting product and orphaned sub-products:", error);
-        showToast('Ocurrió un error durante la eliminación compleja.', 'error');
-    } finally {
-        runTableLogic();
-    }
-}
 
 function deleteItem(docId) {
     const config = viewConfig[appState.currentView];
@@ -605,7 +514,9 @@ function deleteItem(docId) {
             `Eliminar Producto y Huérfanos`,
             `¿Estás seguro de que deseas eliminar "${itemName}"? Esto también intentará eliminar los sub-componentes que no estén en uso por otros productos.`,
             () => {
-                deleteProductAndOrphanedSubProducts(docId);
+                const firestore = { doc, getDoc, getDocs, deleteDoc, collection, query, where };
+                const uiCallbacks = { showToast, runTableLogic };
+                deleteProductAndOrphanedSubProducts(docId, db, firestore, COLLECTIONS, uiCallbacks);
             }
         );
         return;
