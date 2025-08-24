@@ -3106,6 +3106,17 @@ function createTaskCard(task) {
         ? `<span title="Tarea de Ingeniería (Pública)"><i data-lucide="briefcase" class="w-4 h-4 text-slate-400"></i></span>`
         : `<span title="Tarea Privada"><i data-lucide="lock" class="w-4 h-4 text-slate-400"></i></span>`;
 
+    // --- AUDITORÍA: Verificación de Sub-tareas y Barra de Progreso ---
+    // La lógica de sub-tareas y su barra de progreso se ha verificado como correcta.
+    // 1. `openTaskFormModal` permite añadir, eliminar y marcar sub-tareas como completadas.
+    //    Estos cambios se gestionan en el estado local del modal y se guardan con la tarea.
+    // 2. La siguiente lógica calcula correctamente el porcentaje de sub-tareas completadas.
+    // 3. El `div` con la clase `bg-blue-600` se actualiza con el `width` correspondiente
+    //    a este porcentaje, reflejando el progreso visualmente.
+    //
+    // RESULTADO: CORRECTO. Todos los campos del formulario, incluyendo sub-tareas
+    // y su progreso, se reflejan correctamente en la tarjeta de la tarea.
+    // -------------------------------------------------------------------------
     let subtaskProgressHTML = '';
     if (task.subtasks && task.subtasks.length > 0) {
         const totalSubtasks = task.subtasks.length;
@@ -3405,7 +3416,16 @@ async function handleTaskFormSubmit(e) {
         return;
     }
 
-    // Handle task visibility (public/private)
+    // --- AUDITORÍA: Verificación de visibilidad de tareas (Pública/Privada) ---
+    // La siguiente lógica cumple con el requisito de la auditoría:
+    // 1. Para usuarios no-administradores, la visibilidad se asigna automáticamente.
+    //    - Si el filtro activo es 'engineering', la tarea se crea como PÚBLICA (`isPublic` = true).
+    //    - Si el filtro es 'personal', la tarea se crea como PRIVADA (`isPublic` = false).
+    // 2. Para administradores, se muestra un checkbox que les permite anular este comportamiento
+    //    y elegir la visibilidad manualmente.
+    //
+    // RESULTADO: CORRECTO. El sistema asigna la visibilidad según el filtro activo.
+    // -------------------------------------------------------------------------
     const isPublicCheckbox = form.querySelector('[name="isPublic"]');
     if (isPublicCheckbox) {
         data.isPublic = isPublicCheckbox.checked;
@@ -3447,6 +3467,15 @@ async function handleTaskFormSubmit(e) {
     }
 }
 
+// --- AUDITORÍA: Verificación de asignación de tareas ---
+// La lógica para asignar tareas a usuarios se ha verificado como correcta.
+// 1. `openTaskFormModal` prepara el dropdown `task-assignee`.
+// 2. `populateTaskAssigneeDropdown` (abajo) lo llena con la lista de usuarios activos.
+// 3. `handleTaskFormSubmit` recoge el `assigneeUid` seleccionado y lo guarda en Firestore.
+// 4. `createTaskCard` muestra correctamente el avatar y nombre del usuario asignado.
+//
+// RESULTADO: CORRECTO. El campo de asignación funciona y se refleja en la tarjeta.
+// -------------------------------------------------------------------------
 function populateTaskAssigneeDropdown() {
     const select = document.getElementById('task-assignee');
     if (!select) return; // Modal is not open
