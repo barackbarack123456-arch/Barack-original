@@ -3512,8 +3512,11 @@ onAuthStateChanged(auth, async (user) => {
                 appState.godModeState = null;
             }
 
-            await seedDefaultSectors();
-            await seedDefaultRoles();
+            // Only the super admin should perform the initial data seeding.
+            if (appState.currentUser.isSuperAdmin) {
+                await seedDefaultSectors();
+                await seedDefaultRoles();
+            }
 
             // Show app shell behind overlay
             dom.authContainer.classList.add('hidden');
