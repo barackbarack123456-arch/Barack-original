@@ -1552,19 +1552,6 @@ async function openFormModal(item = null) {
     });
 }
 
-function getUniqueKeyForCollection(collectionName) {
-    switch (collectionName) {
-        case COLLECTIONS.PRODUCTOS:
-        case COLLECTIONS.SEMITERMINADOS:
-        case COLLECTIONS.INSUMOS:
-            return 'codigo_pieza';
-        case COLLECTIONS.PROYECTOS:
-            return 'codigo';
-        default:
-            return 'id';
-    }
-}
-
 function validateField(fieldConfig, inputElement) {
     const errorElement = document.getElementById(`error-${fieldConfig.key}`);
     let isValid = true;
