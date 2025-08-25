@@ -57,7 +57,8 @@ service cloud.firestore {
     }
     match /sectores/{docId} {
       allow read: if request.auth != null;
-      allow create, update: if canCreateUpdate();
+      allow create: if request.auth != null;
+      allow update: if canCreateUpdate();
       allow delete: if isUserAdmin();
     }
     match /procesos/{docId} {
@@ -83,7 +84,8 @@ service cloud.firestore {
 
     match /roles/{docId} {
       allow read: if request.auth != null;
-      allow create, update: if canCreateUpdate();
+      allow create: if request.auth != null;
+      allow update: if canCreateUpdate();
       allow delete: if isUserAdmin();
     }
 
