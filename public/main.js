@@ -54,6 +54,7 @@ const PREDEFINED_AVATARS = [
 const viewConfig = {
     dashboard: { title: 'Dashboard', singular: 'Dashboard' },
     sinoptico_tabular: { title: 'Reporte BOM (Tabular)', singular: 'Reporte BOM (Tabular)' },
+    eco_form: { title: 'ECO de Producto / Proceso', singular: 'ECO Form' },
     flujograma: { title: 'Flujograma de Procesos', singular: 'Flujograma' },
     arboles: { title: 'Editor de Árboles', singular: 'Árbol' },
     profile: { title: 'Mi Perfil', singular: 'Mi Perfil' },
@@ -1006,6 +1007,7 @@ function switchView(viewName) {
     else if (viewName === 'arboles') renderArbolesInitialView();
     else if (viewName === 'profile') runProfileLogic();
     else if (viewName === 'tareas') runTasksLogic();
+    else if (viewName === 'eco_form') runEcoFormLogic();
     else if (config?.dataKey) {
         dom.headerActions.style.display = 'flex';
         dom.searchInput.style.display = 'block';
@@ -1018,6 +1020,33 @@ function switchView(viewName) {
         runTableLogic();
     }
     dom.searchInput.value = '';
+}
+
+async function runEcoFormLogic() {
+    try {
+        const response = await fetch('eco_form.html');
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const html = await response.text();
+        dom.viewContent.innerHTML = html;
+
+        // Also need to load the css.
+        if (!document.getElementById('eco-form-styles')) {
+            const link = document.createElement('link');
+            link.id = 'eco-form-styles';
+            link.rel = 'stylesheet';
+            link.href = 'eco_form.css';
+            document.head.appendChild(link);
+        }
+
+        appState.currentViewCleanup = () => {
+            const style = document.getElementById('eco-form-styles');
+            if(style) style.remove();
+        };
+
+    } catch (error) {
+        console.error("Error loading ECO form:", error);
+        dom.viewContent.innerHTML = `<p class="text-red-500">Error al cargar el formulario ECO.</p>`;
+    }
 }
 
 function handleViewContentActions(e) {
