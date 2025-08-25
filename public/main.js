@@ -1769,15 +1769,33 @@ function runDashboardLogic() {
                 <!-- My Tasks Placeholder -->
                 <div id="dashboard-tasks-container"></div>
 
+                <!-- Task Charts Placeholder -->
+                <div id="dashboard-charts-container">
+                    <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4">Resumen de Tareas</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                            <div>
+                                <p class="text-sm font-semibold text-slate-600 mb-2 text-center">Mis Tareas por Estado</p>
+                                <div class="h-48 relative">
+                                    <canvas id="dashboard-status-chart"></canvas>
+                                </div>
+                            </div>
+                            <div class="border-t md:border-t-0 md:border-l pt-4 md:pt-0 md:pl-6">
+                                <p class="text-sm font-semibold text-slate-600 mb-2 text-center">Tareas por Prioridad (Global)</p>
+                                <div class="h-48 relative">
+                                    <canvas id="dashboard-priority-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Admin Panel Placeholder -->
                 <div id="dashboard-admin-panel-container"></div>
             </div>
 
             <!-- Right Column -->
             <div id="dashboard-right-column" class="space-y-6">
-                 <!-- Task Charts Placeholder -->
-                <div id="dashboard-charts-container"></div>
-
                 <!-- Recent Activity Placeholder -->
                 <div id="dashboard-activity-container"></div>
             </div>
@@ -1885,22 +1903,7 @@ function renderDashboardCharts() {
     const container = document.getElementById('dashboard-charts-container');
     if (!container) return;
 
-    // Set the HTML structure for the charts component
-    container.innerHTML = `
-        <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Resumen de Tareas</h3>
-            <div class="space-y-4">
-                <div>
-                    <p class="text-sm font-semibold text-slate-600 mb-2">Mis Tareas por Estado</p>
-                    <canvas id="dashboard-status-chart" class="h-48"></canvas>
-                </div>
-                <div class="border-t pt-4">
-                    <p class="text-sm font-semibold text-slate-600 mb-2">Tareas por Prioridad</p>
-                    <canvas id="dashboard-priority-chart" class="h-48"></canvas>
-                </div>
-            </div>
-        </div>
-    `;
+    // HTML structure is now in runDashboardLogic. This function only manages the charts.
 
     const myTasks = appState.collections.tareas.filter(t => t.assigneeUid === appState.currentUser.uid && t.status !== 'done');
     const allTasks = appState.collections.tareas;
@@ -1924,9 +1927,16 @@ function renderDashboardCharts() {
                 type: 'doughnut',
                 data: {
                     labels: ['Por Hacer', 'En Progreso'],
-                    datasets: [{ data: [statusCounts.todo, statusCounts.inprogress], backgroundColor: ['#f59e0b', '#3b82f6'], borderColor: '#ffffff', borderWidth: 2 }]
+                    datasets: [{ data: [statusCounts.todo, statusCounts.inprogress], backgroundColor: ['#f59e0b', '#3b82f6'], borderColor: '#ffffff', borderWidth: 4, hoverOffset: 8 }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, padding: 20 } }
+                    },
+                    cutout: '60%'
+                }
             });
         }
     }
@@ -1949,9 +1959,34 @@ function renderDashboardCharts() {
                 type: 'bar',
                 data: {
                     labels: ['Baja', 'Media', 'Alta'],
-                    datasets: [{ label: 'Tareas Activas', data: priorityData, backgroundColor: ['#6b7280', '#f59e0b', '#ef4444'], maxBarThickness: 30 }]
+                    datasets: [{
+                        label: 'Tareas Activas',
+                        data: priorityData,
+                        backgroundColor: ['#6b7280', '#f59e0b', '#ef4444'],
+                        borderRadius: 4,
+                        maxBarThickness: 30
+                    }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0 // Show only whole numbers
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
             });
         }
     }
