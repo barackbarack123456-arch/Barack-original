@@ -183,7 +183,7 @@ const viewConfig = {
         fields: [
             { key: 'name', label: 'Nombre', type: 'text', readonly: true },
             { key: 'email', label: 'Correo', type: 'text', readonly: true },
-            { key: 'role', label: 'Rol', type: 'select', options: ['admin', 'editor', 'lector'], required: true },
+            { key: 'role', label: 'Rol', type: 'select', searchKey: COLLECTIONS.ROLES, required: true },
             {
                 key: 'sector',
                 label: 'Sector',
@@ -191,6 +191,16 @@ const viewConfig = {
                 searchKey: COLLECTIONS.SECTORES, // Use searchKey to indicate where to get options
                 required: true
             }
+        ]
+    },
+    roles: {
+        title: 'Roles',
+        singular: 'Rol',
+        dataKey: COLLECTIONS.ROLES,
+        columns: [ { key: 'id', label: 'ID' }, { key: 'descripcion', label: 'Descripción' } ],
+        fields: [
+            { key: 'id', label: 'ID (admin, editor, lector)', type: 'text', required: true },
+            { key: 'descripcion', label: 'Descripción (Administrador, Editor, Lector)', type: 'text', required: true }
         ]
     }
 };
@@ -207,7 +217,7 @@ let appState = {
         [COLLECTIONS.PRODUCTOS]: [], [COLLECTIONS.SEMITERMINADOS]: [], [COLLECTIONS.INSUMOS]: [], [COLLECTIONS.CLIENTES]: [],
         [COLLECTIONS.SECTORES]: [], [COLLECTIONS.PROCESOS]: [],
         [COLLECTIONS.PROVEEDORES]: [], [COLLECTIONS.UNIDADES]: [],
-        [COLLECTIONS.USUARIOS]: [], [COLLECTIONS.PROYECTOS]: []
+        [COLLECTIONS.USUARIOS]: [], [COLLECTIONS.PROYECTOS]: [], [COLLECTIONS.ROLES]: []
     },
     collectionsById: {
         [COLLECTIONS.PRODUCTOS]: new Map(),
@@ -219,7 +229,8 @@ let appState = {
         [COLLECTIONS.PROVEEDORES]: new Map(),
         [COLLECTIONS.UNIDADES]: new Map(),
         [COLLECTIONS.USUARIOS]: new Map(),
-        [COLLECTIONS.PROYECTOS]: new Map()
+        [COLLECTIONS.PROYECTOS]: new Map(),
+        [COLLECTIONS.ROLES]: new Map()
     },
     unsubscribeListeners: [],
     sinopticoState: null,
@@ -278,7 +289,9 @@ function startRealtimeListeners() {
             COLLECTIONS.PRODUCTOS,
             COLLECTIONS.INSUMOS,
             COLLECTIONS.CLIENTES,
-            COLLECTIONS.USUARIOS
+            COLLECTIONS.USUARIOS,
+            COLLECTIONS.ROLES,
+            COLLECTIONS.SECTORES
         ]);
 
         if (appState.unsubscribeListeners.length > 0) {
@@ -3399,6 +3412,39 @@ async function seedDefaultSectors() {
     }
 }
 
+async function seedDefaultRoles() {
+    const rolesRef = collection(db, COLLECTIONS.ROLES);
+    const snapshot = await getDocs(query(rolesRef, limit(1)));
+
+    if (!snapshot.empty) {
+        return; // Roles already exist
+    }
+
+    console.log("No roles found. Seeding default roles...");
+    showToast('Creando roles por defecto...', 'info');
+
+    const defaultRoles = [
+        { id: 'admin', descripcion: 'Administrador' },
+        { id: 'editor', descripcion: 'Editor' },
+        { id: 'lector', descripcion: 'Lector' }
+    ];
+
+    const batch = writeBatch(db);
+    defaultRoles.forEach(role => {
+        const docRef = doc(db, COLLECTIONS.ROLES, role.id);
+        batch.set(docRef, role);
+    });
+
+    try {
+        await batch.commit();
+        showToast('Roles por defecto creados con éxito.', 'success');
+        console.log('Default roles created successfully.');
+    } catch (error) {
+        console.error("Error seeding default roles:", error);
+        showToast('Error al crear los roles por defecto.', 'error');
+    }
+}
+
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         if (user.emailVerified) {
@@ -3467,6 +3513,7 @@ onAuthStateChanged(auth, async (user) => {
             }
 
             await seedDefaultSectors();
+            await seedDefaultRoles();
 
             // Show app shell behind overlay
             dom.authContainer.classList.add('hidden');
