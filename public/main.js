@@ -1,9 +1,9 @@
 // --- 1. CONFIGURACIÓN E INICIALIZACIÓN DE FIREBASE ---
 // =================================================================================
 // Importar funciones de los SDKs de Firebase
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser, sendEmailVerification, updateProfile } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, writeBatch, runTransaction, orderBy, limit, startAfter, or } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { initializeApp } from "/__/firebase/9.15.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser, sendEmailVerification, updateProfile } from "/__/firebase/9.15.0/firebase-auth.js";
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, writeBatch, runTransaction, orderBy, limit, startAfter, or } from "/__/firebase/9.15.0/firebase-firestore.js";
 import { COLLECTIONS, getUniqueKeyForCollection } from './utils.js';
 import { deleteProductAndOrphanedSubProducts } from './data_logic.js';
 
@@ -11,26 +11,12 @@ import { deleteProductAndOrphanedSubProducts } from './data_logic.js';
 // En un entorno de producción, estos valores deben cargarse de forma segura,
 // por ejemplo, desde variables de entorno o un servicio de configuración remota.
 
-// Cargar la configuración de Firebase desde el objeto global inyectado por Firebase Hosting si está disponible,
-// de lo contrario, usar los placeholders para desarrollo local.
-const firebaseConfig = window.firebaseConfig || {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_AUTH_DOMAIN",
-  projectId: "TU_PROJECT_ID",
-  storageBucket: "TU_STORAGE_BUCKET",
-  messagingSenderId: "TU_MESSAGING_SENDER_ID",
-  appId: "TU_APP_ID",
-  measurementId: "TU_MEASUREMENT_ID"
-};
+// Cargar la configuración de Firebase desde el módulo especial de Firebase Hosting.
+import { firebaseConfig } from '/__/firebase/init.js';
 
 
 // Inicializar Firebase
-// Se comprueba si la configuración ha sido reemplazada por valores reales.
-// Esto permite que la app funcione en desarrollo si un desarrollador reemplaza
-// temporalmente los placeholders, pero evita errores si no lo hace.
-const app = firebaseConfig.apiKey !== "TU_API_KEY"
-  ? initializeApp(firebaseConfig)
-  : null;
+const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
