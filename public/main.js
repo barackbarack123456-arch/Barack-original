@@ -1,9 +1,9 @@
 // --- 1. CONFIGURACIÓN E INICIALIZACIÓN DE FIREBASE ---
 // =================================================================================
 // Importar funciones de los SDKs de Firebase
-import { initializeApp } from "/__/firebase/9.15.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser, sendEmailVerification, updateProfile } from "/__/firebase/9.15.0/firebase-auth.js";
-import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, writeBatch, runTransaction, orderBy, limit, startAfter, or } from "/__/firebase/9.15.0/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser, sendEmailVerification, updateProfile } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, writeBatch, runTransaction, orderBy, limit, startAfter, or } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { COLLECTIONS, getUniqueKeyForCollection } from './utils.js';
 import { deleteProductAndOrphanedSubProducts } from './data_logic.js';
 
@@ -11,9 +11,22 @@ import { deleteProductAndOrphanedSubProducts } from './data_logic.js';
 // En un entorno de producción, estos valores deben cargarse de forma segura,
 // por ejemplo, desde variables de entorno o un servicio de configuración remota.
 
-// Cargar la configuración de Firebase desde el módulo especial de Firebase Hosting.
-import { firebaseConfig } from '/__/firebase/init.js';
-
+// IMPORTANTE: La siguiente configuración de Firebase está hardcodeada.
+// Debido a una incompatibilidad entre el sistema de módulos ES de la aplicación
+// y el script de inicialización de Firebase Hosting, este método es
+// actualmente el único que permite que la aplicación se conecte a Firebase.
+// NO REEMPLAZAR con la inicialización automática de Firebase Hosting sin
+// refactorizar la carga de módulos en toda la aplicación.
+const firebaseConfig = {
+  apiKey: "AIzaSyDxSXFD1WJkpS8aVfSDXyzQ0bsdPqWCgk0",
+  authDomain: "barack2-0-f81a6.firebaseapp.com",
+  databaseURL: "https://barack2-0-f81a6-default-rtdb.firebaseio.com",
+  projectId: "barack2-0-f81a6",
+  storageBucket: "barack2-0-f81a6.firebasestorage.app",
+  messagingSenderId: "879433250962",
+  appId: "1:879433250962:web:ae73b31bacb1c4db094e4b",
+  measurementId: "G-KN7R7JZKTR"
+};
 
 // Inicializar Firebase
 const app = initializeApp(firebaseConfig);
@@ -1537,6 +1550,19 @@ async function openFormModal(item = null) {
             });
         }
     });
+}
+
+function getUniqueKeyForCollection(collectionName) {
+    switch (collectionName) {
+        case COLLECTIONS.PRODUCTOS:
+        case COLLECTIONS.SEMITERMINADOS:
+        case COLLECTIONS.INSUMOS:
+            return 'codigo_pieza';
+        case COLLECTIONS.PROYECTOS:
+            return 'codigo';
+        default:
+            return 'id';
+    }
 }
 
 function validateField(fieldConfig, inputElement) {
