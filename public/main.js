@@ -1704,7 +1704,8 @@ function updateDashboard(collectionName) {
             renderDashboardActivityFeed();
             break;
         case COLLECTIONS.PROYECTOS:
-            updateElementText('kpi-proyectos', appState.collections.proyectos.length);
+            const activeProjects = appState.collections.proyectos.filter(p => p.status !== 'finalizado');
+            updateElementText('kpi-proyectos', activeProjects.length);
             break;
         case COLLECTIONS.TAREAS:
             const tareas = appState.collections.tareas;
