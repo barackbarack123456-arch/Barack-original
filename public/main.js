@@ -3439,7 +3439,33 @@ onAuthStateChanged(auth, async (user) => {
 
             // Fetch user profile
             const userDocRef = doc(db, COLLECTIONS.USUARIOS, user.uid);
-            const userDocSnap = await getDoc(userDocRef);
+            let userDocSnap = await getDoc(userDocRef);
+
+            // Self-healing: If user is authenticated but has no profile in Firestore, create one.
+            if (!userDocSnap.exists()) {
+                showToast(`Creando perfil para usuario existente: ${user.email}`, 'info', 4000);
+                const newUserDoc = {
+                    id: user.uid,
+                    name: user.displayName || user.email.split('@')[0],
+                    email: user.email,
+                    role: 'lector', // Default role for self-healed users
+                    sector: 'Sin Asignar',
+                    createdAt: new Date(),
+                    photoURL: user.photoURL || `https://api.dicebear.com/8.x/identicon/svg?seed=${encodeURIComponent(user.displayName || user.email)}`
+                };
+                try {
+                    await setDoc(userDocRef, newUserDoc);
+                    // Re-fetch the document so the rest of the login flow has the correct data
+                    userDocSnap = await getDoc(userDocRef);
+                    console.log(`User profile self-healed in Firestore for ${user.email}`);
+                } catch (error) {
+                    console.error("Error self-healing user profile:", error);
+                    showToast('Error crítico al crear el perfil de usuario. Contacte a un administrador.', 'error', 10000);
+                    // Log out the user if their profile can't be created, as the app might not function correctly.
+                    await signOut(auth);
+                    return; // Stop execution
+                }
+            }
 
             if (userDocSnap.exists() && userDocSnap.data().disabled) {
                 await signOut(auth);
