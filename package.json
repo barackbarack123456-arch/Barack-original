@@ -20,6 +20,7 @@
   "homepage": "https://github.com/barackbarack123456-arch/Barack-original#readme",
   "devDependencies": {
     "jest": "^29.7.0",
-    "jest-environment-jsdom": "^30.0.5"
+    "jest-environment-jsdom": "^30.0.5",
+    "tailwindcss": "^4.1.12"
   }
 }
