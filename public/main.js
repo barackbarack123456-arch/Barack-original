@@ -1846,6 +1846,9 @@ function renderDashboardTasks(tasks) {
     const container = document.getElementById('dashboard-tasks-list');
     if (!container) return;
 
+    // Explicitly clear container to prevent any possibility of additive rendering
+    container.innerHTML = '';
+
     if (tasks.length === 0) {
         container.innerHTML = `
             <div class="text-center py-8 text-slate-500">
@@ -1858,7 +1861,7 @@ function renderDashboardTasks(tasks) {
         return;
     }
 
-    container.innerHTML = tasks.slice(0, 5).map(task => {
+    const content = tasks.slice(0, 5).map(task => {
         const dueDate = task.dueDate ? new Date(task.dueDate + 'T00:00:00') : null;
         const today = new Date();
         today.setHours(0,0,0,0);
@@ -1878,6 +1881,8 @@ function renderDashboardTasks(tasks) {
         </div>
         `;
     }).join('');
+
+    container.innerHTML = content;
 }
 
 let dashboardCharts = { statusChart: null, priorityChart: null };
@@ -1896,8 +1901,11 @@ function renderDashboardCharts(myTasks, allTasks) {
     const statusCtx = document.getElementById('dashboard-status-chart')?.getContext('2d');
     if (statusCtx) {
         const statusCounts = myTasks.reduce((acc, task) => {
+            // Defensive check for status, defaulting to 'todo'
             const status = task.status || 'todo';
-            acc[status] = (acc[status] || 0) + 1;
+            if (status === 'todo' || status === 'inprogress') {
+                acc[status] = (acc[status] || 0) + 1;
+            }
             return acc;
         }, { todo: 0, inprogress: 0 });
 
@@ -1966,6 +1974,9 @@ function renderDashboardActivityFeed() {
     const container = document.getElementById('dashboard-activity-feed');
     if (!container) return;
 
+    // Explicitly clear container to prevent any possibility of additive rendering
+    container.innerHTML = '';
+
     const { productos, insumos, semiterminados } = appState.collections;
     const allItems = [...productos, ...insumos, ...semiterminados];
 
@@ -1991,7 +2002,7 @@ function renderDashboardActivityFeed() {
         return typeMap.insumos;
     };
 
-    container.innerHTML = recentActivity.map(item => {
+    const content = recentActivity.map(item => {
         const itemType = getType(item);
         const timeAgo = formatTimeAgo(item.createdAt.seconds * 1000);
 
@@ -2011,6 +2022,8 @@ function renderDashboardActivityFeed() {
             </div>
         `;
     }).join('');
+
+    container.innerHTML = content;
     lucide.createIcons();
 }
 
