@@ -1683,56 +1683,73 @@ function openAssociationSearchModal(searchKey, onSelect) {
     renderResults();
 }
 
+function renderDashboardAdminPanel() {
+    const container = document.getElementById('dashboard-admin-panel-container');
+    if (!container) return;
+
+    if (!checkUserPermission('delete')) { // 'delete' is used as a proxy for admin-level permissions
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="bg-slate-50 p-6 rounded-xl border border-slate-200">
+            <h3 class="text-xl font-bold text-slate-800 mb-4">Panel de Administración</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="border border-yellow-300 bg-yellow-50 p-4 rounded-lg">
+                    <h4 class="font-bold text-yellow-800">Limpiar y Cargar Datos</h4>
+                    <p class="text-xs text-yellow-700 my-2">Borra todo excepto usuarios y carga datos de prueba.</p>
+                    <button data-action="seed-database" class="w-full bg-yellow-500 text-white px-3 py-2 rounded-md hover:bg-yellow-600 font-semibold text-sm">
+                        <i data-lucide="database-zap" class="inline-block mr-1.5 h-4 w-4"></i>Ejecutar
+                    </button>
+                </div>
+                <div class="border border-orange-300 bg-orange-50 p-4 rounded-lg">
+                    <h4 class="font-bold text-orange-800">Borrar Solo Datos</h4>
+                    <p class="text-xs text-orange-700 my-2">Borra todos los datos pero mantiene a los usuarios.</p>
+                    <button data-action="clear-data-only" class="w-full bg-orange-500 text-white px-3 py-2 rounded-md hover:bg-orange-600 font-semibold text-sm">
+                        <i data-lucide="shield-check" class="inline-block mr-1.5 h-4 w-4"></i>Ejecutar
+                    </button>
+                </div>
+                <div class="border border-red-300 bg-red-50 p-4 rounded-lg">
+                    <h4 class="font-bold text-red-800">Borrar Otros Usuarios</h4>
+                    <p class="text-xs text-red-700 my-2">Elimina a todos los usuarios excepto al admin principal.</p>
+                    <button data-action="clear-other-users" class="w-full bg-red-600 text-white px-3 py-2 rounded-md hover:bg-red-700 font-semibold text-sm">
+                        <i data-lucide="user-x" class="inline-block mr-1.5 h-4 w-4"></i>Ejecutar
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    lucide.createIcons();
+}
+
 function updateDashboard(collectionName) {
-    // Only run if the dashboard is the current view.
     if (appState.currentView !== 'dashboard') return;
 
-    const currentUser = appState.currentUser;
-
-    const updateElementText = (id, text) => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = text;
-    };
-
+    // The new component-based approach handles updates by re-rendering the specific component.
     switch (collectionName) {
         case COLLECTIONS.PRODUCTOS:
-            updateElementText('kpi-productos', appState.collections.productos.length);
-            renderDashboardActivityFeed();
-            break;
         case COLLECTIONS.INSUMOS:
-            updateElementText('kpi-insumos', appState.collections.insumos.length);
+        case COLLECTIONS.SEMITERMINADOS:
+            renderDashboardKpis();
             renderDashboardActivityFeed();
             break;
         case COLLECTIONS.PROYECTOS:
-            const activeProjects = appState.collections.proyectos.filter(p => p.status !== 'finalizado');
-            updateElementText('kpi-proyectos', activeProjects.length);
+            renderDashboardKpis();
             break;
         case COLLECTIONS.TAREAS:
-            const tareas = appState.collections.tareas;
-            const myTasks = tareas.filter(t => t.assigneeUid === currentUser.uid && t.status !== 'done');
-            const overdueTasks = myTasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date());
-
-            updateElementText('kpi-vencidas', overdueTasks.length);
-            renderDashboardTasks(myTasks);
-            renderDashboardCharts(myTasks, tareas);
-            break;
-        case COLLECTIONS.SEMITERMINADOS:
-             renderDashboardActivityFeed();
+            renderDashboardKpis();
+            renderDashboardTasks();
+            renderDashboardCharts();
             break;
     }
 }
 
 function runDashboardLogic() {
-    const { productos, insumos, clientes, tareas, proyectos } = appState.collections;
     const currentUser = appState.currentUser;
 
-    // --- Data processing ---
-    const myTasks = tareas.filter(t => t.assigneeUid === currentUser.uid && t.status !== 'done');
-    const overdueTasks = myTasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date());
-    const projects = proyectos; // Assuming 'proyectos' collection exists and is loaded.
-
-    // --- HTML Structure ---
-    const content = `
+    // 1. Create the main skeleton of the dashboard.
+    const skeletonHTML = `
     <div class="animate-fade-in-up space-y-6">
         <!-- Header -->
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -1742,147 +1759,115 @@ function runDashboardLogic() {
             </div>
         </div>
 
-        <!-- KPI Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex items-center space-x-4">
-                <div class="p-3 rounded-full bg-blue-100 text-blue-600"><i data-lucide="package" class="h-8 w-8"></i></div>
-                <div><p id="kpi-productos" class="text-3xl font-bold">${productos.length}</p><p class="text-sm font-semibold text-gray-600">Productos Totales</p></div>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex items-center space-x-4">
-                <div class="p-3 rounded-full bg-green-100 text-green-600"><i data-lucide="beaker" class="h-8 w-8"></i></div>
-                <div><p id="kpi-insumos" class="text-3xl font-bold">${insumos.length}</p><p class="text-sm font-semibold text-gray-600">Insumos Registrados</p></div>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex items-center space-x-4">
-                <div class="p-3 rounded-full bg-amber-100 text-amber-600"><i data-lucide="kanban-square" class="h-8 w-8"></i></div>
-                <div><p id="kpi-proyectos" class="text-3xl font-bold">${projects.length}</p><p class="text-sm font-semibold text-gray-600">Proyectos Activos</p></div>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex items-center space-x-4">
-                <div class="p-3 rounded-full bg-red-100 text-red-600"><i data-lucide="alert-circle" class="h-8 w-8"></i></div>
-                <div><p id="kpi-vencidas" class="text-3xl font-bold">${overdueTasks.length}</p><p class="text-sm font-semibold text-gray-600">Tareas Vencidas</p></div>
-            </div>
-        </div>
+        <!-- KPI Cards Placeholder -->
+        <div id="dashboard-kpi-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"></div>
 
         <!-- Main Content Grid -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Left Column -->
-            <div class="lg:col-span-2 space-y-6">
-                <!-- My Tasks -->
-                <div id="dashboard-tasks-container" class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">Mis Tareas Pendientes</h3>
-                    <div id="dashboard-tasks-list" class="space-y-3">
-                        <!-- Tasks will be rendered here by a dedicated function -->
-                    </div>
-                </div>
+            <div id="dashboard-left-column" class="lg:col-span-2 space-y-6">
+                <!-- My Tasks Placeholder -->
+                <div id="dashboard-tasks-container"></div>
 
-                <!-- Admin Panel (if admin) -->
-                ${checkUserPermission('delete') ? `
-                <div class="bg-slate-50 p-6 rounded-xl border border-slate-200">
-                    <h3 class="text-xl font-bold text-slate-800 mb-4">Panel de Administración</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div class="border border-yellow-300 bg-yellow-50 p-4 rounded-lg">
-                            <h4 class="font-bold text-yellow-800">Limpiar y Cargar Datos</h4>
-                            <p class="text-xs text-yellow-700 my-2">Borra todo excepto usuarios y carga datos de prueba.</p>
-                            <button data-action="seed-database" class="w-full bg-yellow-500 text-white px-3 py-2 rounded-md hover:bg-yellow-600 font-semibold text-sm">
-                                <i data-lucide="database-zap" class="inline-block mr-1.5 h-4 w-4"></i>Ejecutar
-                            </button>
-                        </div>
-                        <div class="border border-orange-300 bg-orange-50 p-4 rounded-lg">
-                            <h4 class="font-bold text-orange-800">Borrar Solo Datos</h4>
-                            <p class="text-xs text-orange-700 my-2">Borra todos los datos pero mantiene a los usuarios.</p>
-                            <button data-action="clear-data-only" class="w-full bg-orange-500 text-white px-3 py-2 rounded-md hover:bg-orange-600 font-semibold text-sm">
-                                <i data-lucide="shield-check" class="inline-block mr-1.5 h-4 w-4"></i>Ejecutar
-                            </button>
-                        </div>
-                        <div class="border border-red-300 bg-red-50 p-4 rounded-lg">
-                            <h4 class="font-bold text-red-800">Borrar Otros Usuarios</h4>
-                            <p class="text-xs text-red-700 my-2">Elimina a todos los usuarios excepto al admin principal.</p>
-                            <button data-action="clear-other-users" class="w-full bg-red-600 text-white px-3 py-2 rounded-md hover:bg-red-700 font-semibold text-sm">
-                                <i data-lucide="user-x" class="inline-block mr-1.5 h-4 w-4"></i>Ejecutar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                ` : ''}
+                <!-- Admin Panel Placeholder -->
+                <div id="dashboard-admin-panel-container"></div>
             </div>
 
             <!-- Right Column -->
-            <div class="space-y-6">
-                 <!-- Task Charts -->
-                <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">Resumen de Tareas</h3>
-                    <div class="space-y-4">
-                        <div>
-                            <p class="text-sm font-semibold text-slate-600 mb-2">Mis Tareas por Estado</p>
-                            <canvas id="dashboard-status-chart" class="h-48"></canvas>
-                        </div>
-                        <div class="border-t pt-4">
-                            <p class="text-sm font-semibold text-slate-600 mb-2">Tareas por Prioridad</p>
-                            <canvas id="dashboard-priority-chart" class="h-48"></canvas>
-                        </div>
-                    </div>
-                </div>
-                <!-- Recent Activity -->
-                <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">Actividad Reciente</h3>
-                    <div id="dashboard-activity-feed" class="space-y-4">
-                        <!-- Activity items will be rendered here -->
-                    </div>
-                </div>
+            <div id="dashboard-right-column" class="space-y-6">
+                 <!-- Task Charts Placeholder -->
+                <div id="dashboard-charts-container"></div>
+
+                <!-- Recent Activity Placeholder -->
+                <div id="dashboard-activity-container"></div>
             </div>
         </div>
     </div>
     `;
+    dom.viewContent.innerHTML = skeletonHTML;
 
-    dom.viewContent.innerHTML = content;
-    lucide.createIcons();
-
-    // Call dedicated rendering functions for each component
-    renderDashboardTasks(myTasks);
-    renderDashboardCharts(myTasks, tareas);
+    // 2. Call the self-contained component renderers
+    renderDashboardKpis();
+    renderDashboardTasks();
+    renderDashboardCharts();
     renderDashboardActivityFeed();
+    renderDashboardAdminPanel();
+
+    lucide.createIcons();
 }
 
-function renderDashboardTasks(tasks) {
-    const container = document.getElementById('dashboard-tasks-list');
+// --- DASHBOARD COMPONENT RENDERERS ---
+
+function renderDashboardKpis() {
+    const container = document.getElementById('dashboard-kpi-container');
     if (!container) return;
 
-    // Explicitly clear container to prevent any possibility of additive rendering
-    container.innerHTML = '';
+    const { productos, insumos, tareas, proyectos } = appState.collections;
+    const myTasks = tareas.filter(t => t.assigneeUid === appState.currentUser.uid && t.status !== 'done');
+    const overdueTasks = myTasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date());
+    const activeProjects = proyectos.filter(p => p.status !== 'finalizado');
 
-    if (tasks.length === 0) {
-        container.innerHTML = `
+    const kpis = [
+        { id: 'kpi-productos', value: productos.length, label: 'Productos Totales', icon: 'package', color: 'blue' },
+        { id: 'kpi-insumos', value: insumos.length, label: 'Insumos Registrados', icon: 'beaker', color: 'green' },
+        { id: 'kpi-proyectos', value: activeProjects.length, label: 'Proyectos Activos', icon: 'kanban-square', color: 'amber' },
+        { id: 'kpi-vencidas', value: overdueTasks.length, label: 'Tareas Vencidas', icon: 'alert-circle', color: 'red' }
+    ];
+
+    container.innerHTML = kpis.map(kpi => `
+        <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex items-center space-x-4">
+            <div class="p-3 rounded-full bg-${kpi.color}-100 text-${kpi.color}-600"><i data-lucide="${kpi.icon}" class="h-8 w-8"></i></div>
+            <div><p id="${kpi.id}" class="text-3xl font-bold">${kpi.value}</p><p class="text-sm font-semibold text-gray-600">${kpi.label}</p></div>
+        </div>
+    `).join('');
+    lucide.createIcons();
+}
+
+function renderDashboardTasks() {
+    const container = document.getElementById('dashboard-tasks-container');
+    if (!container) return;
+
+    const myTasks = appState.collections.tareas.filter(t => t.assigneeUid === appState.currentUser.uid && t.status !== 'done');
+
+    let taskListHTML;
+    if (myTasks.length === 0) {
+        taskListHTML = `
             <div class="text-center py-8 text-slate-500">
                 <i data-lucide="check-circle-2" class="h-12 w-12 mx-auto text-green-500"></i>
                 <h4 class="mt-4 font-semibold">¡Todo en orden!</h4>
                 <p class="text-sm">No tienes tareas pendientes.</p>
             </div>
         `;
-        lucide.createIcons();
-        return;
+    } else {
+        taskListHTML = myTasks.slice(0, 5).map(task => {
+            const dueDate = task.dueDate ? new Date(task.dueDate + 'T00:00:00') : null;
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const isOverdue = dueDate && dueDate < today;
+            const dateClass = isOverdue ? 'text-red-600 font-bold' : 'text-slate-500';
+            const dueDateStr = dueDate ? `Vence: ${dueDate.toLocaleDateString('es-AR')}` : 'Sin fecha límite';
+
+            return `
+            <div class="p-3 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all cursor-pointer" onclick="switchView('tareas')">
+                <div class="flex justify-between items-center">
+                    <span class="font-semibold text-slate-700">${task.title}</span>
+                    <span class="text-xs ${dateClass}">${dueDateStr}</span>
+                </div>
+                <div class="text-xs text-slate-400 mt-1">
+                    Prioridad: <span class="font-medium">${task.priority || 'Media'}</span>
+                </div>
+            </div>
+            `;
+        }).join('');
     }
 
-    const content = tasks.slice(0, 5).map(task => {
-        const dueDate = task.dueDate ? new Date(task.dueDate + 'T00:00:00') : null;
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        const isOverdue = dueDate && dueDate < today;
-        const dateClass = isOverdue ? 'text-red-600 font-bold' : 'text-slate-500';
-        const dueDateStr = dueDate ? `Vence: ${dueDate.toLocaleDateString('es-AR')}` : 'Sin fecha límite';
-
-        return `
-        <div class="p-3 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all cursor-pointer" onclick="switchView('tareas')">
-            <div class="flex justify-between items-center">
-                <span class="font-semibold text-slate-700">${task.title}</span>
-                <span class="text-xs ${dateClass}">${dueDateStr}</span>
-            </div>
-            <div class="text-xs text-slate-400 mt-1">
-                Prioridad: <span class="font-medium">${task.priority || 'Media'}</span>
-            </div>
+    container.innerHTML = `
+        <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Mis Tareas Pendientes</h3>
+            <div class="space-y-3">${taskListHTML}</div>
         </div>
-        `;
-    }).join('');
-
-    container.innerHTML = content;
+    `;
+    lucide.createIcons();
 }
 
 let dashboardCharts = { statusChart: null, priorityChart: null };
@@ -1896,12 +1881,34 @@ function destroyDashboardCharts() {
     });
 }
 
-function renderDashboardCharts(myTasks, allTasks) {
+function renderDashboardCharts() {
+    const container = document.getElementById('dashboard-charts-container');
+    if (!container) return;
+
+    // Set the HTML structure for the charts component
+    container.innerHTML = `
+        <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Resumen de Tareas</h3>
+            <div class="space-y-4">
+                <div>
+                    <p class="text-sm font-semibold text-slate-600 mb-2">Mis Tareas por Estado</p>
+                    <canvas id="dashboard-status-chart" class="h-48"></canvas>
+                </div>
+                <div class="border-t pt-4">
+                    <p class="text-sm font-semibold text-slate-600 mb-2">Tareas por Prioridad</p>
+                    <canvas id="dashboard-priority-chart" class="h-48"></canvas>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const myTasks = appState.collections.tareas.filter(t => t.assigneeUid === appState.currentUser.uid && t.status !== 'done');
+    const allTasks = appState.collections.tareas;
+
     // --- STATUS CHART (Doughnut) ---
     const statusCtx = document.getElementById('dashboard-status-chart')?.getContext('2d');
     if (statusCtx) {
         const statusCounts = myTasks.reduce((acc, task) => {
-            // Defensive check for status, defaulting to 'todo'
             const status = task.status || 'todo';
             if (status === 'todo' || status === 'inprogress') {
                 acc[status] = (acc[status] || 0) + 1;
@@ -1910,21 +1917,14 @@ function renderDashboardCharts(myTasks, allTasks) {
         }, { todo: 0, inprogress: 0 });
 
         if (dashboardCharts.statusChart) {
-            // Update existing chart
             dashboardCharts.statusChart.data.datasets[0].data = [statusCounts.todo, statusCounts.inprogress];
             dashboardCharts.statusChart.update();
         } else {
-            // Create new chart if it doesn't exist
             dashboardCharts.statusChart = new Chart(statusCtx, {
                 type: 'doughnut',
                 data: {
                     labels: ['Por Hacer', 'En Progreso'],
-                    datasets: [{
-                        data: [statusCounts.todo, statusCounts.inprogress],
-                        backgroundColor: ['#f59e0b', '#3b82f6'],
-                        borderColor: '#ffffff',
-                        borderWidth: 2,
-                    }]
+                    datasets: [{ data: [statusCounts.todo, statusCounts.inprogress], backgroundColor: ['#f59e0b', '#3b82f6'], borderColor: '#ffffff', borderWidth: 2 }]
                 },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
             });
@@ -1939,91 +1939,66 @@ function renderDashboardCharts(myTasks, allTasks) {
             acc[task.priority || 'medium'] = (acc[task.priority || 'medium'] || 0) + 1;
             return acc;
         }, { low: 0, medium: 0, high: 0 });
-
         const priorityData = [priorityCounts.low, priorityCounts.medium, priorityCounts.high];
 
         if (dashboardCharts.priorityChart) {
-            // Update existing chart
             dashboardCharts.priorityChart.data.datasets[0].data = priorityData;
             dashboardCharts.priorityChart.update();
         } else {
-            // Create new chart if it doesn't exist
             dashboardCharts.priorityChart = new Chart(priorityCtx, {
                 type: 'bar',
                 data: {
                     labels: ['Baja', 'Media', 'Alta'],
-                    datasets: [{
-                        label: 'Tareas Activas',
-                        data: priorityData,
-                        backgroundColor: ['#6b7280', '#f59e0b', '#ef4444'],
-                        maxBarThickness: 30,
-                    }]
+                    datasets: [{ label: 'Tareas Activas', data: priorityData, backgroundColor: ['#6b7280', '#f59e0b', '#ef4444'], maxBarThickness: 30 }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
-                }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
             });
         }
     }
 }
 
 function renderDashboardActivityFeed() {
-    const container = document.getElementById('dashboard-activity-feed');
+    const container = document.getElementById('dashboard-activity-container');
     if (!container) return;
-
-    // Explicitly clear container to prevent any possibility of additive rendering
-    container.innerHTML = '';
 
     const { productos, insumos, semiterminados } = appState.collections;
     const allItems = [...productos, ...insumos, ...semiterminados];
+    const recentActivity = allItems.filter(item => item.createdAt?.seconds).sort((a, b) => b.createdAt.seconds - a.createdAt.seconds).slice(0, 5);
 
-    const recentActivity = allItems
-        .filter(item => item.createdAt?.seconds)
-        .sort((a, b) => b.createdAt.seconds - a.createdAt.seconds)
-        .slice(0, 5);
-
+    let contentHTML;
     if (recentActivity.length === 0) {
-        container.innerHTML = `<p class="text-sm text-center text-slate-500 py-4">No hay actividad reciente.</p>`;
-        return;
+        contentHTML = `<p class="text-sm text-center text-slate-500 py-4">No hay actividad reciente.</p>`;
+    } else {
+        const typeMap = {
+            productos: { icon: 'package', label: 'Producto', color: 'blue' },
+            insumos: { icon: 'beaker', label: 'Insumo', color: 'green' },
+            semiterminados: { icon: 'box', label: 'Semiterminado', color: 'purple' }
+        };
+        const getType = (item) => {
+            if ('version_vehiculo' in item) return typeMap.productos;
+            if ('proceso' in item) return typeMap.semiterminados;
+            return typeMap.insumos;
+        };
+        contentHTML = recentActivity.map(item => {
+            const itemType = getType(item);
+            const timeAgo = formatTimeAgo(item.createdAt.seconds * 1000);
+            return `
+                <div class="flex items-start space-x-3">
+                    <div class="p-2 rounded-full bg-${itemType.color}-100 text-${itemType.color}-600"><i data-lucide="${itemType.icon}" class="h-5 w-5"></i></div>
+                    <div>
+                        <p class="text-sm"><span class="font-bold">${itemType.label}</span> <span class="font-semibold text-slate-700">${item.descripcion}</span> fue creado.</p>
+                        <p class="text-xs text-slate-400">${timeAgo}</p>
+                    </div>
+                </div>`;
+        }).join('');
     }
 
-    const typeMap = {
-        productos: { icon: 'package', label: 'Producto', color: 'blue' },
-        insumos: { icon: 'beaker', label: 'Insumo', color: 'green' },
-        semiterminados: { icon: 'box', label: 'Semiterminado', color: 'purple' }
-    };
-
-    const getType = (item) => {
-        if ('version_vehiculo' in item) return typeMap.productos;
-        if ('proceso' in item) return typeMap.semiterminados;
-        return typeMap.insumos;
-    };
-
-    const content = recentActivity.map(item => {
-        const itemType = getType(item);
-        const timeAgo = formatTimeAgo(item.createdAt.seconds * 1000);
-
-        return `
-            <div class="flex items-start space-x-3">
-                <div class="p-2 rounded-full bg-${itemType.color}-100 text-${itemType.color}-600">
-                    <i data-lucide="${itemType.icon}" class="h-5 w-5"></i>
-                </div>
-                <div>
-                    <p class="text-sm">
-                        <span class="font-bold">${itemType.label}</span>
-                        <span class="font-semibold text-slate-700">${item.descripcion}</span>
-                        fue creado.
-                    </p>
-                    <p class="text-xs text-slate-400">${timeAgo}</p>
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    container.innerHTML = content;
+    container.innerHTML = `
+        <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Actividad Reciente</h3>
+            <div class="space-y-4">${contentHTML}</div>
+        </div>
+    `;
     lucide.createIcons();
 }
 
