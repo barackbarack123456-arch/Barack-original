@@ -1027,7 +1027,7 @@ async function runEcoFormLogic() {
 
     // Helper to save form data to Local Storage
     const saveEcoFormToLocalStorage = () => {
-        const form = dom.viewContent.querySelector('.max-w-7xl');
+        const form = dom.viewContent.querySelector('#eco-form');
         if (!form) return;
         const formData = new FormData(form);
         const data = {};
@@ -1055,7 +1055,7 @@ async function runEcoFormLogic() {
         if (!savedData) return;
 
         const data = JSON.parse(savedData);
-        const form = dom.viewContent.querySelector('.max-w-7xl');
+        const form = dom.viewContent.querySelector('#eco-form');
         if (!form) return;
 
         for (const key in data) {
@@ -1276,7 +1276,7 @@ async function runEcoFormLogic() {
         loadEcoFormFromLocalStorage();
 
         // Add event listener to save on any input
-        const formElement = dom.viewContent.querySelector('.max-w-7xl');
+        const formElement = dom.viewContent.querySelector('#eco-form');
         formElement.addEventListener('input', saveEcoFormToLocalStorage);
 
         // --- Button Logic ---
