@@ -126,3 +126,15 @@
     align-items: center;
     gap: 0.5rem;
 }
+
+/* Estilo para resaltar errores de validación */
+.validation-error {
+    border: 2px solid #ef4444 !important; /* red-500 */
+    background-color: #fee2e2 !important; /* red-100 */
+    border-radius: 4px;
+}
+
+.validation-error-label {
+    color: #ef4444 !important; /* red-500 */
+    font-weight: bold;
+}
