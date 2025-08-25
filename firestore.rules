@@ -33,22 +33,52 @@ service cloud.firestore {
       allow delete: if isUserAdmin();
     }
 
-    // --- REGLA GENÉRICA PARA COLECCIONES DE DATOS ---
-    // Esta regla se aplica a todas las colecciones que no tienen una regla más específica.
-    // Define los permisos basados en los roles: Lector, Editor, Admin.
-    match /{collection}/{docId}
-      where collection in [
-        'productos', 'semiterminados', 'insumos', 'clientes', 'sectores',
-        'procesos', 'proveedores', 'unidades', 'proyectos'
-      ] {
-        // Cualquier usuario autenticado puede leer los datos.
-        allow read: if request.auth != null;
-
-        // Solo los roles 'admin' y 'editor' pueden crear y actualizar.
-        allow create, update: if canCreateUpdate();
-
-        // Solo el rol 'admin' puede eliminar.
-        allow delete: if isUserAdmin();
+    // --- COLECCIONES DE DATOS ESPECÍFICAS ---
+    // Se aplica la misma lógica de permisos a varias colecciones de datos.
+    match /productos/{docId} {
+      allow read: if request.auth != null;
+      allow create, update: if canCreateUpdate();
+      allow delete: if isUserAdmin();
+    }
+    match /semiterminados/{docId} {
+      allow read: if request.auth != null;
+      allow create, update: if canCreateUpdate();
+      allow delete: if isUserAdmin();
+    }
+    match /insumos/{docId} {
+      allow read: if request.auth != null;
+      allow create, update: if canCreateUpdate();
+      allow delete: if isUserAdmin();
+    }
+    match /clientes/{docId} {
+      allow read: if request.auth != null;
+      allow create, update: if canCreateUpdate();
+      allow delete: if isUserAdmin();
+    }
+    match /sectores/{docId} {
+      allow read: if request.auth != null;
+      allow create, update: if canCreateUpdate();
+      allow delete: if isUserAdmin();
+    }
+    match /procesos/{docId} {
+      allow read: if request.auth != null;
+      allow create, update: if canCreateUpdate();
+      allow delete: if isUserAdmin();
+    }
+    match /proveedores/{docId} {
+      allow read: if request.auth != null;
+      allow create, update: if canCreateUpdate();
+      allow delete: if isUserAdmin();
+    }
+    match /unidades/{docId} {
+      allow read: if request.auth != null;
+      allow create, update: if canCreateUpdate();
+      allow delete: if isUserAdmin();
+    }
+    match /proyectos/{docId} {
+      allow read: if request.auth != null;
+      allow create, update: if canCreateUpdate();
+      allow delete: if isUserAdmin();
     }
 
     // --- TAREAS ---
