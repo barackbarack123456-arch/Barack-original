@@ -1038,6 +1038,162 @@ async function runEcoFormLogic() {
             document.head.appendChild(link);
         }
 
+        const formSectionsData = [
+            {
+                title: 'ENG. PRODUCTO',
+                id: 'eng_producto',
+                checklist: [
+                    '¿Se requiere cambio en el plano?',
+                    '¿Se requiere cambio en la especificación?',
+                    '¿Se requiere un nuevo herramental?',
+                    '¿Se requiere un nuevo dispositivo?'
+                ]
+            },
+            {
+                title: 'CALIDAD',
+                id: 'calidad',
+                checklist: [
+                    '¿Se requiere un nuevo plan de control?',
+                    '¿Se requiere un nuevo estudio de capacidad?',
+                    '¿Se requiere un nuevo R&R?',
+                    '¿Se requiere un nuevo layout?'
+                ]
+            },
+            {
+                title: 'ENG. PROCESO',
+                id: 'eng_proceso',
+                checklist: [
+                    '¿Se requiere un nuevo diagrama de flujo?',
+                    '¿Se requiere un nuevo AMEF?',
+                    '¿Se requiere un nuevo estudio de tiempos?',
+                    '¿Se requiere una nueva instrucción de trabajo?'
+                ]
+            },
+            {
+                title: 'COMPRAS',
+                id: 'compras',
+                checklist: [
+                    '¿Se requiere un nuevo proveedor?',
+                    '¿Se requiere un nuevo acuerdo de precios?',
+                    '¿Se requiere un nuevo embalaje?',
+                    '¿Se requiere un nuevo transporte?'
+                ]
+            },
+            {
+                title: 'LOGISTICA',
+                id: 'logistica',
+                checklist: [
+                    '¿Se requiere un nuevo layout de almacén?',
+                    '¿Se requiere un nuevo sistema de identificación?',
+                    '¿Se requiere un nuevo flujo de materiales?',
+                    '¿Se requiere un nuevo sistema de transporte interno?'
+                ]
+            },
+            {
+                title: 'IMPLEMENTACIÓN',
+                id: 'implementacion',
+                checklist: [
+                    '¿Se requiere actualizar el stock?',
+                    '¿Se requiere notificar al cliente?',
+                    '¿Se requiere capacitar al personal?',
+                    '¿Se requiere validar el proceso?'
+                ]
+            },
+            {
+                title: 'APROBACIÓN FINAL',
+                id: 'aprobacion_final',
+                description: 'Aprobación final del ECO y cierre del proceso.',
+                checklist: null
+            }
+        ];
+
+        function buildSectionHTML(section) {
+            const checklistItemsHTML = section.checklist
+                ? section.checklist.map((item, index) => `
+                    <div class="checklist-item">
+                        <span class="checklist-item-label">${item}</span>
+                        <div class="checklist-item-options">
+                            <input type="checkbox" name="check_${section.id}_${index}_si" class="form-checkbox h-5 w-5 text-blue-600">
+                            <input type="checkbox" name="check_${section.id}_${index}_na" class="form-checkbox h-5 w-5 text-blue-600">
+                        </div>
+                    </div>
+                `).join('')
+                : '';
+
+            const mainContentHTML = section.checklist
+                ? `
+                <div class="section-checklist">
+                    <div class="checklist-header">
+                        <span>Ítem</span>
+                        <div class="flex items-center">
+                            <span class="mr-4">SI</span>
+                            <span>N/A</span>
+                        </div>
+                    </div>
+                    ${checklistItemsHTML}
+                </div>
+                <div class="section-comments">
+                    <label for="comments_${section.id}" class="font-bold text-gray-700">Comentarios:</label>
+                    <textarea id="comments_${section.id}" name="comments_${section.id}" rows="10" class="mt-2 w-full border rounded-md p-2"></textarea>
+                </div>`
+                : `<div class="p-4 w-full">
+                    <p class="text-gray-700">${section.description}</p>
+                </div>`;
+
+            const statusFieldHTML = section.checklist
+                ? `<div class="footer-field">
+                    <label>Estado</label>
+                    <div class="status-options">
+                        <label class="flex items-center"><input type="radio" name="status_${section.id}" value="ok" class="form-radio h-4 w-4 text-green-600"> <span class="ml-2">OK</span></label>
+                        <label class="flex items-center"><input type="radio" name="status_${section.id}" value="nok" class="form-radio h-4 w-4 text-red-600"> <span class="ml-2">NOK</span></label>
+                    </div>
+                </div>`
+                : '';
+
+            return `
+            <div class="section-block">
+                <div class="section-sidebar">
+                    <span>${section.title}</span>
+                </div>
+                <div class="section-main">
+                    <div class="section-content">
+                        ${mainContentHTML}
+                    </div>
+                    <div class="section-footer">
+                        <div class="footer-fields">
+                            <div class="footer-field">
+                                <label for="date_${section.id}">Fecha</label>
+                                <input type="date" id="date_${section.id}" name="date_${section.id}" class="p-1 border rounded-md">
+                            </div>
+                            ${statusFieldHTML}
+                        </div>
+                        <div class="footer-fields">
+                             <div class="footer-field">
+                                <label for="name_${section.id}">Nombre</label>
+                                <input type="text" id="name_${section.id}" name="name_${section.id}" class="p-1 border rounded-md">
+                            </div>
+                             <div class="footer-field">
+                                <label for="date_signature_${section.id}">Fecha</label>
+                                <input type="date" id="date_signature_${section.id}" name="date_signature_${section.id}" class="p-1 border rounded-md">
+                            </div>
+                             <div class="footer-field">
+                                <label for="visto_${section.id}">Visto</label>
+                                <input type="text" id="visto_${section.id}" name="visto_${section.id}" class="p-1 border rounded-md">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        const container = document.getElementById('dynamic-form-sections');
+        if (container) {
+            formSectionsData.forEach(section => {
+                const sectionHTML = buildSectionHTML(section);
+                container.insertAdjacentHTML('beforeend', sectionHTML);
+            });
+        }
+
         appState.currentViewCleanup = () => {
             const style = document.getElementById('eco-form-styles');
             if(style) style.remove();
