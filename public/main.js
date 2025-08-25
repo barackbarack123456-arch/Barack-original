@@ -3365,6 +3365,40 @@ function populateTaskAssigneeDropdown() {
 }
 
 
+async function seedDefaultSectors() {
+    const sectorsRef = collection(db, COLLECTIONS.SECTORES);
+    const snapshot = await getDocs(query(sectorsRef, limit(1)));
+
+    if (!snapshot.empty) {
+        return; // Sectors already exist
+    }
+
+    console.log("No sectors found. Seeding default sectors...");
+    showToast('Creando sectores por defecto...', 'info');
+
+    const defaultSectors = [
+        { id: 'calidad', descripcion: 'Calidad', icon: 'award' },
+        { id: 'produccion', descripcion: 'Producción', icon: 'factory' },
+        { id: 'ingenieria', descripcion: 'Ingeniería', icon: 'pencil-ruler' },
+        { id: 'seguridad-higiene', descripcion: 'Seguridad e Higiene', icon: 'shield-check' }
+    ];
+
+    const batch = writeBatch(db);
+    defaultSectors.forEach(sector => {
+        const docRef = doc(db, COLLECTIONS.SECTORES, sector.id);
+        batch.set(docRef, sector);
+    });
+
+    try {
+        await batch.commit();
+        showToast('Sectores por defecto creados con éxito.', 'success');
+        console.log('Default sectors created successfully.');
+    } catch (error) {
+        console.error("Error seeding default sectors:", error);
+        showToast('Error al crear los sectores por defecto.', 'error');
+    }
+}
+
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         if (user.emailVerified) {
