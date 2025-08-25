@@ -1244,6 +1244,32 @@ async function runEcoFormLogic() {
                 const sectionHTML = buildSectionHTML(section);
                 container.insertAdjacentHTML('beforeend', sectionHTML);
             });
+
+            // Add event listener for mutually exclusive checkboxes
+            container.addEventListener('change', (e) => {
+                if (e.target.type === 'checkbox' && e.target.name.startsWith('check_')) {
+                    const name = e.target.name;
+                    const isChecked = e.target.checked;
+
+                    if (!isChecked) return; // Only act when a box is checked
+
+                    const parts = name.split('_');
+                    const sectionId = parts[1];
+                    const index = parts[2];
+                    const type = parts[3];
+
+                    let otherCheckbox;
+                    if (type === 'si') {
+                        otherCheckbox = container.querySelector(`input[name="check_${sectionId}_${index}_na"]`);
+                    } else if (type === 'na') {
+                        otherCheckbox = container.querySelector(`input[name="check_${sectionId}_${index}_si"]`);
+                    }
+
+                    if (otherCheckbox && otherCheckbox.checked) {
+                        otherCheckbox.checked = false;
+                    }
+                }
+            });
         }
 
         // Load data from Local Storage after rendering the form
@@ -1346,11 +1372,61 @@ async function runEcoFormLogic() {
             });
         });
 
+        const validateEcoForm = () => {
+            // Clear previous errors first
+            formElement.querySelectorAll('.validation-error').forEach(el => el.classList.remove('validation-error'));
+            let isValid = true;
+            const ERROR_CLASS = 'validation-error';
+
+            formSectionsData.forEach(section => {
+                if (section.checklist) {
+                    // Rule 1: For each section, if the status is "NOK", the comments field must have text.
+                    const nokRadio = formElement.querySelector(`input[name="status_${section.id}"][value="nok"]`);
+                    if (nokRadio && nokRadio.checked) {
+                        const commentsTextarea = formElement.querySelector(`#comments_${section.id}`);
+                        if (commentsTextarea && commentsTextarea.value.trim() === '') {
+                            isValid = false;
+                            commentsTextarea.classList.add(ERROR_CLASS);
+                            nokRadio.closest('label').classList.add(ERROR_CLASS);
+                        }
+                    }
+
+                    // Rule 2: For each item, one of the two checkboxes ("SI" or "N/A") must be marked.
+                    section.checklist.forEach((item, index) => {
+                        const si_checkbox = formElement.querySelector(`input[name="check_${section.id}_${index}_si"]`);
+                        const na_checkbox = formElement.querySelector(`input[name="check_${section.id}_${index}_na"]`);
+
+                        if (si_checkbox && na_checkbox && !si_checkbox.checked && !na_checkbox.checked) {
+                            isValid = false;
+                            // Find the parent .checklist-item and highlight it
+                            si_checkbox.closest('.checklist-item').classList.add(ERROR_CLASS);
+                        }
+                    });
+
+                    // Rule 3: Each section must have a final status ("OK" or "NOK") selected.
+                    const statusRadio = formElement.querySelector(`input[name="status_${section.id}"]:checked`);
+                    if (!statusRadio) {
+                        isValid = false;
+                        const statusOptionsContainer = formElement.querySelector(`input[name="status_${section.id}"]`).closest('.status-options');
+                        if (statusOptionsContainer) {
+                            statusOptionsContainer.classList.add(ERROR_CLASS);
+                        }
+                    }
+                }
+            });
+
+            return isValid;
+        };
+
         saveButton.addEventListener('click', () => saveEcoForm('in-progress'));
         approveButton.addEventListener('click', () => {
-            showConfirmationModal('Aprobar ECO', '¿Está seguro de que desea aprobar y guardar este ECO? Esta acción registrará la versión actual como aprobada.', () => {
-                 saveEcoForm('approved');
-            });
+            if (validateEcoForm()) {
+                showConfirmationModal('Aprobar ECO', '¿Está seguro de que desea aprobar y guardar este ECO? Esta acción registrará la versión actual como aprobada.', () => {
+                     saveEcoForm('approved');
+                });
+            } else {
+                showToast('Por favor, corrija los errores resaltados en el formulario.', 'error');
+            }
         });
 
         appState.currentViewCleanup = () => {
