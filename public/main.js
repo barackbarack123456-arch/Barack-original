@@ -3,7 +3,7 @@
 // Importar funciones de los SDKs de Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser, sendEmailVerification, updateProfile } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
-import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, writeBatch, runTransaction, orderBy, limit, startAfter, or } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, writeBatch, runTransaction, orderBy, limit, startAfter, or, getCountFromServer } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { COLLECTIONS, getUniqueKeyForCollection } from './utils.js';
 import { deleteProductAndOrphanedSubProducts } from './data_logic.js';
 
@@ -238,6 +238,7 @@ let appState = {
     pagination: {
         pageCursors: { 1: null }, // Store the startAfter cursor for each page
         currentPage: 1,
+        totalItems: 0,
     },
     godModeState: null
 };
@@ -761,6 +762,50 @@ async function seedDatabase() {
         setInBatch(COLLECTIONS.PRODUCTOS, productoData);
     }
 
+    // --- GENERACIÓN DE TAREAS DE PRUEBA ---
+    const TOTAL_TAREAS = 40;
+    showToast(`Generando ${TOTAL_TAREAS} tareas de prueba...`, 'info');
+    const taskTitles = ['Revisar plano', 'Actualizar documentación', 'Contactar proveedor', 'Optimizar proceso', 'Validar muestra', 'Generar reporte'];
+    const taskDescriptions = [
+        'Es necesario verificar las últimas modificaciones del plano y asegurar la correspondencia con el prototipo.',
+        'Actualizar la documentación técnica para reflejar los cambios de la versión 2.1.',
+        'Contactar al proveedor de materia prima para negociar nuevos términos de entrega.',
+        'Analizar el cuello de botella en la línea de ensamblaje y proponer mejoras.',
+        'Realizar pruebas de calidad sobre la última muestra recibida del proveedor X.',
+        'Generar el reporte de avance semanal del proyecto Y para la reunión de directorio.'
+    ];
+    const statuses = ['todo', 'inprogress', 'done'];
+    const priorities = ['low', 'medium', 'high'];
+    const users = appState.collections.usuarios.filter(u => u.disabled !== true);
+
+    for (let i = 1; i <= TOTAL_TAREAS; i++) {
+        const creator = getRandomItem(users);
+        const assignee = Math.random() > 0.2 ? getRandomItem(users) : null; // 20% de tareas no asignadas
+
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - Math.floor(Math.random() * 30));
+        const dueDate = new Date(startDate);
+        dueDate.setDate(dueDate.getDate() + Math.floor(Math.random() * 60));
+
+        const taskData = {
+            title: `${getRandomItem(taskTitles)} #${i}`,
+            description: getRandomItem(taskDescriptions),
+            creatorUid: creator.docId,
+            assigneeUid: assignee ? assignee.docId : null,
+            status: getRandomItem(statuses),
+            priority: getRandomItem(priorities),
+            isPublic: Math.random() > 0.3, // 70% de tareas públicas
+            createdAt: startDate,
+            startDate: startDate.toISOString().split('T')[0],
+            dueDate: dueDate.toISOString().split('T')[0],
+            subtasks: []
+        };
+
+        const docRef = doc(collection(db, COLLECTIONS.TAREAS));
+        batch.set(docRef, taskData);
+    }
+
+
     // --- COMMIT FINAL ---
     try {
         await batch.commit();
@@ -1183,7 +1228,8 @@ async function runTableLogic(direction = 'first') {
     } else if (direction === 'prev' && currentPage > 1) {
         currentPage--;
     } else if (direction === 'first') {
-        appState.pagination = { pageCursors: { 1: null }, currentPage: 1 };
+        // Reset pagination state for the new view
+        appState.pagination = { pageCursors: { 1: null }, currentPage: 1, totalItems: 0 };
         currentPage = 1;
     }
 
@@ -1196,13 +1242,17 @@ async function runTableLogic(direction = 'first') {
     }
 
     try {
+        // Fetch total count only on the first load of a view
+        if (direction === 'first') {
+            const countSnapshot = await getCountFromServer(query(collection(db, config.dataKey)));
+            appState.pagination.totalItems = countSnapshot.data().count;
+        }
+
         const documentSnapshots = await getDocs(q);
         const data = documentSnapshots.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
 
         if (documentSnapshots.empty && currentPage > 1) {
-            // This can happen if the user clicks 'next' on the last page.
-            // In this case, we just stay on the current page.
-            appState.pagination.currentPage = currentPage - 1; // Revert page change
+            appState.pagination.currentPage = currentPage - 1;
             const nextButton = dom.viewContent.querySelector('button[data-action="next-page"]');
             if (nextButton) nextButton.disabled = true;
             showToast('No hay más resultados.', 'info');
@@ -1219,18 +1269,16 @@ async function runTableLogic(direction = 'first') {
 
         renderTable(appState.currentData, config);
 
-        // Manage cursors for the next page
         if (!documentSnapshots.empty) {
             const lastVisibleDoc = documentSnapshots.docs[documentSnapshots.docs.length - 1];
             appState.pagination.pageCursors[currentPage + 1] = lastVisibleDoc;
         }
 
-        // Check if there is a next page to enable/disable the button
-        const checkNextQ = query(baseQuery, startAfter(appState.pagination.pageCursors[currentPage + 1]), limit(1));
-        const nextSnap = await getDocs(checkNextQ);
+        // Disable/enable next button based on items fetched
+        const totalPages = Math.ceil(appState.pagination.totalItems / PAGE_SIZE);
         const nextButton = dom.viewContent.querySelector('button[data-action="next-page"]');
         if (nextButton) {
-            nextButton.disabled = nextSnap.empty;
+            nextButton.disabled = currentPage >= totalPages;
         }
     } catch (error) {
         console.error("Error fetching paginated data:", error);
@@ -1239,6 +1287,10 @@ async function runTableLogic(direction = 'first') {
 }
 
 function renderTable(data, config) {
+    const PAGE_SIZE = 10; // Ensure this is consistent with runTableLogic
+    const { currentPage, totalItems } = appState.pagination;
+    const totalPages = Math.ceil(totalItems / PAGE_SIZE);
+
     let tableHTML = `<div class="bg-white p-6 rounded-xl shadow-lg animate-fade-in-up">
         <div class="flex justify-end mb-4">
             <button data-action="export-pdf" class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 flex items-center text-sm shadow-sm"><i data-lucide="file-text" class="mr-2 h-4 w-4"></i>PDF</button>
@@ -1267,8 +1319,8 @@ function renderTable(data, config) {
     }
     tableHTML += `</tbody></table></div>
     <div class="flex justify-between items-center pt-4">
-        <button data-action="prev-page" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed" ${appState.pagination.currentPage <= 1 ? 'disabled' : ''}>Anterior</button>
-        <span class="text-sm font-semibold text-gray-600">Página ${appState.pagination.currentPage}</span>
+        <button data-action="prev-page" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed" ${currentPage <= 1 ? 'disabled' : ''}>Anterior</button>
+        <span class="text-sm font-semibold text-gray-600">Página ${currentPage} de ${totalPages > 0 ? totalPages : 1}</span>
         <button data-action="next-page" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 text-sm font-semibold">Siguiente</button>
     </div>
     </div>`;
