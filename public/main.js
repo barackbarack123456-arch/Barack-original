@@ -217,7 +217,7 @@ let appState = {
         [COLLECTIONS.PRODUCTOS]: [], [COLLECTIONS.SEMITERMINADOS]: [], [COLLECTIONS.INSUMOS]: [], [COLLECTIONS.CLIENTES]: [],
         [COLLECTIONS.SECTORES]: [], [COLLECTIONS.PROCESOS]: [],
         [COLLECTIONS.PROVEEDORES]: [], [COLLECTIONS.UNIDADES]: [],
-        [COLLECTIONS.USUARIOS]: [], [COLLECTIONS.PROYECTOS]: [], [COLLECTIONS.ROLES]: []
+        [COLLECTIONS.USUARIOS]: [], [COLLECTIONS.PROYECTOS]: [], [COLLECTIONS.ROLES]: [], [COLLECTIONS.TAREAS]: []
     },
     collectionsById: {
         [COLLECTIONS.PRODUCTOS]: new Map(),
@@ -230,7 +230,8 @@ let appState = {
         [COLLECTIONS.UNIDADES]: new Map(),
         [COLLECTIONS.USUARIOS]: new Map(),
         [COLLECTIONS.PROYECTOS]: new Map(),
-        [COLLECTIONS.ROLES]: new Map()
+        [COLLECTIONS.ROLES]: new Map(),
+        [COLLECTIONS.TAREAS]: new Map()
     },
     unsubscribeListeners: [],
     sinopticoState: null,
