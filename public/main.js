@@ -1023,6 +1023,58 @@ function switchView(viewName) {
 }
 
 async function runEcoFormLogic() {
+    const ECO_FORM_STORAGE_KEY = 'inProgressEcoForm';
+
+    // Helper to save form data to Local Storage
+    const saveEcoFormToLocalStorage = () => {
+        const form = dom.viewContent.querySelector('.max-w-7xl');
+        if (!form) return;
+        const formData = new FormData(form);
+        const data = {};
+        for (const [key, value] of formData.entries()) {
+            if (data[key]) {
+                if (!Array.isArray(data[key])) {
+                    data[key] = [data[key]];
+                }
+                data[key].push(value);
+            } else {
+                data[key] = value;
+            }
+        }
+        // Also handle checkboxes
+        form.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            data[cb.name] = cb.checked;
+        });
+
+        localStorage.setItem(ECO_FORM_STORAGE_KEY, JSON.stringify(data));
+    };
+
+    // Helper to load form data from Local Storage
+    const loadEcoFormFromLocalStorage = () => {
+        const savedData = localStorage.getItem(ECO_FORM_STORAGE_KEY);
+        if (!savedData) return;
+
+        const data = JSON.parse(savedData);
+        const form = dom.viewContent.querySelector('.max-w-7xl');
+        if (!form) return;
+
+        for (const key in data) {
+            const element = form.querySelector(`[name="${key}"]`);
+            if (element) {
+                if (element.type === 'checkbox') {
+                    element.checked = data[key];
+                } else if (element.type === 'radio') {
+                    const radioToSelect = form.querySelector(`[name="${key}"][value="${data[key]}"]`);
+                    if (radioToSelect) radioToSelect.checked = true;
+                }
+                else {
+                    element.value = data[key];
+                }
+            }
+        }
+    };
+
+
     try {
         const response = await fetch('eco_form.html');
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -1194,9 +1246,117 @@ async function runEcoFormLogic() {
             });
         }
 
+        // Load data from Local Storage after rendering the form
+        loadEcoFormFromLocalStorage();
+
+        // Add event listener to save on any input
+        const formElement = dom.viewContent.querySelector('.max-w-7xl');
+        formElement.addEventListener('input', saveEcoFormToLocalStorage);
+
+        // --- Button Logic ---
+        const saveButton = formElement.querySelector('button.bg-gray-500');
+        const clearButton = formElement.querySelector('button.bg-yellow-500');
+        const approveButton = formElement.querySelector('button.bg-green-500');
+        const ecrInput = formElement.querySelector('#ecr_no');
+
+        const getFormData = () => {
+            const formData = new FormData(formElement);
+            const data = {
+                checklists: {},
+                comments: {},
+                signatures: {}
+            };
+
+            for (let [key, value] of formData.entries()) {
+                if (key.startsWith('check_')) {
+                    const [, section, index, type] = key.split('_');
+                    if (!data.checklists[section]) data.checklists[section] = [];
+                    if (!data.checklists[section][index]) data.checklists[section][index] = {};
+                    data.checklists[section][index][type] = value === 'on';
+                } else if (key.startsWith('comments_')) {
+                    const [, section] = key.split('_');
+                    data.comments[section] = value;
+                } else if (key.startsWith('date_') || key.startsWith('status_') || key.startsWith('name_') || key.startsWith('visto_')) {
+                     const [type, section, ...rest] = key.split('_');
+                     const sectionId = rest.length > 0 ? `${section}_${rest.join('_')}` : section;
+                     if (!data.signatures[sectionId]) data.signatures[sectionId] = {};
+                     data.signatures[sectionId][type] = value;
+                } else {
+                    data[key] = value;
+                }
+            }
+             // Handle checkboxes correctly
+            formElement.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                const key = cb.name;
+                 if (key.startsWith('check_')) {
+                    const [, section, index, type] = key.split('_');
+                    if (!data.checklists[section]) data.checklists[section] = [];
+                    if (!data.checklists[section][index]) data.checklists[section][index] = { si: false, na: false };
+                    data.checklists[section][index][type] = cb.checked;
+                }
+            });
+
+            return data;
+        };
+
+        const saveEcoForm = async (status = 'in-progress') => {
+            const ecrId = ecrInput.value.trim();
+            if (!ecrId) {
+                showToast('Por favor, ingrese un ECR N° para guardar.', 'error');
+                ecrInput.focus();
+                return;
+            }
+
+            const dataToSave = getFormData();
+            dataToSave.status = status;
+            dataToSave.id = ecrId;
+            dataToSave.lastModified = new Date();
+            dataToSave.modifiedBy = appState.currentUser.email;
+
+            showToast('Guardando formulario ECO...', 'info');
+            try {
+                const docRef = doc(db, COLLECTIONS.ECO_FORMS, ecrId);
+                const historyRef = collection(docRef, 'history');
+
+                const batch = writeBatch(db);
+
+                // Set the main document (latest version)
+                batch.set(docRef, dataToSave, { merge: true });
+
+                // Add a new document to the history subcollection
+                const historyDocRef = doc(historyRef); // Auto-generate ID
+                batch.set(historyDocRef, dataToSave);
+
+                await batch.commit();
+
+                localStorage.removeItem(ECO_FORM_STORAGE_KEY);
+                showToast(`ECO "${ecrId}" guardado con éxito.`, 'success');
+
+            } catch(error) {
+                console.error("Error saving ECO form: ", error);
+                showToast('Error al guardar el formulario.', 'error');
+            }
+        };
+
+        clearButton.addEventListener('click', () => {
+            showConfirmationModal('Limpiar Formulario', '¿Está seguro? Se borrará todo el progreso no guardado.', () => {
+                formElement.reset();
+                localStorage.removeItem(ECO_FORM_STORAGE_KEY);
+                showToast('Formulario limpiado.', 'info');
+            });
+        });
+
+        saveButton.addEventListener('click', () => saveEcoForm('in-progress'));
+        approveButton.addEventListener('click', () => {
+            showConfirmationModal('Aprobar ECO', '¿Está seguro de que desea aprobar y guardar este ECO? Esta acción registrará la versión actual como aprobada.', () => {
+                 saveEcoForm('approved');
+            });
+        });
+
         appState.currentViewCleanup = () => {
             const style = document.getElementById('eco-form-styles');
             if(style) style.remove();
+            formElement.removeEventListener('input', saveEcoFormToLocalStorage);
         };
 
     } catch (error) {
