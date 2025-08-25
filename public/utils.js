@@ -9,7 +9,8 @@ export const COLLECTIONS = {
     UNIDADES: 'unidades',
     USUARIOS: 'usuarios',
     TAREAS: 'tareas',
-    PROYECTOS: 'proyectos'
+    PROYECTOS: 'proyectos',
+    ROLES: 'roles'
 };
 
 export function getUniqueKeyForCollection(collectionName) {
