@@ -65,12 +65,14 @@ const viewConfig = {
         columns: [
             { key: 'codigo', label: 'Código' },
             { key: 'nombre', label: 'Nombre' },
-            { key: 'descripcion', label: 'Descripción' }
+            { key: 'descripcion', label: 'Descripción' },
+            { key: 'status', label: 'Estado' }
         ],
         fields: [
             { key: 'codigo', label: 'Código', type: 'text', required: true },
             { key: 'nombre', label: 'Nombre', type: 'text', required: true },
             { key: 'descripcion', label: 'Descripción', type: 'textarea' },
+            { key: 'status', label: 'Estado', type: 'select', options: ['Activo', 'Pausado', 'Finalizado'], required: true },
         ]
     },
     productos: {
@@ -677,6 +679,27 @@ async function seedDatabase() {
         generated.procesos.push({ id, descripcion: processes[i-1] || `Proceso ${i}` });
     }
     generated.procesos.forEach(p => setInBatch(COLLECTIONS.PROCESOS, p));
+
+    // --- GENERACIÓN DE PROYECTOS ---
+    const TOTAL_PROYECTOS = 15;
+    showToast(`Generando ${TOTAL_PROYECTOS} proyectos de prueba...`, 'info');
+    const projectNouns = ['Desarrollo', 'Investigación', 'Optimización', 'Lanzamiento', 'Mantenimiento'];
+    const projectAdjectives = ['Nuevo', 'Urgente', 'Interno', 'Externo', 'Confidencial'];
+    const projectStatuses = ['Activo', 'Pausado', 'Finalizado'];
+
+    for (let i = 1; i <= TOTAL_PROYECTOS; i++) {
+        const id = `PROY-${String(i).padStart(4, '0')}`;
+        const proyectoData = {
+            id: id,
+            codigo: id,
+            nombre: `${getRandomItem(projectAdjectives)} ${getRandomItem(projectNouns)} de ${getRandomItem(vehicleBrands)}`,
+            descripcion: `Proyecto para el desarrollo de componentes para el nuevo modelo ${getRandomItem(vehicleModels)}.`,
+            status: getRandomItem(projectStatuses),
+            createdAt: new Date(),
+        };
+        generated.proyectos.push(proyectoData);
+    }
+    generated.proyectos.forEach(p => setInBatch(COLLECTIONS.PROYECTOS, p));
 
     // Generar Insumos (200)
     for (let i = 1; i <= 200; i++) {
