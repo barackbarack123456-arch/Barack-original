@@ -335,7 +335,7 @@ function startRealtimeListeners() {
                 // After initial load, these can run on subsequent updates
                 if (appState.isAppInitialized) {
                     if (name === COLLECTIONS.USUARIOS) populateTaskAssigneeDropdown();
-                    if (appState.currentView === 'dashboard') runDashboardLogic();
+                    if (appState.currentView === 'dashboard') updateDashboard(name);
                     if (appState.currentView === 'sinoptico' && appState.sinopticoState) initSinoptico();
                     if (viewConfig[appState.currentView]?.dataKey === name) {
                         runTableLogic();
@@ -1683,6 +1683,44 @@ function openAssociationSearchModal(searchKey, onSelect) {
     renderResults();
 }
 
+function updateDashboard(collectionName) {
+    // Only run if the dashboard is the current view.
+    if (appState.currentView !== 'dashboard') return;
+
+    const currentUser = appState.currentUser;
+
+    const updateElementText = (id, text) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+    };
+
+    switch (collectionName) {
+        case COLLECTIONS.PRODUCTOS:
+            updateElementText('kpi-productos', appState.collections.productos.length);
+            renderDashboardActivityFeed();
+            break;
+        case COLLECTIONS.INSUMOS:
+            updateElementText('kpi-insumos', appState.collections.insumos.length);
+            renderDashboardActivityFeed();
+            break;
+        case COLLECTIONS.PROYECTOS:
+            updateElementText('kpi-proyectos', appState.collections.proyectos.length);
+            break;
+        case COLLECTIONS.TAREAS:
+            const tareas = appState.collections.tareas;
+            const myTasks = tareas.filter(t => t.assigneeUid === currentUser.uid && t.status !== 'done');
+            const overdueTasks = myTasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date());
+
+            updateElementText('kpi-vencidas', overdueTasks.length);
+            renderDashboardTasks(myTasks);
+            renderDashboardCharts(myTasks, tareas);
+            break;
+        case COLLECTIONS.SEMITERMINADOS:
+             renderDashboardActivityFeed();
+            break;
+    }
+}
+
 function runDashboardLogic() {
     const { productos, insumos, clientes, tareas, proyectos } = appState.collections;
     const currentUser = appState.currentUser;
@@ -1707,19 +1745,19 @@ function runDashboardLogic() {
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex items-center space-x-4">
                 <div class="p-3 rounded-full bg-blue-100 text-blue-600"><i data-lucide="package" class="h-8 w-8"></i></div>
-                <div><p class="text-3xl font-bold">${productos.length}</p><p class="text-sm font-semibold text-gray-600">Productos Totales</p></div>
+                <div><p id="kpi-productos" class="text-3xl font-bold">${productos.length}</p><p class="text-sm font-semibold text-gray-600">Productos Totales</p></div>
             </div>
             <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex items-center space-x-4">
                 <div class="p-3 rounded-full bg-green-100 text-green-600"><i data-lucide="beaker" class="h-8 w-8"></i></div>
-                <div><p class="text-3xl font-bold">${insumos.length}</p><p class="text-sm font-semibold text-gray-600">Insumos Registrados</p></div>
+                <div><p id="kpi-insumos" class="text-3xl font-bold">${insumos.length}</p><p class="text-sm font-semibold text-gray-600">Insumos Registrados</p></div>
             </div>
             <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex items-center space-x-4">
                 <div class="p-3 rounded-full bg-amber-100 text-amber-600"><i data-lucide="kanban-square" class="h-8 w-8"></i></div>
-                <div><p class="text-3xl font-bold">${projects.length}</p><p class="text-sm font-semibold text-gray-600">Proyectos Activos</p></div>
+                <div><p id="kpi-proyectos" class="text-3xl font-bold">${projects.length}</p><p class="text-sm font-semibold text-gray-600">Proyectos Activos</p></div>
             </div>
             <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex items-center space-x-4">
                 <div class="p-3 rounded-full bg-red-100 text-red-600"><i data-lucide="alert-circle" class="h-8 w-8"></i></div>
-                <div><p class="text-3xl font-bold">${overdueTasks.length}</p><p class="text-sm font-semibold text-gray-600">Tareas Vencidas</p></div>
+                <div><p id="kpi-vencidas" class="text-3xl font-bold">${overdueTasks.length}</p><p class="text-sm font-semibold text-gray-600">Tareas Vencidas</p></div>
             </div>
         </div>
 
