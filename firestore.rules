@@ -11,7 +11,7 @@ service cloud.firestore {
 
     function canCreateUpdate() {
       let userRole = get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.role;
-      return userRole == 'admin' || userRole == 'editor';
+      return isUserAdmin() || userRole == 'editor';
     }
 
     // --- USUARIOS ---
