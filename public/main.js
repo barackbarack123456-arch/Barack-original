@@ -292,7 +292,9 @@ function startRealtimeListeners() {
             COLLECTIONS.CLIENTES,
             COLLECTIONS.USUARIOS,
             COLLECTIONS.ROLES,
-            COLLECTIONS.SECTORES
+            COLLECTIONS.SECTORES,
+            COLLECTIONS.TAREAS,
+            COLLECTIONS.PROYECTOS
         ]);
 
         if (appState.unsubscribeListeners.length > 0) {
@@ -933,6 +935,9 @@ function setupGlobalEventListeners() {
 }
 
 function switchView(viewName) {
+    if (appState.currentView === 'dashboard') {
+        destroyDashboardCharts();
+    }
     if (appState.currentViewCleanup) {
         appState.currentViewCleanup();
         appState.currentViewCleanup = null;
@@ -1678,101 +1683,296 @@ function openAssociationSearchModal(searchKey, onSelect) {
 }
 
 function runDashboardLogic() {
-    const { productos, insumos, clientes } = appState.collections;
-    
-    const productsByClient = clientes.map(client => {
-        const count = productos.filter(p => p.clienteId === client.id).length;
-        return { clientName: client.descripcion, productCount: count };
-    }).filter(c => c.productCount > 0);
-    const maxProducts = Math.max(...productsByClient.map(c => c.productCount), 0);
-    
-    const recentActivity = [...productos, ...insumos]
-        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
-        .slice(0, 5);
-    let adminActionsHTML = '';
-    if (checkUserPermission('delete')) { // Use 'delete' as a proxy for top-level admin actions
-        adminActionsHTML = `
-        <div class="lg:col-span-3 bg-slate-50 p-6 rounded-xl border border-slate-200">
-            <h3 class="text-xl font-bold text-slate-800 mb-4">Panel de Administración</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    const { productos, insumos, clientes, tareas, proyectos } = appState.collections;
+    const currentUser = appState.currentUser;
 
-                <!-- Limpiar y Cargar Datos -->
-                <div class="border border-yellow-300 bg-yellow-50 p-4 rounded-lg">
-                    <h4 class="font-bold text-yellow-800">Limpiar y Cargar Datos</h4>
-                    <p class="text-xs text-yellow-700 my-2">Opción principal: Borra todo (productos, insumos, etc.) excepto los usuarios y carga los datos de prueba.</p>
-                    <button data-action="seed-database" class="w-full bg-yellow-500 text-white px-3 py-2 rounded-md hover:bg-yellow-600 font-semibold text-sm">
-                        <i data-lucide="database-zap" class="inline-block mr-1.5 h-4 w-4"></i>Ejecutar
-                    </button>
-                </div>
+    // --- Data processing ---
+    const myTasks = tareas.filter(t => t.assigneeUid === currentUser.uid && t.status !== 'done');
+    const overdueTasks = myTasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date());
+    const projects = proyectos; // Assuming 'proyectos' collection exists and is loaded.
 
-                <!-- Borrar Solo Datos -->
-                <div class="border border-orange-300 bg-orange-50 p-4 rounded-lg">
-                    <h4 class="font-bold text-orange-800">Borrar Solo Datos</h4>
-                    <p class="text-xs text-orange-700 my-2">Acción segura: Borra todas las colecciones de datos pero deja intacta la colección de usuarios.</p>
-                    <button data-action="clear-data-only" class="w-full bg-orange-500 text-white px-3 py-2 rounded-md hover:bg-orange-600 font-semibold text-sm">
-                        <i data-lucide="shield-check" class="inline-block mr-1.5 h-4 w-4"></i>Ejecutar
-                    </button>
-                </div>
-
-                <!-- Borrar Otros Usuarios -->
-                <div class="border border-red-300 bg-red-50 p-4 rounded-lg">
-                    <h4 class="font-bold text-red-800">Borrar Otros Usuarios</h4>
-                    <p class="text-xs text-red-700 my-2">Acción delicada: Elimina a todos los usuarios excepto al administrador principal (ID: ...AmMw2).</p>
-                    <button data-action="clear-other-users" class="w-full bg-red-600 text-white px-3 py-2 rounded-md hover:bg-red-700 font-semibold text-sm">
-                        <i data-lucide="user-x" class="inline-block mr-1.5 h-4 w-4"></i>Ejecutar
-                    </button>
-                </div>
+    // --- HTML Structure ---
+    const content = `
+    <div class="animate-fade-in-up space-y-6">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-800">Bienvenido, ${currentUser.name}</h1>
+                <p class="text-slate-500 mt-1">Aquí tienes un resumen de la actividad reciente y tus tareas.</p>
             </div>
-        </div>`;
-    }
+        </div>
 
-    let content = `<div class="bg-white p-6 rounded-xl shadow-lg animate-fade-in-up">
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="border border-slate-200 p-6 rounded-xl flex items-center space-x-4">
-            <div class="p-3 rounded-full bg-blue-100 text-blue-600"><i data-lucide="package" class="h-8 w-8"></i></div>
-            <div><p class="text-3xl font-bold">${productos.length}</p><p class="text-sm font-semibold text-gray-600">Productos Totales</p></div>
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex items-center space-x-4">
+                <div class="p-3 rounded-full bg-blue-100 text-blue-600"><i data-lucide="package" class="h-8 w-8"></i></div>
+                <div><p class="text-3xl font-bold">${productos.length}</p><p class="text-sm font-semibold text-gray-600">Productos Totales</p></div>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex items-center space-x-4">
+                <div class="p-3 rounded-full bg-green-100 text-green-600"><i data-lucide="beaker" class="h-8 w-8"></i></div>
+                <div><p class="text-3xl font-bold">${insumos.length}</p><p class="text-sm font-semibold text-gray-600">Insumos Registrados</p></div>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex items-center space-x-4">
+                <div class="p-3 rounded-full bg-amber-100 text-amber-600"><i data-lucide="kanban-square" class="h-8 w-8"></i></div>
+                <div><p class="text-3xl font-bold">${projects.length}</p><p class="text-sm font-semibold text-gray-600">Proyectos Activos</p></div>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex items-center space-x-4">
+                <div class="p-3 rounded-full bg-red-100 text-red-600"><i data-lucide="alert-circle" class="h-8 w-8"></i></div>
+                <div><p class="text-3xl font-bold">${overdueTasks.length}</p><p class="text-sm font-semibold text-gray-600">Tareas Vencidas</p></div>
+            </div>
         </div>
-        <div class="border border-slate-200 p-6 rounded-xl flex items-center space-x-4">
-            <div class="p-3 rounded-full bg-green-100 text-green-600"><i data-lucide="beaker" class="h-8 w-8"></i></div>
-            <div><p class="text-3xl font-bold">${insumos.length}</p><p class="text-sm font-semibold text-gray-600">Insumos Registrados</p></div>
-        </div>
-        <div class="border border-slate-200 p-6 rounded-xl flex items-center space-x-4">
-            <div class="p-3 rounded-full bg-indigo-100 text-indigo-600"><i data-lucide="users" class="h-8 w-8"></i></div>
-            <div><p class="text-3xl font-bold">${clientes.length}</p><p class="text-sm font-semibold text-gray-600">Clientes Activos</p></div>
-        </div>
-        <div class="lg:col-span-2 border border-slate-200 p-6 rounded-xl">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Productos por Cliente</h3>
-            <div class="mt-6 flex items-end space-x-4 h-64 border-l border-b border-gray-200 pl-4 pb-1">
-                ${productsByClient.length > 0 ? productsByClient.map(item => `
-                    <div class="flex-1 flex flex-col items-center justify-end">
-                        <div class="text-sm font-bold text-gray-700">${item.productCount}</div>
-                        <div class="w-full bg-blue-500 hover:bg-blue-600 transition-colors rounded-t-md" style="height: ${maxProducts > 0 ? (item.productCount / maxProducts) * 90 : 0}%;"></div>
-                        <div class="text-xs text-center font-medium text-gray-500 mt-2 truncate w-full">${item.clientName}</div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left Column -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- My Tasks -->
+                <div id="dashboard-tasks-container" class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Mis Tareas Pendientes</h3>
+                    <div id="dashboard-tasks-list" class="space-y-3">
+                        <!-- Tasks will be rendered here by a dedicated function -->
                     </div>
-                `).join('') : `<div class="w-full h-full flex items-center justify-center text-gray-500">No hay datos de productos para mostrar.</div>`}
+                </div>
+
+                <!-- Admin Panel (if admin) -->
+                ${checkUserPermission('delete') ? `
+                <div class="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">Panel de Administración</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="border border-yellow-300 bg-yellow-50 p-4 rounded-lg">
+                            <h4 class="font-bold text-yellow-800">Limpiar y Cargar Datos</h4>
+                            <p class="text-xs text-yellow-700 my-2">Borra todo excepto usuarios y carga datos de prueba.</p>
+                            <button data-action="seed-database" class="w-full bg-yellow-500 text-white px-3 py-2 rounded-md hover:bg-yellow-600 font-semibold text-sm">
+                                <i data-lucide="database-zap" class="inline-block mr-1.5 h-4 w-4"></i>Ejecutar
+                            </button>
+                        </div>
+                        <div class="border border-orange-300 bg-orange-50 p-4 rounded-lg">
+                            <h4 class="font-bold text-orange-800">Borrar Solo Datos</h4>
+                            <p class="text-xs text-orange-700 my-2">Borra todos los datos pero mantiene a los usuarios.</p>
+                            <button data-action="clear-data-only" class="w-full bg-orange-500 text-white px-3 py-2 rounded-md hover:bg-orange-600 font-semibold text-sm">
+                                <i data-lucide="shield-check" class="inline-block mr-1.5 h-4 w-4"></i>Ejecutar
+                            </button>
+                        </div>
+                        <div class="border border-red-300 bg-red-50 p-4 rounded-lg">
+                            <h4 class="font-bold text-red-800">Borrar Otros Usuarios</h4>
+                            <p class="text-xs text-red-700 my-2">Elimina a todos los usuarios excepto al admin principal.</p>
+                            <button data-action="clear-other-users" class="w-full bg-red-600 text-white px-3 py-2 rounded-md hover:bg-red-700 font-semibold text-sm">
+                                <i data-lucide="user-x" class="inline-block mr-1.5 h-4 w-4"></i>Ejecutar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+            </div>
+
+            <!-- Right Column -->
+            <div class="space-y-6">
+                 <!-- Task Charts -->
+                <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Resumen de Tareas</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-sm font-semibold text-slate-600 mb-2">Mis Tareas por Estado</p>
+                            <canvas id="dashboard-status-chart" class="h-48"></canvas>
+                        </div>
+                        <div class="border-t pt-4">
+                            <p class="text-sm font-semibold text-slate-600 mb-2">Tareas por Prioridad</p>
+                            <canvas id="dashboard-priority-chart" class="h-48"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <!-- Recent Activity -->
+                <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Actividad Reciente</h3>
+                    <div id="dashboard-activity-feed" class="space-y-4">
+                        <!-- Activity items will be rendered here -->
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="border border-slate-200 p-6 rounded-xl">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Actividad Reciente</h3>
-            <ul class="space-y-4">
-                ${recentActivity.length > 0 ? recentActivity.map(item => `
-                    <li class="flex items-center space-x-3">
-                        <div class="p-2 rounded-full bg-gray-100 text-gray-600">
-                            <i data-lucide="${'clienteId' in item ? 'package' : 'beaker'}" class="h-5 w-5"></i>
-                        </div>
-                        <div>
-                            <p class="font-semibold text-sm">${item.descripcion}</p>
-                            <p class="text-xs text-gray-500">Nuevo item agregado</p>
-                        </div>
-                    </li>
-                `).join('') : `<li class="text-center text-gray-500 py-8">No hay actividad reciente.</li>`}
-            </ul>
-        </div>
-        ${adminActionsHTML}
     </div>
-    </div>`;
+    `;
+
     dom.viewContent.innerHTML = content;
     lucide.createIcons();
+
+    // Call dedicated rendering functions for each component
+    renderDashboardTasks(myTasks);
+    renderDashboardCharts(myTasks, tareas);
+    renderDashboardActivityFeed();
+}
+
+function renderDashboardTasks(tasks) {
+    const container = document.getElementById('dashboard-tasks-list');
+    if (!container) return;
+
+    if (tasks.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-8 text-slate-500">
+                <i data-lucide="check-circle-2" class="h-12 w-12 mx-auto text-green-500"></i>
+                <h4 class="mt-4 font-semibold">¡Todo en orden!</h4>
+                <p class="text-sm">No tienes tareas pendientes.</p>
+            </div>
+        `;
+        lucide.createIcons();
+        return;
+    }
+
+    container.innerHTML = tasks.slice(0, 5).map(task => {
+        const dueDate = task.dueDate ? new Date(task.dueDate + 'T00:00:00') : null;
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const isOverdue = dueDate && dueDate < today;
+        const dateClass = isOverdue ? 'text-red-600 font-bold' : 'text-slate-500';
+        const dueDateStr = dueDate ? `Vence: ${dueDate.toLocaleDateString('es-AR')}` : 'Sin fecha límite';
+
+        return `
+        <div class="p-3 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all cursor-pointer" onclick="switchView('tareas')">
+            <div class="flex justify-between items-center">
+                <span class="font-semibold text-slate-700">${task.title}</span>
+                <span class="text-xs ${dateClass}">${dueDateStr}</span>
+            </div>
+            <div class="text-xs text-slate-400 mt-1">
+                Prioridad: <span class="font-medium">${task.priority || 'Media'}</span>
+            </div>
+        </div>
+        `;
+    }).join('');
+}
+
+let dashboardCharts = { statusChart: null, priorityChart: null };
+
+function destroyDashboardCharts() {
+    Object.keys(dashboardCharts).forEach(key => {
+        if (dashboardCharts[key]) {
+            dashboardCharts[key].destroy();
+            dashboardCharts[key] = null;
+        }
+    });
+}
+
+function renderDashboardCharts(myTasks, allTasks) {
+    destroyDashboardCharts();
+
+    // Status Chart (Doughnut) for "My Tasks"
+    const statusCtx = document.getElementById('dashboard-status-chart')?.getContext('2d');
+    if (statusCtx) {
+        const statusCounts = myTasks.reduce((acc, task) => {
+            acc[task.status] = (acc[task.status] || 0) + 1;
+            return acc;
+        }, { todo: 0, inprogress: 0 });
+
+        dashboardCharts.statusChart = new Chart(statusCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Por Hacer', 'En Progreso'],
+                datasets: [{
+                    data: [statusCounts.todo, statusCounts.inprogress],
+                    backgroundColor: ['#f59e0b', '#3b82f6'],
+                    borderColor: '#ffffff',
+                    borderWidth: 2,
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+        });
+    }
+
+    // Priority Chart (Bar) for "All Tasks"
+    const priorityCtx = document.getElementById('dashboard-priority-chart')?.getContext('2d');
+    if (priorityCtx) {
+        const activeTasks = allTasks.filter(t => t.status !== 'done');
+        const priorityCounts = activeTasks.reduce((acc, task) => {
+            acc[task.priority || 'medium'] = (acc[task.priority || 'medium'] || 0) + 1;
+            return acc;
+        }, { low: 0, medium: 0, high: 0 });
+
+        dashboardCharts.priorityChart = new Chart(priorityCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Baja', 'Media', 'Alta'],
+                datasets: [{
+                    label: 'Tareas Activas',
+                    data: [priorityCounts.low, priorityCounts.medium, priorityCounts.high],
+                    backgroundColor: ['#6b7280', '#f59e0b', '#ef4444'],
+                    maxBarThickness: 30,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+            }
+        });
+    }
+}
+
+function renderDashboardActivityFeed() {
+    const container = document.getElementById('dashboard-activity-feed');
+    if (!container) return;
+
+    const { productos, insumos, semiterminados } = appState.collections;
+    const allItems = [...productos, ...insumos, ...semiterminados];
+
+    const recentActivity = allItems
+        .filter(item => item.createdAt?.seconds)
+        .sort((a, b) => b.createdAt.seconds - a.createdAt.seconds)
+        .slice(0, 5);
+
+    if (recentActivity.length === 0) {
+        container.innerHTML = `<p class="text-sm text-center text-slate-500 py-4">No hay actividad reciente.</p>`;
+        return;
+    }
+
+    const typeMap = {
+        productos: { icon: 'package', label: 'Producto', color: 'blue' },
+        insumos: { icon: 'beaker', label: 'Insumo', color: 'green' },
+        semiterminados: { icon: 'box', label: 'Semiterminado', color: 'purple' }
+    };
+
+    const getType = (item) => {
+        if ('version_vehiculo' in item) return typeMap.productos;
+        if ('proceso' in item) return typeMap.semiterminados;
+        return typeMap.insumos;
+    };
+
+    container.innerHTML = recentActivity.map(item => {
+        const itemType = getType(item);
+        const timeAgo = formatTimeAgo(item.createdAt.seconds * 1000);
+
+        return `
+            <div class="flex items-start space-x-3">
+                <div class="p-2 rounded-full bg-${itemType.color}-100 text-${itemType.color}-600">
+                    <i data-lucide="${itemType.icon}" class="h-5 w-5"></i>
+                </div>
+                <div>
+                    <p class="text-sm">
+                        <span class="font-bold">${itemType.label}</span>
+                        <span class="font-semibold text-slate-700">${item.descripcion}</span>
+                        fue creado.
+                    </p>
+                    <p class="text-xs text-slate-400">${timeAgo}</p>
+                </div>
+            </div>
+        `;
+    }).join('');
+    lucide.createIcons();
+}
+
+function formatTimeAgo(timestamp) {
+    const now = new Date();
+    const seconds = Math.floor((now - timestamp) / 1000);
+    let interval = seconds / 31536000;
+    if (interval > 1) return `hace ${Math.floor(interval)} años`;
+    interval = seconds / 2592000;
+    if (interval > 1) return `hace ${Math.floor(interval)} meses`;
+    interval = seconds / 86400;
+    if (interval > 1) return `hace ${Math.floor(interval)} días`;
+    interval = seconds / 3600;
+    if (interval > 1) return `hace ${Math.floor(interval)} horas`;
+    interval = seconds / 60;
+    if (interval > 1) return `hace ${Math.floor(interval)} minutos`;
+    return `hace ${Math.floor(seconds)} segundos`;
 }
 
 async function handleProductSelect(productId) {
@@ -3832,6 +4032,11 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeAppListeners();
     lucide.createIcons();
 });
+
+// Expose for testing
+if (window.location.protocol === 'file:') {
+    window.runDashboardLogic = runDashboardLogic;
+}
 
 function renderArbolesInitialView() {
     dom.viewContent.innerHTML = `<div class="flex flex-col items-center justify-center h-full bg-white rounded-xl shadow-lg p-6 text-center animate-fade-in-up"><i data-lucide="git-merge" class="h-24 w-24 text-gray-300 mb-6"></i><h3 class="text-2xl font-bold">Gestor de Árboles de Producto</h3><p class="text-gray-500 mt-2 mb-8 max-w-lg">Busque y seleccione el producto principal para cargar o crear su estructura de componentes.</p><button data-action="open-product-search-modal" class="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 text-lg font-semibold shadow-lg transition-transform transform hover:scale-105"><i data-lucide="search" class="inline-block mr-2 -mt-1"></i>Seleccionar Producto</button></div>`;
