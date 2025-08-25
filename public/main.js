@@ -1892,32 +1892,38 @@ function destroyDashboardCharts() {
 }
 
 function renderDashboardCharts(myTasks, allTasks) {
-    destroyDashboardCharts();
-
-    // Status Chart (Doughnut) for "My Tasks"
+    // --- STATUS CHART (Doughnut) ---
     const statusCtx = document.getElementById('dashboard-status-chart')?.getContext('2d');
     if (statusCtx) {
         const statusCounts = myTasks.reduce((acc, task) => {
-            acc[task.status] = (acc[task.status] || 0) + 1;
+            const status = task.status || 'todo';
+            acc[status] = (acc[status] || 0) + 1;
             return acc;
         }, { todo: 0, inprogress: 0 });
 
-        dashboardCharts.statusChart = new Chart(statusCtx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Por Hacer', 'En Progreso'],
-                datasets: [{
-                    data: [statusCounts.todo, statusCounts.inprogress],
-                    backgroundColor: ['#f59e0b', '#3b82f6'],
-                    borderColor: '#ffffff',
-                    borderWidth: 2,
-                }]
-            },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
-        });
+        if (dashboardCharts.statusChart) {
+            // Update existing chart
+            dashboardCharts.statusChart.data.datasets[0].data = [statusCounts.todo, statusCounts.inprogress];
+            dashboardCharts.statusChart.update();
+        } else {
+            // Create new chart if it doesn't exist
+            dashboardCharts.statusChart = new Chart(statusCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Por Hacer', 'En Progreso'],
+                    datasets: [{
+                        data: [statusCounts.todo, statusCounts.inprogress],
+                        backgroundColor: ['#f59e0b', '#3b82f6'],
+                        borderColor: '#ffffff',
+                        borderWidth: 2,
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+            });
+        }
     }
 
-    // Priority Chart (Bar) for "All Tasks"
+    // --- PRIORITY CHART (Bar) ---
     const priorityCtx = document.getElementById('dashboard-priority-chart')?.getContext('2d');
     if (priorityCtx) {
         const activeTasks = allTasks.filter(t => t.status !== 'done');
@@ -1926,24 +1932,33 @@ function renderDashboardCharts(myTasks, allTasks) {
             return acc;
         }, { low: 0, medium: 0, high: 0 });
 
-        dashboardCharts.priorityChart = new Chart(priorityCtx, {
-            type: 'bar',
-            data: {
-                labels: ['Baja', 'Media', 'Alta'],
-                datasets: [{
-                    label: 'Tareas Activas',
-                    data: [priorityCounts.low, priorityCounts.medium, priorityCounts.high],
-                    backgroundColor: ['#6b7280', '#f59e0b', '#ef4444'],
-                    maxBarThickness: 30,
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
-            }
-        });
+        const priorityData = [priorityCounts.low, priorityCounts.medium, priorityCounts.high];
+
+        if (dashboardCharts.priorityChart) {
+            // Update existing chart
+            dashboardCharts.priorityChart.data.datasets[0].data = priorityData;
+            dashboardCharts.priorityChart.update();
+        } else {
+            // Create new chart if it doesn't exist
+            dashboardCharts.priorityChart = new Chart(priorityCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Baja', 'Media', 'Alta'],
+                    datasets: [{
+                        label: 'Tareas Activas',
+                        data: priorityData,
+                        backgroundColor: ['#6b7280', '#f59e0b', '#ef4444'],
+                        maxBarThickness: 30,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                }
+            });
+        }
     }
 }
 
