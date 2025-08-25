@@ -594,230 +594,168 @@ async function clearOtherUsers() {
 
 async function seedDatabase() {
     await clearDataOnly();
-    showToast('Iniciando carga de datos de prueba completos...', 'info');
+    showToast('Iniciando carga masiva de datos de prueba...', 'info');
     const batch = writeBatch(db);
+    const TOTAL_PRODUCTS = 50; // Aumentado a 50 productos
 
-    // Helper para crear un nuevo documento en el batch con un ID predefinido
     const setInBatch = (collectionName, data) => {
-        // Usamos el campo 'id' de los datos como el ID del documento de Firestore
         const docRef = doc(db, collectionName, data.id);
         batch.set(docRef, data);
     };
 
-    // Helper para añadir un documento con un ID autogenerado por Firestore
-    const addInBatch = (collectionName, data) => {
-        const docRef = doc(collection(db, collectionName));
-        batch.set(docRef, data);
+    const getRandomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    const getRandomDate = (start, end) => new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime())).toISOString().split('T')[0];
+
+    // --- BANCOS DE DATOS AMPLIADOS ---
+    const firstNames = ['Juan', 'Carlos', 'Luis', 'Miguel', 'Javier', 'David', 'José', 'Manuel', 'Francisco', 'Pedro'];
+    const lastNames = ['García', 'Rodríguez', 'González', 'Fernández', 'López', 'Martínez', 'Sánchez', 'Pérez', 'Gómez', 'Martín'];
+    const companies = ['Automotriz', 'Industrial', 'Aeroespacial', 'Tecnología', 'Manufactura', 'Logística'];
+    const companySuffix = ['S.A.', 'SRL', 'Global', 'Corp', 'Solutions', 'Group'];
+
+    const materials = ['Acero', 'Aluminio', 'Plástico ABS', 'Polipropileno', 'Cobre', 'Goma', 'Tornillo', 'Arandela', 'Tuerca', 'Cable'];
+    const materialTypes = ['Chapa', 'Tubo', 'Grano', 'Lámina', 'Bobina', 'Lingote', 'Placa'];
+    const processes = ['Estampado', 'Inyección', 'Mecanizado', 'Soldadura', 'Ensamblaje', 'Pintura', 'Extrusión', 'Corte Láser'];
+    const productNouns = ['Soporte', 'Carcasa', 'Eje', 'Engranaje', 'Panel', 'Conjunto', 'Módulo', 'Actuador', 'Sensor'];
+    const productAdjectives = ['Delantero', 'Trasero', 'Superior', 'Inferior', 'Izquierdo', 'Derecho', 'Principal', 'Auxiliar'];
+    const vehicleModels = ['Sedan', 'SUV', 'Camioneta', 'Deportivo', 'Híbrido', 'Eléctrico'];
+    const vehicleBrands = ['Astro', 'Vortex', 'Terra', 'Quantum', 'Nova', 'Pulsar'];
+
+    const imageUrls = [
+        'https://images.pexels.com/photos/120049/pexels-photo-120049.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
+        'https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
+        'https://images.pexels.com/photos/1545743/pexels-photo-1545743.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
+        'https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1'
+    ];
+
+    // --- GENERACIÓN DE DATOS BASE ---
+    const generated = {
+        clientes: [], proveedores: [], unidades: [], sectores: [], procesos: [], proyectos: [], insumos: [], semiterminados: []
     };
 
-    // --- DATOS DE PRUEBA ---
+    // Unidades (fijas)
+    generated.unidades = [ { id: 'kg', descripcion: 'Kilogramos' }, { id: 'm', descripcion: 'Metros' }, { id: 'un', descripcion: 'Unidades' }, { id: 'l', descripcion: 'Litros' }, { id: 'm2', descripcion: 'Metros Cuadrados' }];
+    generated.unidades.forEach(u => setInBatch(COLLECTIONS.UNIDADES, u));
 
-    const clientes = [
-        { id: 'C001', descripcion: 'Cliente Automotriz Global' },
-        { id: 'C002', descripcion: 'Cliente Industrial Pesado' },
-    ];
-    const proveedores = [
-        { id: 'P001', descripcion: 'Aceros del Norte S.A.' },
-        { id: 'P002', descripcion: 'Plásticos Industriales SRL' },
-        { id: 'P003', descripcion: 'Tornillos y Fijaciones Acme' },
-    ];
-    const unidades = [
-        { id: 'kg', descripcion: 'Kilogramos' },
-        { id: 'm', descripcion: 'Metros' },
-        { id: 'un', descripcion: 'Unidades' },
-        { id: 'l', descripcion: 'Litros' },
-        { id: 'm2', descripcion: 'Metros Cuadrados' },
-    ];
-     const sectores = [
-        { id: 'ingenieria', descripcion: 'Ingeniería de Producto', icon: 'pencil-ruler' },
-        { id: 'calidad', descripcion: 'Control de Calidad', icon: 'award' },
-        { id: 'produccion', descripcion: 'Producción', icon: 'factory' },
-        { id: 'logistica', descripcion: 'Logística y Almacén', icon: 'truck' },
-    ];
-     const procesos = [
-        { id: 'estampado', descripcion: 'Estampado' },
-        { id: 'inyeccion', descripcion: 'Inyección de Plástico' },
-        { id: 'ensamblaje', descripcion: 'Ensamblaje Manual' },
-        { id: 'pintura', descripcion: 'Pintura y Acabado' },
-        { id: 'soldadura', descripcion: 'Soldadura por Puntos' },
-     ];
-    const proyectos = [
-        { id: 'PROJ-A', codigo: 'PROJ-A', nombre: 'Proyecto Halcón', descripcion: 'Desarrollo de nuevo sistema de suspensión para vehículos 4x4.' },
-        { id: 'PROJ-B', codigo: 'PROJ-B', nombre: 'Proyecto Titán', descripcion: 'Optimización de componentes de motor para reducción de emisiones.' },
-    ];
-    const insumos = [
-        { id: 'INS001', codigo_pieza: 'INS001', lc_kd: 'LC', descripcion: 'Chapa de Acero 2mm', version: '1.0', proveedor: 'P001', unidad_medida: 'm2', costo: 25.50, fecha_modificacion: '2023-10-01', imagen: 'https://images.pexels.com/photos/38293/metal-panels-metal-structure-steel-38293.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1' },
-        { id: 'INS002', codigo_pieza: 'INS002', lc_kd: 'LC', descripcion: 'Polipropileno en Grano', version: '2.1', proveedor: 'P002', unidad_medida: 'kg', costo: 3.20, fecha_modificacion: '2023-11-15', imagen: 'https://static.interplas.com/product-images/polypropylene-homopolymer-pellets-1000x1000.jpg' },
-        { id: 'INS003', codigo_pieza: 'INS003', lc_kd: 'KD', descripcion: 'Tornillo Allen M5', version: '1.0', proveedor: 'P003', unidad_medida: 'un', costo: 0.15, fecha_modificacion: '2023-09-20', imagen: 'https://www.pdq-s.com/wp-content/uploads/2022/01/Socket-Head-Cap-Screw.jpg' },
-        { id: 'INS004', codigo_pieza: 'INS004', lc_kd: 'LC', descripcion: 'Pintura Epoxi Negra', version: '3.0', proveedor: 'P002', unidad_medida: 'l', costo: 15.00, fecha_modificacion: '2024-01-05', imagen: 'https://www.masterbond.com/sites/default/files/images/products/main_ep30-2.jpg' },
-    ];
-    const semiterminados = [
-        { id: 'SUB001', codigo_pieza: 'SUB001', lc_kd: 'LC', descripcion: 'Soporte Metálico Principal', version: '1.2', proceso: 'estampado', aspecto: 'Crítico', peso_gr: 1200, tolerancia_gr: 50, fecha_modificacion: '2024-01-10', imagen: 'https://www.shutterstock.com/image-photo/metal-stamping-part-automotive-industry-600nw-2160938473.jpg' },
-        { id: 'SUB002', codigo_pieza: 'SUB002', lc_kd: 'LC', descripcion: 'Carcasa Plástica Superior', version: '2.0', proceso: 'inyeccion', aspecto: 'No Crítico', peso_gr: 450, tolerancia_gr: 10, fecha_modificacion: '2024-01-12', imagen: 'https://www.revpart.com/wp-content/uploads/2021/04/injection-molding-complex-parts.jpg' },
-        { id: 'SUB003', codigo_pieza: 'SUB003', lc_kd: 'LC', descripcion: 'Carcasa Plástica Inferior', version: '2.0', proceso: 'inyeccion', aspecto: 'No Crítico', peso_gr: 480, tolerancia_gr: 10, fecha_modificacion: '2024-01-12', imagen: 'https://www.machinedesign.com/source/objects/sites/machinedesign.com/files/styles/facebook_og_image/public/injection-molded-parts-promo.jpg?itok=z2bLzH-1' },
-        { id: 'SUB004', codigo_pieza: 'SUB004', lc_kd: 'LC', descripcion: 'Ensamblaje Carcasas', version: '1.0', proceso: 'ensamblaje', aspecto: 'No Crítico', peso_gr: 930, tolerancia_gr: 20, fecha_modificacion: '2024-01-15', imagen: 'https://t4.ftcdn.net/jpg/05/52/63/33/360_F_552633333_sA2m5s4sYJ5b2yV4IIM2Tjhz2K3A4lus.jpg' },
-    ];
+    // Sectores (fijos)
+    generated.sectores = [ { id: 'ingenieria', descripcion: 'Ingeniería', icon: 'pencil-ruler' }, { id: 'calidad', descripcion: 'Calidad', icon: 'award' }, { id: 'produccion', descripcion: 'Producción', icon: 'factory' }, { id: 'logistica', descripcion: 'Logística', icon: 'truck' }];
+    generated.sectores.forEach(s => setInBatch(COLLECTIONS.SECTORES, s));
 
-    const productoPrincipal = {
-        id: 'PROD001',
-        codigo_pieza: 'PROD001',
-        lc_kd: 'LC',
-        version_vehiculo: 'SUV 4x4 Premium',
-        descripcion: 'Ensamblaje de Soporte de Motor Delantero',
-        version: '3.1',
-        fecha_modificacion: '2024-01-20',
-        imagen: 'https://media.istockphoto.com/id/1357283286/photo/engine-mount.jpg?s=612x612&w=0&k=20&c=M0T5S5g_sPx3yJz_s-kI6tSu_zOaWkaR2uAd2h02iW0=',
-        // Campos extra para la lógica de la app
-        clienteId: 'C001',
-        proyectoId: 'PROJ-A',
-        createdAt: new Date(),
-        estructura: [
-            {
-                id: 'comp_root_prod001',
-                refId: 'PROD001',
-                tipo: 'producto',
-                icon: 'package',
-                children: [
-                    {
-                        id: 'comp_sub001', refId: 'SUB001', tipo: 'semiterminado', icon: 'box', quantity: 1,
-                        children: [
-                            { id: 'comp_ins001', refId: 'INS001', tipo: 'insumo', icon: 'beaker', quantity: 1.5, children: [] },
-                            { id: 'comp_ins004_1', refId: 'INS004', tipo: 'insumo', icon: 'beaker', quantity: 0.2, children: [] }
-                        ]
-                    },
-                    {
-                        id: 'comp_sub004', refId: 'SUB004', tipo: 'semiterminado', icon: 'box', quantity: 1,
-                        children: [
-                             {
-                                id: 'comp_sub002', refId: 'SUB002', tipo: 'semiterminado', icon: 'box', quantity: 1,
-                                children: [
-                                    { id: 'comp_ins002_1', refId: 'INS002', tipo: 'insumo', icon: 'beaker', quantity: 0.45, children: [] }
-                                ]
-                            },
-                            {
-                                id: 'comp_sub003', refId: 'SUB003', tipo: 'semiterminado', icon: 'box', quantity: 1,
-                                children: [
-                                    { id: 'comp_ins002_2', refId: 'INS002', tipo: 'insumo', icon: 'beaker', quantity: 0.48, children: [] }
-                                ]
-                            },
-                            { id: 'comp_ins003', refId: 'INS003', tipo: 'insumo', icon: 'beaker', quantity: 8, children: [] }
-                        ]
-                    }
-                ]
-            }
-        ]
-    };
+    // Generar Clientes (20)
+    for (let i = 1; i <= 20; i++) {
+        const id = `C${String(i).padStart(3, '0')}`;
+        generated.clientes.push({ id, descripcion: `${getRandomItem(companies)} ${getRandomItem(companySuffix)}` });
+    }
+    generated.clientes.forEach(c => setInBatch(COLLECTIONS.CLIENTES, c));
 
-    const productoSecundario = {
-        id: 'PROD002',
-        codigo_pieza: 'PROD002',
-        lc_kd: 'KD',
-        version_vehiculo: 'Sedan Compacto Eco',
-        descripcion: 'Inyector de combustible optimizado',
-        version: '1.0',
-        fecha_modificacion: '2024-02-01',
-        imagen: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR_x-XfVqg_iY7dYw_Z_w_q_Y7bY9H_z5O_A&s',
-        // Campos extra
-        clienteId: 'C002',
-        proyectoId: 'PROJ-B',
-        createdAt: new Date(),
-        estructura: [
-            {
-                id: 'comp_root_prod002',
-                refId: 'PROD002',
-                tipo: 'producto',
-                icon: 'package',
-                children: [
-                    {
-                        id: 'comp_sub002_p2', refId: 'SUB002', tipo: 'semiterminado', icon: 'box', quantity: 2,
-                        children: [
-                            { id: 'comp_ins002_p2', refId: 'INS002', tipo: 'insumo', icon: 'beaker', quantity: 0.9, children: [] }
-                        ]
-                    },
-                    { id: 'comp_ins003_p2', refId: 'INS003', tipo: 'insumo', icon: 'beaker', quantity: 4, children: [] }
-                ]
-            }
-        ]
-    };
+    // Generar Proveedores (30)
+    for (let i = 1; i <= 30; i++) {
+        const id = `P${String(i).padStart(3, '0')}`;
+        generated.proveedores.push({ id, descripcion: `${getRandomItem(firstNames)} ${getRandomItem(lastNames)} ${getRandomItem(companySuffix)}` });
+    }
+    generated.proveedores.forEach(p => setInBatch(COLLECTIONS.PROVEEDORES, p));
 
-    // Obtener UIDs de usuarios para asignar tareas
-    const users = appState.collections.usuarios || [];
-    const currentUserUid = appState.currentUser?.uid;
-    const otherUser = users.find(u => u.docId !== currentUserUid);
-    const otherUserUid = otherUser?.docId;
+    // Generar Procesos (10)
+    for (let i = 1; i <= 10; i++) {
+        const id = processes[i-1] ? processes[i-1].toLowerCase().replace(' ', '-') : `proc-${i}`;
+        generated.procesos.push({ id, descripcion: processes[i-1] || `Proceso ${i}` });
+    }
+    generated.procesos.forEach(p => setInBatch(COLLECTIONS.PROCESOS, p));
 
-    const tareas = [];
-    if (currentUserUid) {
-        tareas.push({
-            title: 'Revisar diseño de Soporte Motor (PROD001)',
-            description: 'Verificar que el diseño 3D cumpla con las especificaciones del cliente C001 y los requerimientos del Proyecto Halcón.',
-            status: 'todo',
-            priority: 'high',
-            creatorUid: currentUserUid,
-            assigneeUid: currentUserUid,
-            isPublic: true,
-            createdAt: new Date(new Date().setDate(new Date().getDate() - 5)),
-            dueDate: new Date(new Date().setDate(new Date().getDate() + 10)).toISOString().split('T')[0],
-            subtasks: [
-                { id: `sub_${Date.now()}_1`, title: 'Analizar plano 2D', completed: true },
-                { id: `sub_${Date.now()}_2`, title: 'Correr simulación FEA', completed: false },
-                { id: `sub_${Date.now()}_3`, title: 'Documentar resultados', completed: false },
-            ]
-        });
-        tareas.push({
-            title: 'Cotizar material INS002',
-            description: 'Pedir cotización actualizada a Plásticos Industriales SRL para el polipropileno en grano. Necesario para PROD002.',
-            status: 'inprogress',
-            priority: 'medium',
-            creatorUid: currentUserUid,
-            assigneeUid: otherUserUid || currentUserUid, // Asignar a otro usuario si existe
-            isPublic: true,
-            createdAt: new Date(new Date().setDate(new Date().getDate() - 2)),
-            dueDate: new Date(new Date().setDate(new Date().getDate() + 5)).toISOString().split('T')[0],
-            subtasks: []
-        });
-        tareas.push({
-            title: 'Organizar reunión de kickoff Proyecto Titán',
-            description: 'Coordinar con todos los stakeholders para el inicio del proyecto.',
-            status: 'done',
-            priority: 'low',
-            creatorUid: currentUserUid,
-            assigneeUid: currentUserUid,
-            isPublic: false, // Tarea privada
-            createdAt: new Date(new Date().setDate(new Date().getDate() - 10)),
-            dueDate: new Date(new Date().setDate(new Date().getDate() - 8)).toISOString().split('T')[0],
-            subtasks: [
-                { id: `sub_${Date.now()}_4`, title: 'Definir agenda', completed: true },
-                { id: `sub_${Date.now()}_5`, title: 'Enviar invitaciones', completed: true },
-            ]
+    // Generar Insumos (200)
+    for (let i = 1; i <= 200; i++) {
+        const id = `INS${String(i).padStart(4, '0')}`;
+        generated.insumos.push({
+            id, codigo_pieza: id, lc_kd: getRandomItem(['LC', 'KD']),
+            descripcion: `${getRandomItem(materialTypes)} de ${getRandomItem(materials)}`,
+            version: `${Math.floor(Math.random() * 3) + 1}.${Math.floor(Math.random() * 10)}`,
+            proveedor: getRandomItem(generated.proveedores).id,
+            unidad_medida: getRandomItem(generated.unidades).id,
+            costo: parseFloat((Math.random() * 100).toFixed(2)),
+            fecha_modificacion: getRandomDate(new Date(2022, 0, 1), new Date()),
+            imagen: getRandomItem(imageUrls)
         });
     }
+    generated.insumos.forEach(ins => setInBatch(COLLECTIONS.INSUMOS, ins));
 
-    // Añadir todo al batch
+    // Generar Semiterminados (150)
+    for (let i = 1; i <= 150; i++) {
+        const id = `SUB${String(i).padStart(4, '0')}`;
+        generated.semiterminados.push({
+            id, codigo_pieza: id, lc_kd: getRandomItem(['LC', 'KD']),
+            descripcion: `${getRandomItem(productAdjectives)} de ${getRandomItem(productNouns)}`,
+            version: `${Math.floor(Math.random() * 5) + 1}.${Math.floor(Math.random() * 5)}`,
+            proceso: getRandomItem(generated.procesos).id,
+            aspecto: getRandomItem(['Crítico', 'No Crítico']),
+            peso_gr: Math.floor(Math.random() * 2000) + 50,
+            tolerancia_gr: Math.floor(Math.random() * 50),
+            fecha_modificacion: getRandomDate(new Date(2023, 0, 1), new Date()),
+            imagen: getRandomItem(imageUrls)
+        });
+    }
+    generated.semiterminados.forEach(sem => setInBatch(COLLECTIONS.SEMITERMINADOS, sem));
+
+    // --- GENERACIÓN DE PRODUCTOS Y ESTRUCTURAS ---
+    showToast(`Generando ${TOTAL_PRODUCTS} productos con estructura...`, 'info');
+
+    for (let i = 1; i <= TOTAL_PRODUCTS; i++) {
+        const productId = `PROD${String(i).padStart(4, '0')}`;
+        const productoData = {
+            id: productId, codigo_pieza: productId, lc_kd: getRandomItem(['LC', 'KD']),
+            version_vehiculo: `${getRandomItem(vehicleBrands)} ${getRandomItem(vehicleModels)} 2024`,
+            descripcion: `Ensamblaje ${getRandomItem(productAdjectives)} de ${getRandomItem(productNouns)}`,
+            version: '1.0',
+            fecha_modificacion: getRandomDate(new Date(2024, 0, 1), new Date()),
+            imagen: getRandomItem(imageUrls),
+            clienteId: getRandomItem(generated.clientes).id,
+            proyectoId: null, // Puede ser nulo
+            createdAt: new Date(),
+        };
+
+        const crearNodo = (tipo, refId) => ({
+            id: `comp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            refId, tipo, icon: { producto: 'package', semiterminado: 'box', insumo: 'beaker' }[tipo],
+            quantity: Math.floor(Math.random() * 10) + 1, children: []
+        });
+
+        const rootNode = crearNodo('producto', productoData.id);
+
+        // Crear una estructura de árbol aleatoria
+        const maxDepth = 4;
+        const maxChildren = 5;
+
+        function buildTree(node, depth) {
+            if (depth >= maxDepth) return;
+
+            const numChildren = Math.floor(Math.random() * maxChildren) + 1;
+            for (let j = 0; j < numChildren; j++) {
+                // 70% de probabilidad de ser semiterminado, 30% de ser insumo (si no es muy profundo)
+                const isSemi = Math.random() < 0.7 && depth < maxDepth -1;
+                if (isSemi) {
+                    const semi = getRandomItem(generated.semiterminados);
+                    const childNode = crearNodo('semiterminado', semi.id);
+                    node.children.push(childNode);
+                    buildTree(childNode, depth + 1);
+                } else {
+                    const insumo = getRandomItem(generated.insumos);
+                    const childNode = crearNodo('insumo', insumo.id);
+                    node.children.push(childNode);
+                }
+            }
+        }
+
+        buildTree(rootNode, 1);
+        productoData.estructura = [rootNode];
+        setInBatch(COLLECTIONS.PRODUCTOS, productoData);
+    }
+
+    // --- COMMIT FINAL ---
     try {
-        clientes.forEach(c => setInBatch(COLLECTIONS.CLIENTES, c));
-        proveedores.forEach(p => setInBatch(COLLECTIONS.PROVEEDORES, p));
-        unidades.forEach(u => setInBatch(COLLECTIONS.UNIDADES, u));
-        sectores.forEach(s => setInBatch(COLLECTIONS.SECTORES, s));
-        procesos.forEach(p => setInBatch(COLLECTIONS.PROCESOS, p));
-        proyectos.forEach(p => setInBatch(COLLECTIONS.PROYECTOS, p));
-        insumos.forEach(i => setInBatch(COLLECTIONS.INSUMOS, i));
-        semiterminados.forEach(s => setInBatch(COLLECTIONS.SEMITERMINADOS, s));
-        setInBatch(COLLECTIONS.PRODUCTOS, productoPrincipal);
-        setInBatch(COLLECTIONS.PRODUCTOS, productoSecundario);
-
-        // Añadir tareas con ID autogenerado
-        tareas.forEach(t => addInBatch(COLLECTIONS.TAREAS, t));
-
         await batch.commit();
-        showToast('Datos de prueba completos cargados exitosamente.', 'success');
-
-        // Forzar actualización de la vista
+        showToast(`Carga masiva completada: ${TOTAL_PRODUCTS} productos y miles de componentes creados.`, 'success', 5000);
         switchView('dashboard');
-
     } catch (error) {
-        console.error("Error al cargar datos de prueba: ", error);
-        showToast('Error al cargar datos de prueba. Verifique la consola.', 'error');
+        console.error("Error al cargar datos de prueba masivos: ", error);
+        showToast('Error al cargar datos masivos. Verifique la consola.', 'error');
     }
 }
 
