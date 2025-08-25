@@ -81,6 +81,12 @@ service cloud.firestore {
       allow delete: if isUserAdmin();
     }
 
+    match /roles/{docId} {
+      allow read: if request.auth != null;
+      allow create, update: if canCreateUpdate();
+      allow delete: if isUserAdmin();
+    }
+
     // --- TAREAS ---
     // Las tareas tienen su propia lógica de permisos más detallada.
     match /tareas/{taskId} {
