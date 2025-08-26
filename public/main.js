@@ -140,6 +140,17 @@ const viewConfig = {
         ]
     },
     clientes: { title: 'Clientes', singular: 'Cliente', dataKey: COLLECTIONS.CLIENTES, columns: [ { key: 'id', label: 'Código' }, { key: 'descripcion', label: 'Descripción' } ], fields: [ { key: 'id', label: 'Código', type: 'text', required: true }, { key: 'descripcion', label: 'Descripción', type: 'text', required: true } ] },
+    cover_master: {
+        title: 'Editar Carátula Maestra',
+        singular: 'Carátula Maestra',
+        dataKey: COLLECTIONS.COVER_MASTER,
+        fields: [
+            { key: 'title', label: 'Título Principal', type: 'text', required: true },
+            { key: 'code', label: 'Código de Documento', type: 'text', required: true },
+            { key: 'revision', label: 'Revisión Actual', type: 'text', readonly: true },
+            { key: 'change_description', label: 'Descripción de la Modificación', type: 'textarea', required: true, placeholder: 'Describa el motivo del cambio para el historial.' }
+        ]
+    },
     sectores: { title: 'Sectores', singular: 'Sector', dataKey: COLLECTIONS.SECTORES, columns: [ { key: 'id', label: 'Código' }, { key: 'descripcion', label: 'Descripción' } ], fields: [ { key: 'id', label: 'Código', type: 'text', required: true }, { key: 'descripcion', label: 'Descripción', type: 'text', required: true }, { key: 'icon', label: 'Icono (Lucide)', type: 'text', required: true } ] },
     proveedores: { 
         title: 'Proveedores', 
@@ -467,6 +478,65 @@ async function saveDocument(collectionName, data, docId = null) {
     }
 }
 
+async function saveMasterCover(data) {
+    if (appState.currentUser.role !== 'admin') {
+        showToast('No tiene permisos para editar la carátula maestra.', 'error');
+        return false;
+    }
+
+    const docRef = doc(db, COLLECTIONS.COVER_MASTER, 'master');
+    const historyRef = collection(docRef, 'history');
+
+    try {
+        await runTransaction(db, async (transaction) => {
+            const coverDoc = await transaction.get(docRef);
+            if (!coverDoc.exists()) {
+                throw new Error("El documento de la carátula maestra no existe.");
+            }
+
+            const currentData = coverDoc.data();
+            const currentRevision = currentData.revision || 'A';
+            const nextRevision = String.fromCharCode(currentRevision.charCodeAt(0) + 1);
+
+            const newData = {
+                ...currentData,
+                title: data.title,
+                code: data.code,
+                revision: nextRevision,
+                lastModified: new Date(),
+                modifiedBy: appState.currentUser.email,
+                change_description: data.change_description, // from form
+            };
+
+            const historyEntry = {
+                previous_revision: currentRevision,
+                new_revision: nextRevision,
+                timestamp: new Date(),
+                user: appState.currentUser.email,
+                description: data.change_description,
+                previous_data: {
+                    title: currentData.title,
+                    code: currentData.code
+                },
+                new_data: {
+                    title: newData.title,
+                    code: newData.code
+                }
+            };
+
+            transaction.set(docRef, newData);
+            transaction.set(doc(historyRef), historyEntry); // Add to history subcollection
+        });
+
+        showToast('Carátula Maestra actualizada con éxito a Revisión ' + (data.revision ? String.fromCharCode(data.revision.charCodeAt(0) + 1) : 'B') + '.', 'success');
+        return true;
+    } catch (error) {
+        console.error("Error updating master cover:", error);
+        showToast(`Error al actualizar la carátula maestra: ${error.message}`, 'error');
+        return false;
+    }
+}
+
 async function getLogoBase64() {
     try {
         const response = await fetch('barack_logo.png');
@@ -648,6 +718,38 @@ async function seedEcos(batch, users) {
         batch.set(docRef, eco);
     });
     console.log(`${sampleEcos.length} ECOs de prueba añadidos al batch.`);
+}
+
+async function seedMasterCover() {
+    const coverRef = collection(db, COLLECTIONS.COVER_MASTER);
+    const snapshot = await getDocs(query(coverRef, limit(1)));
+
+    if (!snapshot.empty) {
+        return; // Master Cover already exists
+    }
+
+    console.log("No master cover found. Seeding default master cover...");
+    showToast('Creando carátula maestra por defecto...', 'info');
+
+    const defaultCover = {
+        id: 'master', // Singleton document
+        title: 'ECO DE PRODUCTO / PROCESO',
+        revision: 'A',
+        code: 'I-IN-003.1 ECR - ECO',
+        lastModified: new Date(),
+        modifiedBy: appState.currentUser.email,
+        history: []
+    };
+
+    try {
+        const docRef = doc(db, COLLECTIONS.COVER_MASTER, defaultCover.id);
+        await setDoc(docRef, defaultCover);
+        showToast('Carátula maestra creada con éxito.', 'success');
+        console.log('Default master cover created successfully.');
+    } catch (error) {
+        console.error("Error seeding default master cover:", error);
+        showToast('Error al crear la carátula maestra.', 'error');
+    }
 }
 
 async function seedDatabase() {
@@ -1056,6 +1158,7 @@ function switchView(viewName, params = null) {
     else if (viewName === 'tareas') runTasksLogic();
     else if (viewName === 'ecos') runEcosLogic();
     else if (viewName === 'eco_form') runEcoFormLogic(params);
+    else if (viewName === 'cover_master') runCoverMasterLogic();
     else if (config?.dataKey) {
         dom.headerActions.style.display = 'flex';
         dom.searchInput.style.display = 'block';
@@ -1362,8 +1465,25 @@ async function runEcoFormLogic(params = null) {
         // --- Button Logic ---
         const saveButton = document.getElementById('eco-save-button');
         const clearButton = document.getElementById('eco-clear-button');
-        const approveButton = document.getElementById('eco-approve-button');
         const ecrInput = formElement.querySelector('#ecr_no');
+        const headerActions = formElement.querySelector('#eco-header-actions');
+
+        const newButtonsHTML = `
+            <button type="button" id="view-master-cover-btn" class="bg-white border border-slate-300 text-slate-600 px-4 py-2 rounded-md hover:bg-slate-100 font-semibold shadow-sm text-sm flex items-center gap-2" title="Carátula maestra — plantilla central">
+                <i data-lucide="shield-check" class="h-4 w-4"></i>
+                Ver carátula (maestra)
+            </button>
+            <button type="button" id="view-master-cover-history-btn" class="bg-white border border-slate-300 text-slate-600 px-4 py-2 rounded-md hover:bg-slate-100 font-semibold shadow-sm text-sm flex items-center gap-2">
+                <i data-lucide="history" class="h-4 w-4"></i>
+                Historial carátula
+            </button>
+        `;
+        headerActions.innerHTML = newButtonsHTML;
+        lucide.createIcons();
+
+        headerActions.querySelector('#view-master-cover-btn').addEventListener('click', showMasterCoverModal);
+        headerActions.querySelector('#view-master-cover-history-btn').addEventListener('click', showMasterCoverHistoryModal);
+
 
         // Always add a "Back" button
         const backButtonHTML = `<button type="button" id="eco-back-button" class="bg-gray-200 text-gray-800 px-6 py-2 rounded-md hover:bg-gray-300">Volver a la Lista</button>`;
@@ -1662,6 +1782,9 @@ async function runEcosLogic() {
                         <button data-action="view-eco" data-id="${eco.id}" class="text-gray-500 hover:text-blue-600 p-1" title="Ver/Editar"><i data-lucide="eye" class="h-5 w-5 pointer-events-none"></i></button>
                         <button data-action="view-eco-history" data-id="${eco.id}" class="text-gray-500 hover:text-purple-600 p-1" title="Ver Historial"><i data-lucide="history" class="h-5 w-5 pointer-events-none"></i></button>
                         <button data-action="export-eco-pdf" data-id="${eco.id}" class="text-gray-500 hover:text-red-600 p-1" title="Exportar a PDF"><i data-lucide="file-text" class="h-5 w-5 pointer-events-none"></i></button>
+                        ${eco.status === 'in-progress' ? `
+                        <button data-action="approve-eco" data-id="${eco.id}" class="text-gray-500 hover:text-green-600 p-1" title="Aprobar ECO"><i data-lucide="check-circle" class="h-5 w-5 pointer-events-none"></i></button>
+                        ` : ''}
                     </td>
                 </tr>
             `;
@@ -1702,6 +1825,19 @@ function handleViewContentActions(e) {
         'view-eco': () => switchView('eco_form', { ecoId: button.dataset.id }),
         'view-eco-history': () => showEcoHistoryModal(button.dataset.id),
         'export-eco-pdf': () => exportEcoToPdf(button.dataset.id),
+        'approve-eco': () => {
+            const ecoId = button.dataset.id;
+            showConfirmationModal('Aprobar ECO', `¿Está seguro de que desea aprobar el ECO "${ecoId}"? Esta acción es final.`, async () => {
+                const docRef = doc(db, COLLECTIONS.ECO_FORMS, ecoId);
+                try {
+                    await updateDoc(docRef, { status: 'approved', lastModified: new Date(), modifiedBy: appState.currentUser.email });
+                    showToast(`ECO "${ecoId}" aprobado.`, 'success');
+                } catch (error) {
+                    console.error("Error approving ECO:", error);
+                    showToast('Error al aprobar el ECO.', 'error');
+                }
+            });
+        },
         'delete-task': () => {
             showConfirmationModal(
                 'Eliminar Tarea',
@@ -1886,21 +2022,71 @@ async function exportEcoToPdf(ecoId) {
     dom.loadingOverlay.querySelector('p').textContent = 'Generando PDF...';
 
     try {
+        // 1. Fetch both Master Cover and ECO data
+        const masterCoverRef = doc(db, COLLECTIONS.COVER_MASTER, 'master');
         const ecoDocRef = doc(db, COLLECTIONS.ECO_FORMS, ecoId);
-        const ecoDocSnap = await getDoc(ecoDocRef);
-        if (!ecoDocSnap.exists()) {
-            throw new Error(`No se encontró el ECO con ID ${ecoId}`);
-        }
+
+        const [masterCoverSnap, ecoDocSnap] = await Promise.all([
+            getDoc(masterCoverRef),
+            getDoc(ecoDocRef)
+        ]);
+
+        if (!ecoDocSnap.exists()) throw new Error(`No se encontró el ECO con ID ${ecoId}`);
+        if (!masterCoverSnap.exists()) throw new Error(`No se encontró la Carátula Maestra.`);
+
         const ecoData = ecoDocSnap.data();
+        const masterCoverData = masterCoverSnap.data();
         const logoBase64 = await getLogoBase64();
 
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF('p', 'mm', 'a4');
 
+        // --- PDF Metadata ---
+        pdf.setProperties({
+            title: `ECO ${ecoId}`,
+            subject: `Exportación de ECO con Carátula Maestra (Rev. ${masterCoverData.revision})`,
+            author: appState.currentUser.name,
+            creator: 'Gestión PRO App'
+        });
+
+        // --- Page 1: Master Cover ---
         const MARGIN = 15;
         const PAGE_WIDTH = pdf.internal.pageSize.getWidth();
         const CONTENT_WIDTH = PAGE_WIDTH - (MARGIN * 2);
         let y = MARGIN;
+
+        if (logoBase64) {
+            pdf.addImage(logoBase64, 'PNG', MARGIN, y, 40, 20);
+        }
+        pdf.setFontSize(22);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(masterCoverData.title, PAGE_WIDTH / 2, y + 10, { align: 'center' });
+
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`${masterCoverData.code} - Rev. ${masterCoverData.revision}`, PAGE_WIDTH / 2, y + 18, { align: 'center' });
+
+        y += 40;
+
+        pdf.setDrawColor(180, 180, 180);
+        pdf.line(MARGIN, y, PAGE_WIDTH - MARGIN, y);
+        y += 10;
+
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(`Referencia a ECR N°:`, MARGIN, y);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(ecoData.id || 'N/A', MARGIN + 60, y);
+        y += 10;
+
+        pdf.setFontSize(10);
+        pdf.text(`Este documento es una impresión del formulario de Engineering Change Order (ECO) y su carátula maestra asociada.`, MARGIN, y + 20);
+        pdf.text(`Fecha de Exportación: ${new Date().toLocaleString('es-AR')}`, MARGIN, y + 27);
+        pdf.text(`Carátula Maestra - Última Modificación: ${masterCoverData.lastModified?.toDate ? masterCoverData.lastModified.toDate().toLocaleString('es-AR') : 'N/A'}`, MARGIN, y + 34);
+
+        // --- Page 2 onwards: ECO Form Content ---
+        pdf.addPage();
+        y = MARGIN;
 
         const checkPageBreak = (heightNeeded) => {
             if (y + heightNeeded > pdf.internal.pageSize.getHeight() - MARGIN) {
@@ -1908,19 +2094,6 @@ async function exportEcoToPdf(ecoId) {
                 y = MARGIN;
             }
         };
-
-        // --- Header ---
-        if (logoBase64) {
-            pdf.addImage(logoBase64, 'PNG', MARGIN, y, 30, 15);
-        }
-        pdf.setFontSize(18);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('ECO DE PRODUCTO / PROCESO', PAGE_WIDTH / 2, y + 5, { align: 'center' });
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text('I-IN-003.1 ECR - ECO B', PAGE_WIDTH / 2, y + 10, { align: 'center' });
-        pdf.text(`ECR N°: ${ecoData.ecr_no || 'N/A'}`, PAGE_WIDTH - MARGIN, y + 15, { align: 'right' });
-        y += 25;
 
         // --- Sections ---
         const formSectionsData = [ { title: 'ENG. PRODUCTO', id: 'eng_producto', checklist: [ '¿Se requiere cambio en el plano?', '¿Se requiere cambio en la especificación?', '¿Se requiere un nuevo herramental?', '¿Se requiere un nuevo dispositivo?' ] }, { title: 'CALIDAD', id: 'calidad', checklist: [ '¿Se requiere un nuevo plan de control?', '¿Se requiere un nuevo estudio de capacidad?', '¿Se requiere un nuevo R&R?', '¿Se requiere un nuevo layout?' ] }, { title: 'ENG. PROCESO', id: 'eng_proceso', checklist: [ '¿Se requiere un nuevo diagrama de flujo?', '¿Se requiere un nuevo AMEF?', '¿Se requiere un nuevo estudio de tiempos?', '¿Se requiere una nueva instrucción de trabajo?' ] }, { title: 'COMPRAS', id: 'compras', checklist: [ '¿Se requiere un nuevo proveedor?', '¿Se requiere un nuevo acuerdo de precios?', '¿Se requiere un nuevo embalaje?', '¿Se requiere un nuevo transporte?' ] }, { title: 'LOGISTICA', id: 'logistica', checklist: [ '¿Se requiere un nuevo layout de almacén?', '¿Se requiere un nuevo sistema de identificación?', '¿Se requiere un nuevo flujo de materiales?', '¿Se requiere un nuevo sistema de transporte interno?' ] }, { title: 'IMPLEMENTACIÓN', id: 'implementacion', checklist: [ '¿Se requiere actualizar el stock?', '¿Se requiere notificar al cliente?', '¿Se requiere capacitar al personal?', '¿Se requiere validar el proceso?' ] }, { title: 'APROBACIÓN FINAL', id: 'aprobacion_final', description: 'Aprobación final del ECO y cierre del proceso.', checklist: null } ];
@@ -2268,6 +2441,219 @@ function renderTable(data, config) {
     lucide.createIcons();
 }
 
+async function showMasterCoverModal() {
+    const modalId = 'master-cover-modal';
+
+    const modalHTML = `
+        <div id="${modalId}" class="fixed inset-0 z-[60] flex items-center justify-center modal-backdrop animate-fade-in">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col m-4 modal-content">
+                <div class="flex justify-between items-center p-5 border-b">
+                    <h3 class="text-xl font-bold">Carátula Maestra (Solo Vista)</h3>
+                    <button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button>
+                </div>
+                <div id="master-cover-content" class="p-6 overflow-y-auto">
+                    <p class="text-center text-gray-500">Cargando carátula maestra...</p>
+                </div>
+                <div class="flex justify-end items-center p-4 border-t bg-gray-50">
+                    <button data-action="close" type="button" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-semibold">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    `;
+    dom.modalContainer.insertAdjacentHTML('beforeend', modalHTML);
+    lucide.createIcons();
+
+    const modalElement = document.getElementById(modalId);
+    const contentElement = modalElement.querySelector('#master-cover-content');
+
+    modalElement.addEventListener('click', e => {
+        if (e.target.closest('button')?.dataset.action === 'close') {
+            modalElement.remove();
+        }
+    });
+
+    try {
+        const docRef = doc(db, COLLECTIONS.COVER_MASTER, 'master');
+        const docSnap = await getDoc(docRef);
+
+        if (!docSnap.exists()) {
+            contentElement.innerHTML = '<p class="text-center text-red-500">No se encontró la carátula maestra.</p>';
+            return;
+        }
+
+        const data = docSnap.data();
+        const logoBase64 = await getLogoBase64();
+
+        const coverHTML = `
+            <div class="border-2 border-gray-400 p-4">
+                <header class="flex justify-between items-start border-b-2 pb-4">
+                    <div class="flex items-center">
+                        ${logoBase64 ? `<div class="w-24 h-24 flex items-center justify-center"><img src="${logoBase64}" alt="Logo"></div>` : ''}
+                        <div class="ml-4">
+                            <h1 class="text-2xl font-bold text-gray-800">${data.title}</h1>
+                            <p class="text-sm text-gray-600">${data.code} - Rev. ${data.revision}</p>
+                        </div>
+                    </div>
+                </header>
+                <div class="mt-4 text-sm">
+                    <p><strong>Última Modificación:</strong> ${data.lastModified?.toDate ? data.lastModified.toDate().toLocaleString('es-AR') : 'N/A'}</p>
+                    <p><strong>Modificado por:</strong> ${data.modifiedBy || 'N/A'}</p>
+                    <p class="mt-2"><strong>Motivo del cambio:</strong> ${data.change_description || 'N/A'}</p>
+                </div>
+            </div>
+        `;
+        contentElement.innerHTML = coverHTML;
+        lucide.createIcons();
+
+    } catch (error) {
+        console.error("Error fetching master cover for modal:", error);
+        contentElement.innerHTML = '<p class="text-center text-red-500">Error al cargar la carátula.</p>';
+        showToast('Error al cargar la carátula.', 'error');
+    }
+}
+
+async function runCoverMasterLogic() {
+    dom.headerActions.style.display = 'none'; // No search or global add button
+
+    try {
+        const docRef = doc(db, COLLECTIONS.COVER_MASTER, 'master');
+        const docSnap = await getDoc(docRef);
+
+        if (!docSnap.exists()) {
+            dom.viewContent.innerHTML = `<p class="text-red-500">Error: No se encontró el documento de la carátula maestra. Un administrador debería crearlo.</p>`;
+            return;
+        }
+
+        const data = docSnap.data();
+
+        const viewHTML = `
+            <div class="bg-white p-8 rounded-xl shadow-lg max-w-4xl mx-auto animate-fade-in-up">
+                <div class="flex justify-between items-center border-b pb-4 mb-6">
+                    <h3 class="text-2xl font-bold text-slate-800">Gestión de Carátula Maestra</h3>
+                    <button id="edit-master-cover-btn" class="bg-blue-600 text-white px-5 py-2 rounded-md hover:bg-blue-700 font-semibold flex items-center">
+                        <i data-lucide="pencil" class="mr-2 h-4 w-4"></i>Editar
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 text-sm">
+                    <div class="md:col-span-2">
+                        <p class="text-slate-500 font-semibold">TÍTULO PRINCIPAL</p>
+                        <p class="text-lg text-slate-900 font-bold">${data.title || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <p class="text-slate-500 font-semibold">CÓDIGO DE DOCUMENTO</p>
+                        <p class="text-lg text-slate-900">${data.code || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <p class="text-slate-500 font-semibold">REVISIÓN ACTUAL</p>
+                        <p class="text-2xl font-bold text-red-600 bg-red-100 inline-block px-3 py-1 rounded-md">${data.revision || 'N/A'}</p>
+                    </div>
+                    <div class="md:col-span-2">
+                        <p class="text-slate-500 font-semibold">ÚLTIMA MODIFICACIÓN</p>
+                        <p class="text-slate-900">${data.lastModified?.toDate ? data.lastModified.toDate().toLocaleString('es-AR') : 'N/A'} por ${data.modifiedBy || 'N/A'}</p>
+                    </div>
+                     <div class="md:col-span-2">
+                        <p class="text-slate-500 font-semibold">DESCRIPCIÓN DEL ÚLTIMO CAMBIO</p>
+                        <p class="text-slate-700 italic bg-slate-50 p-3 rounded-md border">${data.change_description || 'No hay descripción para la revisión actual.'}</p>
+                    </div>
+                </div>
+                 <div class="mt-8">
+                     <button id="view-cover-history-btn" class="text-blue-600 hover:underline font-semibold text-sm flex items-center gap-2">
+                        <i data-lucide="history" class="h-4 w-4"></i>Ver Historial de Revisiones
+                    </button>
+                </div>
+            </div>
+        `;
+        dom.viewContent.innerHTML = viewHTML;
+        lucide.createIcons();
+
+        document.getElementById('edit-master-cover-btn').addEventListener('click', () => {
+            openFormModal({ ...data, docId: 'master' });
+        });
+
+        document.getElementById('view-cover-history-btn').addEventListener('click', () => {
+            showMasterCoverHistoryModal();
+        });
+
+    } catch (error) {
+        console.error("Error fetching master cover:", error);
+        dom.viewContent.innerHTML = `<p class="text-red-500">Ocurrió un error al cargar la carátula maestra.</p>`;
+        showToast('Error al cargar la carátula maestra.', 'error');
+    }
+}
+
+async function showMasterCoverHistoryModal() {
+    const modalId = `master-cover-history-modal`;
+    const modalHTML = `
+        <div id="${modalId}" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop animate-fade-in">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col m-4 modal-content">
+                <div class="flex justify-between items-center p-5 border-b">
+                    <h3 class="text-xl font-bold">Historial de Cambios de la Carátula Maestra</h3>
+                    <button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button>
+                </div>
+                <div id="master-cover-history-content" class="p-6 overflow-y-auto">
+                    <p class="text-center text-gray-500">Cargando historial...</p>
+                </div>
+                <div class="flex justify-end items-center p-4 border-t bg-gray-50">
+                    <button data-action="close" type="button" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-semibold">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    `;
+    dom.modalContainer.innerHTML = modalHTML;
+    lucide.createIcons();
+
+    const modalElement = document.getElementById(modalId);
+    const historyContent = modalElement.querySelector('#master-cover-history-content');
+
+    modalElement.addEventListener('click', e => {
+        if (e.target.closest('button')?.dataset.action === 'close') {
+            modalElement.remove();
+        }
+    });
+
+    try {
+        const historyRef = collection(db, COLLECTIONS.COVER_MASTER, 'master', 'history');
+        const q = query(historyRef, orderBy('timestamp', 'desc'));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            historyContent.innerHTML = '<p class="text-center text-gray-500">No se encontró historial.</p>';
+            return;
+        }
+
+        let historyHTML = '<div class="space-y-4">';
+        querySnapshot.forEach(doc => {
+            const data = doc.data();
+            const date = data.timestamp?.toDate ? data.timestamp.toDate().toLocaleString('es-AR') : 'Fecha desconocida';
+            historyHTML += `
+                <div class="p-4 border rounded-lg bg-gray-50">
+                    <div class="flex justify-between items-center mb-2">
+                        <p class="font-bold text-lg">Revisión ${data.previous_revision} <i data-lucide="arrow-right" class="inline-block h-4 w-4"></i> Rev. ${data.new_revision}</p>
+                        <p class="text-xs text-gray-500"><strong>Fecha:</strong> ${date}</p>
+                    </div>
+                    <p class="text-sm"><strong>Usuario:</strong> ${data.user || 'Desconocido'}</p>
+                    <p class="text-sm mt-2"><strong>Descripción del cambio:</strong></p>
+                    <p class="text-sm italic border-l-4 border-gray-300 pl-2 ml-2">${data.description || 'N/A'}</p>
+                    <details class="mt-2 text-xs">
+                        <summary class="cursor-pointer font-semibold">Ver diff de datos</summary>
+                        <pre class="bg-gray-200 p-2 rounded mt-1 overflow-auto max-h-60"><code>${JSON.stringify(data.previous_data, null, 2)}\n------->\n${JSON.stringify(data.new_data, null, 2)}</code></pre>
+                    </details>
+                </div>
+            `;
+        });
+        historyHTML += '</div>';
+        historyContent.innerHTML = historyHTML;
+        lucide.createIcons();
+
+    } catch (error) {
+        console.error("Error fetching master cover history:", error);
+        historyContent.innerHTML = '<p class="text-center text-red-500">Error al cargar el historial.</p>';
+        showToast('Error al cargar el historial.', 'error');
+    }
+}
+
+
 async function handleSearch() {
     const config = viewConfig[appState.currentView];
     const searchTerm = dom.searchInput.value.trim(); // No toLowerCase, Firestore is case-sensitive
@@ -2471,7 +2857,7 @@ async function openFormModal(item = null) {
         }
     });
     
-    modalElement.querySelector('form').addEventListener('submit', (e) => handleFormSubmit(e, config.fields));
+    modalElement.querySelector('form').addEventListener('submit', (e) => handleFormSubmit(e, config.fields, item));
     
     modalElement.addEventListener('click', e => {
         const button = e.target.closest('button');
@@ -2509,7 +2895,7 @@ function validateField(fieldConfig, inputElement) {
     return isValid;
 }
 
-async function handleFormSubmit(e, fields) {
+async function handleFormSubmit(e, fields, item = null) {
     e.preventDefault();
     
     let isFormValid = true;
@@ -2548,11 +2934,22 @@ async function handleFormSubmit(e, fields) {
     saveButton.innerHTML = `<i data-lucide="loader" class="animate-spin h-5 w-5"></i>`;
     lucide.createIcons();
 
-    const success = await saveDocument(config.dataKey, newItem, docId);
+    let success = false;
+    if (config.dataKey === COLLECTIONS.COVER_MASTER) {
+        // Special handling for the master cover to increment revision and save history
+        newItem.revision = item?.revision; // Pass current revision for incrementing
+        success = await saveMasterCover(newItem);
+    } else {
+        success = await saveDocument(config.dataKey, newItem, docId);
+    }
     
     if (success) {
         modalElement.remove();
-        // No es necesario llamar a runTableLogic, el listener en tiempo real se encargará de actualizar la vista.
+        // For the master cover, we need to refresh its specific view
+        if (config.dataKey === COLLECTIONS.COVER_MASTER) {
+            runCoverMasterLogic();
+        }
+        // For other views, the realtime listener will handle the update.
     } else {
         // Restore button on failure
         saveButton.disabled = false;
@@ -4780,6 +5177,7 @@ onAuthStateChanged(auth, async (user) => {
             if (appState.currentUser.isSuperAdmin) {
                 await seedDefaultSectors();
                 await seedDefaultRoles();
+                await seedMasterCover();
             }
 
             // Show app shell behind overlay
@@ -4835,13 +5233,16 @@ function updateAuthView(isLoggedIn) {
 
 function updateNavForRole() {
     const userManagementLink = document.querySelector('[data-view="user_management"]');
-    if (!userManagementLink) return;
+    const coverMasterLink = document.querySelector('[data-view="cover_master"]');
+    if (!userManagementLink || !coverMasterLink) return;
 
     const shouldShow = appState.currentUser && appState.currentUser.role === 'admin';
 
     userManagementLink.style.display = shouldShow ? 'flex' : 'none';
+    coverMasterLink.style.display = shouldShow ? 'flex' : 'none';
 
-    const divider = userManagementLink.nextElementSibling;
+    // This targets the divider between the admin links and the regular user links
+    const divider = coverMasterLink.nextElementSibling;
     if (divider && divider.matches('.border-t')) {
         divider.style.display = shouldShow ? 'block' : 'none';
     }

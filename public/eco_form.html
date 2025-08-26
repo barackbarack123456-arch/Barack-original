@@ -1,18 +1,12 @@
 <form id="eco-form" class="max-w-7xl mx-auto bg-white shadow-lg rounded-lg p-8">
     <!-- Encabezado -->
-    <header class="flex justify-between items-start border-b-2 pb-4">
-        <div class="flex items-center">
-            <div class="w-24 h-24 flex items-center justify-center">
-                <img src="barack_logo.png" alt="Logo">
-            </div>
-            <div class="ml-4">
-                <h1 class="text-2xl font-bold text-gray-800">ECO DE PRODUCTO / PROCESO</h1>
-                <p class="text-sm text-gray-600">I-IN-003.1 ECR - ECO B</p>
-            </div>
-        </div>
-        <div class="flex items-center">
+    <header class="flex justify-between items-center border-b-2 pb-4 mb-6">
+        <div>
             <label for="ecr_no" class="text-lg font-semibold mr-2">ECR N°:</label>
             <input type="text" id="ecr_no" name="ecr_no" class="border-2 border-gray-300 rounded-md p-2 w-48">
+        </div>
+        <div id="eco-header-actions" class="flex items-center gap-2">
+            <!-- Buttons will be inserted here by JS -->
         </div>
     </header>
 
@@ -24,7 +18,6 @@
     <div id="action-buttons-container" class="mt-8 flex justify-end space-x-4">
         <button type="button" id="eco-save-button" class="bg-gray-500 text-white px-6 py-2 rounded-md hover:bg-gray-600">Guardar Progreso</button>
         <button type="button" id="eco-clear-button" class="bg-yellow-500 text-white px-6 py-2 rounded-md hover:bg-yellow-600">Limpiar Formulario</button>
-        <button type="button" id="eco-approve-button" class="bg-green-500 text-white px-6 py-2 rounded-md hover:bg-green-600">Aprobar ECO</button>
     </div>
 </form>
 <link rel="stylesheet" href="print.css" media="print">
