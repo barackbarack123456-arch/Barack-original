@@ -1961,6 +1961,23 @@ async function exportEcoToPdf(ecoId) {
                 pdf.setFont('helvetica', 'italic');
                 pdf.text(descLines, MARGIN, y + 5);
                 y += 5 + descLines.length * 5;
+
+                // Add signature block for the final approval section as well
+                const signatures = ecoData.signatures?.[section.id] || {};
+                checkPageBreak(20);
+                pdf.setDrawColor(150);
+                pdf.line(MARGIN, y, PAGE_WIDTH - MARGIN, y);
+                y += 5;
+
+                pdf.setFontSize(8);
+                const sigDate = signatures.date_review || '____/____/____';
+                const sigName = signatures.name || '____________________';
+                const sigVisto = signatures.visto || '____________________';
+
+                pdf.text(`Fecha de Revisión: ${sigDate}`, MARGIN, y);
+                pdf.text(`Aprobador: ${sigName}`, MARGIN, y + 7);
+                pdf.text(`Firma: ${sigVisto}`, MARGIN + 100, y + 7);
+                y += 12;
             }
 
         });
