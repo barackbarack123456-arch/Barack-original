@@ -1079,7 +1079,15 @@ async function runEcoFormLogic() {
         const response = await fetch('eco_form.html');
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const html = await response.text();
-        dom.viewContent.innerHTML = html;
+
+        // Use a template to safely parse the HTML and get a direct reference to the form element
+        const template = document.createElement('template');
+        template.innerHTML = html.trim();
+        const formElement = template.content.firstChild;
+
+        dom.viewContent.innerHTML = ''; // Clear previous content
+        dom.viewContent.appendChild(formElement);
+
 
         // Also need to load the css.
         if (!document.getElementById('eco-form-styles')) {
@@ -1276,7 +1284,6 @@ async function runEcoFormLogic() {
         loadEcoFormFromLocalStorage();
 
         // Add event listener to save on any input
-        const formElement = dom.viewContent.querySelector('#eco-form');
         formElement.addEventListener('input', saveEcoFormToLocalStorage);
 
         // --- Button Logic ---
