@@ -1943,10 +1943,22 @@ async function exportEcoToPdf(ecoId) {
                 y += 12;
 
             } else if (section.description) {
-                checkPageBreak(15);
+                const descLines = pdf.splitTextToSize(section.description, CONTENT_WIDTH);
+                const requiredHeight = 10 + descLines.length * 5;
+                checkPageBreak(requiredHeight);
+
+                // Re-draw header on new page if needed
+                if (y === MARGIN) {
+                    pdf.setFillColor(230, 230, 230);
+                    pdf.rect(MARGIN, y, CONTENT_WIDTH, 8, 'F');
+                    pdf.setFontSize(12);
+                    pdf.setFont('helvetica', 'bold');
+                    pdf.text(section.title, MARGIN + 2, y + 5.5);
+                    y += 10;
+                }
+
                 pdf.setFontSize(10);
                 pdf.setFont('helvetica', 'italic');
-                const descLines = pdf.splitTextToSize(section.description, CONTENT_WIDTH);
                 pdf.text(descLines, MARGIN, y + 5);
                 y += 5 + descLines.length * 5;
             }
