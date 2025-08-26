@@ -1933,7 +1933,7 @@ async function runEcrFormLogic(params = null) {
 
     // --- Helper functions for building form elements ---
     const createCheckbox = (label, name, value = '') => `<div class="flex items-center gap-2"><input type="checkbox" name="${name}" id="${name}" value="${value}" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"><label for="${name}" class="text-sm select-none">${label}</label></div>`;
-    const createTextField = (label, name, placeholder = '', isFullWidth = false) => `<div class="form-field ${isFullWidth ? 'col-span-full' : 'flex-1'}"><label for="${name}" class="text-sm font-bold mb-1">${label}</label><input type="text" name="${name}" id="${name}" placeholder="${placeholder}" class="w-full"></div>`;
+    const createTextField = (label, name, placeholder = '', isFullWidth = false) => `<div class="form-field ${isFullWidth ? 'col-span-full' : ''}"><label for="${name}" class="text-sm font-bold mb-1">${label}</label><input type="text" name="${name}" id="${name}" placeholder="${placeholder}" class="w-full"></div>`;
     const createDateField = (label, name) => `<div class="form-field"><label for="${name}" class="text-sm font-bold mb-1">${label}</label><input type="date" name="${name}" id="${name}" class="w-full"></div>`;
     const createTextarea = (name, placeholder = '') => `<textarea name="${name}" placeholder="${placeholder}" class="w-full h-full border-none resize-none p-1 bg-transparent focus:outline-none"></textarea>`;
 
@@ -1983,10 +1983,10 @@ async function runEcrFormLogic(params = null) {
             </header>
             <div class="ecr-checklist-bar">CHECK LIST ECR - ENGINEERING CHANGE REQUEST</div>
 
-            <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 items-end">
-                <div class="form-field border p-2 rounded-lg col-span-1 lg:col-span-2">
-                    <strong class="text-sm">ORIGEN DEL PEDIDO:</strong>
-                    <div class="flex flex-wrap gap-x-4 gap-y-2 mt-1">
+            <section class="form-row">
+                <div class="form-field" style="flex-grow: 2;">
+                    <label class="text-sm font-bold mb-1">ORIGEN DEL PEDIDO:</label>
+                    <div class="border p-2 rounded-lg flex flex-wrap gap-x-6 gap-y-2 mt-1">
                         ${createCheckbox('Cliente', 'origen_cliente')}
                         ${createCheckbox('Proveedor', 'origen_proveedor')}
                         ${createCheckbox('Interno', 'origen_interno')}
@@ -1997,10 +1997,10 @@ async function runEcrFormLogic(params = null) {
                 ${createTextField('Cliente:', 'cliente')}
             </section>
 
-            <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-2 items-end">
-                 <div class="form-field border p-2 rounded-lg col-span-1 lg:col-span-2">
-                    <strong class="text-sm">FASE DE PROYECTO:</strong>
-                    <div class="flex flex-wrap gap-x-4 gap-y-2 mt-1">
+            <section class="form-row">
+                <div class="form-field" style="flex-grow: 2;">
+                    <label class="text-sm font-bold mb-1">FASE DE PROYECTO:</label>
+                    <div class="border p-2 rounded-lg flex flex-wrap gap-x-6 gap-y-2 mt-1">
                         ${createCheckbox('Programa', 'fase_programa')}
                         ${createCheckbox('Serie', 'fase_serie')}
                     </div>
@@ -2009,11 +2009,13 @@ async function runEcrFormLogic(params = null) {
                 ${createDateField('Fecha de Cierre:', 'fecha_cierre')}
             </section>
 
-            <section class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                ${createTextField('Código(s) Barack:', 'codigo_barack', '...', true)}
-                ${createTextField('Código(s) Cliente:', 'codigo_cliente', '...', true)}
+            <section class="form-row">
+                ${createTextField('Código(s) Barack:', 'codigo_barack', '...')}
+                ${createTextField('Código(s) Cliente:', 'codigo_cliente', '...')}
             </section>
-            ${createTextField('Denominación del Producto:', 'denominacion_producto', '...', true)}
+            <section class="form-row">
+                ${createTextField('Denominación del Producto:', 'denominacion_producto', '...', true)}
+            </section>
 
             <table class="full-width-table mt-4">
                 <thead><tr><th>OBJETIVO DE ECR</th><th>TIPO DE ALTERACIÓN</th><th>AFECTA S/R</th></tr></thead>
@@ -2029,12 +2031,12 @@ async function runEcrFormLogic(params = null) {
                 <div class="column-box"><h3>SITUACIÓN PROPUESTA:</h3>${createTextarea('situacion_propuesta')}</div>
             </div>
 
-            <table class="full-width-table">
+            <table class="full-width-table risk-analysis-table">
                 <thead><tr><th colspan="7">IMPACTO EN CASO DE FALLA</th></tr><tr><th>RESPONSABLE</th><th>ANÁLISIS DE RIESGO</th><th>Nivel</th><th>Observaciones</th><th>NOMBRE</th><th>FECHA</th><th>VISTO</th></tr></thead>
                 <tbody>${['RETORNO DE GARANTÍA', 'RECLAMACIÓN ZERO KM', 'HSE', 'SATISFACCIÓN DEL CLIENTE', 'S/R (Seguridad y/o Regulamentación)'].map(r => `<tr><td>Gerente de Calidad</td><td>${r}</td><td><input></td><td><input></td><td><input></td><td><input type="date"></td><td><input></td></tr>`).join('')}</tbody>
             </table>
 
-            <table class="full-width-table mt-4">
+            <table class="full-width-table risk-analysis-table mt-4">
                 <thead><tr><th colspan="7">APROBACIÓN DE DIRECTORIO (CODIR)</th></tr><tr><th>Miembro de Directorio</th><th>Aprobado</th><th>Rechazado</th><th>Observaciones</th><th>NOMBRE</th><th>FECHA</th><th>VISTO</th></tr></thead>
                 <tbody>${['Director Comercial', 'Director Industrial', 'Otro: <input class="border-b-2 bg-transparent w-full">'].map(r => `<tr><td>${r}</td><td>${createCheckbox('', '')}</td><td>${createCheckbox('', '')}</td><td><input></td><td><input></td><td><input type="date"></td><td><input></td></tr>`).join('')}</tbody>
             </table>

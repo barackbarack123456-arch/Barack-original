@@ -51,13 +51,14 @@ body {
 }
 
 .ecr-container {
-    max-width: 8.5in;
+    max-width: 1600px; /* Increased max-width for better use of wide screens */
+    width: 95%; /* Use percentage for responsiveness */
     min-height: 11in;
     margin: 2rem auto;
-    padding: 1in;
+    padding: 2rem; /* Adjusted padding for better screen view */
     background: white;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    border: 1px solid #ccc;
+    box-shadow: 0 0 20px rgba(0,0,0,0.08); /* Softer shadow */
+    border: 1px solid #ddd;
 }
 
 /* Page Header */
@@ -104,13 +105,15 @@ body {
 /* Generic Form Layouts */
 .form-row {
     display: flex;
-    gap: 1rem;
-    align-items: center;
-    margin-bottom: 0.75rem;
+    gap: 1.5rem; /* Increased gap */
+    align-items: flex-end; /* Align to bottom for better vertical alignment */
+    margin-bottom: 1.25rem; /* Increased vertical spacing */
 }
 .form-field {
     display: flex;
     flex-direction: column;
+    flex: 1; /* Allow fields to grow */
+    min-width: 0; /* Prevent overflow on flex items */
 }
 .form-field.row {
     flex-direction: row;
@@ -120,7 +123,7 @@ body {
 .form-field label {
     font-weight: bold;
     font-size: 0.9rem;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.5rem; /* Increased spacing */
 }
 .form-field input[type="text"], .form-field textarea {
     border: 1px solid #9ca3af; /* gray-400 */
@@ -180,6 +183,16 @@ body {
     background-color: #e5e7eb; /* gray-200 */
     font-weight: bold;
 }
+
+/* Specific column widths for the risk analysis and directory approval tables */
+.risk-analysis-table th:nth-child(1), .risk-analysis-table td:nth-child(1) { width: 15%; }
+.risk-analysis-table th:nth-child(2), .risk-analysis-table td:nth-child(2) { width: 25%; } /* ANÁLISIS DE RIESGO */
+.risk-analysis-table th:nth-child(3), .risk-analysis-table td:nth-child(3) { width: 7%;  } /* Nivel */
+.risk-analysis-table th:nth-child(4), .risk-analysis-table td:nth-child(4) { width: 23%; } /* Observaciones */
+.risk-analysis-table th:nth-child(5), .risk-analysis-table td:nth-child(5) { width: 12%; } /* NOMBRE */
+.risk-analysis-table th:nth-child(6), .risk-analysis-table td:nth-child(6) { width: 9%; }  /* FECHA */
+.risk-analysis-table th:nth-child(7), .risk-analysis-table td:nth-child(7) { width: 9%; }  /* VISTO */
+
 .full-width-table td input {
     width: 100%;
     box-sizing: border-box; /* Includes padding and border in the element's total width */
@@ -191,7 +204,7 @@ body {
 /* Department Evaluation Pages */
 .department-section {
     border: 1px solid #9ca3af;
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem; /* Increased spacing */
 }
 .department-header {
     background-color: #e5e7eb;
@@ -214,8 +227,8 @@ body {
 .department-checklist .check-item {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 4px 0;
+    gap: 1rem; /* Increased gap */
+    padding: 6px 0; /* Increased vertical padding */
 }
 .department-comments {
     width: 100%; /* Take full width */
