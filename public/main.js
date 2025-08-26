@@ -1941,15 +1941,19 @@ async function exportEcoToPdf(ecoId) {
 
         // Header
         if (logoBase64) {
-            pdf.addImage(logoBase64, 'PNG', MARGIN, y, 40, 20);
+            pdf.addImage(logoBase64, 'PNG', MARGIN, y, 35, 15);
         }
-        pdf.setFontSize(22);
         pdf.setFont('helvetica', 'bold');
-        pdf.text('ECO DE PRODUCTO / PROCESO', PAGE_WIDTH / 2, y + 10, { align: 'center' });
+        pdf.setFontSize(16);
+        const title = 'ECO DE PRODUCTO / PROCESO';
+        const ecrText = `ECR N°: ${ecoData.id || 'N/A'}`;
 
+        // Draw title and ECR number right-aligned
+        pdf.text(title, PAGE_WIDTH - MARGIN, y + 8, { align: 'right' });
         pdf.setFontSize(12);
         pdf.setFont('helvetica', 'normal');
-        pdf.text(`ECR N°: ${ecoData.id || 'N/A'}`, PAGE_WIDTH / 2, y + 18, { align: 'center' });
+        pdf.text(ecrText, PAGE_WIDTH - MARGIN, y + 16, { align: 'right' });
+
         y += 30;
 
 
