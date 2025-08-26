@@ -87,6 +87,19 @@ service cloud.firestore {
       allow delete: if isUserAdmin();
     }
 
+    match /eco_forms/{ecoId} {
+      allow read, create, update: if canCreateUpdate();
+      allow delete: if isUserAdmin();
+
+      // History is part of the ECO, should be readable by the same people.
+      // It should only be created, not updated or deleted directly.
+      match /history/{historyId} {
+        allow read: if canCreateUpdate();
+        allow create: if canCreateUpdate();
+        allow update, delete: if false; // Immutable history
+      }
+    }
+
     // --- TAREAS ---
     // Las tareas tienen su propia lógica de permisos más detallada.
     match /tareas/{taskId} {
