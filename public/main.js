@@ -1280,9 +1280,9 @@ async function runEcoFormLogic() {
         formElement.addEventListener('input', saveEcoFormToLocalStorage);
 
         // --- Button Logic ---
-        const saveButton = formElement.querySelector('#eco-save-button');
-        const clearButton = formElement.querySelector('#eco-clear-button');
-        const approveButton = formElement.querySelector('#eco-approve-button');
+        const saveButton = document.getElementById('eco-save-button');
+        const clearButton = document.getElementById('eco-clear-button');
+        const approveButton = document.getElementById('eco-approve-button');
         const ecrInput = formElement.querySelector('#ecr_no');
 
         const getFormData = () => {
