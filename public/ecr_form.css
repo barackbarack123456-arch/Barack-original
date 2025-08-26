@@ -217,12 +217,14 @@ body {
 .department-content {
     display: flex;
     flex-direction: column; /* Stack checklist and comments vertically */
+    padding: 1rem; /* Add overall padding for more "air" */
+    gap: 1rem; /* Add space between checklist and comments */
 }
 .department-checklist {
-    width: 100%; /* Take full width */
-    padding: 0.5rem 1rem;
-    border-right: none; /* No longer needed */
-    border-bottom: 1px solid #9ca3af; /* Add a separator */
+    width: 100%;
+    padding: 0; /* Padding is now on the parent */
+    border-right: none;
+    /* The border is removed in favor of the gap on department-content */
 }
 .department-checklist .check-item {
     display: flex;
@@ -232,7 +234,7 @@ body {
 }
 .department-comments {
     width: 100%; /* Take full width */
-    padding: 0.5rem;
+    padding: 0; /* Padding is now on the parent */
 }
 .department-comments textarea {
     width: 100%;
