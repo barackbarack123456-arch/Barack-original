@@ -1428,7 +1428,7 @@ async function runEcoFormLogic(params = null) {
             </div>`;
         }
 
-        const container = document.getElementById('dynamic-form-sections');
+        const container = formElement.querySelector('#dynamic-form-sections');
         if (container) {
             formSectionsData.forEach(section => {
                 const sectionHTML = buildSectionHTML(section);
