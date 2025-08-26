@@ -168,20 +168,24 @@ body {
     border-collapse: collapse;
     margin-top: 1rem;
     font-size: 0.8rem;
+    table-layout: fixed; /* Prevents table from expanding uncontrollably */
 }
 .full-width-table th, .full-width-table td {
     border: 1px solid black;
     padding: 4px 6px;
     text-align: left;
+    word-wrap: break-word; /* Wraps long content */
 }
 .full-width-table th {
     background-color: #e5e7eb; /* gray-200 */
     font-weight: bold;
 }
-.full-width-table td input[type="text"] {
+.full-width-table td input {
     width: 100%;
+    box-sizing: border-box; /* Includes padding and border in the element's total width */
     border: none;
     background: transparent;
+    padding: 2px;
 }
 
 /* Department Evaluation Pages */
@@ -199,11 +203,13 @@ body {
 }
 .department-content {
     display: flex;
+    flex-direction: column; /* Stack checklist and comments vertically */
 }
 .department-checklist {
-    width: 50%;
+    width: 100%; /* Take full width */
     padding: 0.5rem 1rem;
-    border-right: 1px solid #9ca3af;
+    border-right: none; /* No longer needed */
+    border-bottom: 1px solid #9ca3af; /* Add a separator */
 }
 .department-checklist .check-item {
     display: flex;
@@ -212,15 +218,17 @@ body {
     padding: 4px 0;
 }
 .department-comments {
-    width: 50%;
+    width: 100%; /* Take full width */
     padding: 0.5rem;
 }
 .department-comments textarea {
     width: 100%;
-    height: 100%;
+    box-sizing: border-box;
+    height: 120px; /* Use a fixed height instead of 100% */
     border: 1px solid #ccc;
     border-radius: 4px;
     padding: 4px;
+    resize: vertical;
 }
 .department-footer {
     border-top: 1px solid #9ca3af;
