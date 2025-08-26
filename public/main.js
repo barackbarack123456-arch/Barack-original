@@ -677,7 +677,7 @@ async function seedDatabase() {
     const productAdjectives = ['Delantero', 'Trasero', 'Superior', 'Inferior', 'Izquierdo', 'Derecho', 'Principal', 'Auxiliar'];
     const vehicleModels = ['Sedan', 'SUV', 'Camioneta', 'Deportivo', 'Híbrido', 'Eléctrico'];
     const vehicleBrands = ['Astro', 'Vortex', 'Terra', 'Quantum', 'Nova', 'Pulsar'];
-    const colors = ['Rojo', 'Azul', 'Verde', 'Negro', 'Blanco', 'Gris', 'Amarillo'];
+    const colors = ['Rojo', 'Azul', 'Verde', 'Negro', 'Blanco', 'Gris Plata', 'Gris Oscuro'];
 
     const imageUrls = [
         'https://images.pexels.com/photos/120049/pexels-photo-120049.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
@@ -752,7 +752,9 @@ async function seedDatabase() {
             unidad_medida: getRandomItem(generated.unidades).id,
             costo: parseFloat((Math.random() * 100).toFixed(2)),
             fecha_modificacion: getRandomDate(new Date(2022, 0, 1), new Date()),
-            imagen: getRandomItem(imageUrls)
+            imagen: getRandomItem(imageUrls),
+            codigo_materia_prima: `MP-${String(i).padStart(4, '0')}`,
+            proveedor_materia_prima: getRandomItem(generated.proveedores).id,
         });
     }
     generated.insumos.forEach(ins => setInBatch(COLLECTIONS.INSUMOS, ins));
@@ -788,8 +790,10 @@ async function seedDatabase() {
             imagen: getRandomItem(imageUrls),
             clienteId: getRandomItem(generated.clientes).id,
             proyectoId: getRandomItem(generated.proyectos).id,
-            color: getRandomItem(colors),
             createdAt: new Date(),
+            color: getRandomItem(colors),
+            piezas_por_vehiculo: Math.floor(Math.random() * 4) + 1,
+            material_separar: getRandomItem([true, false]),
         };
 
         const crearNodo = (tipo, refId) => ({
@@ -5358,13 +5362,13 @@ function renderCaratula(producto, cliente) {
                 <div class="w-2/3 bg-[#44546A] text-white p-4 flex items-center" id="caratula-fields-container">
                     <div class="grid grid-cols-2 gap-x-6 gap-y-4 text-sm w-full">
                         <div><p class="font-bold opacity-80 uppercase">PRODUCTO</p><p>${producto.descripcion || 'N/A'}</p></div>
-                        <div><p class="font-bold opacity-80 uppercase">PROYECTO</p><p>${proyecto?.nombre || 'N/A'}</p></div>
                         <div><p class="font-bold opacity-80 uppercase">NÚMERO DE PIEZA</p><p>${producto.id || 'N/A'}</p></div>
                         <div><p class="font-bold opacity-80 uppercase">VERSIÓN</p><p>${producto.version || 'N/A'}</p></div>
+                        <div><p class="font-bold opacity-80 uppercase">PROYECTO</p><p>${proyecto?.nombre || 'N/A'}</p></div>
                         <div><p class="font-bold opacity-80 uppercase">FECHA DE CREACIÓN</p><p>${createdAt}</p></div>
+                        ${createEditableField('FECHA DE REVISIÓN', producto.fechaRevision, 'fechaRevision', 'YYYY-MM-DD')}
                         ${createEditableField('REALIZÓ', producto.lastUpdatedBy, 'lastUpdatedBy', 'N/A')}
                         ${createEditableField('APROBÓ', producto.aprobadoPor, 'aprobadoPor', 'N/A')}
-                        ${createEditableField('FECHA DE REVISIÓN', producto.fechaRevision, 'fechaRevision', 'YYYY-MM-DD')}
                     </div>
                 </div>
             </div>
@@ -5659,60 +5663,117 @@ function runSinopticoTabularLogic() {
     // --- RENDER FUNCTIONS ---
 
     const renderTabularTable = (data) => {
+        const state = appState.sinopticoTabularState;
+        const selectedProduct = state.selectedProduct;
+        const proyecto = selectedProduct ? appState.collectionsById[COLLECTIONS.PROYECTOS]?.get(selectedProduct.proyectoId) : null;
+
         if (data.length === 0) return `<p class="text-slate-500 p-4 text-center">El producto seleccionado no tiene una estructura definida.</p>`;
 
         let tableHTML = `<table class="w-full text-sm text-left text-gray-600">`;
         tableHTML += `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>
-            <th scope="col" class="px-4 py-3" style="min-width: 350px;">Material separar</th>
-            <th scope="col" class="px-4 py-3 text-center">Nivel</th>
-            <th scope="col" class="px-4 py-3">Versión Vehículo</th>
-            <th scope="col" class="px-4 py-3">Versión</th>
-            <th scope="col" class="px-4 py-3">Color</th>
-            <th scope="col" class="px-4 py-3">Código materia prima (Proveedor)</th>
-            <th scope="col" class="px-4 py-3">Proveedor materia prima</th>
-            <th scope="col" class="px-4 py-3 text-right">Piezas por vehículo (Un.)</th>
-            <th scope="col" class="px-4 py-3 text-center">Acciones</th>
+            <th scope="col" class="px-4 py-3 align-middle" style="min-width: 400px;">Descripción</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Nivel</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Material Separar</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Versión Vehículo (Proyecto)</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Color</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Piezas por Vehículo</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Código Materia Prima</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Proveedor Materia Prima</th>
+            <th scope="col" class="px-4 py-3 align-middle col-comentarios">Comentarios</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">LC / KD</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Código de pieza</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Versión</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap col-imagen">Imágen (URL)</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Proceso</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap col-aspecto">Aspecto</th>
+            <th scope="col" class="px-4 py-3 text-right align-middle whitespace-nowrap">Peso (gr)</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Proveedor</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Cantidad / Pieza</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Unidad</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap col-acciones">Acciones</th>
         </tr></thead><tbody>`;
 
         data.forEach(rowData => {
             const { node, item, level, isLast, lineage } = rowData;
             const NA = '<span class="text-slate-400">N/A</span>';
-            let prefix = lineage.map(parentIsNotLast => parentIsNotLast ? '│&nbsp;&nbsp;&nbsp;&nbsp;' : '&nbsp;&nbsp;&nbsp;&nbsp;').join('');
+
+            let prefix = lineage.map(parentIsNotLast => parentIsNotLast ? '│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' : '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;').join('');
             if (level > 0)  prefix += isLast ? '└─ ' : '├─ ';
-
-            const material_separar = `<span class="font-mono">${prefix}</span>${item.descripcion || ''}`;
+            const descripcion = `<span class="font-sans">${prefix}</span>${item.descripcion || item.nombre || ''}`;
             const nivel = node.originalLevel ?? level;
+            const cantidad = node.quantity ?? NA;
+            const comentarios = node.comment ? `<span class="whitespace-normal">${node.comment}</span>` : NA;
+            const lc_kd = item.lc_kd || NA;
+            const codigo_pieza = item.codigo_pieza || NA;
             const version = item.version || NA;
+            const imagen = item.imagen ? `<a href="${item.imagen}" target="_blank" class="text-blue-600 hover:underline">Ver</a>` : NA;
 
-            let version_vehiculo = NA;
-            let color = NA;
-            if (node.tipo === 'producto') {
-                version_vehiculo = item.version_vehiculo || NA;
-                color = item.color || NA;
-            }
+            const material_separar = selectedProduct.material_separar ? 'Sí' : 'No';
+            const version_vehiculo_proyecto = `${proyecto?.nombre || ''} / ${selectedProduct.version_vehiculo || ''}`;
+            const color = selectedProduct.color || NA;
+            const piezas_por_vehiculo = selectedProduct.piezas_por_vehiculo || NA;
 
             let codigo_materia_prima = NA;
             let proveedor_materia_prima = NA;
             if (node.tipo === 'insumo') {
-                codigo_materia_prima = item.codigo_pieza || NA;
-                const proveedorData = appState.collectionsById[COLLECTIONS.PROVEEDORES]?.get(item.proveedor);
-                proveedor_materia_prima = proveedorData ? proveedorData.descripcion : (item.proveedor || NA);
+                codigo_materia_prima = item.codigo_materia_prima || NA;
+                if (item.proveedor_materia_prima) {
+                    const provMP = appState.collectionsById[COLLECTIONS.PROVEEDORES]?.get(item.proveedor_materia_prima);
+                    proveedor_materia_prima = provMP ? provMP.descripcion : item.proveedor_materia_prima;
+                }
             }
 
-            const piezas_por_vehiculo = node.quantity ?? NA;
+            let proceso = NA;
+            if (node.tipo === 'semiterminado' && item.proceso) {
+                const procesoData = appState.collectionsById[COLLECTIONS.PROCESOS]?.get(item.proceso);
+                proceso = procesoData ? procesoData.descripcion : item.proceso;
+            }
+
+            const aspecto = node.tipo === 'semiterminado' ? (item.aspecto || NA) : NA;
+
+            let peso_display = NA;
+            if (node.tipo === 'semiterminado' && item.peso_gr) {
+                peso_display = item.peso_gr;
+                if (item.tolerancia_gr) {
+                    peso_display += ` ± ${item.tolerancia_gr}`;
+                }
+            }
+
+            let proveedor = NA;
+            if (node.tipo === 'insumo' && item.proveedor) {
+                const proveedorData = appState.collectionsById[COLLECTIONS.PROVEEDORES]?.get(item.proveedor);
+                proveedor = proveedorData ? proveedorData.descripcion : item.proveedor;
+            }
+
+            let unidad_medida = NA;
+            if (node.tipo === 'insumo' && item.unidad_medida) {
+                const unidadData = appState.collectionsById[COLLECTIONS.UNIDADES]?.get(item.unidad_medida);
+                unidad_medida = unidadData ? unidadData.id : item.unidad_medida;
+            }
 
             const actionsHTML = checkUserPermission('edit') ? `<button data-action="edit-tabular-node" data-node-id="${node.id}" class="p-1 text-blue-600 hover:bg-blue-100 rounded-md" title="Editar"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>` : '';
 
-            tableHTML += `<tr class="bg-white border-b hover:bg-gray-100">
-                <td class="px-4 py-2 font-medium text-gray-900">${material_separar}</td>
-                <td class="px-4 py-2 text-center">${nivel}</td>
-                <td class="px-4 py-2">${version_vehiculo}</td>
-                <td class="px-4 py-2">${version}</td>
-                <td class="px-4 py-2">${color}</td>
-                <td class="px-4 py-2">${codigo_materia_prima}</td>
-                <td class="px-4 py-2">${proveedor_materia_prima}</td>
-                <td class="px-4 py-2 text-right">${piezas_por_vehiculo}</td>
-                <td class="px-4 py-2 text-center">${actionsHTML}</td>
+            tableHTML += `<tr class="bg-white border-b hover:bg-gray-100" data-node-id="${node.id}">
+                <td class="px-4 py-2 font-mono font-medium text-gray-900 align-middle" style="min-width: 400px;">${descripcion}</td>
+                <td class="px-4 py-2 text-center align-middle">${nivel}</td>
+                <td class="px-4 py-2 text-center align-middle">${material_separar}</td>
+                <td class="px-4 py-2 text-center align-middle">${version_vehiculo_proyecto}</td>
+                <td class="px-4 py-2 text-center align-middle">${color}</td>
+                <td class="px-4 py-2 text-center align-middle">${piezas_por_vehiculo}</td>
+                <td class="px-4 py-2 text-center align-middle">${codigo_materia_prima}</td>
+                <td class="px-4 py-2 text-center align-middle">${proveedor_materia_prima}</td>
+                <td class="px-4 py-2 align-middle col-comentarios">${comentarios}</td>
+                <td class="px-4 py-2 text-center align-middle">${lc_kd}</td>
+                <td class="px-4 py-2 text-center align-middle">${codigo_pieza}</td>
+                <td class="px-4 py-2 text-center align-middle">${version}</td>
+                <td class="px-4 py-2 text-center align-middle col-imagen">${imagen}</td>
+                <td class="px-4 py-2 text-center align-middle">${proceso}</td>
+                <td class="px-4 py-2 text-center align-middle col-aspecto">${aspecto}</td>
+                <td class="px-4 py-2 text-right align-middle">${peso_display}</td>
+                <td class="px-4 py-2 text-center align-middle">${proveedor}</td>
+                <td class="px-4 py-2 text-center align-middle">${cantidad}</td>
+                <td class="px-4 py-2 text-center align-middle">${unidad_medida}</td>
+                <td class="px-4 py-2 text-center align-middle col-acciones">${actionsHTML}</td>
             </tr>`;
         });
         tableHTML += `</tbody></table>`;
@@ -6132,7 +6193,11 @@ async function exportSinopticoTabularToPdf() {
                 white-space: normal !important; /* Allow text wrapping */
                 overflow-wrap: break-word;
             }
-            .pdf-export-mode .col-acciones {
+            /* Hide columns that are not essential for the PDF version */
+            .pdf-export-mode .col-acciones,
+            .pdf-export-mode .col-imagen,
+            .pdf-export-mode .col-comentarios,
+            .pdf-export-mode .col-aspecto {
                  display: none !important;
             }
         `;
