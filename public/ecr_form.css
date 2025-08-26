@@ -1,0 +1,246 @@
+/* --- ECR FORM STYLES --- */
+/* This file is a combination of styles from eco_form.css and new styles for the ECR form. */
+
+/* === Reused from ECO Form === */
+.section-block {
+    display: flex;
+    margin-top: 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);
+}
+
+.section-sidebar {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    background-color: #6b7280; /* gray-500 */
+    color: #FFFFFF;
+    font-weight: bold;
+    text-transform: uppercase;
+    padding: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: 0.1em;
+}
+
+.section-main { flex-grow: 1; display: flex; flex-direction: column; }
+.section-content { display: flex; flex-grow: 1; }
+.section-footer {
+    background-color: #f9fafb;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: flex-end; /* Align to the right for signatures */
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.footer-field { display: flex; align-items: center; gap: 0.5rem; }
+.footer-field label { font-size: 0.875rem; font-weight: 500; }
+.footer-field input { border: 1px solid #d1d5db; border-radius: 0.375rem; padding: 0.25rem 0.5rem; font-size: 0.875rem;}
+
+.status-options { display: flex; gap: 1rem; }
+.status-options label { display: flex; align-items: center; gap: 0.5rem; }
+
+/* === New Styles for ECR Form === */
+
+body {
+    font-family: 'Arial', sans-serif;
+}
+
+.ecr-container {
+    max-width: 8.5in;
+    min-height: 11in;
+    margin: 2rem auto;
+    padding: 1in;
+    background: white;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    border: 1px solid #ccc;
+}
+
+/* Page Header */
+.ecr-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 2px solid black;
+    padding-bottom: 8px;
+}
+.ecr-header .logo {
+    font-weight: bold;
+    font-size: 1.5rem;
+    text-transform: uppercase;
+}
+.ecr-header .title-block {
+    text-align: center;
+}
+.ecr-header .ecr-main-title {
+    font-size: 2rem;
+    font-weight: bold;
+}
+.ecr-header .ecr-subtitle {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+.ecr-header .ecr-number-box {
+    border: 2px solid black;
+    padding: 8px 12px;
+}
+.ecr-header .ecr-number-box span {
+    font-weight: bold;
+}
+
+/* Gray Bar */
+.ecr-checklist-bar {
+    background-color: #d1d5db; /* gray-300 */
+    text-align: center;
+    padding: 4px 0;
+    font-weight: bold;
+    margin: 12px 0;
+}
+
+/* Generic Form Layouts */
+.form-row {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+.form-field {
+    display: flex;
+    flex-direction: column;
+}
+.form-field.row {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+}
+.form-field label {
+    font-weight: bold;
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+}
+.form-field input[type="text"], .form-field textarea {
+    border: 1px solid #9ca3af; /* gray-400 */
+    padding: 4px 6px;
+    border-radius: 4px;
+}
+.form-field input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+}
+.checkbox-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* Two-column layout for "Situacion" */
+.two-column-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 1rem 0;
+}
+.column-box {
+    border: 1px solid #9ca3af;
+    padding: 0.5rem;
+}
+.column-box h3 {
+    font-weight: bold;
+    text-align: center;
+    background-color: #e5e7eb; /* gray-200 */
+    padding: 4px;
+    margin: -0.5rem -0.5rem 0.5rem -0.5rem;
+}
+.column-box textarea {
+    width: 100%;
+    height: 150px;
+    border: none;
+    resize: none;
+}
+
+/* Full Width Tables */
+.full-width-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    font-size: 0.8rem;
+}
+.full-width-table th, .full-width-table td {
+    border: 1px solid black;
+    padding: 4px 6px;
+    text-align: left;
+}
+.full-width-table th {
+    background-color: #e5e7eb; /* gray-200 */
+    font-weight: bold;
+}
+.full-width-table td input[type="text"] {
+    width: 100%;
+    border: none;
+    background: transparent;
+}
+
+/* Department Evaluation Pages */
+.department-section {
+    border: 1px solid #9ca3af;
+    margin-bottom: 1rem;
+}
+.department-header {
+    background-color: #e5e7eb;
+    padding: 6px 10px;
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.department-content {
+    display: flex;
+}
+.department-checklist {
+    width: 50%;
+    padding: 0.5rem 1rem;
+    border-right: 1px solid #9ca3af;
+}
+.department-checklist .check-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 4px 0;
+}
+.department-comments {
+    width: 50%;
+    padding: 0.5rem;
+}
+.department-comments textarea {
+    width: 100%;
+    height: 100%;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 4px;
+}
+.department-footer {
+    border-top: 1px solid #9ca3af;
+    padding: 8px 12px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 1.5rem;
+    background-color: #f9fafb;
+}
+
+/* Watermark */
+.watermark {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 8rem;
+    color: rgba(0, 0, 0, 0.1);
+    font-weight: bold;
+    pointer-events: none;
+    z-index: -1;
+}

@@ -56,6 +56,8 @@ const viewConfig = {
     sinoptico_tabular: { title: 'Reporte BOM (Tabular)', singular: 'Reporte BOM (Tabular)' },
     eco_form: { title: 'ECO de Producto / Proceso', singular: 'ECO Form' },
     ecos: { title: 'Gestión de ECOs', singular: 'ECO' },
+    ecr_form: { title: 'ECR de Producto / Proceso', singular: 'ECR Form' },
+    ecrs: { title: 'Gestión de ECRs', singular: 'ECR' },
     flujograma: { title: 'Flujograma de Procesos', singular: 'Flujograma' },
     arboles: { title: 'Editor de Árboles', singular: 'Árbol' },
     profile: { title: 'Mi Perfil', singular: 'Mi Perfil' },
@@ -1100,7 +1102,9 @@ function switchView(viewName, params = null) {
     else if (viewName === 'profile') runProfileLogic();
     else if (viewName === 'tareas') runTasksLogic();
     else if (viewName === 'ecos') runEcosLogic();
+    else if (viewName === 'ecrs') runEcrsLogic();
     else if (viewName === 'eco_form') runEcoFormLogic(params);
+    else if (viewName === 'ecr_form') runEcrFormLogic(params);
     else if (config?.dataKey) {
         dom.headerActions.style.display = 'flex';
         dom.searchInput.style.display = 'block';
@@ -1750,6 +1754,355 @@ async function runEcosLogic() {
 
     appState.currentViewCleanup = () => {
         unsubscribe();
+    };
+}
+
+async function runEcrsLogic() {
+    dom.headerActions.style.display = 'none'; // Ocultar acciones globales
+
+    const viewHTML = `
+        <div class="animate-fade-in-up">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Planilla General de ECRs</h2>
+                    <p class="text-sm text-slate-500">Aquí puede ver, gestionar y crear nuevos ECRs.</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button data-action="create-new-ecr" class="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 flex items-center shadow-md transition-transform transform hover:scale-105">
+                        <i data-lucide="file-plus-2" class="mr-2 h-5 w-5"></i>Crear Nuevo ECR
+                    </button>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-lg">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left text-gray-600">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+                            <tr>
+                                <th scope="col" class="px-6 py-3">ECR N°</th>
+                                <th scope="col" class="px-6 py-3">Estado</th>
+                                <th scope="col" class="px-6 py-3">Última Modificación</th>
+                                <th scope="col" class="px-6 py-3">Modificado Por</th>
+                                <th scope="col" class="px-6 py-3 text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ecrs-table-body">
+                            <tr>
+                                <td colspan="5" class="text-center py-16 text-gray-500">
+                                    <div class="flex flex-col items-center gap-3">
+                                        <i data-lucide="loader" class="w-12 h-12 text-gray-300 animate-spin"></i>
+                                        <h4 class="font-semibold">Cargando ECRs...</h4>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+
+    dom.viewContent.innerHTML = viewHTML;
+    lucide.createIcons();
+
+    dom.viewContent.querySelector('[data-action="create-new-ecr"]').addEventListener('click', () => {
+        switchView('ecr_form');
+    });
+
+    const ecrFormsRef = collection(db, COLLECTIONS.ECR_FORMS);
+    const q = query(ecrFormsRef, orderBy('lastModified', 'desc'));
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const ecrsTableBody = document.getElementById('ecrs-table-body');
+        if (!ecrsTableBody) return;
+
+        if (querySnapshot.empty) {
+            ecrsTableBody.innerHTML = `<tr><td colspan="5" class="text-center py-16 text-gray-500"><i data-lucide="search-x" class="mx-auto h-16 w-16 text-gray-300"></i><h3 class="mt-4 text-lg font-semibold">No se encontraron ECRs</h3><p class="text-sm">Puede crear uno nuevo con el botón de arriba.</p></div></td></tr>`;
+            lucide.createIcons();
+            return;
+        }
+
+        let tableRowsHTML = '';
+        querySnapshot.forEach(doc => {
+            const ecr = doc.data();
+            const lastModified = ecr.lastModified?.toDate ? ecr.lastModified.toDate().toLocaleString('es-AR') : 'N/A';
+            const statusColors = {
+                'in-progress': 'bg-yellow-100 text-yellow-800',
+                'approved': 'bg-green-100 text-green-800',
+                'rejected': 'bg-red-100 text-red-800'
+            };
+            const statusText = {
+                'in-progress': 'En Progreso',
+                'approved': 'Aprobado',
+                'rejected': 'Rechazado'
+            };
+
+            tableRowsHTML += `
+                <tr class="bg-white border-b hover:bg-gray-50">
+                    <td class="px-6 py-4 font-medium text-gray-900">${ecr.id || 'N/A'}</td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-1 font-semibold leading-tight rounded-full text-xs ${statusColors[ecr.status] || 'bg-gray-100 text-gray-800'}">
+                            ${statusText[ecr.status] || ecr.status}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4">${lastModified}</td>
+                    <td class="px-6 py-4">${ecr.modifiedBy || 'N/A'}</td>
+                    <td class="px-6 py-4 text-right">
+                        <button data-action="view-ecr" data-id="${ecr.id}" class="text-gray-500 hover:text-blue-600 p-1" title="Ver/Editar"><i data-lucide="eye" class="h-5 w-5 pointer-events-none"></i></button>
+                        <button data-action="export-ecr-pdf" data-id="${ecr.id}" class="text-gray-500 hover:text-red-600 p-1" title="Exportar a PDF"><i data-lucide="file-text" class="h-5 w-5 pointer-events-none"></i></button>
+                    </td>
+                </tr>
+            `;
+        });
+        ecrsTableBody.innerHTML = tableRowsHTML;
+        lucide.createIcons();
+    }, (error) => {
+        console.error("Error fetching ECRs: ", error);
+        const ecrsTableBody = document.getElementById('ecrs-table-body');
+        if(ecrsTableBody) {
+            ecrsTableBody.innerHTML = `<tr><td colspan="5" class="text-center py-16 text-red-500"><i data-lucide="alert-triangle" class="mx-auto h-16 w-16"></i><h3 class="mt-4 text-lg font-semibold">Error al cargar ECRs</h3><p class="text-sm">${error.message}</p></div></td></tr>`;
+            lucide.createIcons();
+        }
+    });
+
+    appState.currentViewCleanup = () => {
+        unsubscribe();
+    };
+}
+
+async function runEcrFormLogic(params = null) {
+    dom.viewContent.innerHTML = `<div class="p-4 flex justify-center items-center"><div class="loading-spinner"></div><p class="mt-4 ml-4 text-slate-600 font-semibold">Cargando formulario ECR...</p></div>`;
+
+    if (!document.getElementById('ecr-form-styles')) {
+        const link = document.createElement('link');
+        link.id = 'ecr-form-styles';
+        link.rel = 'stylesheet';
+        link.href = 'ecr_form.css';
+        document.head.appendChild(link);
+    }
+     if (!document.getElementById('print-styles')) {
+        const link = document.createElement('link');
+        link.id = 'print-styles';
+        link.rel = 'stylesheet';
+        link.href = 'print.css';
+        link.media = 'print';
+        document.head.appendChild(link);
+    }
+
+    const createCheckbox = (label, name) => `<div class="flex items-center gap-2"><input type="checkbox" name="${name}" id="${name}" class="h-4 w-4"><label for="${name}" class="text-sm">${label}</label></div>`;
+    const createTextField = (label, name, placeholder = '') => `<div class="form-field flex-1"><label for="${name}" class="text-sm font-bold mb-1">${label}</label><input type="text" name="${name}" id="${name}" placeholder="${placeholder}" class="border-gray-400"></div>`;
+    const createDateField = (label, name) => `<div class="form-field"><label for="${name}" class="text-sm font-bold mb-1">${label}</label><input type="date" name="${name}" id="${name}" class="border-gray-400"></div>`;
+    const createTextarea = (name, placeholder = '') => `<textarea name="${name}" placeholder="${placeholder}" class="w-full h-full border-none resize-none p-1"></textarea>`;
+
+    const buildDepartmentSection = (config) => {
+        const checklistHTML = config.checklist.map(item => `<div class="check-item">${createCheckbox(item.label, item.name)}</div>`).join('');
+        const customContent = config.customHTML || '';
+        return `
+            <div class="department-section">
+                <div class="department-header">
+                    <span>${config.title}</span>
+                    <div class="flex items-center gap-4">
+                        ${createCheckbox('No Afecta', `na_${config.id}`)}
+                        ${createCheckbox('Afecta', `afecta_${config.id}`)}
+                    </div>
+                </div>
+                <div class="department-content">
+                    <div class="department-checklist">${checklistHTML}${customContent}</div>
+                    <div class="department-comments">
+                        <label class="font-bold text-sm mb-1 block">Comentarios Generales y Justificativos:</label>
+                        <textarea name="comments_${config.id}" class="h-48"></textarea>
+                    </div>
+                </div>
+                <div class="department-footer">
+                    <div class="flex items-center gap-2">${createCheckbox('OK', `ok_${config.id}`)} ${createCheckbox('NOK', `nok_${config.id}`)}</div>
+                    ${createDateField('Fecha:', `date_${config.id}`)}
+                    ${createTextField('Nombre:', `name_${config.id}`, 'Nombre...')}
+                    ${createTextField('Visto:', `visto_${config.id}`, 'Visto...')}
+                </div>
+            </div>
+        `;
+    };
+
+    const page1HTML = `
+        <div class="ecr-page relative" id="page1">
+            <div class="watermark">Página 1</div>
+            <div class="ecr-header">
+                <div class="logo">BARACK MERCOSUL</div>
+                <div class="title-block"><div class="ecr-main-title">ECR</div><div class="ecr-subtitle">DE PRODUCTO / PROCESO</div></div>
+                <div class="ecr-number-box"><span>ECR Nº:</span> <input type="text" name="ecr_no" class="border-none w-24"></div>
+            </div>
+            <div class="ecr-checklist-bar">CHECK LIST ECR - ENGINEERING CHANGE REQUEST</div>
+            <div class="form-row mt-4">
+                <div class="form-field row gap-4 border p-2 rounded"><strong>ORIGEN DEL PEDIDO:</strong> ${createCheckbox('CLIENTE', 'origen_cliente')} ${createCheckbox('PROVEEDOR', 'origen_proveedor')} ${createCheckbox('INTERNO', 'origen_interno')} ${createCheckbox('REGLAMENTACION', 'origen_reglamentacion')}</div>
+                <div class="flex-grow"></div>
+                ${createTextField('PROYECTO:', 'proyecto')} ${createTextField('CLIENTE:', 'cliente')} ${createDateField('Fecha de emisión:', 'fecha_emision')}
+            </div>
+            <div class="form-row">
+                <div class="form-field row gap-4"><strong>FASE DE PROYETO:</strong> ${createCheckbox('Programa', 'fase_programa')} ${createCheckbox('Série', 'fase_serie')}</div>
+                <div class="flex-grow"></div>
+                ${createDateField('Fecha de cierre:', 'fecha_cierre')}
+            </div>
+            <div class="form-field mt-2"><label class="font-bold">CÓDIGO(s) BARACK:</label><input type="text" name="codigo_barack" class="border-gray-400"></div>
+            <div class="form-field mt-2"><label class="font-bold">CÓDIGO(s) CLIENTE:</label><input type="text" name="codigo_cliente" class="border-gray-400"></div>
+            <div class="form-field mt-2"><label class="font-bold">DENOMINACIÓN DEL PRODUCTO:</label><input type="text" name="denominacion_producto" class="border-gray-400"></div>
+            <table class="full-width-table mt-4">
+                <thead><tr><th>OBJETIVO DE ECR</th><th>TIPO DE ALTERACIÓN</th><th>AFECTA S/R</th></tr></thead>
+                <tbody><tr>
+                    <td>${['Productividad', 'Mejoría de calidad', 'Estrategia del Cliente', 'Estrategia Barack', 'Nacionalizacion'].map(l => createCheckbox(l, `obj_${l.toLowerCase().replace(/ /g,'_')}`)).join('')}</td>
+                    <td>${['Producto', 'Proceso', 'Fuente de suministro', 'Embalaje'].map(l => createCheckbox(l, `tipo_${l.toLowerCase().replace(/ /g,'_')}`)).join('')} <div class="flex items-center gap-2"><input type="checkbox" id="tipo_otro"><label for="tipo_otro">Otro:</label><input type="text" class="border-b border-gray-400 flex-grow"></div></td>
+                    <td>${['Relocalizacion de Planta', 'Modificación de Layout', 'Modificacion de herrramental'].map(l => createCheckbox(l, `afecta_${l.toLowerCase().replace(/ /g,'_')}`)).join('')}</td>
+                </tr></tbody>
+            </table>
+            <div class="two-column-layout mt-4">
+                <div class="column-box"><h3>SITUACION EXISTENTE:</h3>${createTextarea('situacion_existente')}</div>
+                <div class="column-box"><h3>SITUACION PROPUESTA:</h3>${createTextarea('situacion_propuesta')}</div>
+            </div>
+            <table class="full-width-table">
+                <thead><tr><th colspan="7">IMPACTO EN CASO DE FALLA</th></tr><tr><th>RESPONSABLE</th><th>ANÁLISIS DE RIESGO</th><th>Nivel</th><th>Observaciones</th><th>NOMBRE</th><th>FECHA</th><th>VISTO</th></tr></thead>
+                <tbody>
+                    ${['RETORNO DE GARANTIA', 'RECLAMACIÓN ZERO KM', 'HSE', 'SATISFACCIÓN DEL CLIENTE', 'S/R (Seguridad y/o Regulamentación)'].map(r => `<tr><td>Gerente de Calidad</td><td>${r}</td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="date"></td><td><input type="text"></td></tr>`).join('')}
+                </tbody>
+            </table>
+            <table class="full-width-table mt-4">
+                <thead><tr><th colspan="7">NECESARIO APROBACIÓN CODIR:</th></tr><tr><th>Miembro de CODIR</th><th>Aprobado</th><th>Rechazado</th><th>Observaciones</th><th>NOMBRE</th><th>FECHA</th><th>VISTO</th></tr></thead>
+                <tbody>
+                    ${['Director Comercial', 'Director industrial', 'Otro: <input type="text" class="border-b bg-transparent">'].map(r => `<tr><td>${r}</td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="text"></td><td><input type="text"></td><td><input type="date"></td><td><input type="text"></td></tr>`).join('')}
+                </tbody>
+            </table>
+            <table class="full-width-table mt-4">
+                 <thead><tr><th colspan="2">EQUIPO DE TRABAJO</th></tr></thead>
+                 <tbody>
+                    ${[
+                        ['PILOTO ECR:', 'COMERCIAL:'],
+                        ['PILOTO:', 'PC&L/LOGÍSTICA:'],
+                        ['ENG. PRODUTO:', 'PRODUCIÓN:'],
+                        ['ENG. MANUFATURA:', 'COSTOS:'],
+                        ['CALIDAD:', 'HSE:'],
+                        ['COMPRAS:', 'MANTENIMIENTO:'],
+                        ['SQA:', '']
+                    ].map(row => `<tr><td><label>${row[0]}</label><input type="text" class="w-2/3 ml-2 border-b"></td><td>${row[1] ? `<label>${row[1]}</label><input type="text" class="w-2/3 ml-2 border-b">` : ''}</td></tr>`).join('')}
+                 </tbody>
+            </table>
+        </div>
+    `;
+
+    const page2HTML = `
+        <div class="ecr-page relative" id="page2">
+            <div class="watermark">Página 2</div>
+            <div class="ecr-checklist-bar">EVALUACION DE PROPUESTA POR LOS DEPARTAMENTOS</div>
+            ${buildDepartmentSection({
+                title: 'INGENIERIA PRODUCTO — DISEÑO', id: 'ing_producto',
+                customHTML: `
+                    <table class="full-width-table text-xs my-2">
+                        <thead><tr><th>REF. ACTUAL / IND</th><th>REF. NUEVA / IND</th><th>QTD./CARRO</th></tr></thead>
+                        <tbody><tr><td><input></td><td><input></td><td><input></td></tr></tbody>
+                    </table>
+                    <div class="grid grid-cols-2 gap-2 mt-2">
+                    ${['COSTO CLIENTE', 'COSTO BARACK', 'COSTO PROVEEDOR', 'AFECTA AL CLIENTE', 'AFECTA S&R'].map(l => createCheckbox(l, `prod_${l.toLowerCase().replace(/ /g,'_')}`)).join('')}
+                    </div>
+                `,
+                checklist: ['ESTRUCTURA DE PRODUCTO', 'PLANO DE VALIDACIÓN', 'LANZAMIENTO DE PROTOTIPOS', 'EVALUADO POR EL ESPECIALISTA DE PRODUCTO', 'ACTUALIZAR DISEÑO 3D', 'ACTUALIZAR DISEÑO 2D', 'ACTUALIZAR DFMEA', 'COPIA DE ESTA ECR PARA OTRO SITIO?', 'NECESITA PIEZA DE REPOSICIÓN'].map(l => ({label: l, name: `prod_${l.toLowerCase().replace(/ /g,'_')}`}))
+            })}
+            ${buildDepartmentSection({
+                title: 'INGENIERIA MANUFACTURA Y PROCESO', id: 'ing_manufatura',
+                checklist: ['HACER RUN A RATE', 'ACTUALIZAR DISEÑO MANUFACTURA', 'LAY OUT', 'AFECTA EQUIPAMIENTO', 'ACTUALIZAR INSTRUCCIONES, FLUJOGRAMAS', 'ACTUALIZAR PFMEA', 'POKA YOKES', 'ACTUALIZAR TIEMPOS', 'CAPACIDAD DE PERSONAL', 'AFECTA A S&R / HSE'].map(l => ({label: l, name: `manuf_${l.toLowerCase().replace(/ /g,'_')}`}))
+            })}
+             ${buildDepartmentSection({
+                title: 'HSE', id: 'hse',
+                checklist: ['CHECK LIST DE LIB DE MAQUINA', 'COMUNICAR ORGÃO AMBIENTAL', 'COMUNICACIÓN MINISTERIO DE TRABAJO'].map(l => ({label: l, name: `hse_${l.toLowerCase().replace(/ /g,'_')}`}))
+            })}
+            ${buildDepartmentSection({
+                title: 'CALIDAD', id: 'calidad',
+                checklist: ['AFECTA DIMENSIONAL CLIENTE?', 'AFECTA FUNCIONAL E MONTABILIDADE?', 'ACTUALIZAR PLANO DE CONTROLES/ INSTRUCCIONES', 'AFECTA ASPECTO/ACTUALIZAR BIBLIA DE DEFEITOS/PÇ PATRON?', 'AFECTA CAPABILIDADE (AFECTA CAPACIDAD)', 'MODIFICAR DISPOSITIVO DE CONTROLE E SEU MODO DE CONTROLE', 'NUEVO ESTUDIO DE MSA / CALIBRACIÓN', 'NECESITA VALIDACIÓN (PLANO DEBE ESTAR EN ANEXO)', 'NECESARIO NUEVO PPAP/PSW CLIENTE', 'ANALISIS DE MATERIA PRIMA', 'IMPLEMENTAR MURO DE CALIDAD IMPLEMENTADO (APLICADO)', 'NECESITA AUDITORIA S&R', 'AFECTA POKA-YOKE?', 'AFECTA AUDITORIA DE PRODUCTO?'].map(l => ({label: l, name: `calidad_${l.toLowerCase().replace(/ /g,'_')}`}))
+            })}
+        </div>
+    `;
+
+    const finalPageHTML = `
+        <div class="ecr-page relative" id="page_final">
+            <div class="ecr-checklist-bar">APROBACIÓN FINAL DE ECR</div>
+            <div class="flex justify-center items-center gap-8 my-4">
+                ${createCheckbox('OK', 'final_ok')}
+                ${createCheckbox('NOK', 'final_nok')}
+            </div>
+            <div class="form-field"><label class="font-bold">CONSIDERACIONES DE COORDINADOR:</label><textarea name="final_consideraciones" class="h-32 border-gray-400"></textarea></div>
+            <div class="flex justify-end gap-4 mt-4">
+                ${createTextField('COORDINADOR:', 'final_coordinador')}
+                ${createTextField('VISTO:', 'final_visto')}
+                ${createDateField('FECHA:', 'final_fecha')}
+            </div>
+        </div>
+    `;
+
+    const page3HTML = `
+        <div class="ecr-page relative" id="page3">
+            <div class="watermark">Página 3</div>
+            <div class="ecr-checklist-bar">EVALUACION DE PROPUESTA POR LOS DEPARTAMENTOS (Cont.)</div>
+            ${buildDepartmentSection({
+                title: 'COMPRAS — DISEÑO', id: 'compras',
+                customHTML: `
+                    <div class="grid grid-cols-2 gap-4 text-xs">
+                        <div><strong>PIEZA Actual:</strong> ${createCheckbox('NACIONAL', 'compras_actual_nac')} ${createCheckbox('IMPORTADA', 'compras_actual_imp')} <input placeholder="PROVEEDOR:" class="w-full mt-1"></div>
+                        <div><strong>PIEZA Propuesta:</strong> ${createCheckbox('NACIONAL', 'compras_prop_nac')} ${createCheckbox('IMPORTADA', 'compras_prop_imp')} <input placeholder="PROVEEDOR:" class="w-full mt-1"></div>
+                    </div>
+                    <div class="flex gap-4 mt-2">${createCheckbox('Modificación reversible', 'compras_rev')} ${createCheckbox('Modificación irreversible', 'compras_irrev')}</div>
+                `,
+                checklist: ['COSTOS EVALUADOS', 'PEDIDO COMPRA PROTOTIPOS', 'PEDIDO COMPRA TOOLING', 'AFECTA HERRAMIENTA DE PROVEEDOR', 'NECESARIO ENVIAR DISEÑO P/ PROVEEDOR', 'IMPACTO POST VENTA ANALISADO'].map(l => ({label: l, name: `compras_${l.toLowerCase().replace(/ /g,'_')}`}))
+            })}
+            ${buildDepartmentSection({
+                title: 'CALIDAD PROVEEDORES', id: 'sqa',
+                checklist: ['NECESITA NUEVO PSW PROVEEDOR - FECHA LIMITE: __/__/____', 'AFECTA LAY OUT', 'AFECTA EMBALAJE', 'AFECTA DISPOSITIVO CONTROL PROVEEDOR', 'AFECTA SUBPROVEEDOR', 'NECESITA DE ASISTENTE'].map(l => ({label: l, name: `sqa_${l.toLowerCase().replace(/ /g,'_')}`}))
+            })}
+            ${buildDepartmentSection({
+                title: 'Tooling & Equipaments (T&E)', id: 'tooling',
+                checklist: ['AFECTA HERRAMIENTA', 'ANALISIS TECNICA DE ALTERACIÓN', 'OTROS IMPACTOS CAUSADOS POR LA ALTERACION NO HERRAMENTAL'].map(l => ({label: l, name: `tooling_${l.toLowerCase().replace(/ /g,'_')}`}))
+            })}
+        </div>
+    `;
+
+    const page4HTML = `
+         <div class="ecr-page relative" id="page4">
+            <div class="watermark">Página 4</div>
+            <div class="ecr-checklist-bar">EVALUACION DE PROPUESTA POR LOS DEPARTAMENTOS (Cont.)</div>
+             ${buildDepartmentSection({
+                title: 'LOGISTICA Y PC&L', id: 'logistica',
+                checklist: ['Parámetros logísticos/items nuevos', 'Gestión de stock (pieza antigua/nueva)', 'Necesita stock de seguridad', 'Altera programa p/ proveedor', 'Nuevo protocolo logístico', 'Impacto post venta', 'Impacto MOI/MOD', 'Afecta embalaje'].map(l => ({label: l, name: `logistica_${l.toLowerCase().replace(/ /g,'_')}`}))
+            })}
+             ${buildDepartmentSection({
+                title: 'FINANCIERO / COSTING', id: 'financiero',
+                checklist: ['BUSINESS PLAN', 'BOA - BUSINESS OPPORTUNITY', 'MoB - ANALISYS', 'PAYBACK / UPFRONT'].map(l => ({label: l, name: `financiero_${l.toLowerCase().replace(/ /g,'_')}`}))
+            })}
+            ${buildDepartmentSection({
+                title: 'COMERCIAL', id: 'comercial',
+                checklist: ['NECESARIO RENEGOCIAR CON EL CLIENTE', 'IMPACTO POST VENTA ANALISADO', 'NECESARIA NUEVA ORDEN DE VENTA AL CLIENTE', 'NEGOCIACIÓN DE OBSOLETOS'].map(l => ({label: l, name: `comercial_${l.toLowerCase().replace(/ /g,'_')}`}))
+            })}
+            ${buildDepartmentSection({
+                title: 'MANTENIMIENTO', id: 'mantenimiento',
+                checklist: ['PROYETO PRESENTA VIABILIDAD TÉCNICA / TÉCNOLOGICA', 'NECESITA ADQUISICION DE MATERIALES/EQUIPAMIENTOS', 'NECESIDAD / DISPONIBILIDAD DE ENERGIAS: ELECTRICA, NEUMÁTICA E HIDRAULICA', 'CREACION/ALTERACIÓN DE MANTENIMIENTO PREVENTIVAS', 'NECESITA REGISTRO DE NUEVOS ITEMS EN ALMACÉN'].map(l => ({label: l, name: `mantenimiento_${l.toLowerCase().replace(/ /g,'_')}`}))
+            })}
+            ${buildDepartmentSection({
+                title: 'PRODUCCIÓN', id: 'produccion',
+                checklist: ['AFECTA INSTRUCCION DE TRABAJO (SW)', 'AFECTA LIBERACION DE PROCESO (SET UP)', 'IMPACTO MOD / MOI', 'CAPACITACION', 'AFECTA ALTERACIÓN DE PLANO DE CORTE'].map(l => ({label: l, name: `produccion_${l.toLowerCase().replace(/ /g,'_')}`}))
+            })}
+            ${buildDepartmentSection({
+                title: 'CALIDAD CLIENTE', id: 'calidad_cliente',
+                checklist: ['NECESITA APROBACIÓN CLIENTE EXTERNO', 'NECESARIO APROBACIÓN CLIENTE INTERNO', 'ECR SOBRE DESVIO Nº: ____', 'OTROS: ______'].map(l => ({label: l, name: `calidad_cliente_${l.toLowerCase().replace(/ /g,'_')}`}))
+            })}
+        </div>
+    `;
+
+    const formContainer = document.createElement('form');
+    formContainer.id = 'ecr-form';
+    formContainer.className = 'ecr-container bg-white p-6';
+    formContainer.innerHTML = page1HTML + page2HTML + page3HTML + page4HTML + finalPageHTML;
+
+    dom.viewContent.innerHTML = '';
+    dom.viewContent.appendChild(formContainer);
+
+    appState.currentViewCleanup = () => {
+        const ecrStyle = document.getElementById('ecr-form-styles');
+        if(ecrStyle) ecrStyle.remove();
+        const printStyle = document.getElementById('print-styles');
+        if(printStyle) printStyle.remove();
     };
 }
 
