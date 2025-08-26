@@ -1083,7 +1083,7 @@ async function runEcoFormLogic() {
         // Use a template to safely parse the HTML and get a direct reference to the form element
         const template = document.createElement('template');
         template.innerHTML = html.trim();
-        const formElement = template.content.firstChild;
+        const formElement = template.content.firstElementChild;
 
         dom.viewContent.innerHTML = ''; // Clear previous content
         dom.viewContent.appendChild(formElement);
