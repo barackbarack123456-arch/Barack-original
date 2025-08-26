@@ -2599,12 +2599,7 @@ async function exportEcrToPdf(ecrId) {
         printableContainer.style.left = '-9999px';
         printableContainer.style.width = '8.5in';
 
-        // Helper to generate a checked or unchecked box
-        const getCheckboxHTML = (checked) => {
-            return `<div style="display: inline-block; width: 10px; height: 10px; border: 1px solid black; text-align: center; line-height: 10px;">${checked ? 'X' : ''}</div>`;
-        };
-
-        // Helper to generate a checked or unchecked box
+        // This is the correct version of the helper function, the other one will be removed.
         const getCheckboxHTML = (checked) => {
             const isChecked = !!checked;
             const style = `display: inline-block; width: 10px; height: 10px; border: 1px solid black; text-align: center; line-height: 10px; font-weight: bold; vertical-align: middle; margin: 0 4px;`;
@@ -2615,42 +2610,6 @@ async function exportEcrToPdf(ecrId) {
             const value = ecrData[field];
             if (value === null || value === undefined || value === '') return defaultValue;
             return String(value).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        };
-
-        const buildPrintableDepartmentSection = (config) => {
-            const checklistHTML = config.checklist.map(item => `
-                <div style="display: flex; align-items: center; gap: 8px; padding: 2px 0;">
-                    ${getCheckboxHTML(getValue(item.name))}
-                    <span style="font-size: 9px;">${item.label}</span>
-                </div>
-            `).join('');
-
-            const customContent = config.customHTML ? config.customHTML(ecrData, getValue, getCheckboxHTML) : '';
-
-            return `
-                <div class="department-section" style="margin-top: 8px;">
-                    <div class="department-header">
-                        <span>${config.title}</span>
-                        <div style="display: flex; align-items: center; gap: 16px; font-size: 10px;">
-                            <div style="display: flex; align-items: center; gap: 4px;">${getCheckboxHTML(getValue(`na_${config.id}`))} No Afecta</div>
-                            <div style="display: flex; align-items: center; gap: 4px;">${getCheckboxHTML(getValue(`afecta_${config.id}`))} Afecta</div>
-                        </div>
-                    </div>
-                    <div class="department-content" style="flex-direction: column;">
-                        <div class="department-checklist" style="width: 100%; border-right: none; border-bottom: 1px solid #9ca3af;">${checklistHTML}${customContent}</div>
-                        <div class="department-comments" style="width: 100%;">
-                            <label class="font-bold text-sm mb-1 block">Comentarios Generales y Justificativos:</label>
-                            <p style="white-space: pre-wrap; font-size: 10px; min-height: 50px;">${getValue(`comments_${config.id}`)}</p>
-                        </div>
-                    </div>
-                    <div class="department-footer" style="font-size: 10px;">
-                        <div style="display: flex; align-items: center; gap: 8px;">${getCheckboxHTML(getValue(`ok_${config.id}`))} OK ${getCheckboxHTML(getValue(`nok_${config.id}`))} NOK</div>
-                        <div><strong>Fecha:</strong> ${getValue(`date_${config.id}`)}</div>
-                        <div><strong>Nombre:</strong> ${getValue(`name_${config.id}`)}</div>
-                        <div><strong>Visto:</strong> ${getValue(`visto_${config.id}`)}</div>
-                    </div>
-                </div>
-            `;
         };
 
         const departmentConfigs = {
