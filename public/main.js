@@ -1883,17 +1883,15 @@ async function exportEcoToPdf(ecoId) {
             scale: 2, // Higher scale for better quality
             useCORS: true,
             logging: false,
-            onclone: (clonedDoc) => {
-                // Ensure styles are loaded for the cloned document
+             onclone: (clonedDoc) => {
+                // Ensure both stylesheets are loaded for the cloned document
                 const styleSheet = document.getElementById('eco-form-styles');
                 if (styleSheet) {
                     clonedDoc.head.appendChild(styleSheet.cloneNode(true));
                 }
-
-                // Ocultar botones de acción para el PDF
-                const buttonContainer = clonedDoc.getElementById('action-buttons-container');
-                if (buttonContainer) {
-                    buttonContainer.style.display = 'none';
+                const printStyleSheet = document.querySelector('link[href="print.css"]');
+                 if (printStyleSheet) {
+                    clonedDoc.head.appendChild(printStyleSheet.cloneNode(true));
                 }
 
                 // Hacer que el input ECR N° parezca texto plano
@@ -1907,7 +1905,7 @@ async function exportEcoToPdf(ecoId) {
             }
         });
 
-        // 5. Create PDF and add the image
+        // 5. Create PDF and add the image sliced into multiple pages
         const imgData = canvas.toDataURL('image/png');
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF({
@@ -1918,24 +1916,27 @@ async function exportEcoToPdf(ecoId) {
 
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
+
         const canvasWidth = canvas.width;
         const canvasHeight = canvas.height;
         const canvasAspectRatio = canvasWidth / canvasHeight;
-        const pdfAspectRatio = pdfWidth / pdfHeight;
 
-        let finalCanvasWidth, finalCanvasHeight;
+        // Calculate the height of the image in the PDF when scaled to the PDF's width
+        const imgHeight = canvas.height * pdfWidth / canvas.width;
+        let heightLeft = imgHeight;
+        let position = 0;
 
-        // Fit image to page width
-        finalCanvasWidth = pdfWidth;
-        finalCanvasHeight = finalCanvasWidth / canvasAspectRatio;
+        // Add the first page
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+        heightLeft -= pdfHeight;
 
-        // If it's too tall, scale to page height instead
-        if (finalCanvasHeight > pdfHeight) {
-            finalCanvasHeight = pdfHeight;
-            finalCanvasWidth = finalCanvasHeight * canvasAspectRatio;
+        // Add new pages if the content is taller than one page
+        while (heightLeft > 0) {
+            position = heightLeft - imgHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+            heightLeft -= pdfHeight;
         }
-
-        pdf.addImage(imgData, 'PNG', 0, 0, finalCanvasWidth, finalCanvasHeight);
 
         // 6. Save the PDF
         pdf.save(`ECO_${ecoId}.pdf`);
