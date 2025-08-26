@@ -1936,9 +1936,51 @@ async function exportEcoToPdf(ecoId) {
         // --- ECO Form Content ---
         const MARGIN = 15;
         const PAGE_WIDTH = pdf.internal.pageSize.getWidth();
+        const PAGE_HEIGHT = pdf.internal.pageSize.getHeight();
         const CONTENT_WIDTH = PAGE_WIDTH - (MARGIN * 2);
         let y = MARGIN;
 
+        // --- Helper Functions ---
+        const checkPageBreak = (heightNeeded) => {
+            if (y + heightNeeded > PAGE_HEIGHT - MARGIN) {
+                pdf.addPage();
+                y = MARGIN;
+            }
+        };
+
+        const calculateSectionHeight = (section, ecoData) => {
+            let height = 0;
+            const LINE_HEIGHT_9PT = 4;
+            const LINE_HEIGHT_10PT_ITALIC = 5;
+            const CHECKLIST_ITEM_HEIGHT = 7;
+            const SECTION_HEADER_HEIGHT = 10;
+            const SECTION_FOOTER_HEIGHT = 17;
+            const SECTION_SPACING = 5;
+
+            height += SECTION_HEADER_HEIGHT;
+
+            if (section.checklist) {
+                const checklistHeight = section.checklist.length * CHECKLIST_ITEM_HEIGHT;
+                const comments = ecoData.comments?.[section.id] || '';
+                const commentsWidth = CONTENT_WIDTH * 0.4 - 5;
+
+                pdf.setFontSize(9);
+                const commentLines = pdf.splitTextToSize(comments, commentsWidth);
+                const commentsHeight = 10 + (commentLines.length * LINE_HEIGHT_9PT);
+
+                height += Math.max(checklistHeight, commentsHeight);
+                height += SECTION_SPACING;
+                height += SECTION_FOOTER_HEIGHT;
+            } else if (section.description) {
+                pdf.setFontSize(10);
+                const descLines = pdf.splitTextToSize(section.description, CONTENT_WIDTH);
+                height += 5 + (descLines.length * LINE_HEIGHT_10PT_ITALIC);
+                height += SECTION_FOOTER_HEIGHT;
+            }
+            return height;
+        };
+
+        // --- Drawing Logic ---
         // Header
         if (logoBase64) {
             pdf.addImage(logoBase64, 'PNG', MARGIN, y, 35, 15);
@@ -1948,27 +1990,19 @@ async function exportEcoToPdf(ecoId) {
         const title = 'ECO DE PRODUCTO / PROCESO';
         const ecrText = `ECR N°: ${ecoData.id || 'N/A'}`;
 
-        // Draw title and ECR number right-aligned
         pdf.text(title, PAGE_WIDTH - MARGIN, y + 8, { align: 'right' });
         pdf.setFontSize(12);
         pdf.setFont('helvetica', 'normal');
         pdf.text(ecrText, PAGE_WIDTH - MARGIN, y + 16, { align: 'right' });
-
         y += 30;
-
-
-        const checkPageBreak = (heightNeeded) => {
-            if (y + heightNeeded > pdf.internal.pageSize.getHeight() - MARGIN) {
-                pdf.addPage();
-                y = MARGIN;
-            }
-        };
 
         // --- Sections ---
         const formSectionsData = [ { title: 'ENG. PRODUCTO', id: 'eng_producto', checklist: [ '¿Se requiere cambio en el plano?', '¿Se requiere cambio en la especificación?', '¿Se requiere un nuevo herramental?', '¿Se requiere un nuevo dispositivo?' ] }, { title: 'CALIDAD', id: 'calidad', checklist: [ '¿Se requiere un nuevo plan de control?', '¿Se requiere un nuevo estudio de capacidad?', '¿Se requiere un nuevo R&R?', '¿Se requiere un nuevo layout?' ] }, { title: 'ENG. PROCESO', id: 'eng_proceso', checklist: [ '¿Se requiere un nuevo diagrama de flujo?', '¿Se requiere un nuevo AMEF?', '¿Se requiere un nuevo estudio de tiempos?', '¿Se requiere una nueva instrucción de trabajo?' ] }, { title: 'COMPRAS', id: 'compras', checklist: [ '¿Se requiere un nuevo proveedor?', '¿Se requiere un nuevo acuerdo de precios?', '¿Se requiere un nuevo embalaje?', '¿Se requiere un nuevo transporte?' ] }, { title: 'LOGISTICA', id: 'logistica', checklist: [ '¿Se requiere un nuevo layout de almacén?', '¿Se requiere un nuevo sistema de identificación?', '¿Se requiere un nuevo flujo de materiales?', '¿Se requiere un nuevo sistema de transporte interno?' ] }, { title: 'IMPLEMENTACIÓN', id: 'implementacion', checklist: [ '¿Se requiere actualizar el stock?', '¿Se requiere notificar al cliente?', '¿Se requiere capacitar al personal?', '¿Se requiere validar el proceso?' ] }, { title: 'APROBACIÓN FINAL', id: 'aprobacion_final', description: 'Aprobación final del ECO y cierre del proceso.', checklist: null } ];
 
         formSectionsData.forEach(section => {
-            checkPageBreak(25); // Minimum height for a section header
+            const sectionHeight = calculateSectionHeight(section, ecoData);
+            checkPageBreak(sectionHeight);
+
             pdf.setFillColor(230, 230, 230);
             pdf.rect(MARGIN, y, CONTENT_WIDTH, 8, 'F');
             pdf.setFontSize(12);
@@ -1981,7 +2015,6 @@ async function exportEcoToPdf(ecoId) {
                 const comments = ecoData.comments?.[section.id] || '';
                 const signatures = ecoData.signatures?.[section.id] || {};
 
-                // Checklist and Comments side-by-side
                 const checklistYStart = y;
                 const checklistWidth = CONTENT_WIDTH * 0.6;
                 const commentsWidth = CONTENT_WIDTH * 0.4 - 5;
@@ -1989,25 +2022,19 @@ async function exportEcoToPdf(ecoId) {
                 pdf.setFontSize(9);
                 pdf.setFont('helvetica', 'normal');
                 section.checklist.forEach((item, index) => {
-                    checkPageBreak(8);
                     const itemData = checklistData[index] || {};
                     pdf.text(item, MARGIN, y + 5);
-
-                    // SI Checkbox
                     pdf.rect(MARGIN + checklistWidth - 20, y + 2, 3, 3);
                     if (itemData.si) pdf.text('X', MARGIN + checklistWidth - 19, y + 4.5);
                     pdf.text('SI', MARGIN + checklistWidth - 16, y + 5);
-
-                    // N/A Checkbox
                     pdf.rect(MARGIN + checklistWidth - 8, y + 2, 3, 3);
                     if (itemData.na) pdf.text('X', MARGIN + checklistWidth - 7, y + 4.5);
                     pdf.text('N/A', MARGIN + checklistWidth - 4, y + 5);
-
                     y += 7;
                 });
 
                 const checklistYEnd = y;
-                y = checklistYStart; // Reset y to draw comments next to the checklist
+                y = checklistYStart;
 
                 pdf.setFont('helvetica', 'bold');
                 pdf.text('Comentarios:', MARGIN + checklistWidth + 5, y + 5);
@@ -2016,10 +2043,8 @@ async function exportEcoToPdf(ecoId) {
                 pdf.text(commentLines, MARGIN + checklistWidth + 5, y + 10);
 
                 y = Math.max(checklistYEnd, y + 10 + commentLines.length * 4);
-                y += 5; // spacing
+                y += 5;
 
-                // Footer Signatures
-                checkPageBreak(20);
                 pdf.setDrawColor(150);
                 pdf.line(MARGIN, y, PAGE_WIDTH - MARGIN, y);
                 y += 5;
@@ -2031,43 +2056,25 @@ async function exportEcoToPdf(ecoId) {
                 const sigVisto = signatures.visto || '____________________';
 
                 pdf.text(`Fecha de Revisión: ${sigDate}`, MARGIN, y);
-
                 pdf.text(`Estado:`, MARGIN + 60, y);
                 pdf.circle(MARGIN + 72, y - 1, 1.5);
                 pdf.text('OK', MARGIN + 74, y);
                 if (sigStatus === 'ok') pdf.circle(MARGIN + 72, y - 1, 1, 'F');
-
                 pdf.circle(MARGIN + 82, y - 1, 1.5);
                 pdf.text('NOK', MARGIN + 84, y);
                 if (sigStatus === 'nok') pdf.circle(MARGIN + 82, y - 1, 1, 'F');
-
                 pdf.text(`Aprobador: ${sigName}`, MARGIN, y + 7);
                 pdf.text(`Firma: ${sigVisto}`, MARGIN + 100, y + 7);
                 y += 12;
 
             } else if (section.description) {
-                const descLines = pdf.splitTextToSize(section.description, CONTENT_WIDTH);
-                const requiredHeight = 10 + descLines.length * 5;
-                checkPageBreak(requiredHeight);
-
-                // Re-draw header on new page if needed
-                if (y === MARGIN) {
-                    pdf.setFillColor(230, 230, 230);
-                    pdf.rect(MARGIN, y, CONTENT_WIDTH, 8, 'F');
-                    pdf.setFontSize(12);
-                    pdf.setFont('helvetica', 'bold');
-                    pdf.text(section.title, MARGIN + 2, y + 5.5);
-                    y += 10;
-                }
-
                 pdf.setFontSize(10);
                 pdf.setFont('helvetica', 'italic');
+                const descLines = pdf.splitTextToSize(section.description, CONTENT_WIDTH);
                 pdf.text(descLines, MARGIN, y + 5);
                 y += 5 + descLines.length * 5;
 
-                // Add signature block for the final approval section as well
                 const signatures = ecoData.signatures?.[section.id] || {};
-                checkPageBreak(20);
                 pdf.setDrawColor(150);
                 pdf.line(MARGIN, y, PAGE_WIDTH - MARGIN, y);
                 y += 5;
@@ -2082,7 +2089,6 @@ async function exportEcoToPdf(ecoId) {
                 pdf.text(`Firma: ${sigVisto}`, MARGIN + 100, y + 7);
                 y += 12;
             }
-
         });
 
         pdf.save(`ECO_${ecoId}.pdf`);
