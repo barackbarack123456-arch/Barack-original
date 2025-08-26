@@ -1463,9 +1463,9 @@ async function runEcoFormLogic(params = null) {
         }
 
         // --- Button Logic ---
-        const saveButton = document.getElementById('eco-save-button');
-        const approveButton = document.getElementById('eco-approve-button');
-        const clearButton = document.getElementById('eco-clear-button');
+        const saveButton = formElement.querySelector('#eco-save-button');
+        const approveButton = formElement.querySelector('#eco-approve-button');
+        const clearButton = formElement.querySelector('#eco-clear-button');
         const ecrInput = formElement.querySelector('#ecr_no');
         const headerActions = formElement.querySelector('#eco-header-actions');
 
