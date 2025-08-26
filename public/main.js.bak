@@ -143,15 +143,15 @@ const viewConfig = {
     },
     clientes: { title: 'Clientes', singular: 'Cliente', dataKey: COLLECTIONS.CLIENTES, columns: [ { key: 'id', label: 'Código' }, { key: 'descripcion', label: 'Descripción' } ], fields: [ { key: 'id', label: 'Código', type: 'text', required: true }, { key: 'descripcion', label: 'Descripción', type: 'text', required: true } ] },
     sectores: { title: 'Sectores', singular: 'Sector', dataKey: COLLECTIONS.SECTORES, columns: [ { key: 'id', label: 'Código' }, { key: 'descripcion', label: 'Descripción' } ], fields: [ { key: 'id', label: 'Código', type: 'text', required: true }, { key: 'descripcion', label: 'Descripción', type: 'text', required: true }, { key: 'icon', label: 'Icono (Lucide)', type: 'text', required: true } ] },
-    proveedores: { 
-        title: 'Proveedores', 
-        singular: 'Proveedor', 
-        dataKey: COLLECTIONS.PROVEEDORES, 
-        columns: [ { key: 'id', label: 'Código' }, { key: 'descripcion', label: 'Razón Social' } ], 
-        fields: [ 
-            { key: 'id', label: 'Código', type: 'text', required: true }, 
-            { key: 'descripcion', label: 'Razón Social', type: 'text', required: true } 
-        ] 
+    proveedores: {
+        title: 'Proveedores',
+        singular: 'Proveedor',
+        dataKey: COLLECTIONS.PROVEEDORES,
+        columns: [ { key: 'id', label: 'Código' }, { key: 'descripcion', label: 'Razón Social' } ],
+        fields: [
+            { key: 'id', label: 'Código', type: 'text', required: true },
+            { key: 'descripcion', label: 'Razón Social', type: 'text', required: true }
+        ]
     },
     unidades: {
         title: 'Unidades de Medida',
@@ -163,17 +163,17 @@ const viewConfig = {
             { key: 'descripcion', label: 'Descripción (ej: Kilogramos, Metros, Unidades)', type: 'text', required: true }
         ]
     },
-    procesos: { 
-        title: 'Procesos', 
-        singular: 'Proceso', 
-        dataKey: COLLECTIONS.PROCESOS, 
-        columns: [ 
-            { key: 'id', label: 'Código' }, 
-            { key: 'descripcion', label: 'Descripción' } 
+    procesos: {
+        title: 'Procesos',
+        singular: 'Proceso',
+        dataKey: COLLECTIONS.PROCESOS,
+        columns: [
+            { key: 'id', label: 'Código' },
+            { key: 'descripcion', label: 'Descripción' }
         ],
-        fields: [ 
-            { key: 'id', label: 'Código', type: 'text', required: true }, 
-            { key: 'descripcion', label: 'Descripción', type: 'text', required: true } 
+        fields: [
+            { key: 'id', label: 'Código', type: 'text', required: true },
+            { key: 'descripcion', label: 'Descripción', type: 'text', required: true }
         ]
     },
     user_management: {
@@ -212,9 +212,9 @@ const viewConfig = {
 };
 
 // --- Estado Global de la Aplicación ---
-let appState = { 
-    currentView: 'dashboard', 
-    currentData: [], 
+let appState = {
+    currentView: 'dashboard',
+    currentData: [],
     arbolActivo: null,
     currentUser: null,
     currentViewCleanup: null,
@@ -1042,7 +1042,7 @@ function setupGlobalEventListeners() {
             dropdown.classList.toggle('open');
         }
     });
-    
+
     dom.viewContent.addEventListener('click', handleViewContentActions);
 
     // Attach listeners directly to forms for more reliable submission
@@ -1089,11 +1089,11 @@ function switchView(viewName, params = null) {
             parentDropdown.querySelector('.dropdown-toggle').classList.add('active');
         }
     }
-    
+
     dom.viewContent.innerHTML = '';
     dom.headerActions.style.display = 'none';
     dom.searchInput.style.display = 'none';
-    
+
     if (viewName === 'dashboard') runDashboardLogic();
     else if (viewName === 'sinoptico') runSinopticoLogic();
     else if (viewName === 'sinoptico_tabular') runSinopticoTabularLogic();
@@ -1872,7 +1872,6 @@ async function runEcrsLogic() {
 async function runEcrFormLogic(params = null) {
     dom.viewContent.innerHTML = `<div class="p-4 flex justify-center items-center"><div class="loading-spinner"></div><p class="mt-4 ml-4 text-slate-600 font-semibold">Cargando formulario ECR...</p></div>`;
 
-    // Ensure CSS is loaded
     if (!document.getElementById('ecr-form-styles')) {
         const link = document.createElement('link');
         link.id = 'ecr-form-styles';
@@ -1880,7 +1879,7 @@ async function runEcrFormLogic(params = null) {
         link.href = 'ecr_form.css';
         document.head.appendChild(link);
     }
-    if (!document.getElementById('print-styles')) {
+     if (!document.getElementById('print-styles')) {
         const link = document.createElement('link');
         link.id = 'print-styles';
         link.rel = 'stylesheet';
@@ -1889,11 +1888,10 @@ async function runEcrFormLogic(params = null) {
         document.head.appendChild(link);
     }
 
-    // --- Helper functions for building form elements ---
-    const createCheckbox = (label, name, value = '') => `<div class="flex items-center gap-2"><input type="checkbox" name="${name}" id="${name}" value="${value}" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"><label for="${name}" class="text-sm select-none">${label}</label></div>`;
-    const createTextField = (label, name, placeholder = '', isFullWidth = false) => `<div class="form-field ${isFullWidth ? 'col-span-full' : 'flex-1'}"><label for="${name}" class="text-sm font-bold mb-1">${label}</label><input type="text" name="${name}" id="${name}" placeholder="${placeholder}" class="w-full"></div>`;
-    const createDateField = (label, name) => `<div class="form-field"><label for="${name}" class="text-sm font-bold mb-1">${label}</label><input type="date" name="${name}" id="${name}" class="w-full"></div>`;
-    const createTextarea = (name, placeholder = '') => `<textarea name="${name}" placeholder="${placeholder}" class="w-full h-full border-none resize-none p-1 bg-transparent focus:outline-none"></textarea>`;
+    const createCheckbox = (label, name) => `<div class="flex items-center gap-2"><input type="checkbox" name="${name}" id="${name}" class="h-4 w-4"><label for="${name}" class="text-sm">${label}</label></div>`;
+    const createTextField = (label, name, placeholder = '') => `<div class="form-field flex-1"><label for="${name}" class="text-sm font-bold mb-1">${label}</label><input type="text" name="${name}" id="${name}" placeholder="${placeholder}" class="border-gray-400"></div>`;
+    const createDateField = (label, name) => `<div class="form-field"><label for="${name}" class="text-sm font-bold mb-1">${label}</label><input type="date" name="${name}" id="${name}" class="border-gray-400"></div>`;
+    const createTextarea = (name, placeholder = '') => `<textarea name="${name}" placeholder="${placeholder}" class="w-full h-full border-none resize-none p-1"></textarea>`;
 
     const buildDepartmentSection = (config) => {
         const checklistHTML = config.checklist.map(item => `<div class="check-item">${createCheckbox(item.label, item.name)}</div>`).join('');
@@ -1924,96 +1922,75 @@ async function runEcrFormLogic(params = null) {
         `;
     };
 
-    // --- Form HTML structure ---
     const page1HTML = `
         <div class="ecr-page relative" id="page1">
             <div class="watermark">Página 1</div>
-            <header class="ecr-header">
+            <div class="ecr-header">
                 <div class="logo">BARACK MERCOSUL</div>
-                <div class="title-block">
-                    <div class="ecr-main-title">ECR</div>
-                    <div class="ecr-subtitle">DE PRODUCTO / PROCESO</div>
-                </div>
-                <div class="ecr-number-box">
-                    <span>ECR N°:</span>
-                    <input type="text" name="ecr_no">
-                </div>
-            </header>
+                <div class="title-block"><div class="ecr-main-title">ECR</div><div class="ecr-subtitle">DE PRODUCTO / PROCESO</div></div>
+                <div class="ecr-number-box"><span>ECR Nº:</span> <input type="text" name="ecr_no" class="border-none w-24"></div>
+            </div>
             <div class="ecr-checklist-bar">CHECK LIST ECR - ENGINEERING CHANGE REQUEST</div>
-
-            <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 items-end">
-                <div class="form-field border p-2 rounded-lg col-span-1 lg:col-span-2">
-                    <strong class="text-sm">ORIGEN DEL PEDIDO:</strong>
-                    <div class="flex flex-wrap gap-x-4 gap-y-2 mt-1">
-                        ${createCheckbox('Cliente', 'origen_cliente')}
-                        ${createCheckbox('Proveedor', 'origen_proveedor')}
-                        ${createCheckbox('Interno', 'origen_interno')}
-                        ${createCheckbox('Reglamentación', 'origen_reglamentacion')}
-                    </div>
-                </div>
-                ${createTextField('Proyecto:', 'proyecto')}
-                ${createTextField('Cliente:', 'cliente')}
-            </section>
-
-            <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-2 items-end">
-                 <div class="form-field border p-2 rounded-lg col-span-1 lg:col-span-2">
-                    <strong class="text-sm">FASE DE PROYECTO:</strong>
-                    <div class="flex flex-wrap gap-x-4 gap-y-2 mt-1">
-                        ${createCheckbox('Programa', 'fase_programa')}
-                        ${createCheckbox('Serie', 'fase_serie')}
-                    </div>
-                </div>
-                ${createDateField('Fecha de Emisión:', 'fecha_emision')}
-                ${createDateField('Fecha de Cierre:', 'fecha_cierre')}
-            </section>
-
-            <section class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                ${createTextField('Código(s) Barack:', 'codigo_barack', '...', true)}
-                ${createTextField('Código(s) Cliente:', 'codigo_cliente', '...', true)}
-            </section>
-            ${createTextField('Denominación del Producto:', 'denominacion_producto', '...', true)}
-
+            <div class="form-row mt-4">
+                <div class="form-field row gap-4 border p-2 rounded"><strong>ORIGEN DEL PEDIDO:</strong> ${createCheckbox('CLIENTE', 'origen_cliente')} ${createCheckbox('PROVEEDOR', 'origen_proveedor')} ${createCheckbox('INTERNO', 'origen_interno')} ${createCheckbox('REGLAMENTACION', 'origen_reglamentacion')}</div>
+                <div class="flex-grow"></div>
+                ${createTextField('PROYECTO:', 'proyecto')} ${createTextField('CLIENTE:', 'cliente')} ${createDateField('Fecha de emisión:', 'fecha_emision')}
+            </div>
+            <div class="form-row">
+                <div class="form-field row gap-4"><strong>FASE DE PROYETO:</strong> ${createCheckbox('Programa', 'fase_programa')} ${createCheckbox('Série', 'fase_serie')}</div>
+                <div class="flex-grow"></div>
+                ${createDateField('Fecha de cierre:', 'fecha_cierre')}
+            </div>
+            <div class="form-field mt-2"><label class="font-bold">CÓDIGO(s) BARACK:</label><input type="text" name="codigo_barack" class="border-gray-400"></div>
+            <div class="form-field mt-2"><label class="font-bold">CÓDIGO(s) CLIENTE:</label><input type="text" name="codigo_cliente" class="border-gray-400"></div>
+            <div class="form-field mt-2"><label class="font-bold">DENOMINACIÓN DEL PRODUCTO:</label><input type="text" name="denominacion_producto" class="border-gray-400"></div>
             <table class="full-width-table mt-4">
                 <thead><tr><th>OBJETIVO DE ECR</th><th>TIPO DE ALTERACIÓN</th><th>AFECTA S/R</th></tr></thead>
                 <tbody><tr>
-                    <td>${['Productividad', 'Mejora de calidad', 'Estrategia del Cliente', 'Estrategia Barack', 'Nacionalización'].map(l => createCheckbox(l, `obj_${l.toLowerCase().replace(/ /g,'_')}`)).join('')}</td>
-                    <td>${['Producto', 'Proceso', 'Fuente de suministro', 'Embalaje'].map(l => createCheckbox(l, `tipo_${l.toLowerCase().replace(/ /g,'_')}`)).join('')} <div class="flex items-center gap-2 mt-1"><input type="checkbox" id="tipo_otro"><label for="tipo_otro" class="text-sm">Otro:</label><input type="text" class="border-b-2 bg-transparent flex-grow"></div></td>
-                    <td>${['Relocalización de Planta', 'Modificación de Layout', 'Modificación de herramental'].map(l => createCheckbox(l, `afecta_${l.toLowerCase().replace(/ /g,'_')}`)).join('')}</td>
+                    <td>${['Productividad', 'Mejoría de calidad', 'Estrategia del Cliente', 'Estrategia Barack', 'Nacionalizacion'].map(l => createCheckbox(l, `obj_${l.toLowerCase().replace(/ /g,'_')}`)).join('')}</td>
+                    <td>${['Producto', 'Proceso', 'Fuente de suministro', 'Embalaje'].map(l => createCheckbox(l, `tipo_${l.toLowerCase().replace(/ /g,'_')}`)).join('')} <div class="flex items-center gap-2"><input type="checkbox" id="tipo_otro"><label for="tipo_otro">Otro:</label><input type="text" class="border-b border-gray-400 flex-grow"></div></td>
+                    <td>${['Relocalizacion de Planta', 'Modificación de Layout', 'Modificacion de herrramental'].map(l => createCheckbox(l, `afecta_${l.toLowerCase().replace(/ /g,'_')}`)).join('')}</td>
                 </tr></tbody>
             </table>
-
             <div class="two-column-layout mt-4">
-                <div class="column-box"><h3>SITUACIÓN EXISTENTE:</h3>${createTextarea('situacion_existente')}</div>
-                <div class="column-box"><h3>SITUACIÓN PROPUESTA:</h3>${createTextarea('situacion_propuesta')}</div>
+                <div class="column-box"><h3>SITUACION EXISTENTE:</h3>${createTextarea('situacion_existente')}</div>
+                <div class="column-box"><h3>SITUACION PROPUESTA:</h3>${createTextarea('situacion_propuesta')}</div>
             </div>
-
             <table class="full-width-table">
                 <thead><tr><th colspan="7">IMPACTO EN CASO DE FALLA</th></tr><tr><th>RESPONSABLE</th><th>ANÁLISIS DE RIESGO</th><th>Nivel</th><th>Observaciones</th><th>NOMBRE</th><th>FECHA</th><th>VISTO</th></tr></thead>
-                <tbody>${['RETORNO DE GARANTÍA', 'RECLAMACIÓN ZERO KM', 'HSE', 'SATISFACCIÓN DEL CLIENTE', 'S/R (Seguridad y/o Regulamentación)'].map(r => `<tr><td>Gerente de Calidad</td><td>${r}</td><td><input></td><td><input></td><td><input></td><td><input type="date"></td><td><input></td></tr>`).join('')}</tbody>
+                <tbody>
+                    ${['RETORNO DE GARANTIA', 'RECLAMACIÓN ZERO KM', 'HSE', 'SATISFACCIÓN DEL CLIENTE', 'S/R (Seguridad y/o Regulamentación)'].map(r => `<tr><td>Gerente de Calidad</td><td>${r}</td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="date"></td><td><input type="text"></td></tr>`).join('')}
+                </tbody>
             </table>
-
             <table class="full-width-table mt-4">
-                <thead><tr><th colspan="7">APROBACIÓN DE DIRECTORIO (CODIR)</th></tr><tr><th>Miembro de Directorio</th><th>Aprobado</th><th>Rechazado</th><th>Observaciones</th><th>NOMBRE</th><th>FECHA</th><th>VISTO</th></tr></thead>
-                <tbody>${['Director Comercial', 'Director Industrial', 'Otro: <input class="border-b-2 bg-transparent w-full">'].map(r => `<tr><td>${r}</td><td>${createCheckbox('', '')}</td><td>${createCheckbox('', '')}</td><td><input></td><td><input></td><td><input type="date"></td><td><input></td></tr>`).join('')}</tbody>
+                <thead><tr><th colspan="7">NECESARIO APROBACIÓN CODIR:</th></tr><tr><th>Miembro de CODIR</th><th>Aprobado</th><th>Rechazado</th><th>Observaciones</th><th>NOMBRE</th><th>FECHA</th><th>VISTO</th></tr></thead>
+                <tbody>
+                    ${['Director Comercial', 'Director industrial', 'Otro: <input type="text" class="border-b bg-transparent">'].map(r => `<tr><td>${r}</td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="text"></td><td><input type="text"></td><td><input type="date"></td><td><input type="text"></td></tr>`).join('')}
+                </tbody>
             </table>
-
             <table class="full-width-table mt-4">
                  <thead><tr><th colspan="2">EQUIPO DE TRABAJO</th></tr></thead>
                  <tbody>
-                    ${[['PILOTO ECR:', 'COMERCIAL:'], ['PILOTO:', 'PC&L/LOGÍSTICA:'], ['ING. PRODUCTO:', 'PRODUCCIÓN:'], ['ING. MANUFACTURA:', 'COSTOS:'], ['CALIDAD:', 'HSE:'], ['COMPRAS:', 'MANTENIMIENTO:'], ['SQA:', '']].map(row => `<tr><td><label>${row[0]}</label><input class="w-2/3 ml-2 border-b-2 bg-transparent"></td><td>${row[1] ? `<label>${row[1]}</label><input class="w-2/3 ml-2 border-b-2 bg-transparent">` : ''}</td></tr>`).join('')}
+                    ${[
+                        ['PILOTO ECR:', 'COMERCIAL:'],
+                        ['PILOTO:', 'PC&L/LOGÍSTICA:'],
+                        ['ENG. PRODUTO:', 'PRODUCIÓN:'],
+                        ['ENG. MANUFATURA:', 'COSTOS:'],
+                        ['CALIDAD:', 'HSE:'],
+                        ['COMPRAS:', 'MANTENIMIENTO:'],
+                        ['SQA:', '']
+                    ].map(row => `<tr><td><label>${row[0]}</label><input type="text" class="w-2/3 ml-2 border-b"></td><td>${row[1] ? `<label>${row[1]}</label><input type="text" class="w-2/3 ml-2 border-b">` : ''}</td></tr>`).join('')}
                  </tbody>
             </table>
         </div>
     `;
 
-    // --- All other pages remain the same as they are already structured correctly.
-    // I will copy them here to ensure the full form is preserved.
     const page2HTML = `
         <div class="ecr-page relative" id="page2">
             <div class="watermark">Página 2</div>
-            <div class="ecr-checklist-bar">EVALUACIÓN DE PROPUESTA POR LOS DEPARTAMENTOS</div>
+            <div class="ecr-checklist-bar">EVALUACION DE PROPUESTA POR LOS DEPARTAMENTOS</div>
             ${buildDepartmentSection({
-                title: 'INGENIERÍA PRODUCTO — DISEÑO', id: 'ing_producto',
+                title: 'INGENIERIA PRODUCTO — DISEÑO', id: 'ing_producto',
                 customHTML: `
                     <table class="full-width-table text-xs my-2">
                         <thead><tr><th>REF. ACTUAL / IND</th><th>REF. NUEVA / IND</th><th>QTD./CARRO</th></tr></thead>
@@ -2026,73 +2003,16 @@ async function runEcrFormLogic(params = null) {
                 checklist: ['ESTRUCTURA DE PRODUCTO', 'PLANO DE VALIDACIÓN', 'LANZAMIENTO DE PROTOTIPOS', 'EVALUADO POR EL ESPECIALISTA DE PRODUCTO', 'ACTUALIZAR DISEÑO 3D', 'ACTUALIZAR DISEÑO 2D', 'ACTUALIZAR DFMEA', 'COPIA DE ESTA ECR PARA OTRO SITIO?', 'NECESITA PIEZA DE REPOSICIÓN'].map(l => ({label: l, name: `prod_${l.toLowerCase().replace(/ /g,'_')}`}))
             })}
             ${buildDepartmentSection({
-                title: 'INGENIERÍA MANUFACTURA Y PROCESO', id: 'ing_manufatura',
+                title: 'INGENIERIA MANUFACTURA Y PROCESO', id: 'ing_manufatura',
                 checklist: ['HACER RUN A RATE', 'ACTUALIZAR DISEÑO MANUFACTURA', 'LAY OUT', 'AFECTA EQUIPAMIENTO', 'ACTUALIZAR INSTRUCCIONES, FLUJOGRAMAS', 'ACTUALIZAR PFMEA', 'POKA YOKES', 'ACTUALIZAR TIEMPOS', 'CAPACIDAD DE PERSONAL', 'AFECTA A S&R / HSE'].map(l => ({label: l, name: `manuf_${l.toLowerCase().replace(/ /g,'_')}`}))
             })}
              ${buildDepartmentSection({
                 title: 'HSE', id: 'hse',
-                checklist: ['CHECK LIST DE LIB DE MÁQUINA', 'COMUNICAR ÓRGANO AMBIENTAL', 'COMUNICACIÓN MINISTERIO DE TRABAJO'].map(l => ({label: l, name: `hse_${l.toLowerCase().replace(/ /g,'_')}`}))
+                checklist: ['CHECK LIST DE LIB DE MAQUINA', 'COMUNICAR ORGÃO AMBIENTAL', 'COMUNICACIÓN MINISTERIO DE TRABAJO'].map(l => ({label: l, name: `hse_${l.toLowerCase().replace(/ /g,'_')}`}))
             })}
             ${buildDepartmentSection({
                 title: 'CALIDAD', id: 'calidad',
-                checklist: ['AFECTA DIMENSIONAL CLIENTE?', 'AFECTA FUNCIONAL Y MONTABILIDAD?', 'ACTUALIZAR PLANO DE CONTROLES/ INSTRUCCIONES', 'AFECTA ASPECTO/ACTUALIZAR BIBLIA DE DEFECTOS/PZA PATRÓN?', 'AFECTA CAPABILIDAD (AFECTA CAPACIDAD)', 'MODIFICAR DISPOSITIVO DE CONTROL Y SU MODO DE CONTROL', 'NUEVO ESTUDIO DE MSA / CALIBRACIÓN', 'NECESITA VALIDACIÓN (PLANO DEBE ESTAR EN ANEXO)', 'NECESARIO NUEVO PPAP/PSW CLIENTE', 'ANÁLISIS DE MATERIA PRIMA', 'IMPLEMENTAR MURO DE CALIDAD', 'NECESITA AUDITORÍA S&R', 'AFECTA POKA-YOKE?', 'AFECTA AUDITORÍA DE PRODUCTO?'].map(l => ({label: l, name: `calidad_${l.toLowerCase().replace(/ /g,'_')}`}))
-            })}
-        </div>
-    `;
-
-    const page3HTML = `
-        <div class="ecr-page relative" id="page3">
-            <div class="watermark">Página 3</div>
-            <div class="ecr-checklist-bar">EVALUACIÓN DE PROPUESTA POR LOS DEPARTAMENTOS (Cont.)</div>
-            ${buildDepartmentSection({
-                title: 'COMPRAS', id: 'compras',
-                customHTML: `
-                    <div class="grid grid-cols-2 gap-4 text-xs">
-                        <div><strong>PIEZA Actual:</strong> ${createCheckbox('NACIONAL', 'compras_actual_nac')} ${createCheckbox('IMPORTADA', 'compras_actual_imp')} <input placeholder="PROVEEDOR:" class="w-full mt-1"></div>
-                        <div><strong>PIEZA Propuesta:</strong> ${createCheckbox('NACIONAL', 'compras_prop_nac')} ${createCheckbox('IMPORTADA', 'compras_prop_imp')} <input placeholder="PROVEEDOR:" class="w-full mt-1"></div>
-                    </div>
-                    <div class="flex gap-4 mt-2">${createCheckbox('Modificación reversible', 'compras_rev')} ${createCheckbox('Modificación irreversible', 'compras_irrev')}</div>
-                `,
-                checklist: ['COSTOS EVALUADOS', 'PEDIDO COMPRA PROTOTIPOS', 'PEDIDO COMPRA TOOLING', 'AFECTA HERRAMIENTA DE PROVEEDOR', 'NECESARIO ENVIAR DISEÑO P/ PROVEEDOR', 'IMPACTO POST VENTA ANALIZADO'].map(l => ({label: l, name: `compras_${l.toLowerCase().replace(/ /g,'_')}`}))
-            })}
-            ${buildDepartmentSection({
-                title: 'CALIDAD PROVEEDORES (SQA)', id: 'sqa',
-                checklist: ['NECESITA NUEVO PSW PROVEEDOR - FECHA LÍMITE: __/__/____', 'AFECTA LAY OUT', 'AFECTA EMBALAJE', 'AFECTA DISPOSITIVO CONTROL PROVEEDOR', 'AFECTA SUBPROVEEDOR', 'NECESITA DE ASISTENTE'].map(l => ({label: l, name: `sqa_${l.toLowerCase().replace(/ /g,'_')}`}))
-            })}
-            ${buildDepartmentSection({
-                title: 'Tooling & Equipments (T&E)', id: 'tooling',
-                checklist: ['AFECTA HERRAMIENTA', 'ANÁLISIS TÉCNICO DE ALTERACIÓN', 'OTROS IMPACTOS CAUSADOS POR LA ALTERACIÓN NO HERRAMENTAL'].map(l => ({label: l, name: `tooling_${l.toLowerCase().replace(/ /g,'_')}`}))
-            })}
-        </div>
-    `;
-
-    const page4HTML = `
-         <div class="ecr-page relative" id="page4">
-            <div class="watermark">Página 4</div>
-            <div class="ecr-checklist-bar">EVALUACIÓN DE PROPUESTA POR LOS DEPARTAMENTOS (Cont.)</div>
-             ${buildDepartmentSection({
-                title: 'LOGÍSTICA Y PC&L', id: 'logistica',
-                checklist: ['Parámetros logísticos/items nuevos', 'Gestión de stock (pieza antigua/nueva)', 'Necesita stock de seguridad', 'Altera programa p/ proveedor', 'Nuevo protocolo logístico', 'Impacto post venta', 'Impacto MOI/MOD', 'Afecta embalaje'].map(l => ({label: l, name: `logistica_${l.toLowerCase().replace(/ /g,'_')}`}))
-            })}
-             ${buildDepartmentSection({
-                title: 'FINANCIERO / COSTOS', id: 'financiero',
-                checklist: ['BUSINESS PLAN', 'BOA - BUSINESS OPPORTUNITY', 'MoB - ANALYSIS', 'PAYBACK / UPFRONT'].map(l => ({label: l, name: `financiero_${l.toLowerCase().replace(/ /g,'_')}`}))
-            })}
-            ${buildDepartmentSection({
-                title: 'COMERCIAL', id: 'comercial',
-                checklist: ['NECESARIO RENEGOCIAR CON EL CLIENTE', 'IMPACTO POST VENTA ANALIZADO', 'NECESARIA NUEVA ORDEN DE VENTA AL CLIENTE', 'NEGOCIACIÓN DE OBSOLETOS'].map(l => ({label: l, name: `comercial_${l.toLowerCase().replace(/ /g,'_')}`}))
-            })}
-            ${buildDepartmentSection({
-                title: 'MANTENIMIENTO', id: 'mantenimiento',
-                checklist: ['PROYECTO PRESENTA VIABILIDAD TÉCNICA / TECNOLÓGICA', 'NECESITA ADQUISICIÓN DE MATERIALES/EQUIPOS', 'NECESIDAD / DISPONIBILIDAD DE ENERGÍAS: ELÉCTRICA, NEUMÁTICA E HIDRÁULICA', 'CREACIÓN/ALTERACIÓN DE MANTENIMIENTO PREVENTIVO', 'NECESITA REGISTRO DE NUEVOS ITEMS EN ALMACÉN'].map(l => ({label: l, name: `mantenimiento_${l.toLowerCase().replace(/ /g,'_')}`}))
-            })}
-            ${buildDepartmentSection({
-                title: 'PRODUCCIÓN', id: 'produccion',
-                checklist: ['AFECTA INSTRUCCIÓN DE TRABAJO (SW)', 'AFECTA LIBERACIÓN DE PROCESO (SET UP)', 'IMPACTO MOD / MOI', 'CAPACITACIÓN', 'AFECTA ALTERACIÓN DE PLANO DE CORTE'].map(l => ({label: l, name: `produccion_${l.toLowerCase().replace(/ /g,'_')}`}))
-            })}
-            ${buildDepartmentSection({
-                title: 'CALIDAD CLIENTE', id: 'calidad_cliente',
-                checklist: ['NECESITA APROBACIÓN CLIENTE EXTERNO', 'NECESARIO APROBACIÓN CLIENTE INTERNO', 'ECR SOBRE DESVÍO N°: ____', 'OTROS: ______'].map(l => ({label: l, name: `calidad_cliente_${l.toLowerCase().replace(/ /g,'_')}`}))
+                checklist: ['AFECTA DIMENSIONAL CLIENTE?', 'AFECTA FUNCIONAL E MONTABILIDADE?', 'ACTUALIZAR PLANO DE CONTROLES/ INSTRUCCIONES', 'AFECTA ASPECTO/ACTUALIZAR BIBLIA DE DEFEITOS/PÇ PATRON?', 'AFECTA CAPABILIDADE (AFECTA CAPACIDAD)', 'MODIFICAR DISPOSITIVO DE CONTROLE E SEU MODO DE CONTROLE', 'NUEVO ESTUDIO DE MSA / CALIBRACIÓN', 'NECESITA VALIDACIÓN (PLANO DEBE ESTAR EN ANEXO)', 'NECESARIO NUEVO PPAP/PSW CLIENTE', 'ANALISIS DE MATERIA PRIMA', 'IMPLEMENTAR MURO DE CALIDAD IMPLEMENTADO (APLICADO)', 'NECESITA AUDITORIA S&R', 'AFECTA POKA-YOKE?', 'AFECTA AUDITORIA DE PRODUCTO?'].map(l => ({label: l, name: `calidad_${l.toLowerCase().replace(/ /g,'_')}`}))
             })}
         </div>
     `;
@@ -2104,12 +2024,69 @@ async function runEcrFormLogic(params = null) {
                 ${createCheckbox('OK', 'final_ok')}
                 ${createCheckbox('NOK', 'final_nok')}
             </div>
-            <div class="form-field"><label class="font-bold">CONSIDERACIONES DEL COORDINADOR:</label><textarea name="final_consideraciones" class="h-32"></textarea></div>
+            <div class="form-field"><label class="font-bold">CONSIDERACIONES DE COORDINADOR:</label><textarea name="final_consideraciones" class="h-32 border-gray-400"></textarea></div>
             <div class="flex justify-end gap-4 mt-4">
-                ${createTextField('Coordinador:', 'final_coordinador')}
-                ${createTextField('Visto:', 'final_visto')}
-                ${createDateField('Fecha:', 'final_fecha')}
+                ${createTextField('COORDINADOR:', 'final_coordinador')}
+                ${createTextField('VISTO:', 'final_visto')}
+                ${createDateField('FECHA:', 'final_fecha')}
             </div>
+        </div>
+    `;
+
+    const page3HTML = `
+        <div class="ecr-page relative" id="page3">
+            <div class="watermark">Página 3</div>
+            <div class="ecr-checklist-bar">EVALUACION DE PROPUESTA POR LOS DEPARTAMENTOS (Cont.)</div>
+            ${buildDepartmentSection({
+                title: 'COMPRAS — DISEÑO', id: 'compras',
+                customHTML: `
+                    <div class="grid grid-cols-2 gap-4 text-xs">
+                        <div><strong>PIEZA Actual:</strong> ${createCheckbox('NACIONAL', 'compras_actual_nac')} ${createCheckbox('IMPORTADA', 'compras_actual_imp')} <input placeholder="PROVEEDOR:" class="w-full mt-1"></div>
+                        <div><strong>PIEZA Propuesta:</strong> ${createCheckbox('NACIONAL', 'compras_prop_nac')} ${createCheckbox('IMPORTADA', 'compras_prop_imp')} <input placeholder="PROVEEDOR:" class="w-full mt-1"></div>
+                    </div>
+                    <div class="flex gap-4 mt-2">${createCheckbox('Modificación reversible', 'compras_rev')} ${createCheckbox('Modificación irreversible', 'compras_irrev')}</div>
+                `,
+                checklist: ['COSTOS EVALUADOS', 'PEDIDO COMPRA PROTOTIPOS', 'PEDIDO COMPRA TOOLING', 'AFECTA HERRAMIENTA DE PROVEEDOR', 'NECESARIO ENVIAR DISEÑO P/ PROVEEDOR', 'IMPACTO POST VENTA ANALISADO'].map(l => ({label: l, name: `compras_${l.toLowerCase().replace(/ /g,'_')}`}))
+            })}
+            ${buildDepartmentSection({
+                title: 'CALIDAD PROVEEDORES', id: 'sqa',
+                checklist: ['NECESITA NUEVO PSW PROVEEDOR - FECHA LIMITE: __/__/____', 'AFECTA LAY OUT', 'AFECTA EMBALAJE', 'AFECTA DISPOSITIVO CONTROL PROVEEDOR', 'AFECTA SUBPROVEEDOR', 'NECESITA DE ASISTENTE'].map(l => ({label: l, name: `sqa_${l.toLowerCase().replace(/ /g,'_')}`}))
+            })}
+            ${buildDepartmentSection({
+                title: 'Tooling & Equipaments (T&E)', id: 'tooling',
+                checklist: ['AFECTA HERRAMIENTA', 'ANALISIS TECNICA DE ALTERACIÓN', 'OTROS IMPACTOS CAUSADOS POR LA ALTERACION NO HERRAMENTAL'].map(l => ({label: l, name: `tooling_${l.toLowerCase().replace(/ /g,'_')}`}))
+            })}
+        </div>
+    `;
+
+    const page4HTML = `
+         <div class="ecr-page relative" id="page4">
+            <div class="watermark">Página 4</div>
+            <div class="ecr-checklist-bar">EVALUACION DE PROPUESTA POR LOS DEPARTAMENTOS (Cont.)</div>
+             ${buildDepartmentSection({
+                title: 'LOGISTICA Y PC&L', id: 'logistica',
+                checklist: ['Parámetros logísticos/items nuevos', 'Gestión de stock (pieza antigua/nueva)', 'Necesita stock de seguridad', 'Altera programa p/ proveedor', 'Nuevo protocolo logístico', 'Impacto post venta', 'Impacto MOI/MOD', 'Afecta embalaje'].map(l => ({label: l, name: `logistica_${l.toLowerCase().replace(/ /g,'_')}`}))
+            })}
+             ${buildDepartmentSection({
+                title: 'FINANCIERO / COSTING', id: 'financiero',
+                checklist: ['BUSINESS PLAN', 'BOA - BUSINESS OPPORTUNITY', 'MoB - ANALISYS', 'PAYBACK / UPFRONT'].map(l => ({label: l, name: `financiero_${l.toLowerCase().replace(/ /g,'_')}`}))
+            })}
+            ${buildDepartmentSection({
+                title: 'COMERCIAL', id: 'comercial',
+                checklist: ['NECESARIO RENEGOCIAR CON EL CLIENTE', 'IMPACTO POST VENTA ANALISADO', 'NECESARIA NUEVA ORDEN DE VENTA AL CLIENTE', 'NEGOCIACIÓN DE OBSOLETOS'].map(l => ({label: l, name: `comercial_${l.toLowerCase().replace(/ /g,'_')}`}))
+            })}
+            ${buildDepartmentSection({
+                title: 'MANTENIMIENTO', id: 'mantenimiento',
+                checklist: ['PROYETO PRESENTA VIABILIDAD TÉCNICA / TÉCNOLOGICA', 'NECESITA ADQUISICION DE MATERIALES/EQUIPAMIENTOS', 'NECESIDAD / DISPONIBILIDAD DE ENERGIAS: ELECTRICA, NEUMÁTICA E HIDRAULICA', 'CREACION/ALTERACIÓN DE MANTENIMIENTO PREVENTIVAS', 'NECESITA REGISTRO DE NUEVOS ITEMS EN ALMACÉN'].map(l => ({label: l, name: `mantenimiento_${l.toLowerCase().replace(/ /g,'_')}`}))
+            })}
+            ${buildDepartmentSection({
+                title: 'PRODUCCIÓN', id: 'produccion',
+                checklist: ['AFECTA INSTRUCCION DE TRABAJO (SW)', 'AFECTA LIBERACION DE PROCESO (SET UP)', 'IMPACTO MOD / MOI', 'CAPACITACION', 'AFECTA ALTERACIÓN DE PLANO DE CORTE'].map(l => ({label: l, name: `produccion_${l.toLowerCase().replace(/ /g,'_')}`}))
+            })}
+            ${buildDepartmentSection({
+                title: 'CALIDAD CLIENTE', id: 'calidad_cliente',
+                checklist: ['NECESITA APROBACIÓN CLIENTE EXTERNO', 'NECESARIO APROBACIÓN CLIENTE INTERNO', 'ECR SOBRE DESVIO Nº: ____', 'OTROS: ______'].map(l => ({label: l, name: `calidad_cliente_${l.toLowerCase().replace(/ /g,'_')}`}))
+            })}
         </div>
     `;
 
@@ -2123,9 +2100,9 @@ async function runEcrFormLogic(params = null) {
 
     appState.currentViewCleanup = () => {
         const ecrStyle = document.getElementById('ecr-form-styles');
-        if (ecrStyle) ecrStyle.remove();
+        if(ecrStyle) ecrStyle.remove();
         const printStyle = document.getElementById('print-styles');
-        if (printStyle) printStyle.remove();
+        if(printStyle) printStyle.remove();
     };
 }
 
@@ -2137,10 +2114,10 @@ function handleViewContentActions(e) {
         runTableLogic(action === 'prev-page' ? 'prev' : 'next');
         return;
     }
-    
+
     if (action === 'export-sinoptico-pdf') return;
     e.preventDefault();
-    
+
     const id = button.dataset.id;
     const docId = button.dataset.docId;
     const userId = button.dataset.userId;
@@ -2232,7 +2209,7 @@ function handleViewContentActions(e) {
         'clone-product': () => cloneProduct(),
         'view-history': () => showToast('La función de historial de cambios estará disponible próximamente.', 'info'),
     };
-    
+
     if (actions[action]) actions[action]();
 }
 
@@ -2262,7 +2239,7 @@ function showConfirmationModal(title, message, onConfirm) {
     const modalElement = document.getElementById(modalId);
     modalElement.addEventListener('click', e => {
         const action = e.target.closest('button')?.dataset.action;
-        if (action === 'confirm') { onConfirm(); modalElement.remove(); } 
+        if (action === 'confirm') { onConfirm(); modalElement.remove(); }
         else if (action === 'cancel') { modalElement.remove(); }
     });
 }
@@ -2588,14 +2565,14 @@ function handleGlobalClick(e) {
         }
         return;
     }
-    
+
     if(profileLink) {
         e.preventDefault();
         document.getElementById('user-dropdown')?.classList.add('hidden');
         switchView(profileLink.dataset.view);
         return;
     }
-    
+
     const godModeButton = target.closest('.god-mode-role-btn');
     if (godModeButton) {
         e.preventDefault();
@@ -2618,14 +2595,14 @@ function handleGlobalClick(e) {
             dropdown.classList.remove('open');
         });
     }
-    
-    if (!target.closest('#export-menu-container')) document.getElementById('export-dropdown')?.classList.add('hidden'); 
-    if (!target.closest('#type-filter-btn')) document.getElementById('type-filter-dropdown')?.classList.add('hidden'); 
+
+    if (!target.closest('#export-menu-container')) document.getElementById('export-dropdown')?.classList.add('hidden');
+    if (!target.closest('#type-filter-btn')) document.getElementById('type-filter-dropdown')?.classList.add('hidden');
     if (!target.closest('#add-client-filter-btn')) document.getElementById('add-client-filter-dropdown')?.classList.add('hidden');
     if (!e.target.closest('#level-filter-btn') && !e.target.closest('#level-filter-dropdown')) {
         document.getElementById('level-filter-dropdown')?.classList.add('hidden');
     }
-    
+
     if(target.closest('#user-menu-button')) { userDropdown?.classList.toggle('hidden'); }
     if(target.closest('#logout-button')) { e.preventDefault(); logOutUser(); }
     if(target.closest('#resend-verification-btn')) { handleResendVerificationEmail(); }
@@ -2769,7 +2746,7 @@ async function handleSearch() {
             showToast('La búsqueda está limitada a los primeros 30 campos.', 'info');
             searchFields.length = 30;
         }
-        
+
         // Build an array of `where` conditions for the `or` query.
         const whereClauses = searchFields.map(field => where(field, '==', searchTerm));
 
@@ -2888,7 +2865,7 @@ async function openFormModal(item = null) {
     const config = viewConfig[appState.currentView];
     const isEditing = item !== null;
     const modalId = `form-modal-${Date.now()}`;
-    
+
     let fieldsHTML = '';
     config.fields.forEach(field => {
         const isReadonly = (isEditing && field.key === 'id') || field.readonly;
@@ -2896,7 +2873,7 @@ async function openFormModal(item = null) {
         const commonClasses = 'block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm';
         const readonlyClasses = isReadonly ? 'bg-gray-100 cursor-not-allowed' : '';
         const value = item ? (item[field.key] || '') : '';
-        
+
         if (field.type === 'select') {
             let optionsHTML = '';
             const options = field.searchKey ? appState.collections[field.searchKey] : field.options;
@@ -2932,7 +2909,7 @@ async function openFormModal(item = null) {
         } else {
             inputHTML = `<input type="${field.type}" id="${field.key}" name="${field.key}" value="${value}" class="${commonClasses} ${readonlyClasses}" ${field.required ? 'required' : ''} ${isReadonly ? 'readonly' : ''}>`;
         }
-        
+
         fieldsHTML += `<div class="${field.type === 'textarea' || field.type === 'search-select' || field.key === 'id' || field.type === 'select' ? 'md:col-span-2' : ''}">
             <label for="${field.type === 'search-select' ? field.key + '-display' : field.key}" class="block text-sm font-medium text-gray-700 mb-1">${field.label}</label>
             ${inputHTML}
@@ -2941,7 +2918,7 @@ async function openFormModal(item = null) {
     });
 
     const modalHTML = `<div id="${modalId}" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop animate-fade-in"><div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col m-4 modal-content"><div class="flex justify-between items-center p-5 border-b"><h3 class="text-xl font-bold">${isEditing ? 'Editar' : 'Agregar'} ${config.singular}</h3><button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button></div><form id="data-form" class="p-6 overflow-y-auto" novalidate><input type="hidden" name="edit-doc-id" value="${isEditing ? item.docId : ''}"><div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">${fieldsHTML}</div></form><div class="flex justify-end items-center p-4 border-t bg-gray-50 space-x-3"><button data-action="close" type="button" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button><button type="submit" form="data-form" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-semibold">Guardar</button></div></div></div>`;
-    
+
     dom.modalContainer.innerHTML = modalHTML;
     lucide.createIcons();
     const modalElement = document.getElementById(modalId);
@@ -2951,9 +2928,9 @@ async function openFormModal(item = null) {
             input.addEventListener('blur', () => validateField(field, input));
         }
     });
-    
+
     modalElement.querySelector('form').addEventListener('submit', (e) => handleFormSubmit(e, config.fields, item));
-    
+
     modalElement.addEventListener('click', e => {
         const button = e.target.closest('button');
         if (!button) return;
@@ -2992,7 +2969,7 @@ function validateField(fieldConfig, inputElement) {
 
 async function handleFormSubmit(e, fields, item = null) {
     e.preventDefault();
-    
+
     let isFormValid = true;
     for (const field of fields) {
         const input = e.target.querySelector(`[name="${field.key}"]`);
@@ -3010,7 +2987,7 @@ async function handleFormSubmit(e, fields, item = null) {
     const docId = formData.get('edit-doc-id');
     const newItem = {};
     const config = viewConfig[appState.currentView];
-    
+
     for (const field of config.fields) {
         const value = formData.get(field.key);
         if (field.type === 'number') {
@@ -3019,7 +2996,7 @@ async function handleFormSubmit(e, fields, item = null) {
             newItem[field.key] = value;
         }
     }
-    
+
     if (!docId) {
         newItem.createdAt = new Date();
     }
@@ -3037,7 +3014,7 @@ async function handleFormSubmit(e, fields, item = null) {
     } else {
         success = await saveDocument(config.dataKey, newItem, docId);
     }
-    
+
     if (success) {
         modalElement.remove();
         // For the master cover, we need to refresh its specific view
@@ -3064,9 +3041,9 @@ function openDetailsModal(item) {
         }
         fieldsHTML += `<div class="${field.type === 'textarea' || field.key === 'id' ? 'md:col-span-2' : ''}"><label class="block text-sm font-medium text-gray-500">${field.label}</label><div class="mt-1 text-sm text-gray-900 bg-gray-100 p-2 rounded-md border min-h-[38px] break-words">${value}</div></div>`;
     });
-    
+
     const modalHTML = `<div id="details-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop animate-fade-in"><div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col m-4 modal-content"><div class="flex justify-between items-center p-5 border-b"><h3 class="text-xl font-bold">Detalles de ${config.singular}</h3><button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button></div><div class="p-6 overflow-y-auto"><div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">${fieldsHTML}</div></div><div class="flex justify-end items-center p-4 border-t bg-gray-50"><button data-action="close" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-semibold">Cerrar</button></div></div></div>`;
-    
+
     dom.modalContainer.innerHTML = modalHTML;
     lucide.createIcons();
     document.getElementById('details-modal').addEventListener('click', e => {
@@ -3075,9 +3052,9 @@ function openDetailsModal(item) {
 }
 
 function openAssociationSearchModal(searchKey, onSelect) {
-    const config = { 
-        [COLLECTIONS.CLIENTES]: { title: 'Buscar Cliente', data: appState.collections[COLLECTIONS.CLIENTES] }, 
-        [COLLECTIONS.SECTORES]: { title: 'Buscar Sector', data: appState.collections[COLLECTIONS.SECTORES] }, 
+    const config = {
+        [COLLECTIONS.CLIENTES]: { title: 'Buscar Cliente', data: appState.collections[COLLECTIONS.CLIENTES] },
+        [COLLECTIONS.SECTORES]: { title: 'Buscar Sector', data: appState.collections[COLLECTIONS.SECTORES] },
         [COLLECTIONS.PROCESOS]: { title: 'Buscar Proceso', data: appState.collections[COLLECTIONS.PROCESOS] },
         [COLLECTIONS.PROVEEDORES]: { title: 'Buscar Proveedor', data: appState.collections[COLLECTIONS.PROVEEDORES] },
         [COLLECTIONS.UNIDADES]: { title: 'Buscar Unidad', data: appState.collections[COLLECTIONS.UNIDADES] }
@@ -3086,7 +3063,7 @@ function openAssociationSearchModal(searchKey, onSelect) {
     if (!searchConfig) return;
     const modalId = `assoc-search-modal-${Date.now()}`;
     const modalHTML = `<div id="${modalId}" class="fixed inset-0 z-[60] flex items-center justify-center modal-backdrop animate-fade-in"><div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col m-4 modal-content"><div class="flex justify-between items-center p-5 border-b"><h3 class="text-xl font-bold">${searchConfig.title}</h3><button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button></div><div class="p-6"><input type="text" id="assoc-search-term" placeholder="Buscar..." class="w-full border-gray-300 rounded-md shadow-sm"></div><div id="assoc-search-results" class="p-6 border-t overflow-y-auto flex-1"></div></div></div>`;
-    
+
     dom.modalContainer.insertAdjacentHTML('beforeend', modalHTML);
     const modalElement = document.getElementById(modalId);
     const searchInput = modalElement.querySelector('#assoc-search-term');
@@ -3542,7 +3519,7 @@ async function guardarEstructura(button) {
             lastUpdated: new Date(),
             lastUpdatedBy: appState.currentUser.name
         });
-        
+
         button.innerHTML = `<i data-lucide="check" class="h-5 w-5"></i><span>¡Guardado!</span>`;
         button.classList.remove('bg-blue-600', 'hover:bg-blue-700');
         button.classList.add('bg-green-600');
@@ -5454,7 +5431,7 @@ async function handleAuthForms(e) {
                 await signOut(auth);
                 throw new Error('auth/email-not-verified');
             }
-        } 
+        }
         else if (formId === 'register-form') {
             const name = e.target.querySelector('#register-name').value;
             if (!email.toLowerCase().endsWith('@barackmercosul.com')) {
@@ -5551,7 +5528,7 @@ function renderArbolesInitialView() {
 function renderArbolDetalle(highlightNodeId = null) {
     const cliente = appState.collections[COLLECTIONS.CLIENTES].find(c => c.id === appState.arbolActivo.clienteId);
     let treeContentHTML = `<div id="tree-render-area" class="tree p-4 rounded-lg bg-gray-50 min-h-[200px]"></div>`;
-    
+
     if(appState.arbolActivo.estructura[0]?.children.length === 0) {
         treeContentHTML += `<div class="text-center p-6 bg-blue-50 border-t border-blue-200 rounded-b-lg">
             <i data-lucide="mouse-pointer-click" class="h-10 w-10 mx-auto text-blue-400 mb-3"></i>
@@ -5567,10 +5544,10 @@ function renderArbolDetalle(highlightNodeId = null) {
 function renderArbol(highlightNodeId = null) {
     const treeArea = document.getElementById('tree-render-area');
     if (!treeArea || !appState.arbolActivo) return;
-    
+
     treeArea.innerHTML = '<ul>' + appState.arbolActivo.estructura.map(renderNodo).join('') + '</ul>';
     initSortable(treeArea);
-    
+
     if(highlightNodeId) {
         const nodeElement = treeArea.querySelector(`li[data-node-id="${highlightNodeId}"] > .node-content`);
         if(nodeElement) {
@@ -5655,7 +5632,7 @@ function handleDropEvent(evt) {
     const newParentEl = evt.to;
     const newParentId = newParentEl.closest('li[data-node-id]').dataset.nodeId;
     const newIndex = evt.newIndex;
-    
+
     let movedNode = null;
     let oldParentNode = null;
     function findAndRemove(nodes, parent) {
@@ -5745,9 +5722,9 @@ function findNode(id, nodes) {
     if (!nodes) return null;
     for (const nodo of nodes) {
         if (nodo.id === id) return nodo;
-        if (nodo.children) { 
-            const found = findNode(id, nodo.children); 
-            if (found) return found; 
+        if (nodo.children) {
+            const found = findNode(id, nodo.children);
+            if (found) return found;
         }
     }
     return null;
@@ -5775,12 +5752,12 @@ function findNodeByRefId(refId, arbol) {
 }
 
 function crearComponente(tipo, datos) {
-    return { 
-        id: `comp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, 
-        refId: datos.id, 
-        tipo: tipo, 
+    return {
+        id: `comp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        refId: datos.id,
+        tipo: tipo,
         icon: { producto: 'package', semiterminado: 'box', insumo: 'beaker' }[tipo],
-        children: [], 
+        children: [],
         quantity: 1,
         comment: ''
     };
@@ -5792,11 +5769,11 @@ function handleComponentSelect(padreId, itemId, itemType) {
     let nuevoNodo;
     const addComponent = () => {
         const padre = findNode(padreId, appState.arbolActivo.estructura);
-        if (padre) { 
+        if (padre) {
             if (!padre.children) padre.children = [];
             nuevoNodo = crearComponente(itemType, item);
-            padre.children.push(nuevoNodo); 
-            renderArbolDetalle(nuevoNodo.id); 
+            padre.children.push(nuevoNodo);
+            renderArbolDetalle(nuevoNodo.id);
         }
     };
     addComponent();
@@ -6900,13 +6877,13 @@ function initSinoptico() {
     }
     const searchInput = document.getElementById('sinoptico-search-input');
     const typeFilterCheckboxes = document.querySelectorAll('.type-filter-cb');
-    
+
     function renderFullUI() {
         renderTree();
         renderActiveFilters();
         populateAddClientFilterDropdown();
     }
-    
+
     function renderTree() {
         const treeContainer = document.getElementById('sinoptico-tree-container');
         if (!treeContainer) return;
@@ -6940,7 +6917,7 @@ function initSinoptico() {
             const clientLi = document.createElement('li');
             clientLi.className = 'sinoptico-tree-item';
             clientLi.innerHTML = `<div class="flex items-center p-2 font-bold text-slate-600"><i data-lucide="building-2" class="w-5 h-5 mr-3 text-slate-500 flex-shrink-0"></i><span>${client?.descripcion || 'Cliente Desconocido'}</span></div>`;
-            
+
             const ul = document.createElement('ul');
             productos.forEach((productNode, index) => {
                 const isLast = index === productos.length - 1;
@@ -6956,7 +6933,7 @@ function initSinoptico() {
         });
         lucide.createIcons();
     }
-    
+
     function buildAndFilterNode(node, searchTerm, isLast) {
         if (!itemOrDescendantsMatch(node, searchTerm) || !appState.sinopticoState.activeFilters.types.has(node.tipo)) {
             return null;
@@ -6975,12 +6952,12 @@ function initSinoptico() {
         }
         return li;
     }
-    
+
     function createTreeItemElement(node, isLast) {
         const collectionName = node.tipo + 's';
         const item = appState.collectionsById[collectionName]?.get(node.refId);
         if (!item) return null;
-    
+
         const li = document.createElement('li');
         li.className = 'sinoptico-tree-item';
         li.dataset.id = node.id;
@@ -6988,15 +6965,15 @@ function initSinoptico() {
         li.dataset.type = node.tipo;
         if (appState.sinopticoState.expandedNodes.has(node.id)) li.classList.add('expanded');
         if (isLast) li.classList.add('is-last');
-        
+
         const hasChildren = node.children?.length > 0;
         const iconMap = { producto: 'package', semiterminado: 'box', insumo: 'beaker' };
-        
+
         const div = document.createElement('div');
         div.className = 'sinoptico-tree-item-content flex items-center p-2 cursor-pointer hover:bg-slate-100 rounded-lg min-h-[2.75rem]';
         div.setAttribute('data-type', node.tipo);
         if (node.id === appState.sinopticoState.activeElementId) div.classList.add('active');
-        
+
         div.innerHTML = `
             <span class="flex items-center justify-center w-5 h-5 mr-1 flex-shrink-0">
                 ${hasChildren ? '<i data-lucide="chevron-right" class="w-5 h-5 text-slate-400 toggle-expand"></i>' : ''}
@@ -7005,7 +6982,7 @@ function initSinoptico() {
             <span class="flex-grow truncate select-none" title="${item.descripcion}">${item.descripcion}</span>
             <span class="text-xs text-slate-400 font-mono ml-2 select-none">${item.id}</span>
         `;
-    
+
         li.appendChild(div);
         return li;
     }
@@ -7018,7 +6995,7 @@ function initSinoptico() {
         if (itemText.includes(searchTerm)) return true;
         return (node.children || []).some(childNode => itemOrDescendantsMatch(childNode, searchTerm));
     }
-    
+
     function renderActiveFilters() {
         const activeFiltersBar = document.getElementById('active-filters-bar');
         if (!activeFiltersBar) return;
@@ -7030,7 +7007,7 @@ function initSinoptico() {
             }).join('');
         lucide.createIcons();
     }
-    
+
     function populateAddClientFilterDropdown() {
         const dropdown = document.getElementById('add-client-filter-dropdown');
         if(!dropdown) return;
@@ -7061,7 +7038,7 @@ function initSinoptico() {
                 }
             }
         }
-        
+
         // Render the "Carátula" based on the found tree
         if (activeTree) {
             const producto = appState.collectionsById[COLLECTIONS.PRODUCTOS].get(activeTree.productoPrincipalId);
@@ -7081,11 +7058,11 @@ function initSinoptico() {
             lucide.createIcons();
             return;
         }
-    
+
         const collectionName = targetNode.tipo + 's';
         const item = appState.collectionsById[collectionName]?.get(targetNode.refId);
         if (!item) { return; }
-    
+
         const iconMap = { producto: 'package', semiterminado: 'box', insumo: 'beaker' };
         const name = item.descripcion;
         let content = `<div class="bg-white rounded-xl shadow-lg p-6 h-full overflow-y-auto custom-scrollbar animate-fade-in">
@@ -7099,7 +7076,7 @@ function initSinoptico() {
                     <p class="text-sm font-semibold text-slate-500">${item.id}</p>
                 </div>
             </div>`;
-    
+
         if (targetNode.tipo === 'producto') {
             content += `<div class="mb-4">
                 <button data-action="export-product-pdf" class="w-full bg-red-500 text-white px-4 py-2.5 rounded-md hover:bg-red-600 flex items-center justify-center text-sm font-semibold shadow-sm">
@@ -7116,19 +7093,19 @@ function initSinoptico() {
             </div>`;
         }
         }
-    
+
         const createSection = (title) => `<h3 class="sinoptico-detail-section-header">${title}</h3>`;
         const createRow = (icon, label, value) => !value && value !== 0 ? '' : `<div class="flex items-start py-3 border-b border-slate-100"><i data-lucide="${icon}" class="w-5 h-5 text-slate-400 mt-1 mr-4 flex-shrink-0"></i><div><p class="text-sm text-slate-500">${label}</p><p class="font-semibold">${value}</p></div></div>`;
-        
+
         content += createSection('Contexto en el Árbol');
-    
+
         if (parentNode) {
             const parentItem = appState.collectionsById[parentNode.tipo + 's']?.get(parentNode.refId);
             if (parentItem) {
                  content += createRow('arrow-up', 'Padre', parentItem.descripcion);
             }
         }
-    
+
         if (targetNode.tipo !== 'producto') {
             const unidadData = appState.collectionsById[COLLECTIONS.UNIDADES].get(item.unidadMedidaId);
             const unidadLabel = unidadData ? `(${unidadData.id})` : '';
@@ -7138,7 +7115,7 @@ function initSinoptico() {
             content += createRow('package-plus', `Cantidad Requerida ${unidadLabel}`, quantityDisplay);
             content += createRow('message-square', 'Comentario', targetNode.comment || '<span class="text-slate-400 italic">Sin comentario</span>');
         }
-    
+
         if (targetNode.children && targetNode.children.length > 0) {
             content += `<p class="text-sm font-semibold text-slate-600 mt-4 mb-2">Componentes Hijos (${targetNode.children.length})</p><div class="space-y-2">`;
             targetNode.children.forEach(child => {
@@ -7149,9 +7126,9 @@ function initSinoptico() {
             });
             content += `</div>`;
         }
-    
+
         content += createSection('Detalles del Componente Maestro');
-    
+
         switch (targetNode.tipo) {
             case 'producto':
                 const client = appState.collectionsById[COLLECTIONS.CLIENTES].get(item.clienteId);
@@ -7189,7 +7166,7 @@ function initSinoptico() {
         detailContainer.innerHTML = content;
         lucide.createIcons();
     }
-    
+
 async function getLogoBase64() {
     try {
         const response = await fetch('barack_logo.png');
@@ -7377,7 +7354,7 @@ async function exportProductTreePdf(productNode) {
     doc.save(`Sinoptico_Grafico_${productNode.refId.replace(/\s+/g, '_')}.pdf`);
     showToast('PDF con árbol gráfico generado con éxito.', 'success');
 }
-    
+
     const handleSinopticoClick = async (e) => {
         const target = e.target;
         const button = target.closest('button[data-action]');
@@ -7389,13 +7366,13 @@ async function exportProductTreePdf(productNode) {
                 return;
             }
         }
-        
+
         if (target.closest('#sinoptico-toggle-details')) {
             document.getElementById('sinoptico-main-view').classList.toggle('expanded');
             document.getElementById('sinoptico-details-container').classList.toggle('hidden');
             return;
         }
-    
+
         const exportBtn = target.closest('button[data-action="export-product-pdf"]');
         if (exportBtn) {
             const activeProduct = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.docId === appState.sinopticoState.activeTreeDocId);
@@ -7407,11 +7384,11 @@ async function exportProductTreePdf(productNode) {
             }
             return;
         }
-        
+
         const treeItem = target.closest('.sinoptico-tree-item');
         if (treeItem) {
             const componentId = treeItem.dataset.id;
-            
+
             if (target.closest('.toggle-expand')) {
                 if (appState.sinopticoState.expandedNodes.has(componentId)) {
                     appState.sinopticoState.expandedNodes.delete(componentId);
@@ -7429,7 +7406,7 @@ async function exportProductTreePdf(productNode) {
             }
             renderTree();
         }
-        
+
         const detailItem = target.closest('button[data-navigate-to]');
         if(detailItem) {
             const navigateToId = detailItem.dataset.navigateTo;
@@ -7441,32 +7418,32 @@ async function exportProductTreePdf(productNode) {
                     appState.sinopticoState.expandedNodes.add(parentNode.id);
                 }
             }
-            
+
             renderTree();
             renderDetailView(navigateToId);
             const elementInTree = document.querySelector(`.sinoptico-tree-item[data-id="${navigateToId}"]`);
             elementInTree?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-    
+
         if(target.closest('#type-filter-btn')) { e.stopPropagation(); document.getElementById('type-filter-dropdown').classList.toggle('hidden'); }
         if(target.closest('#add-client-filter-btn')) { e.stopPropagation(); populateAddClientFilterDropdown(); document.getElementById('add-client-filter-dropdown').classList.toggle('hidden'); }
-        
+
         const addClientLink = target.closest('#add-client-filter-dropdown a');
         if (addClientLink) { e.preventDefault(); appState.sinopticoState.activeFilters.clients.add(addClientLink.dataset.id); document.getElementById('add-client-filter-dropdown').classList.add('hidden'); renderFullUI(); }
-        
+
         const removeFilterBtn = target.closest('.remove-filter-btn');
         if (removeFilterBtn) { appState.sinopticoState.activeFilters.clients.delete(removeFilterBtn.dataset.id); renderFullUI(); }
-        
+
         const exportPdfLink = target.closest('a[data-action="export-sinoptico-pdf"]');
-        if (exportPdfLink) { 
+        if (exportPdfLink) {
             e.preventDefault();
-            exportSinopticoPdf(appState.sinopticoState.activeFilters); 
+            exportSinopticoPdf(appState.sinopticoState.activeFilters);
         }
     };
-    
+
     dom.viewContent.addEventListener('click', handleSinopticoClick);
     dom.viewContent.addEventListener('click', handleCaratulaClick);
-    
+
     const searchHandler = () => {
         const searchTerm = searchInput.value.toLowerCase();
         if (searchTerm) {
@@ -7489,14 +7466,14 @@ async function exportProductTreePdf(productNode) {
         renderTree();
     };
     searchInput.addEventListener('input', searchHandler);
-    
+
     typeFilterCheckboxes.forEach(cb => { cb.addEventListener('change', () => { if (cb.checked) appState.sinopticoState.activeFilters.types.add(cb.dataset.type); else appState.sinopticoState.activeFilters.types.delete(cb.dataset.type); renderTree(); }); });
-    
+
     appState.currentViewCleanup = () => {
         dom.viewContent.removeEventListener('click', handleSinopticoClick);
         searchInput.removeEventListener('input', searchHandler);
     };
-    
+
     renderFullUI();
 }
 
@@ -7533,7 +7510,7 @@ function exportSinopticoPdf(activeFilters) {
         const item = appState.collectionsById[collectionName]?.get(node.refId);
         if (!item || !activeFilters.types.has(node.tipo)) return;
         checkPageBreak();
-        
+
         const isQuantitySet = node.quantity !== null && node.quantity !== undefined;
         const quantityText = node.tipo !== 'producto' ? ` [x${isQuantitySet ? node.quantity : '---'}]` : '';
         const linePrefix = prefix + (isLast ? '`-- ' : '|-- ');
@@ -7825,7 +7802,7 @@ async function handleChangePassword(e) {
 function handleDeleteAccount() {
     const title = "Confirmación Extrema Requerida";
     const message = `Esta acción es irreversible. Se eliminarán todos sus datos. Para confirmar, escriba "ELIMINAR" en el campo de abajo.`;
-    
+
     const modalId = `delete-account-modal`;
     const modalHTML = `<div id="${modalId}" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop animate-fade-in">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-md m-4 modal-content">
