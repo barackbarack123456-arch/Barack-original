@@ -4,23 +4,17 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function isUserAdmin() {
-      // First, check for Super Admin UID to avoid unnecessary reads, which would fail for a new user.
-      if (request.auth.uid == 'KTIQRzPBRcOFtBRjoFViZPSsbSq2') {
-        return true;
-      }
-      // For other users, check if their user document exists before trying to read the role.
-      let userDocPath = /databases/$(database)/documents/usuarios/$(request.auth.uid);
-      return exists(userDocPath) && get(userDocPath).data.role == 'admin';
+      // Check for Super Admin UID first, then safely check the user's role from their document.
+      return request.auth.uid == 'KTIQRzPBRcOFtBRjoFViZPSsbSq2' ||
+        (exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.role == 'admin');
     }
 
     function canCreateUpdate() {
-      // isUserAdmin() is now safe to call for any user, as it handles non-existent documents.
-      if (isUserAdmin()) {
-        return true;
-      }
-      // If not an admin, we can safely check for the 'editor' role.
-      let userDocPath = /databases/$(database)/documents/usuarios/$(request.auth.uid);
-      return exists(userDocPath) && get(userDocPath).data.role == 'editor';
+      // isUserAdmin() is now safe to call. Then, safely check for the 'editor' role.
+      return isUserAdmin() ||
+        (exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.role == 'editor');
     }
 
     // --- USUARIOS ---
