@@ -5819,7 +5819,7 @@ function runSinopticoTabularLogic() {
                         <button data-action="select-another-product-tabular" class="bg-gray-500 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-gray-600 flex items-center">
                             <i data-lucide="search" class="mr-2 h-4 w-4"></i>Seleccionar Otro
                         </button>
-                        <button data-action="export-sinoptico-pdf" class="bg-red-600 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-red-700 flex items-center">
+                        <button data-action="export-sinoptico-tabular-pdf" class="bg-red-600 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-red-700 flex items-center">
                             <i data-lucide="file-text" class="mr-2 h-4 w-4"></i>Exportar a PDF
                         </button>
                     </div>
@@ -5909,7 +5909,7 @@ function runSinopticoTabularLogic() {
                     });
                 }
                 break;
-            case 'export-sinoptico-pdf':
+            case 'export-sinoptico-tabular-pdf':
                 exportSinopticoTabularToPdf();
                 break;
         }
@@ -6189,7 +6189,21 @@ async function exportSinopticoTabularToPdf() {
         const originalBoxShadow = tableElement.style.boxShadow;
         let canvas;
 
+        // --- Fix for sticky header rendering in html2canvas ---
+        const thElements = tableElement.querySelectorAll('th');
+        const originalStyles = new Map();
+
         try {
+            // Store original styles and apply temporary ones for capture
+            thElements.forEach(th => {
+                originalStyles.set(th, {
+                    position: th.style.position,
+                    verticalAlign: th.style.verticalAlign
+                });
+                th.style.position = 'static'; // Disable sticky position
+                th.style.verticalAlign = 'middle'; // Explicitly set vertical alignment
+            });
+
             // Apply temporary styles for capture
             document.head.appendChild(tempStyle);
             tableElement.classList.add('pdf-export-mode');
@@ -6201,6 +6215,15 @@ async function exportSinopticoTabularToPdf() {
                 logging: false,
             });
         } finally {
+            // Restore original styles
+            thElements.forEach(th => {
+                const styles = originalStyles.get(th);
+                if (styles) {
+                    th.style.position = styles.position;
+                    th.style.verticalAlign = styles.verticalAlign;
+                }
+            });
+
             // ALWAYS remove temporary styles, even if html2canvas fails
             tableElement.classList.remove('pdf-export-mode');
             const styleElement = document.getElementById(styleId);
