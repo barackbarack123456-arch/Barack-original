@@ -613,6 +613,43 @@ async function clearOtherUsers() {
     }
 }
 
+async function seedEcos(batch, users) {
+    showToast('Generando ECOs de prueba...', 'info');
+    const ecoFormsRef = collection(db, COLLECTIONS.ECO_FORMS);
+    const sampleEcos = [
+        {
+            id: 'ECO-2024-001',
+            status: 'approved',
+            lastModified: new Date(),
+            modifiedBy: users[0]?.email || 'test@barackmercosul.com',
+            description: 'Cambio de material en Soporte A-12',
+            ecr_no: 'ECR-2024-015'
+        },
+        {
+            id: 'ECO-2024-002',
+            status: 'in-progress',
+            lastModified: new Date(),
+            modifiedBy: users[1]?.email || 'test2@barackmercosul.com',
+            description: 'Actualización de proceso de soldadura para Chasis B',
+            ecr_no: 'ECR-2024-018'
+        },
+        {
+            id: 'ECO-2024-003',
+            status: 'rejected',
+            lastModified: new Date(),
+            modifiedBy: users[0]?.email || 'test@barackmercosul.com',
+            description: 'Propuesta de nuevo proveedor para tornillería',
+            ecr_no: 'ECR-2024-021'
+        }
+    ];
+
+    sampleEcos.forEach(eco => {
+        const docRef = doc(ecoFormsRef, eco.id);
+        batch.set(docRef, eco);
+    });
+    console.log(`${sampleEcos.length} ECOs de prueba añadidos al batch.`);
+}
+
 async function seedDatabase() {
     await clearDataOnly();
     showToast('Iniciando carga masiva de datos de prueba...', 'info');
@@ -805,6 +842,9 @@ async function seedDatabase() {
     const statuses = ['todo', 'inprogress', 'done'];
     const priorities = ['low', 'medium', 'high'];
     const users = appState.collections.usuarios.filter(u => u.disabled !== true);
+
+    // --- GENERACIÓN DE ECOS DE PRUEBA ---
+    await seedEcos(batch, users);
 
     for (let i = 1; i <= TOTAL_TAREAS; i++) {
         const creator = getRandomItem(users);
