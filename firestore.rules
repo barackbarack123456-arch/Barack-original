@@ -100,6 +100,31 @@ service cloud.firestore {
       }
     }
 
+    // --- CARÁTULA MAESTRA ---
+    match /cover_master/{docId} {
+      // Anyone authenticated can read the master cover.
+      allow read: if request.auth != null;
+
+      // Only admins can create or update the master cover.
+      // We only expect one document with id 'master'.
+      allow create, update: if isUserAdmin();
+
+      // The master cover should not be deleted.
+      allow delete: if false;
+
+      // History for the master cover
+      match /history/{historyId} {
+        // Anyone authenticated can read the history.
+        allow read: if request.auth != null;
+
+        // Only admins can create history entries (done via transaction).
+        allow create: if isUserAdmin();
+
+        // History is immutable.
+        allow update, delete: if false;
+      }
+    }
+
     // --- TAREAS ---
     // Las tareas tienen su propia lógica de permisos más detallada.
     match /tareas/{taskId} {
