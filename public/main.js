@@ -55,6 +55,7 @@ const viewConfig = {
     dashboard: { title: 'Dashboard', singular: 'Dashboard' },
     sinoptico_tabular: { title: 'Reporte BOM (Tabular)', singular: 'Reporte BOM (Tabular)' },
     eco_form: { title: 'ECO de Producto / Proceso', singular: 'ECO Form' },
+    ecos: { title: 'Gestión de ECOs', singular: 'ECO' },
     flujograma: { title: 'Flujograma de Procesos', singular: 'Flujograma' },
     arboles: { title: 'Editor de Árboles', singular: 'Árbol' },
     profile: { title: 'Mi Perfil', singular: 'Mi Perfil' },
@@ -959,7 +960,7 @@ function setupGlobalEventListeners() {
     document.addEventListener('click', handleGlobalClick);
 }
 
-function switchView(viewName) {
+function switchView(viewName, params = null) {
     if (appState.currentView === 'dashboard') {
         destroyDashboardCharts();
     }
@@ -1007,7 +1008,8 @@ function switchView(viewName) {
     else if (viewName === 'arboles') renderArbolesInitialView();
     else if (viewName === 'profile') runProfileLogic();
     else if (viewName === 'tareas') runTasksLogic();
-    else if (viewName === 'eco_form') runEcoFormLogic();
+    else if (viewName === 'ecos') runEcosLogic();
+    else if (viewName === 'eco_form') runEcoFormLogic(params);
     else if (config?.dataKey) {
         dom.headerActions.style.display = 'flex';
         dom.searchInput.style.display = 'block';
@@ -1022,8 +1024,50 @@ function switchView(viewName) {
     dom.searchInput.value = '';
 }
 
-async function runEcoFormLogic() {
-    const ECO_FORM_STORAGE_KEY = 'inProgressEcoForm';
+async function runEcoFormLogic(params = null) {
+    const ecoId = params ? params.ecoId : null;
+    const isEditing = !!ecoId;
+    const ECO_FORM_STORAGE_KEY = isEditing ? `inProgressEcoForm_${ecoId}` : 'inProgressEcoForm_new';
+
+    const populateEcoForm = (form, data) => {
+        if (!data || !form) return;
+
+        for (const key in data) {
+            if (key === 'checklists' && typeof data.checklists === 'object') {
+                for (const section in data.checklists) {
+                    data.checklists[section].forEach((item, index) => {
+                        if (item.si) form.querySelector(`input[name="check_${section}_${index}_si"]`).checked = true;
+                        if (item.na) form.querySelector(`input[name="check_${section}_${index}_na"]`).checked = true;
+                    });
+                }
+            } else if (key === 'comments' && typeof data.comments === 'object') {
+                for (const section in data.comments) {
+                    const textarea = form.querySelector(`[name="comments_${section}"]`);
+                    if (textarea) textarea.value = data.comments[section];
+                }
+            } else if (key === 'signatures' && typeof data.signatures === 'object') {
+                for (const sectionId in data.signatures) {
+                    for (const field in data.signatures[sectionId]) {
+                        const inputName = `${field}_${sectionId}`;
+                        const inputElement = form.querySelector(`[name="${inputName}"]`);
+                        if (inputElement) {
+                            if (inputElement.type === 'radio') {
+                                const radioToSelect = form.querySelector(`[name="${inputName}"][value="${data.signatures[sectionId][field]}"]`);
+                                if (radioToSelect) radioToSelect.checked = true;
+                            } else {
+                                inputElement.value = data.signatures[sectionId][field];
+                            }
+                        }
+                    }
+                }
+            } else {
+                const element = form.querySelector(`[name="${key}"]`);
+                if (element) {
+                    element.value = data[key];
+                }
+            }
+        }
+    };
 
     // Helper to save form data to Local Storage
     const saveEcoFormToLocalStorage = () => {
@@ -1280,17 +1324,38 @@ async function runEcoFormLogic() {
             });
         }
 
-        // Load data from Local Storage after rendering the form
-        loadEcoFormFromLocalStorage();
-
-        // Add event listener to save on any input
-        formElement.addEventListener('input', saveEcoFormToLocalStorage);
-
         // --- Button Logic ---
         const saveButton = document.getElementById('eco-save-button');
         const clearButton = document.getElementById('eco-clear-button');
         const approveButton = document.getElementById('eco-approve-button');
         const ecrInput = formElement.querySelector('#ecr_no');
+
+        if (isEditing) {
+            ecrInput.readOnly = true;
+            ecrInput.classList.add('bg-gray-100', 'cursor-not-allowed');
+            // Add a "Back" button
+            const backButtonHTML = `<button type="button" id="eco-back-button" class="bg-gray-200 text-gray-800 px-6 py-2 rounded-md hover:bg-gray-300">Volver a la Lista</button>`;
+            saveButton.insertAdjacentHTML('beforebegin', backButtonHTML);
+            document.getElementById('eco-back-button').addEventListener('click', () => switchView('ecos'));
+        }
+
+        if (ecoId) {
+            const docRef = doc(db, COLLECTIONS.ECO_FORMS, ecoId);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                populateEcoForm(formElement, docSnap.data());
+            } else {
+                showToast(`Error: No se encontró el ECO con ID ${ecoId}`, 'error');
+                switchView('ecos');
+                return;
+            }
+        } else {
+            // Load data from Local Storage only for new forms
+            loadEcoFormFromLocalStorage();
+        }
+
+        // Add event listener to save on any input
+        formElement.addEventListener('input', saveEcoFormToLocalStorage);
 
         const getFormData = () => {
             const formData = new FormData(formElement);
@@ -1448,6 +1513,124 @@ async function runEcoFormLogic() {
     }
 }
 
+async function runEcosLogic() {
+    dom.headerActions.style.display = 'none'; // Ocultar acciones globales
+
+    const viewHTML = `
+        <div class="animate-fade-in-up">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Planilla General de ECOs</h2>
+                    <p class="text-sm text-slate-500">Aquí puede ver, gestionar y crear nuevos ECOs.</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button data-action="create-new-ecr" class="bg-white border border-slate-300 text-slate-600 px-5 py-2.5 rounded-full hover:bg-slate-100 font-semibold shadow-sm transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed" title="Funcionalidad en desarrollo" disabled>
+                        <i data-lucide="file-plus-2" class="mr-2 h-5 w-5"></i>Crear Nuevo ECR
+                    </button>
+                    <button data-action="create-new-eco" class="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 flex items-center shadow-md transition-transform transform hover:scale-105">
+                        <i data-lucide="recycle" class="mr-2 h-5 w-5"></i>Crear Nuevo ECO
+                    </button>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-lg">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left text-gray-600">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+                            <tr>
+                                <th scope="col" class="px-6 py-3">ECR N°</th>
+                                <th scope="col" class="px-6 py-3">Estado</th>
+                                <th scope="col" class="px-6 py-3">Última Modificación</th>
+                                <th scope="col" class="px-6 py-3">Modificado Por</th>
+                                <th scope="col" class="px-6 py-3 text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ecos-table-body">
+                            <tr>
+                                <td colspan="5" class="text-center py-16 text-gray-500">
+                                    <div class="flex flex-col items-center gap-3">
+                                        <i data-lucide="loader" class="w-12 h-12 text-gray-300 animate-spin"></i>
+                                        <h4 class="font-semibold">Cargando ECOs...</h4>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+
+    dom.viewContent.innerHTML = viewHTML;
+    lucide.createIcons();
+
+    // Add event listener for the "create new eco" button
+    dom.viewContent.querySelector('[data-action="create-new-eco"]').addEventListener('click', () => {
+        switchView('eco_form');
+    });
+
+    // Logic to fetch and render ECOs
+    const ecoFormsRef = collection(db, COLLECTIONS.ECO_FORMS);
+    const q = query(ecoFormsRef, orderBy('lastModified', 'desc'));
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const ecosTableBody = document.getElementById('ecos-table-body');
+        if (!ecosTableBody) return;
+
+        if (querySnapshot.empty) {
+            ecosTableBody.innerHTML = `<tr><td colspan="5" class="text-center py-16 text-gray-500"><i data-lucide="search-x" class="mx-auto h-16 w-16 text-gray-300"></i><h3 class="mt-4 text-lg font-semibold">No se encontraron ECOs</h3><p class="text-sm">Puede crear uno nuevo con el botón de arriba.</p></div></td></tr>`;
+            lucide.createIcons();
+            return;
+        }
+
+        let tableRowsHTML = '';
+        querySnapshot.forEach(doc => {
+            const eco = doc.data();
+            const lastModified = eco.lastModified?.toDate ? eco.lastModified.toDate().toLocaleString('es-AR') : 'N/A';
+            const statusColors = {
+                'in-progress': 'bg-yellow-100 text-yellow-800',
+                'approved': 'bg-green-100 text-green-800',
+                'rejected': 'bg-red-100 text-red-800'
+            };
+            const statusText = {
+                'in-progress': 'En Progreso',
+                'approved': 'Aprobado',
+                'rejected': 'Rechazado'
+            };
+
+            tableRowsHTML += `
+                <tr class="bg-white border-b hover:bg-gray-50">
+                    <td class="px-6 py-4 font-medium text-gray-900">${eco.id || 'N/A'}</td>
+                    <td class="px-6 py-4">
+                        <span class="px-2 py-1 font-semibold leading-tight rounded-full text-xs ${statusColors[eco.status] || 'bg-gray-100 text-gray-800'}">
+                            ${statusText[eco.status] || eco.status}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4">${lastModified}</td>
+                    <td class="px-6 py-4">${eco.modifiedBy || 'N/A'}</td>
+                    <td class="px-6 py-4 text-right">
+                        <button data-action="view-eco" data-id="${eco.id}" class="text-gray-500 hover:text-blue-600 p-1" title="Ver/Editar"><i data-lucide="eye" class="h-5 w-5 pointer-events-none"></i></button>
+                        <button data-action="view-eco-history" data-id="${eco.id}" class="text-gray-500 hover:text-purple-600 p-1" title="Ver Historial"><i data-lucide="history" class="h-5 w-5 pointer-events-none"></i></button>
+                        <button data-action="export-eco-pdf" data-id="${eco.id}" class="text-gray-500 hover:text-red-600 p-1" title="Exportar a PDF"><i data-lucide="file-text" class="h-5 w-5 pointer-events-none"></i></button>
+                    </td>
+                </tr>
+            `;
+        });
+        ecosTableBody.innerHTML = tableRowsHTML;
+        lucide.createIcons();
+    }, (error) => {
+        console.error("Error fetching ECOs: ", error);
+        const ecosTableBody = document.getElementById('ecos-table-body');
+        if(ecosTableBody) {
+            ecosTableBody.innerHTML = `<tr><td colspan="5" class="text-center py-16 text-red-500"><i data-lucide="alert-triangle" class="mx-auto h-16 w-16"></i><h3 class="mt-4 text-lg font-semibold">Error al cargar ECOs</h3><p class="text-sm">${error.message}</p></div></td></tr>`;
+            lucide.createIcons();
+        }
+    });
+
+    appState.currentViewCleanup = () => {
+        unsubscribe();
+    };
+}
+
 function handleViewContentActions(e) {
     const button = e.target.closest('button[data-action], a[data-action]');
     if (!button) return;
@@ -1465,6 +1648,9 @@ function handleViewContentActions(e) {
     const userId = button.dataset.userId;
 
     const actions = {
+        'view-eco': () => switchView('eco_form', { ecoId: button.dataset.id }),
+        'view-eco-history': () => showEcoHistoryModal(button.dataset.id),
+        'export-eco-pdf': () => exportEcoToPdf(button.dataset.id),
         'delete-task': () => {
             showConfirmationModal(
                 'Eliminar Tarea',
@@ -1568,6 +1754,185 @@ function showConfirmationModal(title, message, onConfirm) {
         if (action === 'confirm') { onConfirm(); modalElement.remove(); } 
         else if (action === 'cancel') { modalElement.remove(); }
     });
+}
+
+async function showEcoHistoryModal(ecoId) {
+    if (!ecoId) return;
+
+    const modalId = `history-modal-${ecoId}`;
+    const modalHTML = `
+        <div id="${modalId}" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop animate-fade-in">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col m-4 modal-content">
+                <div class="flex justify-between items-center p-5 border-b">
+                    <h3 class="text-xl font-bold">Historial de Cambios para ECO: ${ecoId}</h3>
+                    <button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button>
+                </div>
+                <div id="history-content" class="p-6 overflow-y-auto">
+                    <p class="text-center text-gray-500">Cargando historial...</p>
+                </div>
+                <div class="flex justify-end items-center p-4 border-t bg-gray-50">
+                    <button data-action="close" type="button" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-semibold">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    `;
+    dom.modalContainer.innerHTML = modalHTML;
+    lucide.createIcons();
+
+    const modalElement = document.getElementById(modalId);
+    const historyContent = modalElement.querySelector('#history-content');
+
+    modalElement.addEventListener('click', e => {
+        if (e.target.closest('button')?.dataset.action === 'close') {
+            modalElement.remove();
+        }
+    });
+
+    try {
+        const historyRef = collection(db, COLLECTIONS.ECO_FORMS, ecoId, 'history');
+        const q = query(historyRef, orderBy('lastModified', 'desc'));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            historyContent.innerHTML = '<p class="text-center text-gray-500">No se encontró historial para este ECO.</p>';
+            return;
+        }
+
+        let historyHTML = '<div class="space-y-4">';
+        querySnapshot.forEach(doc => {
+            const data = doc.data();
+            const date = data.lastModified?.toDate ? data.lastModified.toDate().toLocaleString('es-AR') : 'Fecha desconocida';
+            historyHTML += `
+                <div class="p-4 border rounded-lg bg-gray-50">
+                    <p><strong>Fecha:</strong> ${date}</p>
+                    <p><strong>Modificado por:</strong> ${data.modifiedBy || 'Desconocido'}</p>
+                    <p><strong>Estado:</strong> ${data.status || 'N/A'}</p>
+                    <details class="mt-2 text-xs">
+                        <summary class="cursor-pointer">Ver datos completos (JSON)</summary>
+                        <pre class="bg-gray-200 p-2 rounded mt-1 overflow-auto max-h-60"><code>${JSON.stringify(data, null, 2)}</code></pre>
+                    </details>
+                </div>
+            `;
+        });
+        historyHTML += '</div>';
+        historyContent.innerHTML = historyHTML;
+
+    } catch (error) {
+        console.error("Error fetching ECO history:", error);
+        historyContent.innerHTML = '<p class="text-center text-red-500">Error al cargar el historial.</p>';
+        showToast('Error al cargar el historial.', 'error');
+    }
+}
+
+async function exportEcoToPdf(ecoId) {
+    if (!ecoId) {
+        showToast('No se ha proporcionado un ID de ECO para exportar.', 'error');
+        return;
+    }
+
+    showToast('Iniciando exportación a PDF...', 'info');
+    dom.loadingOverlay.style.display = 'flex';
+    dom.loadingOverlay.querySelector('p').textContent = 'Generando PDF...';
+
+    try {
+        // 1. Fetch ECO data
+        const ecoDocRef = doc(db, COLLECTIONS.ECO_FORMS, ecoId);
+        const ecoDocSnap = await getDoc(ecoDocRef);
+        if (!ecoDocSnap.exists()) {
+            throw new Error(`No se encontró el ECO con ID ${ecoId}`);
+        }
+        const ecoData = ecoDocSnap.data();
+
+        // 2. Create an off-screen container
+        const container = document.createElement('div');
+        container.style.position = 'absolute';
+        container.style.left = '-9999px';
+        container.style.top = '0';
+        container.style.width = '1200px'; // A fixed width for consistent layout
+        document.body.appendChild(container);
+
+        // 3. Load and populate the form HTML
+        const response = await fetch('eco_form.html');
+        const html = await response.text();
+        const template = document.createElement('template');
+        template.innerHTML = html.trim();
+        const formElement = template.content.firstElementChild;
+        container.appendChild(formElement);
+
+        // We need to re-run the section building logic for the offscreen form
+        // This is a simplified version of the logic in runEcoFormLogic
+        const formSectionsData = [ { title: 'ENG. PRODUCTO', id: 'eng_producto', checklist: [ '¿Se requiere cambio en el plano?', '¿Se requiere cambio en la especificación?', '¿Se requiere un nuevo herramental?', '¿Se requiere un nuevo dispositivo?' ] }, { title: 'CALIDAD', id: 'calidad', checklist: [ '¿Se requiere un nuevo plan de control?', '¿Se requiere un nuevo estudio de capacidad?', '¿Se requiere un nuevo R&R?', '¿Se requiere un nuevo layout?' ] }, { title: 'ENG. PROCESO', id: 'eng_proceso', checklist: [ '¿Se requiere un nuevo diagrama de flujo?', '¿Se requiere un nuevo AMEF?', '¿Se requiere un nuevo estudio de tiempos?', '¿Se requiere una nueva instrucción de trabajo?' ] }, { title: 'COMPRAS', id: 'compras', checklist: [ '¿Se requiere un nuevo proveedor?', '¿Se requiere un nuevo acuerdo de precios?', '¿Se requiere un nuevo embalaje?', '¿Se requiere un nuevo transporte?' ] }, { title: 'LOGISTICA', id: 'logistica', checklist: [ '¿Se requiere un nuevo layout de almacén?', '¿Se requiere un nuevo sistema de identificación?', '¿Se requiere un nuevo flujo de materiales?', '¿Se requiere un nuevo sistema de transporte interno?' ] }, { title: 'IMPLEMENTACIÓN', id: 'implementacion', checklist: [ '¿Se requiere actualizar el stock?', '¿Se requiere notificar al cliente?', '¿Se requiere capacitar al personal?', '¿Se requiere validar el proceso?' ] }, { title: 'APROBACIÓN FINAL', id: 'aprobacion_final', description: 'Aprobación final del ECO y cierre del proceso.', checklist: null } ];
+        const dynamicContainer = formElement.querySelector('#dynamic-form-sections');
+        dynamicContainer.innerHTML = ''; // Clear placeholder
+        formSectionsData.forEach(section => {
+             const checklistItemsHTML = section.checklist ? section.checklist.map((item, index) => `<div class="checklist-item"> <span class="checklist-item-label">${item}</span> <div class="checklist-item-options"> <input type="checkbox" name="check_${section.id}_${index}_si" class="form-checkbox h-5 w-5 text-blue-600"> <input type="checkbox" name="check_${section.id}_${index}_na" class="form-checkbox h-5 w-5 text-blue-600"> </div> </div>`).join('') : '';
+             const mainContentHTML = section.checklist ? `<div class="section-checklist"> <div class="checklist-header"> <span>Ítem</span> <div class="flex items-center"> <span class="mr-4">SI</span> <span>N/A</span> </div> </div> ${checklistItemsHTML} </div> <div class="section-comments"> <label for="comments_${section.id}" class="font-bold text-gray-700">Comentarios:</label> <textarea id="comments_${section.id}" name="comments_${section.id}" rows="10" class="mt-2 w-full border rounded-md p-2"></textarea> </div>` : `<div class="p-4 w-full"> <p class="text-gray-700">${section.description}</p> </div>`;
+             const statusFieldHTML = section.checklist ? `<div class="footer-field"> <label>Estado</label> <div class="status-options"> <label class="flex items-center"><input type="radio" name="status_${section.id}" value="ok" class="form-radio h-4 w-4 text-green-600"> <span class="ml-2">OK</span></label> <label class="flex items-center"><input type="radio" name="status_${section.id}" value="nok" class="form-radio h-4 w-4 text-red-600"> <span class="ml-2">NOK</span></label> </div> </div>` : '';
+             const sectionHTML = `<div class="section-block"> <div class="section-sidebar"> <span>${section.title}</span> </div> <div class="section-main"> <div class="section-content"> ${mainContentHTML} </div> <div class="section-footer"> <div class="footer-fields"> <div class="footer-field"> <label for="date_${section.id}">Fecha</label> <input type="date" id="date_${section.id}" name="date_${section.id}" class="p-1 border rounded-md"> </div> ${statusFieldHTML} </div> <div class="footer-fields"> <div class="footer-field"> <label for="name_${section.id}">Nombre</label> <input type="text" id="name_${section.id}" name="name_${section.id}" class="p-1 border rounded-md"> </div> <div class="footer-field"> <label for="date_signature_${section.id}">Fecha</label> <input type="date" id="date_signature_${section.id}" name="date_signature_${section.id}" class="p-1 border rounded-md"> </div> <div class="footer-field"> <label for="visto_${section.id}">Visto</label> <input type="text" id="visto_${section.id}" name="visto_${section.id}" class="p-1 border rounded-md"> </div> </div> </div> </div> </div>`;
+             dynamicContainer.insertAdjacentHTML('beforeend', sectionHTML);
+        });
+
+        // This helper is defined in runEcoFormLogic, so we need to redefine it or make it global.
+        // For now, let's copy the definition.
+        const populateEcoForm = (form, data) => { if (!data || !form) return; for (const key in data) { if (key === 'checklists' && typeof data.checklists === 'object') { for (const section in data.checklists) { data.checklists[section].forEach((item, index) => { if (item.si) form.querySelector(`input[name="check_${section}_${index}_si"]`).checked = true; if (item.na) form.querySelector(`input[name="check_${section}_${index}_na"]`).checked = true; }); } } else if (key === 'comments' && typeof data.comments === 'object') { for (const section in data.comments) { const textarea = form.querySelector(`[name="comments_${section}"]`); if (textarea) textarea.value = data.comments[section]; } } else if (key === 'signatures' && typeof data.signatures === 'object') { for (const sectionId in data.signatures) { for (const field in data.signatures[sectionId]) { const inputName = `${field}_${sectionId}`; const inputElement = form.querySelector(`[name="${inputName}"]`); if (inputElement) { if (inputElement.type === 'radio') { const radioToSelect = form.querySelector(`[name="${inputName}"][value="${data.signatures[sectionId][field]}"]`); if (radioToSelect) radioToSelect.checked = true; } else { inputElement.value = data.signatures[sectionId][field]; } } } } } else { const element = form.querySelector(`[name="${key}"]`); if (element) { element.value = data[key]; } } } };
+        populateEcoForm(formElement, ecoData);
+
+        // 4. Use html2canvas to render the form
+        const canvas = await html2canvas(formElement, {
+            scale: 2, // Higher scale for better quality
+            useCORS: true,
+            logging: false,
+            onclone: (clonedDoc) => {
+                // Ensure styles are loaded for the cloned document
+                const styleSheet = document.getElementById('eco-form-styles');
+                if (styleSheet) {
+                    clonedDoc.head.appendChild(styleSheet.cloneNode(true));
+                }
+            }
+        });
+
+        // 5. Create PDF and add the image
+        const imgData = canvas.toDataURL('image/png');
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+            orientation: 'p',
+            unit: 'mm',
+            format: 'a4'
+        });
+
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        const canvasAspectRatio = canvasWidth / canvasHeight;
+        const pdfAspectRatio = pdfWidth / pdfHeight;
+
+        let finalCanvasWidth, finalCanvasHeight;
+
+        // Fit image to page width
+        finalCanvasWidth = pdfWidth;
+        finalCanvasHeight = finalCanvasWidth / canvasAspectRatio;
+
+        // If it's too tall, scale to page height instead
+        if (finalCanvasHeight > pdfHeight) {
+            finalCanvasHeight = pdfHeight;
+            finalCanvasWidth = finalCanvasHeight * canvasAspectRatio;
+        }
+
+        pdf.addImage(imgData, 'PNG', 0, 0, finalCanvasWidth, finalCanvasHeight);
+
+        // 6. Save the PDF
+        pdf.save(`ECO_${ecoId}.pdf`);
+
+        // 7. Clean up the off-screen container
+        document.body.removeChild(container);
+
+    } catch (error) {
+        console.error("Error exporting ECO to PDF:", error);
+        showToast('Error al exportar el PDF.', 'error');
+    } finally {
+        dom.loadingOverlay.style.display = 'none';
+    }
 }
 
 function updateGodModeIndicator() {
