@@ -1912,6 +1912,9 @@ async function runEcrsLogic() {
 }
 
 async function runEcrFormLogic(params = null) {
+    const ecrId = params ? params.ecrId : null;
+    const isEditing = !!ecrId;
+
     dom.viewContent.innerHTML = `<div class="p-4 flex justify-center items-center"><div class="loading-spinner"></div><p class="mt-4 ml-4 text-slate-600 font-semibold">Cargando formulario ECR...</p></div>`;
 
     // Ensure CSS is loaded
@@ -1930,6 +1933,27 @@ async function runEcrFormLogic(params = null) {
         link.media = 'print';
         document.head.appendChild(link);
     }
+
+    const populateEcrForm = (form, data) => {
+        if (!data || !form) return;
+        for (const key in data) {
+            const elements = form.querySelectorAll(`[name="${key}"]`);
+            elements.forEach(element => {
+                if (element.type === 'checkbox' || element.type === 'radio') {
+                    // For radio buttons, check the one with the matching value
+                    if(element.type === 'radio') {
+                        if(element.value === data[key]) {
+                            element.checked = true;
+                        }
+                    } else { // For checkboxes
+                        element.checked = !!data[key];
+                    }
+                } else {
+                    element.value = data[key];
+                }
+            });
+        }
+    };
 
     // --- Helper functions for building form elements ---
     const createCheckbox = (label, name, value = '') => `<div class="flex items-center gap-2"><input type="checkbox" name="${name}" id="${name}" value="${value}" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"><label for="${name}" class="text-sm select-none">${label}</label></div>`;
@@ -2020,9 +2044,9 @@ async function runEcrFormLogic(params = null) {
             <table class="full-width-table mt-4">
                 <thead><tr><th>OBJETIVO DE ECR</th><th>TIPO DE ALTERACIÓN</th><th>AFECTA S/R</th></tr></thead>
                 <tbody><tr>
-                    <td>${['Productividad', 'Mejora de calidad', 'Estrategia del Cliente', 'Estrategia Barack', 'Nacionalización'].map(l => createCheckbox(l, `obj_${l.toLowerCase().replace(/ /g,'_')}`)).join('')}</td>
-                    <td>${['Producto', 'Proceso', 'Fuente de suministro', 'Embalaje'].map(l => createCheckbox(l, `tipo_${l.toLowerCase().replace(/ /g,'_')}`)).join('')} <div class="flex items-center gap-2 mt-1"><input type="checkbox" id="tipo_otro"><label for="tipo_otro" class="text-sm">Otro:</label><input type="text" class="border-b-2 bg-transparent flex-grow"></div></td>
-                    <td>${['Relocalización de Planta', 'Modificación de Layout', 'Modificación de herramental'].map(l => createCheckbox(l, `afecta_${l.toLowerCase().replace(/ /g,'_')}`)).join('')}</td>
+                    <td><div class="flex flex-col gap-2">${['Productividad', 'Mejora de calidad', 'Estrategia del Cliente', 'Estrategia Barack', 'Nacionalización'].map(l => createCheckbox(l, `obj_${l.toLowerCase().replace(/ /g,'_')}`)).join('')}</div></td>
+                    <td><div class="flex flex-col gap-2">${['Producto', 'Proceso', 'Fuente de suministro', 'Embalaje'].map(l => createCheckbox(l, `tipo_${l.toLowerCase().replace(/ /g,'_')}`)).join('')} <div class="flex items-center gap-2 mt-1"><input type="checkbox" id="tipo_otro" name="tipo_otro"><label for="tipo_otro" class="text-sm">Otro:</label><input name="tipo_otro_text" type="text" class="border-b-2 bg-transparent flex-grow"></div></div></td>
+                    <td><div class="flex flex-col gap-2">${['Relocalización de Planta', 'Modificación de Layout', 'Modificación de herramental'].map(l => createCheckbox(l, `afecta_${l.toLowerCase().replace(/ /g,'_')}`)).join('')}</div></td>
                 </tr></tbody>
             </table>
 
@@ -2033,20 +2057,22 @@ async function runEcrFormLogic(params = null) {
 
             <table class="full-width-table risk-analysis-table">
                 <thead><tr><th colspan="7">IMPACTO EN CASO DE FALLA</th></tr><tr><th>RESPONSABLE</th><th>ANÁLISIS DE RIESGO</th><th>Nivel</th><th>Observaciones</th><th>NOMBRE</th><th>FECHA</th><th>VISTO</th></tr></thead>
-                <tbody>${['RETORNO DE GARANTÍA', 'RECLAMACIÓN ZERO KM', 'HSE', 'SATISFACCIÓN DEL CLIENTE', 'S/R (Seguridad y/o Regulamentación)'].map(r => `<tr><td>Gerente de Calidad</td><td>${r}</td><td><input></td><td><input></td><td><input></td><td><input type="date"></td><td><input></td></tr>`).join('')}</tbody>
+                <tbody>${['RETORNO DE GARANTÍA', 'RECLAMACIÓN ZERO KM', 'HSE', 'SATISFACCIÓN DEL CLIENTE', 'S/R (Seguridad y/o Regulamentación)'].map((r, i) => `<tr><td>Gerente de Calidad</td><td>${r}</td><td><input name="impacto_nivel_${i}"></td><td><input name="impacto_obs_${i}"></td><td><input name="impacto_nombre_${i}"></td><td><input type="date" name="impacto_fecha_${i}"></td><td><input name="impacto_visto_${i}"></td></tr>`).join('')}</tbody>
             </table>
 
             <table class="full-width-table risk-analysis-table mt-4">
                 <thead><tr><th colspan="7">APROBACIÓN DE DIRECTORIO (CODIR)</th></tr><tr><th>Miembro de Directorio</th><th>Aprobado</th><th>Rechazado</th><th>Observaciones</th><th>NOMBRE</th><th>FECHA</th><th>VISTO</th></tr></thead>
-                <tbody>${['Director Comercial', 'Director Industrial', 'Otro: <input class="border-b-2 bg-transparent w-full">'].map(r => `<tr><td>${r}</td><td>${createCheckbox('', '')}</td><td>${createCheckbox('', '')}</td><td><input></td><td><input></td><td><input type="date"></td><td><input></td></tr>`).join('')}</tbody>
+                <tbody>${['Director Comercial', 'Director Industrial'].map((r, i) => `<tr><td>${r}</td><td>${createCheckbox('', `codir_aprobado_${i}`)}</td><td>${createCheckbox('', `codir_rechazado_${i}`)}</td><td><input name="codir_obs_${i}"></td><td><input name="codir_nombre_${i}"></td><td><input type="date" name="codir_fecha_${i}"></td><td><input name="codir_visto_${i}"></td></tr>`).join('')}
+                    <tr><td>Otro: <input name="codir_otro_rol_2" class="border-b-2 bg-transparent w-full"></td><td>${createCheckbox('', 'codir_aprobado_2')}</td><td>${createCheckbox('', 'codir_rechazado_2')}</td><td><input name="codir_obs_2"></td><td><input name="codir_nombre_2"></td><td><input type="date" name="codir_fecha_2"></td><td><input name="codir_visto_2"></td></tr>
+                </tbody>
             </table>
 
             <table class="full-width-table mt-4">
                  <thead><tr><th colspan="2">EQUIPO DE TRABAJO</th></tr></thead>
                  <tbody>
-                    ${[['PILOTO ECR:', 'COMERCIAL:'], ['PILOTO:', 'PC&L/LOGÍSTICA:'], ['ING. PRODUCTO:', 'PRODUCCIÓN:'], ['ING. MANUFACTURA:', 'COSTOS:'], ['CALIDAD:', 'HSE:'], ['COMPRAS:', 'MANTENIMIENTO:'], ['SQA:', '']].map(row => {
-                        const col1 = `<div class="flex items-center"><label class="w-1/3 font-semibold">${row[0]}</label><input class="flex-grow ml-2 border-b-2 bg-transparent"></div>`;
-                        const col2 = row[1] ? `<div class="flex items-center"><label class="w-1/3 font-semibold">${row[1]}</label><input class="flex-grow ml-2 border-b-2 bg-transparent"></div>` : '';
+                    ${[['PILOTO ECR:', 'COMERCIAL:'], ['PILOTO:', 'PC&L/LOGÍSTICA:'], ['ING. PRODUCTO:', 'PRODUCCIÓN:'], ['ING. MANUFACTURA:', 'COSTOS:'], ['CALIDAD:', 'HSE:'], ['COMPRAS:', 'MANTENIMIENTO:'], ['SQA:', '']].map((row, i) => {
+                        const col1 = `<div class="flex items-center"><label class="w-1/3 font-semibold">${row[0]}</label><input name="equipo_c1_${i}" class="flex-grow ml-2 border-b-2 bg-transparent"></div>`;
+                        const col2 = row[1] ? `<div class="flex items-center"><label class="w-1/3 font-semibold">${row[1]}</label><input name="equipo_c2_${i}" class="flex-grow ml-2 border-b-2 bg-transparent"></div>` : '';
                         return `<tr><td>${col1}</td><td>${col2}</td></tr>`;
                     }).join('')}
                  </tbody>
@@ -2065,13 +2091,13 @@ async function runEcrFormLogic(params = null) {
                 customHTML: `
                     <table class="full-width-table text-xs my-2">
                         <thead><tr><th>REF. ACTUAL / IND</th><th>REF. NUEVA / IND</th><th>QTD./CARRO</th></tr></thead>
-                        <tbody><tr><td><input></td><td><input></td><td><input></td></tr></tbody>
+                        <tbody><tr><td><input name="prod_ref_actual"></td><td><input name="prod_ref_nueva"></td><td><input name="prod_qtd_carro"></td></tr></tbody>
                     </table>
                     <div class="grid grid-cols-2 gap-2 mt-2">
                     ${['COSTO CLIENTE', 'COSTO BARACK', 'COSTO PROVEEDOR', 'AFECTA AL CLIENTE', 'AFECTA S&R'].map(l => createCheckbox(l, `prod_${l.toLowerCase().replace(/ /g,'_')}`)).join('')}
                     </div>
                 `,
-                checklist: ['ESTRUCTURA DE PRODUCTO', 'PLANO DE VALIDACIÓN', 'LANZAMIENTO DE PROTOTIPOS', 'EVALUADO POR EL ESPECIALISTA DE PRODUCTO', 'ACTUALIZAR DISEÑO 3D', 'ACTUALIZAR DISEÑO 2D', 'ACTUALIZAR DFMEA', 'COPIA DE ESTA ECR PARA OTRO SITIO?', 'NECESITA PIEZA DE REPOSICIÓN'].map(l => ({label: l, name: `prod_${l.toLowerCase().replace(/ /g,'_')}`}))
+                checklist: ['ESTRUCTURA DE PRODUCTO', 'PLANO DE VALIDACIÓN', 'LANZAMIENTO DE PROTOTIPOS', 'EVALUADO POR EL ESPECIALISTA DE PRODUCTO', 'ACTUALIZAR DISEÑO 3D', 'ACTUALIZAR DISEÑO 2D', 'ACTUALIZAR DFMEA', 'COPIA DE ESTA ECR PARA OTRO SITIO?', 'NECESITA PIEZA DE REPOSICIÓN'].map(l => ({label: l, name: `prod_check_${l.toLowerCase().replace(/ /g,'_')}`}))
             })}
             ${buildDepartmentSection({
                 title: 'INGENIERÍA MANUFACTURA Y PROCESO', id: 'ing_manufatura',
@@ -2096,8 +2122,8 @@ async function runEcrFormLogic(params = null) {
                 title: 'COMPRAS', id: 'compras',
                 customHTML: `
                     <div class="grid grid-cols-2 gap-4 text-xs">
-                        <div><strong>PIEZA Actual:</strong> ${createCheckbox('NACIONAL', 'compras_actual_nac')} ${createCheckbox('IMPORTADA', 'compras_actual_imp')} <input placeholder="PROVEEDOR:" class="w-full mt-1"></div>
-                        <div><strong>PIEZA Propuesta:</strong> ${createCheckbox('NACIONAL', 'compras_prop_nac')} ${createCheckbox('IMPORTADA', 'compras_prop_imp')} <input placeholder="PROVEEDOR:" class="w-full mt-1"></div>
+                        <div><strong>PIEZA Actual:</strong> ${createCheckbox('NACIONAL', 'compras_actual_nac')} ${createCheckbox('IMPORTADA', 'compras_actual_imp')} <input name="compras_proveedor_actual" placeholder="PROVEEDOR:" class="w-full mt-1"></div>
+                        <div><strong>PIEZA Propuesta:</strong> ${createCheckbox('NACIONAL', 'compras_prop_nac')} ${createCheckbox('IMPORTADA', 'compras_prop_imp')} <input name="compras_proveedor_prop" placeholder="PROVEEDOR:" class="w-full mt-1"></div>
                     </div>
                     <div class="flex gap-4 mt-2">${createCheckbox('Modificación reversible', 'compras_rev')} ${createCheckbox('Modificación irreversible', 'compras_irrev')}</div>
                 `,
@@ -2169,6 +2195,18 @@ async function runEcrFormLogic(params = null) {
     dom.viewContent.innerHTML = '';
     dom.viewContent.appendChild(formContainer);
 
+     if (isEditing) {
+        const docRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            populateEcrForm(formContainer, docSnap.data());
+        } else {
+            showToast(`Error: No se encontró el ECR con ID ${ecrId}`, 'error');
+            switchView('ecrs');
+            return;
+        }
+    }
+
     appState.currentViewCleanup = () => {
         const ecrStyle = document.getElementById('ecr-form-styles');
         if (ecrStyle) ecrStyle.remove();
@@ -2195,6 +2233,7 @@ function handleViewContentActions(e) {
 
     const actions = {
         'view-eco': () => switchView('eco_form', { ecoId: button.dataset.id }),
+        'view-ecr': () => switchView('ecr_form', { ecrId: button.dataset.id }),
         'view-eco-history': () => showEcoHistoryModal(button.dataset.id),
         'export-eco-pdf': () => exportEcoToPdf(button.dataset.id),
         'export-ecr-pdf': () => exportEcrToPdf(button.dataset.id),
@@ -2605,7 +2644,6 @@ async function exportEcrToPdf(ecrId) {
         printableContainer.style.left = '-9999px';
         printableContainer.style.width = '8.5in';
 
-        // This is the correct version of the helper function, the other one will be removed.
         const getCheckboxHTML = (checked) => {
             const isChecked = !!checked;
             const style = `display: inline-block; width: 10px; height: 10px; border: 1px solid black; text-align: center; line-height: 10px; font-weight: bold; vertical-align: middle; margin: 0 4px;`;
@@ -2620,7 +2658,7 @@ async function exportEcrToPdf(ecrId) {
 
         const departmentConfigs = {
             page2: [
-                { title: 'INGENIERÍA PRODUCTO — DISEÑO', id: 'ing_producto', checklist: ['ESTRUCTURA DE PRODUCTO', 'PLANO DE VALIDACIÓN', 'LANZAMIENTO DE PROTOTIPOS', 'EVALUADO POR EL ESPECIALISTA DE PRODUCTO', 'ACTUALIZAR DISEÑO 3D', 'ACTUALIZAR DISEÑO 2D', 'ACTUALIZAR DFMEA', 'COPIA DE ESTA ECR PARA OTRO SITIO?', 'NECESITA PIEZA DE REPOSICIÓN'].map(l => ({label: l, name: `prod_${l.toLowerCase().replace(/ /g,'_')}`})) },
+                { title: 'INGENIERÍA PRODUCTO — DISEÑO', id: 'ing_producto', checklist: ['ESTRUCTURA DE PRODUCTO', 'PLANO DE VALIDACIÓN', 'LANZAMIENTO DE PROTOTIPOS', 'EVALUADO POR EL ESPECIALISTA DE PRODUCTO', 'ACTUALIZAR DISEÑO 3D', 'ACTUALIZAR DISEÑO 2D', 'ACTUALIZAR DFMEA', 'COPIA DE ESTA ECR PARA OTRO SITIO?', 'NECESITA PIEZA DE REPOSICIÓN'].map(l => ({label: l, name: `prod_check_${l.toLowerCase().replace(/ /g,'_')}`})) },
                 { title: 'INGENIERÍA MANUFACTURA Y PROCESO', id: 'ing_manufatura', checklist: ['HACER RUN A RATE', 'ACTUALIZAR DISEÑO MANUFACTURA', 'LAY OUT', 'AFECTA EQUIPAMIENTO', 'ACTUALIZAR INSTRUCCIONES, FLUJOGRAMAS', 'ACTUALIZAR PFMEA', 'POKA YOKES', 'ACTUALIZAR TIEMPOS', 'CAPACIDAD DE PERSONAL', 'AFECTA A S&R / HSE'].map(l => ({label: l, name: `manuf_${l.toLowerCase().replace(/ /g,'_')}`})) },
                 { title: 'HSE', id: 'hse', checklist: ['CHECK LIST DE LIB DE MÁQUINA', 'COMUNICAR ÓRGANO AMBIENTAL', 'COMUNICACIÓN MINISTERIO DE TRABAJO'].map(l => ({label: l, name: `hse_${l.toLowerCase().replace(/ /g,'_')}`})) },
             ],
@@ -2641,6 +2679,26 @@ async function exportEcrToPdf(ecrId) {
             return `<div class="department-section" style="margin-top: 8px;"><div class="department-header"><span>${config.title}</span><div style="display: flex; align-items: center; gap: 16px; font-size: 10px;"><div style="display: flex; align-items: center; gap: 4px;">${getCheckboxHTML(getValue(`na_${config.id}`))} No Afecta</div><div style="display: flex; align-items: center; gap: 4px;">${getCheckboxHTML(getValue(`afecta_${config.id}`))} Afecta</div></div></div><div class="department-content" style="flex-direction: column;"><div class="department-checklist" style="width: 100%; border-right: none; border-bottom: 1px solid #9ca3af;">${checklistHTML}</div><div class="department-comments" style="width: 100%;"><label class="font-bold text-sm mb-1 block">Comentarios:</label><p style="white-space: pre-wrap; font-size: 10px; min-height: 50px;">${getValue(`comments_${config.id}`)}</p></div></div><div class="department-footer" style="font-size: 10px;"><div style="display: flex; align-items: center; gap: 8px;">${getCheckboxHTML(getValue(`ok_${config.id}`))} OK ${getCheckboxHTML(getValue(`nok_${config.id}`))} NOK</div><div><strong>Fecha:</strong> ${getValue(`date_${config.id}`)}</div><div><strong>Nombre:</strong> ${getValue(`name_${config.id}`)}</div><div><strong>Visto:</strong> ${getValue(`visto_${config.id}`)}</div></div></div>`;
         };
 
+        const objetivoTableHTML = `
+            <table class="full-width-table" style="font-size: 9px; margin-top: 5px; table-layout: fixed;">
+                <thead><tr><th style="width: 33%;">OBJETIVO DE ECR</th><th style="width: 34%;">TIPO DE ALTERACIÓN</th><th style="width: 33%;">AFECTA S/R</th></tr></thead>
+                <tbody>
+                    <tr>
+                        <td style="vertical-align: top; padding: 4px;">
+                            ${['Productividad', 'Mejora de calidad', 'Estrategia del Cliente', 'Estrategia Barack', 'Nacionalización'].map(l => `<div style="padding: 1px 0;">${getCheckboxHTML(getValue(`obj_${l.toLowerCase().replace(/ /g,'_')}`))} ${l}</div>`).join('')}
+                        </td>
+                        <td style="vertical-align: top; padding: 4px;">
+                            ${['Producto', 'Proceso', 'Fuente de suministro', 'Embalaje'].map(l => `<div style="padding: 1px 0;">${getCheckboxHTML(getValue(`tipo_${l.toLowerCase().replace(/ /g,'_')}`))} ${l}</div>`).join('')}
+                            <div style="padding: 1px 0;">${getCheckboxHTML(getValue('tipo_otro'))} Otro: ${getValue('tipo_otro_text')}</div>
+                        </td>
+                        <td style="vertical-align: top; padding: 4px;">
+                            ${['Relocalización de Planta', 'Modificación de Layout', 'Modificación de herramental'].map(l => `<div style="padding: 1px 0;">${getCheckboxHTML(getValue(`afecta_${l.toLowerCase().replace(/ /g,'_')}`))} ${l}</div>`).join('')}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>`;
+
+
         let fullHtml = `<div class="ecr-page" style="padding: 0.5in; break-after: page !important;">
                 <header class="ecr-header"><img src="/barack_logo.png" alt="Logo" style="height: 48px;"><div class="title-block"><div class="ecr-main-title">ECR</div><div class="ecr-subtitle">DE PRODUCTO / PROCESO</div></div><div class="ecr-number-box"><span>ECR N°:</span> ${getValue('ecr_no')}</div></header>
                 <div class="ecr-checklist-bar">CHECK LIST ECR - ENGINEERING CHANGE REQUEST</div>
@@ -2648,6 +2706,7 @@ async function exportEcrToPdf(ecrId) {
                     <tr><td style="width: 50%;"><strong>ORIGEN:</strong> ${getCheckboxHTML(getValue('origen_cliente'))} Cliente ${getCheckboxHTML(getValue('origen_proveedor'))} Proveedor ${getCheckboxHTML(getValue('origen_interno'))} Interno ${getCheckboxHTML(getValue('origen_reglamentacion'))} Reglamentación</td><td style="width: 25%;"><strong>Proyecto:</strong> ${getValue('proyecto')}</td><td style="width: 25%;"><strong>Cliente:</strong> ${getValue('cliente')}</td></tr>
                     <tr><td><strong>FASE:</strong> ${getCheckboxHTML(getValue('fase_programa'))} Programa ${getCheckboxHTML(getValue('fase_serie'))} Serie</td><td><strong>Fecha Emisión:</strong> ${getValue('fecha_emision')}</td><td><strong>Fecha Cierre:</strong> ${getValue('fecha_cierre')}</td></tr>
                 </table>
+                ${objetivoTableHTML}
                 <div class="two-column-layout" style="margin-top: 5px; grid-template-columns: 1fr 1fr; gap: 8px;"><div class="column-box" style="height: auto;"><h3 style="margin-bottom: 5px;">SITUACIÓN EXISTENTE:</h3><p style="white-space: pre-wrap;">${getValue('situacion_existente')}</p></div><div class="column-box" style="height: auto;"><h3 style="margin-bottom: 5px;">SITUACIÓN PROPUESTA:</h3><p style="white-space: pre-wrap;">${getValue('situacion_propuesta')}</p></div></div>
                 <table class="full-width-table" style="font-size: 8px;"><thead><tr><th colspan="7">IMPACTO EN CASO DE FALLA</th></tr><tr><th>RESPONSABLE</th><th>ANÁLISIS DE RIESGO</th><th>Nivel</th><th>Observaciones</th><th>NOMBRE</th><th>FECHA</th><th>VISTO</th></tr></thead><tbody>
                 ${['RETORNO DE GARANTÍA', 'RECLAMACIÓN ZERO KM', 'HSE', 'SATISFACCIÓN DEL CLIENTE', 'S/R (Seguridad y/o Regulamentación)'].map((r, i) => `<tr><td>Gerente de Calidad</td><td>${r}</td><td>${getValue(`impacto_nivel_${i}`)}</td><td>${getValue(`impacto_obs_${i}`)}</td><td>${getValue(`impacto_nombre_${i}`)}</td><td>${getValue(`impacto_fecha_${i}`)}</td><td>${getValue(`impacto_visto_${i}`)}</td></tr>`).join('')}
