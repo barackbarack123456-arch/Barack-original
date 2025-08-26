@@ -697,6 +697,47 @@ async function seedEcos(batch, users, generatedData) {
     console.log(`${TOTAL_ECOS} ECOs de prueba detallados añadidos al batch.`);
 }
 
+async function seedEcrs(batch, users, generatedData) {
+    showToast('Generando 15 ECRs de prueba...', 'info');
+    const ecrFormsRef = collection(db, COLLECTIONS.ECR_FORMS);
+    const TOTAL_ECRS = 15;
+
+    const getRandomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    const getRandomDate = (start, end) => new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime())).toISOString().split('T')[0];
+
+    for (let i = 1; i <= TOTAL_ECRS; i++) {
+        const user1 = getRandomItem(users);
+        const product = getRandomItem(generatedData.productos || []);
+        const client = getRandomItem(generatedData.clientes.filter(c => c.id === product.clienteId)) || getRandomItem(generatedData.clientes);
+
+        const ecrId = `ECR-2024-${String(i).padStart(3, '0')}`;
+        const ecrData = {
+            id: ecrId,
+            ecr_no: ecrId,
+            status: getRandomItem(['in-progress', 'approved', 'rejected']),
+            lastModified: new Date(),
+            modifiedBy: user1.email,
+
+            // Page 1 Data
+            origen_cliente: Math.random() > 0.5,
+            origen_interno: Math.random() > 0.5,
+            proyecto: (getRandomItem(generatedData.proyectos) || {}).nombre || 'Proyecto Alpha',
+            cliente: client?.descripcion || 'Cliente General',
+            fase_serie: true,
+            fecha_emision: getRandomDate(new Date(2023, 0, 1), new Date()),
+            codigo_barack: product?.id || `PROD-00${i}`,
+            denominacion_producto: product?.descripcion || 'Componente de Muestra',
+            situacion_existente: 'El componente actual presenta fallas de material bajo alta temperatura.',
+            situacion_propuesta: 'Reemplazar el polímero por una aleación de aluminio 6061-T6 para mejorar la resistencia térmica y durabilidad.',
+        };
+
+        const docRef = doc(ecrFormsRef, ecrId);
+        batch.set(docRef, ecrData);
+    }
+    console.log(`${TOTAL_ECRS} ECRs de prueba añadidos al batch.`);
+}
+
+
 async function seedDatabase() {
     await clearDataOnly();
     showToast('Iniciando carga masiva de datos de prueba...', 'info');
@@ -898,6 +939,7 @@ async function seedDatabase() {
 
     // --- GENERACIÓN DE ECOS DE PRUEBA ---
     await seedEcos(batch, users, generated);
+    await seedEcrs(batch, users, generated);
 
     for (let i = 1; i <= TOTAL_TAREAS; i++) {
         const creator = getRandomItem(users);
@@ -1929,7 +1971,7 @@ async function runEcrFormLogic(params = null) {
         <div class="ecr-page relative" id="page1">
             <div class="watermark">Página 1</div>
             <header class="ecr-header">
-                <div class="logo">BARACK MERCOSUL</div>
+                <img src="/barack_logo.png" alt="Logo" class="h-12">
                 <div class="title-block">
                     <div class="ecr-main-title">ECR</div>
                     <div class="ecr-subtitle">DE PRODUCTO / PROCESO</div>
@@ -2149,6 +2191,7 @@ function handleViewContentActions(e) {
         'view-eco': () => switchView('eco_form', { ecoId: button.dataset.id }),
         'view-eco-history': () => showEcoHistoryModal(button.dataset.id),
         'export-eco-pdf': () => exportEcoToPdf(button.dataset.id),
+        'export-ecr-pdf': () => exportEcrToPdf(button.dataset.id),
         'approve-eco': () => {
             const ecoId = button.dataset.id;
             showConfirmationModal('Aprobar ECO', `¿Está seguro de que desea aprobar el ECO "${ecoId}"? Esta acción es final.`, async () => {
@@ -2531,6 +2574,162 @@ async function exportEcoToPdf(ecoId) {
         showToast('Error al exportar el PDF.', 'error');
     } finally {
         dom.loadingOverlay.style.display = 'none';
+    }
+}
+
+async function exportEcrToPdf(ecrId) {
+    if (!ecrId) {
+        showToast('No se ha proporcionado un ID de ECR para exportar.', 'error');
+        return;
+    }
+
+    showToast('Iniciando exportación de ECR a PDF...', 'info');
+    dom.loadingOverlay.style.display = 'flex';
+    dom.loadingOverlay.querySelector('p').textContent = 'Generando PDF de ECR...';
+
+    try {
+        const ecrDocRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
+        const ecrDocSnap = await getDoc(ecrDocRef);
+        if (!ecrDocSnap.exists()) throw new Error(`No se encontró el ECR con ID ${ecrId}`);
+        const ecrData = ecrDocSnap.data();
+
+        const printableContainer = document.createElement('div');
+        printableContainer.id = 'printable-ecr-container';
+        printableContainer.style.position = 'absolute';
+        printableContainer.style.left = '-9999px';
+        printableContainer.style.width = '8.5in';
+
+        // Helper to generate a checked or unchecked box
+        const getCheckboxHTML = (checked) => {
+            return `<div style="display: inline-block; width: 10px; height: 10px; border: 1px solid black; text-align: center; line-height: 10px;">${checked ? 'X' : ''}</div>`;
+        };
+
+        // Helper to generate a checked or unchecked box
+        const getCheckboxHTML = (checked) => {
+            const isChecked = !!checked;
+            const style = `display: inline-block; width: 10px; height: 10px; border: 1px solid black; text-align: center; line-height: 10px; font-weight: bold; vertical-align: middle; margin: 0 4px;`;
+            return `<div style="${style}">${isChecked ? 'X' : '&nbsp;'}</div>`;
+        };
+
+        const getValue = (field, defaultValue = '&nbsp;') => {
+            const value = ecrData[field];
+            if (value === null || value === undefined || value === '') return defaultValue;
+            return String(value).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        };
+
+        const buildPrintableDepartmentSection = (config) => {
+            const checklistHTML = config.checklist.map(item => `
+                <div style="display: flex; align-items: center; gap: 8px; padding: 2px 0;">
+                    ${getCheckboxHTML(getValue(item.name))}
+                    <span style="font-size: 9px;">${item.label}</span>
+                </div>
+            `).join('');
+
+            const customContent = config.customHTML ? config.customHTML(ecrData, getValue, getCheckboxHTML) : '';
+
+            return `
+                <div class="department-section" style="margin-top: 8px;">
+                    <div class="department-header">
+                        <span>${config.title}</span>
+                        <div style="display: flex; align-items: center; gap: 16px; font-size: 10px;">
+                            <div style="display: flex; align-items: center; gap: 4px;">${getCheckboxHTML(getValue(`na_${config.id}`))} No Afecta</div>
+                            <div style="display: flex; align-items: center; gap: 4px;">${getCheckboxHTML(getValue(`afecta_${config.id}`))} Afecta</div>
+                        </div>
+                    </div>
+                    <div class="department-content" style="flex-direction: column;">
+                        <div class="department-checklist" style="width: 100%; border-right: none; border-bottom: 1px solid #9ca3af;">${checklistHTML}${customContent}</div>
+                        <div class="department-comments" style="width: 100%;">
+                            <label class="font-bold text-sm mb-1 block">Comentarios Generales y Justificativos:</label>
+                            <p style="white-space: pre-wrap; font-size: 10px; min-height: 50px;">${getValue(`comments_${config.id}`)}</p>
+                        </div>
+                    </div>
+                    <div class="department-footer" style="font-size: 10px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">${getCheckboxHTML(getValue(`ok_${config.id}`))} OK ${getCheckboxHTML(getValue(`nok_${config.id}`))} NOK</div>
+                        <div><strong>Fecha:</strong> ${getValue(`date_${config.id}`)}</div>
+                        <div><strong>Nombre:</strong> ${getValue(`name_${config.id}`)}</div>
+                        <div><strong>Visto:</strong> ${getValue(`visto_${config.id}`)}</div>
+                    </div>
+                </div>
+            `;
+        };
+
+        const departmentConfigs = {
+            page2: [
+                { title: 'INGENIERÍA PRODUCTO — DISEÑO', id: 'ing_producto', checklist: ['ESTRUCTURA DE PRODUCTO', 'PLANO DE VALIDACIÓN', 'LANZAMIENTO DE PROTOTIPOS', 'EVALUADO POR EL ESPECIALISTA DE PRODUCTO', 'ACTUALIZAR DISEÑO 3D', 'ACTUALIZAR DISEÑO 2D', 'ACTUALIZAR DFMEA', 'COPIA DE ESTA ECR PARA OTRO SITIO?', 'NECESITA PIEZA DE REPOSICIÓN'].map(l => ({label: l, name: `prod_${l.toLowerCase().replace(/ /g,'_')}`})) },
+                { title: 'INGENIERÍA MANUFACTURA Y PROCESO', id: 'ing_manufatura', checklist: ['HACER RUN A RATE', 'ACTUALIZAR DISEÑO MANUFACTURA', 'LAY OUT', 'AFECTA EQUIPAMIENTO', 'ACTUALIZAR INSTRUCCIONES, FLUJOGRAMAS', 'ACTUALIZAR PFMEA', 'POKA YOKES', 'ACTUALIZAR TIEMPOS', 'CAPACIDAD DE PERSONAL', 'AFECTA A S&R / HSE'].map(l => ({label: l, name: `manuf_${l.toLowerCase().replace(/ /g,'_')}`})) },
+                { title: 'HSE', id: 'hse', checklist: ['CHECK LIST DE LIB DE MÁQUINA', 'COMUNICAR ÓRGANO AMBIENTAL', 'COMUNICACIÓN MINISTERIO DE TRABAJO'].map(l => ({label: l, name: `hse_${l.toLowerCase().replace(/ /g,'_')}`})) },
+            ],
+            page3: [
+                 { title: 'CALIDAD', id: 'calidad', checklist: ['AFECTA DIMENSIONAL CLIENTE?', 'AFECTA FUNCIONAL Y MONTABILIDAD?', 'ACTUALIZAR PLANO DE CONTROLES/ INSTRUCCIONES', 'AFECTA ASPECTO/ACTUALIZAR BIBLIA DE DEFECTOS/PZA PATRÓN?', 'AFECTA CAPABILIDAD (AFECTA CAPACIDAD)', 'MODIFICAR DISPOSITIVO DE CONTROL Y SU MODO DE CONTROL', 'NUEVO ESTUDIO DE MSA / CALIBRACIÓN', 'NECESITA VALIDACIÓN (PLANO DEBE ESTAR EN ANEXO)', 'NECESARIO NUEVO PPAP/PSW CLIENTE', 'ANÁLISIS DE MATERIA PRIMA', 'IMPLEMENTAR MURO DE CALIDAD', 'NECESITA AUDITORÍA S&R', 'AFECTA POKA-YOKE?', 'AFECTA AUDITORÍA DE PRODUCTO?'].map(l => ({label: l, name: `calidad_${l.toLowerCase().replace(/ /g,'_')}`})) },
+                { title: 'COMPRAS', id: 'compras', checklist: ['COSTOS EVALUADOS', 'PEDIDO COMPRA PROTOTIPOS', 'PEDIDO COMPRA TOOLING', 'AFECTA HERRAMIENTA DE PROVEEDOR', 'NECESARIO ENVIAR DISEÑO P/ PROVEEDOR', 'IMPACTO POST VENTA ANALIZADO'].map(l => ({label: l, name: `compras_${l.toLowerCase().replace(/ /g,'_')}`})) },
+                { title: 'CALIDAD PROVEEDORES (SQA)', id: 'sqa', checklist: ['NECESITA NUEVO PSW PROVEEDOR - FECHA LÍMITE: __/__/____', 'AFECTA LAY OUT', 'AFECTA EMBALAJE', 'AFECTA DISPOSITIVO CONTROL PROVEEDOR', 'AFECTA SUBPROVEEDOR', 'NECESITA DE ASISTENTE'].map(l => ({label: l, name: `sqa_${l.toLowerCase().replace(/ /g,'_')}`})) },
+            ],
+            page4: [
+                { title: 'LOGÍSTICA Y PC&L', id: 'logistica', checklist: ['Parámetros logísticos/items nuevos', 'Gestión de stock (pieza antigua/nueva)', 'Necesita stock de seguridad', 'Altera programa p/ proveedor', 'Nuevo protocolo logístico', 'Impacto post venta', 'Impacto MOI/MOD', 'Afecta embalaje'].map(l => ({label: l, name: `logistica_${l.toLowerCase().replace(/ /g,'_')}`})) },
+                { title: 'FINANCIERO / COSTOS', id: 'financiero', checklist: ['BUSINESS PLAN', 'BOA - BUSINESS OPPORTUNITY', 'MoB - ANALYSIS', 'PAYBACK / UPFRONT'].map(l => ({label: l, name: `financiero_${l.toLowerCase().replace(/ /g,'_')}`})) },
+                { title: 'COMERCIAL', id: 'comercial', checklist: ['NECESARIO RENEGOCIAR CON EL CLIENTE', 'IMPACTO POST VENTA ANALIZADO', 'NECESARIA NUEVA ORDEN DE VENTA AL CLIENTE', 'NEGOCIACIÓN DE OBSOLETOS'].map(l => ({label: l, name: `comercial_${l.toLowerCase().replace(/ /g,'_')}`})) }
+            ]
+        };
+
+        const buildPrintableDepartmentSection = (config) => {
+            const checklistHTML = config.checklist.map(item => `<div style="display: flex; align-items: center; gap: 8px; padding: 2px 0;">${getCheckboxHTML(getValue(item.name))} <span style="font-size: 9px;">${item.label}</span></div>`).join('');
+            return `<div class="department-section" style="margin-top: 8px;"><div class="department-header"><span>${config.title}</span><div style="display: flex; align-items: center; gap: 16px; font-size: 10px;"><div style="display: flex; align-items: center; gap: 4px;">${getCheckboxHTML(getValue(`na_${config.id}`))} No Afecta</div><div style="display: flex; align-items: center; gap: 4px;">${getCheckboxHTML(getValue(`afecta_${config.id}`))} Afecta</div></div></div><div class="department-content" style="flex-direction: column;"><div class="department-checklist" style="width: 100%; border-right: none; border-bottom: 1px solid #9ca3af;">${checklistHTML}</div><div class="department-comments" style="width: 100%;"><label class="font-bold text-sm mb-1 block">Comentarios:</label><p style="white-space: pre-wrap; font-size: 10px; min-height: 50px;">${getValue(`comments_${config.id}`)}</p></div></div><div class="department-footer" style="font-size: 10px;"><div style="display: flex; align-items: center; gap: 8px;">${getCheckboxHTML(getValue(`ok_${config.id}`))} OK ${getCheckboxHTML(getValue(`nok_${config.id}`))} NOK</div><div><strong>Fecha:</strong> ${getValue(`date_${config.id}`)}</div><div><strong>Nombre:</strong> ${getValue(`name_${config.id}`)}</div><div><strong>Visto:</strong> ${getValue(`visto_${config.id}`)}</div></div></div>`;
+        };
+
+        let fullHtml = `<div class="ecr-page" style="padding: 0.5in; break-after: page !important;">
+                <header class="ecr-header"><img src="/barack_logo.png" alt="Logo" style="height: 48px;"><div class="title-block"><div class="ecr-main-title">ECR</div><div class="ecr-subtitle">DE PRODUCTO / PROCESO</div></div><div class="ecr-number-box"><span>ECR N°:</span> ${getValue('ecr_no')}</div></header>
+                <div class="ecr-checklist-bar">CHECK LIST ECR - ENGINEERING CHANGE REQUEST</div>
+                <table class="full-width-table" style="font-size: 9px; margin-top: 5px;">
+                    <tr><td style="width: 50%;"><strong>ORIGEN:</strong> ${getCheckboxHTML(getValue('origen_cliente'))} Cliente ${getCheckboxHTML(getValue('origen_proveedor'))} Proveedor ${getCheckboxHTML(getValue('origen_interno'))} Interno ${getCheckboxHTML(getValue('origen_reglamentacion'))} Reglamentación</td><td style="width: 25%;"><strong>Proyecto:</strong> ${getValue('proyecto')}</td><td style="width: 25%;"><strong>Cliente:</strong> ${getValue('cliente')}</td></tr>
+                    <tr><td><strong>FASE:</strong> ${getCheckboxHTML(getValue('fase_programa'))} Programa ${getCheckboxHTML(getValue('fase_serie'))} Serie</td><td><strong>Fecha Emisión:</strong> ${getValue('fecha_emision')}</td><td><strong>Fecha Cierre:</strong> ${getValue('fecha_cierre')}</td></tr>
+                </table>
+                <div class="two-column-layout" style="margin-top: 5px; grid-template-columns: 1fr 1fr; gap: 8px;"><div class="column-box" style="height: auto;"><h3 style="margin-bottom: 5px;">SITUACIÓN EXISTENTE:</h3><p style="white-space: pre-wrap;">${getValue('situacion_existente')}</p></div><div class="column-box" style="height: auto;"><h3 style="margin-bottom: 5px;">SITUACIÓN PROPUESTA:</h3><p style="white-space: pre-wrap;">${getValue('situacion_propuesta')}</p></div></div>
+                <table class="full-width-table" style="font-size: 8px;"><thead><tr><th colspan="7">IMPACTO EN CASO DE FALLA</th></tr><tr><th>RESPONSABLE</th><th>ANÁLISIS DE RIESGO</th><th>Nivel</th><th>Observaciones</th><th>NOMBRE</th><th>FECHA</th><th>VISTO</th></tr></thead><tbody>
+                ${['RETORNO DE GARANTÍA', 'RECLAMACIÓN ZERO KM', 'HSE', 'SATISFACCIÓN DEL CLIENTE', 'S/R (Seguridad y/o Regulamentación)'].map((r, i) => `<tr><td>Gerente de Calidad</td><td>${r}</td><td>${getValue(`impacto_nivel_${i}`)}</td><td>${getValue(`impacto_obs_${i}`)}</td><td>${getValue(`impacto_nombre_${i}`)}</td><td>${getValue(`impacto_fecha_${i}`)}</td><td>${getValue(`impacto_visto_${i}`)}</td></tr>`).join('')}
+                </tbody></table>
+            </div>`;
+
+        fullHtml += `<div class="ecr-page" style="padding: 0.5in; break-after: page !important;">${departmentConfigs.page2.map(buildPrintableDepartmentSection).join('')}</div>`;
+        fullHtml += `<div class="ecr-page" style="padding: 0.5in; break-after: page !important;">${departmentConfigs.page3.map(buildPrintableDepartmentSection).join('')}</div>`;
+        fullHtml += `<div class="ecr-page" style="padding: 0.5in; break-after: page !important;">${departmentConfigs.page4.map(buildPrintableDepartmentSection).join('')}</div>`;
+
+        printableContainer.innerHTML = fullHtml;
+        document.body.appendChild(printableContainer);
+
+        // Ensure styles are loaded
+        if (!document.getElementById('ecr-form-styles')) {
+            const link = document.createElement('link');
+            link.id = 'ecr-form-styles'; link.rel = 'stylesheet'; link.href = 'ecr_form.css';
+            document.head.appendChild(link);
+            await new Promise(resolve => link.onload = resolve);
+        }
+
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+
+        const pageElements = printableContainer.querySelectorAll('.ecr-page');
+        for (let i = 0; i < pageElements.length; i++) {
+            const page = pageElements[i];
+            const canvas = await html2canvas(page, { scale: 2, useCORS: true, logging: false });
+            const imgData = canvas.toDataURL('image/png');
+            const imgProps = pdf.getImageProperties(imgData);
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+            if (i > 0) pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        }
+
+        pdf.save(`ECR_${ecrId}.pdf`);
+        document.body.removeChild(printableContainer);
+
+    } catch (error) {
+        console.error("Error exporting ECR to PDF:", error);
+        showToast('Error al exportar el PDF.', 'error');
+    } finally {
+        dom.loadingOverlay.style.display = 'none';
+        const container = document.getElementById('printable-ecr-container');
+        if (container) container.remove();
     }
 }
 
