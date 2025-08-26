@@ -1188,6 +1188,15 @@ async function runEcoFormLogic(params = null) {
             document.head.appendChild(link);
         }
 
+        if (!document.getElementById('print-styles')) {
+            const link = document.createElement('link');
+            link.id = 'print-styles';
+            link.rel = 'stylesheet';
+            link.href = 'print.css';
+            link.media = 'print';
+            document.head.appendChild(link);
+        }
+
         const formSectionsData = [
             {
                 title: 'ENG. PRODUCTO',
@@ -1553,8 +1562,10 @@ async function runEcoFormLogic(params = null) {
         });
 
         appState.currentViewCleanup = () => {
-            const style = document.getElementById('eco-form-styles');
-            if(style) style.remove();
+            const ecoStyle = document.getElementById('eco-form-styles');
+            if(ecoStyle) ecoStyle.remove();
+            const printStyle = document.getElementById('print-styles');
+            if(printStyle) printStyle.remove();
             formElement.removeEventListener('input', saveEcoFormToLocalStorage);
         };
 
