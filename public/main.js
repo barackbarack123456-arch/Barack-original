@@ -1227,18 +1227,11 @@ async function runEcoFormLogic(params = null) {
             const mainContentHTML = section.checklist
                 ? `
                 <div class="section-checklist">
-                    <div class="checklist-header">
-                        <span>Ítem</span>
-                        <div class="flex items-center">
-                            <span class="mr-4">SI</span>
-                            <span>N/A</span>
-                        </div>
-                    </div>
                     ${checklistItemsHTML}
                 </div>
                 <div class="section-comments">
                     <label for="comments_${section.id}" class="font-bold text-gray-700">Comentarios:</label>
-                    <textarea id="comments_${section.id}" name="comments_${section.id}" rows="10" class="mt-2 w-full border rounded-md p-2"></textarea>
+                    <textarea id="comments_${section.id}" name="comments_${section.id}" rows="4" class="mt-2 w-full border rounded-md p-2"></textarea>
                 </div>`
                 : `<div class="p-4 w-full">
                     <p class="text-gray-700">${section.description}</p>
@@ -1246,7 +1239,7 @@ async function runEcoFormLogic(params = null) {
 
             const statusFieldHTML = section.checklist
                 ? `<div class="footer-field">
-                    <label>Estado</label>
+                    <label>Estado de Revisión</label>
                     <div class="status-options">
                         <label class="flex items-center"><input type="radio" name="status_${section.id}" value="ok" class="form-radio h-4 w-4 text-green-600"> <span class="ml-2">OK</span></label>
                         <label class="flex items-center"><input type="radio" name="status_${section.id}" value="nok" class="form-radio h-4 w-4 text-red-600"> <span class="ml-2">NOK</span></label>
@@ -1266,22 +1259,18 @@ async function runEcoFormLogic(params = null) {
                     <div class="section-footer">
                         <div class="footer-fields">
                             <div class="footer-field">
-                                <label for="date_${section.id}">Fecha</label>
-                                <input type="date" id="date_${section.id}" name="date_${section.id}" class="p-1 border rounded-md">
+                                <label for="date_review_${section.id}">Fecha de Revisión</label>
+                                <input type="date" id="date_review_${section.id}" name="date_review_${section.id}" class="p-1 border rounded-md">
                             </div>
                             ${statusFieldHTML}
                         </div>
                         <div class="footer-fields">
                              <div class="footer-field">
-                                <label for="name_${section.id}">Nombre</label>
+                                <label for="name_${section.id}">Nombre del Aprobador</label>
                                 <input type="text" id="name_${section.id}" name="name_${section.id}" class="p-1 border rounded-md">
                             </div>
                              <div class="footer-field">
-                                <label for="date_signature_${section.id}">Fecha</label>
-                                <input type="date" id="date_signature_${section.id}" name="date_signature_${section.id}" class="p-1 border rounded-md">
-                            </div>
-                             <div class="footer-field">
-                                <label for="visto_${section.id}">Visto</label>
+                                <label for="visto_${section.id}">Firma de Aprobación</label>
                                 <input type="text" id="visto_${section.id}" name="visto_${section.id}" class="p-1 border rounded-md">
                             </div>
                         </div>
@@ -1836,113 +1825,135 @@ async function exportEcoToPdf(ecoId) {
     dom.loadingOverlay.querySelector('p').textContent = 'Generando PDF...';
 
     try {
-        // 1. Fetch ECO data
         const ecoDocRef = doc(db, COLLECTIONS.ECO_FORMS, ecoId);
         const ecoDocSnap = await getDoc(ecoDocRef);
         if (!ecoDocSnap.exists()) {
             throw new Error(`No se encontró el ECO con ID ${ecoId}`);
         }
         const ecoData = ecoDocSnap.data();
+        const logoBase64 = await getLogoBase64();
 
-        // 2. Create an off-screen container
-        const container = document.createElement('div');
-        container.style.position = 'absolute';
-        container.style.left = '-9999px';
-        container.style.top = '0';
-        container.style.width = '1200px'; // A fixed width for consistent layout
-        document.body.appendChild(container);
-
-        // 3. Load and populate the form HTML
-        const response = await fetch('eco_form.html');
-        const html = await response.text();
-        const template = document.createElement('template');
-        template.innerHTML = html.trim();
-        const formElement = template.content.firstElementChild;
-        container.appendChild(formElement);
-
-        // We need to re-run the section building logic for the offscreen form
-        // This is a simplified version of the logic in runEcoFormLogic
-        const formSectionsData = [ { title: 'ENG. PRODUCTO', id: 'eng_producto', checklist: [ '¿Se requiere cambio en el plano?', '¿Se requiere cambio en la especificación?', '¿Se requiere un nuevo herramental?', '¿Se requiere un nuevo dispositivo?' ] }, { title: 'CALIDAD', id: 'calidad', checklist: [ '¿Se requiere un nuevo plan de control?', '¿Se requiere un nuevo estudio de capacidad?', '¿Se requiere un nuevo R&R?', '¿Se requiere un nuevo layout?' ] }, { title: 'ENG. PROCESO', id: 'eng_proceso', checklist: [ '¿Se requiere un nuevo diagrama de flujo?', '¿Se requiere un nuevo AMEF?', '¿Se requiere un nuevo estudio de tiempos?', '¿Se requiere una nueva instrucción de trabajo?' ] }, { title: 'COMPRAS', id: 'compras', checklist: [ '¿Se requiere un nuevo proveedor?', '¿Se requiere un nuevo acuerdo de precios?', '¿Se requiere un nuevo embalaje?', '¿Se requiere un nuevo transporte?' ] }, { title: 'LOGISTICA', id: 'logistica', checklist: [ '¿Se requiere un nuevo layout de almacén?', '¿Se requiere un nuevo sistema de identificación?', '¿Se requiere un nuevo flujo de materiales?', '¿Se requiere un nuevo sistema de transporte interno?' ] }, { title: 'IMPLEMENTACIÓN', id: 'implementacion', checklist: [ '¿Se requiere actualizar el stock?', '¿Se requiere notificar al cliente?', '¿Se requiere capacitar al personal?', '¿Se requiere validar el proceso?' ] }, { title: 'APROBACIÓN FINAL', id: 'aprobacion_final', description: 'Aprobación final del ECO y cierre del proceso.', checklist: null } ];
-        const dynamicContainer = formElement.querySelector('#dynamic-form-sections');
-        dynamicContainer.innerHTML = ''; // Clear placeholder
-        formSectionsData.forEach(section => {
-             const checklistItemsHTML = section.checklist ? section.checklist.map((item, index) => `<div class="checklist-item"> <span class="checklist-item-label">${item}</span> <div class="checklist-item-options"> <input type="checkbox" name="check_${section.id}_${index}_si" class="form-checkbox h-5 w-5 text-blue-600"> <input type="checkbox" name="check_${section.id}_${index}_na" class="form-checkbox h-5 w-5 text-blue-600"> </div> </div>`).join('') : '';
-             const mainContentHTML = section.checklist ? `<div class="section-checklist"> <div class="checklist-header"> <span>Ítem</span> <div class="flex items-center"> <span class="mr-4">SI</span> <span>N/A</span> </div> </div> ${checklistItemsHTML} </div> <div class="section-comments"> <label for="comments_${section.id}" class="font-bold text-gray-700">Comentarios:</label> <textarea id="comments_${section.id}" name="comments_${section.id}" rows="10" class="mt-2 w-full border rounded-md p-2"></textarea> </div>` : `<div class="p-4 w-full"> <p class="text-gray-700">${section.description}</p> </div>`;
-             const statusFieldHTML = section.checklist ? `<div class="footer-field"> <label>Estado</label> <div class="status-options"> <label class="flex items-center"><input type="radio" name="status_${section.id}" value="ok" class="form-radio h-4 w-4 text-green-600"> <span class="ml-2">OK</span></label> <label class="flex items-center"><input type="radio" name="status_${section.id}" value="nok" class="form-radio h-4 w-4 text-red-600"> <span class="ml-2">NOK</span></label> </div> </div>` : '';
-             const sectionHTML = `<div class="section-block"> <div class="section-sidebar"> <span>${section.title}</span> </div> <div class="section-main"> <div class="section-content"> ${mainContentHTML} </div> <div class="section-footer"> <div class="footer-fields"> <div class="footer-field"> <label for="date_${section.id}">Fecha</label> <input type="date" id="date_${section.id}" name="date_${section.id}" class="p-1 border rounded-md"> </div> ${statusFieldHTML} </div> <div class="footer-fields"> <div class="footer-field"> <label for="name_${section.id}">Nombre</label> <input type="text" id="name_${section.id}" name="name_${section.id}" class="p-1 border rounded-md"> </div> <div class="footer-field"> <label for="date_signature_${section.id}">Fecha</label> <input type="date" id="date_signature_${section.id}" name="date_signature_${section.id}" class="p-1 border rounded-md"> </div> <div class="footer-field"> <label for="visto_${section.id}">Visto</label> <input type="text" id="visto_${section.id}" name="visto_${section.id}" class="p-1 border rounded-md"> </div> </div> </div> </div> </div>`;
-             dynamicContainer.insertAdjacentHTML('beforeend', sectionHTML);
-        });
-
-        // This helper is defined in runEcoFormLogic, so we need to redefine it or make it global.
-        // For now, let's copy the definition.
-        const populateEcoForm = (form, data) => { if (!data || !form) return; for (const key in data) { if (key === 'checklists' && typeof data.checklists === 'object') { for (const section in data.checklists) { data.checklists[section].forEach((item, index) => { if (item.si) form.querySelector(`input[name="check_${section}_${index}_si"]`).checked = true; if (item.na) form.querySelector(`input[name="check_${section}_${index}_na"]`).checked = true; }); } } else if (key === 'comments' && typeof data.comments === 'object') { for (const section in data.comments) { const textarea = form.querySelector(`[name="comments_${section}"]`); if (textarea) textarea.value = data.comments[section]; } } else if (key === 'signatures' && typeof data.signatures === 'object') { for (const sectionId in data.signatures) { for (const field in data.signatures[sectionId]) { const inputName = `${field}_${sectionId}`; const inputElement = form.querySelector(`[name="${inputName}"]`); if (inputElement) { if (inputElement.type === 'radio') { const radioToSelect = form.querySelector(`[name="${inputName}"][value="${data.signatures[sectionId][field]}"]`); if (radioToSelect) radioToSelect.checked = true; } else { inputElement.value = data.signatures[sectionId][field]; } } } } } else { const element = form.querySelector(`[name="${key}"]`); if (element) { element.value = data[key]; } } } };
-        populateEcoForm(formElement, ecoData);
-
-        // 4. Use html2canvas to render the form
-        const canvas = await html2canvas(formElement, {
-            scale: 2, // Higher scale for better quality
-            useCORS: true,
-            logging: false,
-             onclone: (clonedDoc) => {
-                // Ensure both stylesheets are loaded for the cloned document
-                const styleSheet = document.getElementById('eco-form-styles');
-                if (styleSheet) {
-                    clonedDoc.head.appendChild(styleSheet.cloneNode(true));
-                }
-                const printStyleSheet = document.querySelector('link[href="print.css"]');
-                 if (printStyleSheet) {
-                    clonedDoc.head.appendChild(printStyleSheet.cloneNode(true));
-                }
-
-                // Hacer que el input ECR N° parezca texto plano
-                const ecrInput = clonedDoc.getElementById('ecr_no');
-                if (ecrInput) {
-                    ecrInput.style.border = 'none';
-                    ecrInput.style.background = 'transparent';
-                    ecrInput.style.paddingLeft = '0';
-                    ecrInput.setAttribute('readonly', 'true');
-                }
-            }
-        });
-
-        // 5. Create PDF and add the image sliced into multiple pages
-        const imgData = canvas.toDataURL('image/png');
         const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({
-            orientation: 'p',
-            unit: 'mm',
-            format: 'a4'
+        const doc = new jsPDF('p', 'mm', 'a4');
+
+        const MARGIN = 15;
+        const PAGE_WIDTH = doc.internal.pageSize.getWidth();
+        const CONTENT_WIDTH = PAGE_WIDTH - (MARGIN * 2);
+        let y = MARGIN;
+
+        const checkPageBreak = (heightNeeded) => {
+            if (y + heightNeeded > doc.internal.pageSize.getHeight() - MARGIN) {
+                doc.addPage();
+                y = MARGIN;
+            }
+        };
+
+        // --- Header ---
+        if (logoBase64) {
+            doc.addImage(logoBase64, 'PNG', MARGIN, y, 30, 15);
+        }
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.text('ECO DE PRODUCTO / PROCESO', PAGE_WIDTH / 2, y + 5, { align: 'center' });
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text('I-IN-003.1 ECR - ECO B', PAGE_WIDTH / 2, y + 10, { align: 'center' });
+        doc.text(`ECR N°: ${ecoData.ecr_no || 'N/A'}`, PAGE_WIDTH - MARGIN, y + 15, { align: 'right' });
+        y += 25;
+
+        // --- Sections ---
+        const formSectionsData = [ { title: 'ENG. PRODUCTO', id: 'eng_producto', checklist: [ '¿Se requiere cambio en el plano?', '¿Se requiere cambio en la especificación?', '¿Se requiere un nuevo herramental?', '¿Se requiere un nuevo dispositivo?' ] }, { title: 'CALIDAD', id: 'calidad', checklist: [ '¿Se requiere un nuevo plan de control?', '¿Se requiere un nuevo estudio de capacidad?', '¿Se requiere un nuevo R&R?', '¿Se requiere un nuevo layout?' ] }, { title: 'ENG. PROCESO', id: 'eng_proceso', checklist: [ '¿Se requiere un nuevo diagrama de flujo?', '¿Se requiere un nuevo AMEF?', '¿Se requiere un nuevo estudio de tiempos?', '¿Se requiere una nueva instrucción de trabajo?' ] }, { title: 'COMPRAS', id: 'compras', checklist: [ '¿Se requiere un nuevo proveedor?', '¿Se requiere un nuevo acuerdo de precios?', '¿Se requiere un nuevo embalaje?', '¿Se requiere un nuevo transporte?' ] }, { title: 'LOGISTICA', id: 'logistica', checklist: [ '¿Se requiere un nuevo layout de almacén?', '¿Se requiere un nuevo sistema de identificación?', '¿Se requiere un nuevo flujo de materiales?', '¿Se requiere un nuevo sistema de transporte interno?' ] }, { title: 'IMPLEMENTACIÓN', id: 'implementacion', checklist: [ '¿Se requiere actualizar el stock?', '¿Se requiere notificar al cliente?', '¿Se requiere capacitar al personal?', '¿Se requiere validar el proceso?' ] }, { title: 'APROBACIÓN FINAL', id: 'aprobacion_final', description: 'Aprobación final del ECO y cierre del proceso.', checklist: null } ];
+
+        formSectionsData.forEach(section => {
+            checkPageBreak(25); // Minimum height for a section header
+            doc.setFillColor(230, 230, 230);
+            doc.rect(MARGIN, y, CONTENT_WIDTH, 8, 'F');
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.text(section.title, MARGIN + 2, y + 5.5);
+            y += 10;
+
+            if (section.checklist) {
+                const checklistData = ecoData.checklists?.[section.id] || [];
+                const comments = ecoData.comments?.[section.id] || '';
+                const signatures = ecoData.signatures?.[section.id] || {};
+
+                // Checklist and Comments side-by-side
+                const checklistYStart = y;
+                const checklistWidth = CONTENT_WIDTH * 0.6;
+                const commentsWidth = CONTENT_WIDTH * 0.4 - 5;
+
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'normal');
+                section.checklist.forEach((item, index) => {
+                    checkPageBreak(8);
+                    const itemData = checklistData[index] || {};
+                    doc.text(item, MARGIN, y + 5);
+
+                    // SI Checkbox
+                    doc.rect(MARGIN + checklistWidth - 20, y + 2, 3, 3);
+                    if (itemData.si) doc.text('X', MARGIN + checklistWidth - 19, y + 4.5);
+                    doc.text('SI', MARGIN + checklistWidth - 16, y + 5);
+
+                    // N/A Checkbox
+                    doc.rect(MARGIN + checklistWidth - 8, y + 2, 3, 3);
+                    if (itemData.na) doc.text('X', MARGIN + checklistWidth - 7, y + 4.5);
+                    doc.text('N/A', MARGIN + checklistWidth - 4, y + 5);
+
+                    y += 7;
+                });
+
+                const checklistYEnd = y;
+                y = checklistYStart; // Reset y to draw comments next to the checklist
+
+                doc.setFont('helvetica', 'bold');
+                doc.text('Comentarios:', MARGIN + checklistWidth + 5, y + 5);
+                doc.setFont('helvetica', 'normal');
+                const commentLines = doc.splitTextToSize(comments, commentsWidth);
+                doc.text(commentLines, MARGIN + checklistWidth + 5, y + 10);
+
+                y = Math.max(checklistYEnd, y + 10 + commentLines.length * 4);
+                y += 5; // spacing
+
+                // Footer Signatures
+                checkPageBreak(20);
+                doc.setDrawColor(150);
+                doc.line(MARGIN, y, PAGE_WIDTH - MARGIN, y);
+                y += 5;
+
+                doc.setFontSize(8);
+                const sigDate = signatures.date_review || '____/____/____';
+                const sigStatus = signatures.status || 'N/A';
+                const sigName = signatures.name || '____________________';
+                const sigVisto = signatures.visto || '____________________';
+
+                doc.text(`Fecha de Revisión: ${sigDate}`, MARGIN, y);
+
+                doc.text(`Estado:`, MARGIN + 60, y);
+                doc.circle(MARGIN + 72, y - 1, 1.5);
+                doc.text('OK', MARGIN + 74, y);
+                if (sigStatus === 'ok') doc.circle(MARGIN + 72, y - 1, 1, 'F');
+
+                doc.circle(MARGIN + 82, y - 1, 1.5);
+                doc.text('NOK', MARGIN + 84, y);
+                if (sigStatus === 'nok') doc.circle(MARGIN + 82, y - 1, 1, 'F');
+
+                doc.text(`Aprobador: ${sigName}`, MARGIN, y + 7);
+                doc.text(`Firma: ${sigVisto}`, MARGIN + 100, y + 7);
+                y += 12;
+
+            } else if (section.description) {
+                checkPageBreak(15);
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'italic');
+                const descLines = doc.splitTextToSize(section.description, CONTENT_WIDTH);
+                doc.text(descLines, MARGIN, y + 5);
+                y += 5 + descLines.length * 5;
+            }
+
         });
 
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-
-        const canvasWidth = canvas.width;
-        const canvasHeight = canvas.height;
-        const canvasAspectRatio = canvasWidth / canvasHeight;
-
-        // Calculate the height of the image in the PDF when scaled to the PDF's width
-        const imgHeight = canvas.height * pdfWidth / canvas.width;
-        let heightLeft = imgHeight;
-        let position = 0;
-
-        // Add the first page
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-        heightLeft -= pdfHeight;
-
-        // Add new pages if the content is taller than one page
-        while (heightLeft > 0) {
-            position = heightLeft - imgHeight;
-            pdf.addPage();
-            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-            heightLeft -= pdfHeight;
-        }
-
-        // 6. Save the PDF
-        pdf.save(`ECO_${ecoId}.pdf`);
-
-        // 7. Clean up the off-screen container
-        document.body.removeChild(container);
+        doc.save(`ECO_${ecoId}.pdf`);
 
     } catch (error) {
         console.error("Error exporting ECO to PDF:", error);

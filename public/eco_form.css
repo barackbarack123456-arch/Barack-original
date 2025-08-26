@@ -1,25 +1,26 @@
 /* Main container for a section */
 .section-block {
     display: flex;
-    margin-top: 2rem;
+    margin-top: 1.5rem; /* Reduced margin */
     border: 1px solid #e5e7eb; /* border-gray-200 */
     border-radius: 0.5rem; /* rounded-lg */
     overflow: hidden; /* To keep children within rounded corners */
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
 }
 
 /* Vertical sidebar for the section title */
 .section-sidebar {
     writing-mode: vertical-rl;
     transform: rotate(180deg);
-    background-color: #f3f4f6; /* bg-gray-100 */
-    color: #374151; /* text-gray-700 */
+    background-color: #4A5568; /* bg-gray-700 */
+    color: #FFFFFF; /* text-white */
     font-weight: bold;
     text-transform: uppercase;
-    padding: 1rem;
+    padding: 0.75rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-right: 1px solid #e5e7eb;
+    letter-spacing: 0.1em;
 }
 
 /* Main content area of the section */
