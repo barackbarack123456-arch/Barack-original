@@ -677,6 +677,7 @@ async function seedDatabase() {
     const productAdjectives = ['Delantero', 'Trasero', 'Superior', 'Inferior', 'Izquierdo', 'Derecho', 'Principal', 'Auxiliar'];
     const vehicleModels = ['Sedan', 'SUV', 'Camioneta', 'Deportivo', 'Híbrido', 'Eléctrico'];
     const vehicleBrands = ['Astro', 'Vortex', 'Terra', 'Quantum', 'Nova', 'Pulsar'];
+    const colors = ['Rojo', 'Azul', 'Verde', 'Negro', 'Blanco', 'Gris', 'Amarillo'];
 
     const imageUrls = [
         'https://images.pexels.com/photos/120049/pexels-photo-120049.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
@@ -786,7 +787,8 @@ async function seedDatabase() {
             fecha_modificacion: getRandomDate(new Date(2024, 0, 1), new Date()),
             imagen: getRandomItem(imageUrls),
             clienteId: getRandomItem(generated.clientes).id,
-            proyectoId: null, // Puede ser nulo
+            proyectoId: getRandomItem(generated.proyectos).id,
+            color: getRandomItem(colors),
             createdAt: new Date(),
         };
 
@@ -5329,6 +5331,7 @@ function renderCaratula(producto, cliente) {
 
     if (producto && cliente) {
         const createdAt = producto.createdAt ? new Date(producto.createdAt.seconds * 1000).toLocaleDateString('es-AR') : 'N/A';
+        const proyecto = appState.collectionsById[COLLECTIONS.PROYECTOS]?.get(producto.proyectoId);
 
         const createEditableField = (label, value, fieldName, placeholder = 'N/A') => {
             const val = value || '';
@@ -5355,10 +5358,10 @@ function renderCaratula(producto, cliente) {
                 <div class="w-2/3 bg-[#44546A] text-white p-4 flex items-center" id="caratula-fields-container">
                     <div class="grid grid-cols-2 gap-x-6 gap-y-4 text-sm w-full">
                         <div><p class="font-bold opacity-80 uppercase">PRODUCTO</p><p>${producto.descripcion || 'N/A'}</p></div>
+                        <div><p class="font-bold opacity-80 uppercase">PROYECTO</p><p>${proyecto?.nombre || 'N/A'}</p></div>
                         <div><p class="font-bold opacity-80 uppercase">NÚMERO DE PIEZA</p><p>${producto.id || 'N/A'}</p></div>
                         <div><p class="font-bold opacity-80 uppercase">VERSIÓN</p><p>${producto.version || 'N/A'}</p></div>
                         <div><p class="font-bold opacity-80 uppercase">FECHA DE CREACIÓN</p><p>${createdAt}</p></div>
-
                         ${createEditableField('REALIZÓ', producto.lastUpdatedBy, 'lastUpdatedBy', 'N/A')}
                         ${createEditableField('APROBÓ', producto.aprobadoPor, 'aprobadoPor', 'N/A')}
                         ${createEditableField('FECHA DE REVISIÓN', producto.fechaRevision, 'fechaRevision', 'YYYY-MM-DD')}
@@ -5656,115 +5659,60 @@ function runSinopticoTabularLogic() {
     // --- RENDER FUNCTIONS ---
 
     const renderTabularTable = (data) => {
-        // 1. Columns updated: Cantidad & Comentarios added, Costo, Fecha Modif, Tolerancia removed.
-        const columns = [
-            { key: 'descripcion', label: 'Descripción' },
-            { key: 'nivel', label: 'Nivel' },
-            { key: 'cantidad', label: 'Cantidad / Pieza' },
-            { key: 'comentarios', label: 'Comentarios' },
-            { key: 'lc_kd', label: 'LC / KD' },
-            { key: 'version_vehiculo', label: 'Versión Vehículo' },
-            { key: 'codigo_pieza', label: 'Código de pieza' },
-            { key: 'version', label: 'Versión' },
-            { key: 'imagen', label: 'Imágen (URL)' },
-            { key: 'proceso', label: 'Proceso' },
-            { key: 'aspecto', label: 'Aspecto' },
-            { key: 'peso_gr', label: 'Peso (gr)' },
-            { key: 'proveedor', label: 'Proveedor' },
-            { key: 'unidad_medida', label: 'Unidad' },
-            { key: 'acciones', label: 'Acciones' }
-        ];
-
         if (data.length === 0) return `<p class="text-slate-500 p-4 text-center">El producto seleccionado no tiene una estructura definida.</p>`;
 
         let tableHTML = `<table class="w-full text-sm text-left text-gray-600">`;
-        // 7. Column alignment and width adjusted in headers
         tableHTML += `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>
-            <th scope="col" class="px-4 py-3 align-middle" style="min-width: 400px;">Descripción</th>
-            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap col-nivel">Nivel</th>
-            <th scope="col" class="px-4 py-3 align-middle col-comentarios">Comentarios</th>
-            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">LC / KD</th>
-            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Versión Vehículo</th>
-            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Código de pieza</th>
-            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Versión</th>
-            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap col-imagen">Imágen (URL)</th>
-            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Proceso</th>
-            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Aspecto</th>
-            <th scope="col" class="px-4 py-3 text-right align-middle whitespace-nowrap">Peso (gr)</th>
-            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Proveedor</th>
-            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Cantidad / Pieza</th>
-            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Unidad</th>
-            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap col-acciones">Acciones</th>
+            <th scope="col" class="px-4 py-3" style="min-width: 350px;">Material separar</th>
+            <th scope="col" class="px-4 py-3 text-center">Nivel</th>
+            <th scope="col" class="px-4 py-3">Versión Vehículo</th>
+            <th scope="col" class="px-4 py-3">Versión</th>
+            <th scope="col" class="px-4 py-3">Color</th>
+            <th scope="col" class="px-4 py-3">Código materia prima (Proveedor)</th>
+            <th scope="col" class="px-4 py-3">Proveedor materia prima</th>
+            <th scope="col" class="px-4 py-3 text-right">Piezas por vehículo (Un.)</th>
+            <th scope="col" class="px-4 py-3 text-center">Acciones</th>
         </tr></thead><tbody>`;
 
         data.forEach(rowData => {
             const { node, item, level, isLast, lineage } = rowData;
             const NA = '<span class="text-slate-400">N/A</span>';
-
-            // 4. Increased indentation
-            let prefix = lineage.map(parentIsNotLast => parentIsNotLast ? '│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' : '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;').join('');
+            let prefix = lineage.map(parentIsNotLast => parentIsNotLast ? '│&nbsp;&nbsp;&nbsp;&nbsp;' : '&nbsp;&nbsp;&nbsp;&nbsp;').join('');
             if (level > 0)  prefix += isLast ? '└─ ' : '├─ ';
 
-            const descripcion = `<span class="font-sans">${prefix}</span>${item.descripcion || item.nombre || ''}`;
+            const material_separar = `<span class="font-mono">${prefix}</span>${item.descripcion || ''}`;
             const nivel = node.originalLevel ?? level;
-            // 4. Cantidad added
-            const cantidad = node.quantity ?? NA;
-            // 5. Comentarios added
-            const comentarios = node.comment ? `<span class="whitespace-normal">${node.comment}</span>` : NA;
-            const lc_kd = item.lc_kd || NA;
-            const version_vehiculo = node.tipo === 'producto' ? (item.version_vehiculo || NA) : NA;
-            const codigo_pieza = item.codigo_pieza || NA;
             const version = item.version || NA;
-            const imagen = item.imagen ? `<a href="${item.imagen}" target="_blank" class="text-blue-600 hover:underline">Ver</a>` : NA;
 
-            let proceso = NA;
-            if (node.tipo === 'semiterminado' && item.proceso) {
-                const procesoData = appState.collectionsById[COLLECTIONS.PROCESOS]?.get(item.proceso);
-                proceso = procesoData ? procesoData.descripcion : item.proceso;
+            let version_vehiculo = NA;
+            let color = NA;
+            if (node.tipo === 'producto') {
+                version_vehiculo = item.version_vehiculo || NA;
+                color = item.color || NA;
             }
 
-            const aspecto = node.tipo === 'semiterminado' ? (item.aspecto || NA) : NA;
-
-            // 6. Merged Peso and Tolerancia
-            let peso_display = NA;
-            if (node.tipo === 'semiterminado' && item.peso_gr) {
-                peso_display = item.peso_gr;
-                if (item.tolerancia_gr) {
-                    peso_display += ` ± ${item.tolerancia_gr}`;
-                }
-            }
-
-            let proveedor = NA;
-            if (node.tipo === 'insumo' && item.proveedor) {
+            let codigo_materia_prima = NA;
+            let proveedor_materia_prima = NA;
+            if (node.tipo === 'insumo') {
+                codigo_materia_prima = item.codigo_pieza || NA;
                 const proveedorData = appState.collectionsById[COLLECTIONS.PROVEEDORES]?.get(item.proveedor);
-                proveedor = proveedorData ? proveedorData.descripcion : item.proveedor;
+                proveedor_materia_prima = proveedorData ? proveedorData.descripcion : (item.proveedor || NA);
             }
 
-            let unidad_medida = NA;
-            if (node.tipo === 'insumo' && item.unidad_medida) {
-                const unidadData = appState.collectionsById[COLLECTIONS.UNIDADES]?.get(item.unidad_medida);
-                unidad_medida = unidadData ? unidadData.id : item.unidad_medida;
-            }
+            const piezas_por_vehiculo = node.quantity ?? NA;
 
             const actionsHTML = checkUserPermission('edit') ? `<button data-action="edit-tabular-node" data-node-id="${node.id}" class="p-1 text-blue-600 hover:bg-blue-100 rounded-md" title="Editar"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>` : '';
 
-            // 7. Column alignment adjusted in cells
-            tableHTML += `<tr class="bg-white border-b hover:bg-gray-100" data-node-id="${node.id}">
-                <td class="px-4 py-2 font-mono font-medium text-gray-900 align-middle" style="min-width: 400px;">${descripcion}</td>
-                <td class="px-4 py-2 text-center align-middle col-nivel">${nivel}</td>
-                <td class="px-4 py-2 align-middle col-comentarios">${comentarios}</td>
-                <td class="px-4 py-2 text-center align-middle">${lc_kd}</td>
-                <td class="px-4 py-2 text-center align-middle">${version_vehiculo}</td>
-                <td class="px-4 py-2 text-center align-middle">${codigo_pieza}</td>
-                <td class="px-4 py-2 text-center align-middle">${version}</td>
-                <td class="px-4 py-2 text-center align-middle col-imagen">${imagen}</td>
-                <td class="px-4 py-2 text-center align-middle">${proceso}</td>
-                <td class="px-4 py-2 text-center align-middle">${aspecto}</td>
-                <td class="px-4 py-2 text-right align-middle">${peso_display}</td>
-                <td class="px-4 py-2 text-center align-middle">${proveedor}</td>
-                <td class="px-4 py-2 text-center align-middle">${cantidad}</td>
-                <td class="px-4 py-2 text-center align-middle">${unidad_medida}</td>
-                <td class="px-4 py-2 text-center align-middle col-acciones">${actionsHTML}</td>
+            tableHTML += `<tr class="bg-white border-b hover:bg-gray-100">
+                <td class="px-4 py-2 font-medium text-gray-900">${material_separar}</td>
+                <td class="px-4 py-2 text-center">${nivel}</td>
+                <td class="px-4 py-2">${version_vehiculo}</td>
+                <td class="px-4 py-2">${version}</td>
+                <td class="px-4 py-2">${color}</td>
+                <td class="px-4 py-2">${codigo_materia_prima}</td>
+                <td class="px-4 py-2">${proveedor_materia_prima}</td>
+                <td class="px-4 py-2 text-right">${piezas_por_vehiculo}</td>
+                <td class="px-4 py-2 text-center">${actionsHTML}</td>
             </tr>`;
         });
         tableHTML += `</tbody></table>`;
@@ -6184,8 +6132,7 @@ async function exportSinopticoTabularToPdf() {
                 white-space: normal !important; /* Allow text wrapping */
                 overflow-wrap: break-word;
             }
-            /* Hide columns that are not essential for the PDF version */
-            .pdf-export-mode .col-acciones, .pdf-export-mode .col-imagen {
+            .pdf-export-mode .col-acciones {
                  display: none !important;
             }
         `;
