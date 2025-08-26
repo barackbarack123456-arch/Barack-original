@@ -88,13 +88,14 @@ service cloud.firestore {
     }
 
     match /eco_forms/{ecoId} {
-      allow read, create, update: if canCreateUpdate();
+      allow read: if request.auth != null;
+      allow create, update: if canCreateUpdate();
       allow delete: if isUserAdmin();
 
       // History is part of the ECO, should be readable by the same people.
       // It should only be created, not updated or deleted directly.
       match /history/{historyId} {
-        allow read: if canCreateUpdate();
+        allow read: if request.auth != null;
         allow create: if canCreateUpdate();
         allow update, delete: if false; // Immutable history
       }
