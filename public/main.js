@@ -5665,7 +5665,6 @@ function runSinopticoTabularLogic() {
     const renderTabularTable = (data) => {
         const state = appState.sinopticoTabularState;
         const selectedProduct = state.selectedProduct;
-        const proyecto = selectedProduct ? appState.collectionsById[COLLECTIONS.PROYECTOS]?.get(selectedProduct.proyectoId) : null;
 
         if (data.length === 0) return `<p class="text-slate-500 p-4 text-center">El producto seleccionado no tiene una estructura definida.</p>`;
 
@@ -5673,23 +5672,20 @@ function runSinopticoTabularLogic() {
         tableHTML += `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>
             <th scope="col" class="px-4 py-3 align-middle" style="min-width: 400px;">Descripción</th>
             <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Nivel</th>
-            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Material Separar</th>
-            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Versión Vehículo (Proyecto)</th>
-            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Color</th>
-            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Piezas por Vehículo</th>
-            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Código Materia Prima</th>
-            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Proveedor Materia Prima</th>
-            <th scope="col" class="px-4 py-3 align-middle col-comentarios">Comentarios</th>
             <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">LC / KD</th>
             <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Código de pieza</th>
             <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Versión</th>
-            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap col-imagen">Imágen (URL)</th>
             <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Proceso</th>
             <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap col-aspecto">Aspecto</th>
             <th scope="col" class="px-4 py-3 text-right align-middle whitespace-nowrap">Peso (gr)</th>
-            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Proveedor</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Color</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Piezas por Vehículo (Un.)</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Material</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Código Materia Prima</th>
+            <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Proveedor Materia Prima</th>
             <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Cantidad / Pieza</th>
             <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap">Unidad</th>
+            <th scope="col" class="px-4 py-3 align-middle col-comentarios">Comentarios</th>
             <th scope="col" class="px-4 py-3 text-center align-middle whitespace-nowrap col-acciones">Acciones</th>
         </tr></thead><tbody>`;
 
@@ -5701,27 +5697,9 @@ function runSinopticoTabularLogic() {
             if (level > 0)  prefix += isLast ? '└─ ' : '├─ ';
             const descripcion = `<span class="font-sans">${prefix}</span>${item.descripcion || item.nombre || ''}`;
             const nivel = node.originalLevel ?? level;
-            const cantidad = node.quantity ?? NA;
-            const comentarios = node.comment ? `<span class="whitespace-normal">${node.comment}</span>` : NA;
             const lc_kd = item.lc_kd || NA;
             const codigo_pieza = item.codigo_pieza || NA;
             const version = item.version || NA;
-            const imagen = item.imagen ? `<a href="${item.imagen}" target="_blank" class="text-blue-600 hover:underline">Ver</a>` : NA;
-
-            const material_separar = selectedProduct.material_separar ? 'Sí' : 'No';
-            const version_vehiculo_proyecto = `${proyecto?.nombre || ''} / ${selectedProduct.version_vehiculo || ''}`;
-            const color = selectedProduct.color || NA;
-            const piezas_por_vehiculo = selectedProduct.piezas_por_vehiculo || NA;
-
-            let codigo_materia_prima = NA;
-            let proveedor_materia_prima = NA;
-            if (node.tipo === 'insumo') {
-                codigo_materia_prima = item.codigo_materia_prima || NA;
-                if (item.proveedor_materia_prima) {
-                    const provMP = appState.collectionsById[COLLECTIONS.PROVEEDORES]?.get(item.proveedor_materia_prima);
-                    proveedor_materia_prima = provMP ? provMP.descripcion : item.proveedor_materia_prima;
-                }
-            }
 
             let proceso = NA;
             if (node.tipo === 'semiterminado' && item.proceso) {
@@ -5739,11 +5717,21 @@ function runSinopticoTabularLogic() {
                 }
             }
 
-            let proveedor = NA;
-            if (node.tipo === 'insumo' && item.proveedor) {
-                const proveedorData = appState.collectionsById[COLLECTIONS.PROVEEDORES]?.get(item.proveedor);
-                proveedor = proveedorData ? proveedorData.descripcion : item.proveedor;
+            const color = selectedProduct.color || NA;
+            const piezas_por_vehiculo = selectedProduct.piezas_por_vehiculo || NA;
+            const material = selectedProduct.material_separar ? 'Sí' : 'No';
+
+            let codigo_materia_prima = NA;
+            let proveedor_materia_prima = NA;
+            if (node.tipo === 'insumo') {
+                codigo_materia_prima = item.codigo_materia_prima || NA;
+                if (item.proveedor_materia_prima) {
+                    const provMP = appState.collectionsById[COLLECTIONS.PROVEEDORES]?.get(item.proveedor_materia_prima);
+                    proveedor_materia_prima = provMP ? provMP.descripcion : item.proveedor_materia_prima;
+                }
             }
+
+            const cantidad = node.quantity ?? NA;
 
             let unidad_medida = NA;
             if (node.tipo === 'insumo' && item.unidad_medida) {
@@ -5751,28 +5739,26 @@ function runSinopticoTabularLogic() {
                 unidad_medida = unidadData ? unidadData.id : item.unidad_medida;
             }
 
+            const comentarios = node.comment ? `<span class="whitespace-normal">${node.comment}</span>` : NA;
             const actionsHTML = checkUserPermission('edit') ? `<button data-action="edit-tabular-node" data-node-id="${node.id}" class="p-1 text-blue-600 hover:bg-blue-100 rounded-md" title="Editar"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>` : '';
 
             tableHTML += `<tr class="bg-white border-b hover:bg-gray-100" data-node-id="${node.id}">
                 <td class="px-4 py-2 font-mono font-medium text-gray-900 align-middle" style="min-width: 400px;">${descripcion}</td>
                 <td class="px-4 py-2 text-center align-middle">${nivel}</td>
-                <td class="px-4 py-2 text-center align-middle">${material_separar}</td>
-                <td class="px-4 py-2 text-center align-middle">${version_vehiculo_proyecto}</td>
-                <td class="px-4 py-2 text-center align-middle">${color}</td>
-                <td class="px-4 py-2 text-center align-middle">${piezas_por_vehiculo}</td>
-                <td class="px-4 py-2 text-center align-middle">${codigo_materia_prima}</td>
-                <td class="px-4 py-2 text-center align-middle">${proveedor_materia_prima}</td>
-                <td class="px-4 py-2 align-middle col-comentarios">${comentarios}</td>
                 <td class="px-4 py-2 text-center align-middle">${lc_kd}</td>
                 <td class="px-4 py-2 text-center align-middle">${codigo_pieza}</td>
                 <td class="px-4 py-2 text-center align-middle">${version}</td>
-                <td class="px-4 py-2 text-center align-middle col-imagen">${imagen}</td>
                 <td class="px-4 py-2 text-center align-middle">${proceso}</td>
                 <td class="px-4 py-2 text-center align-middle col-aspecto">${aspecto}</td>
                 <td class="px-4 py-2 text-right align-middle">${peso_display}</td>
-                <td class="px-4 py-2 text-center align-middle">${proveedor}</td>
+                <td class="px-4 py-2 text-center align-middle">${color}</td>
+                <td class="px-4 py-2 text-center align-middle">${piezas_por_vehiculo}</td>
+                <td class="px-4 py-2 text-center align-middle">${material}</td>
+                <td class="px-4 py-2 text-center align-middle">${codigo_materia_prima}</td>
+                <td class="px-4 py-2 text-center align-middle">${proveedor_materia_prima}</td>
                 <td class="px-4 py-2 text-center align-middle">${cantidad}</td>
                 <td class="px-4 py-2 text-center align-middle">${unidad_medida}</td>
+                <td class="px-4 py-2 align-middle col-comentarios">${comentarios}</td>
                 <td class="px-4 py-2 text-center align-middle col-acciones">${actionsHTML}</td>
             </tr>`;
         });
@@ -6195,8 +6181,6 @@ async function exportSinopticoTabularToPdf() {
             }
             /* Hide columns that are not essential for the PDF version */
             .pdf-export-mode .col-acciones,
-            .pdf-export-mode .col-imagen,
-            .pdf-export-mode .col-comentarios,
             .pdf-export-mode .col-aspecto {
                  display: none !important;
             }
