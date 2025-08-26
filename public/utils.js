@@ -11,7 +11,8 @@ export const COLLECTIONS = {
     TAREAS: 'tareas',
     PROYECTOS: 'proyectos',
     ROLES: 'roles',
-    ECO_FORMS: 'eco_forms'
+    ECO_FORMS: 'eco_forms',
+    COVER_MASTER: 'cover_master'
 };
 
 export function getUniqueKeyForCollection(collectionName) {
