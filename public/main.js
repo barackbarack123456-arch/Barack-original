@@ -1464,6 +1464,7 @@ async function runEcoFormLogic(params = null) {
 
         // --- Button Logic ---
         const saveButton = document.getElementById('eco-save-button');
+        const approveButton = document.getElementById('eco-approve-button');
         const clearButton = document.getElementById('eco-clear-button');
         const ecrInput = formElement.querySelector('#ecr_no');
         const headerActions = formElement.querySelector('#eco-header-actions');
@@ -4561,7 +4562,8 @@ function fetchAndRenderTasks() {
             );
         }
 
-        renderTasks(tasks);
+        // Defer rendering to prevent race conditions as per AGENTS.md Lesson #6
+        setTimeout(() => renderTasks(tasks), 0);
     }, handleError);
 
     taskState.unsubscribers.push(unsub);
@@ -4582,39 +4584,36 @@ function renderTasks(tasks) {
         `;
     };
 
-    // Defer rendering to the next event loop cycle
-    setTimeout(() => {
-        const tasksByStatus = { todo: [], inprogress: [], done: [] };
-        tasks.forEach(task => {
-            tasksByStatus[task.status || 'todo'].push(task);
-        });
+    const tasksByStatus = { todo: [], inprogress: [], done: [] };
+    tasks.forEach(task => {
+        tasksByStatus[task.status || 'todo'].push(task);
+    });
 
-        document.querySelectorAll('.task-column').forEach(columnEl => {
-            const status = columnEl.dataset.status;
-            const taskListEl = columnEl.querySelector('.task-list');
-            const columnTasks = tasksByStatus[status];
+    document.querySelectorAll('.task-column').forEach(columnEl => {
+        const status = columnEl.dataset.status;
+        const taskListEl = columnEl.querySelector('.task-list');
+        const columnTasks = tasksByStatus[status];
 
-            if (columnTasks.length === 0) {
-                taskListEl.innerHTML = getEmptyColumnHTML(status);
-            } else {
-                taskListEl.innerHTML = '';
-                columnTasks.forEach(task => {
-                    const taskCardHTML = createTaskCard(task);
-                    const template = document.createElement('template');
-                    template.innerHTML = taskCardHTML.trim();
-                    const cardNode = template.content.firstChild;
-                    cardNode.addEventListener('click', (e) => {
-                        if (e.target.closest('.task-actions')) return;
-                        openTaskFormModal(task);
-                    });
-                    taskListEl.appendChild(cardNode);
+        if (columnTasks.length === 0) {
+            taskListEl.innerHTML = getEmptyColumnHTML(status);
+        } else {
+            taskListEl.innerHTML = '';
+            columnTasks.forEach(task => {
+                const taskCardHTML = createTaskCard(task);
+                const template = document.createElement('template');
+                template.innerHTML = taskCardHTML.trim();
+                const cardNode = template.content.firstChild;
+                cardNode.addEventListener('click', (e) => {
+                    if (e.target.closest('.task-actions')) return;
+                    openTaskFormModal(task);
                 });
-            }
-        });
+                taskListEl.appendChild(cardNode);
+            });
+        }
+    });
 
-        initTasksSortable();
-        lucide.createIcons();
-    }, 0);
+    initTasksSortable();
+    lucide.createIcons();
 }
 
 function createTaskCard(task) {
