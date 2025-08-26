@@ -2044,7 +2044,11 @@ async function runEcrFormLogic(params = null) {
             <table class="full-width-table mt-4">
                  <thead><tr><th colspan="2">EQUIPO DE TRABAJO</th></tr></thead>
                  <tbody>
-                    ${[['PILOTO ECR:', 'COMERCIAL:'], ['PILOTO:', 'PC&L/LOGÍSTICA:'], ['ING. PRODUCTO:', 'PRODUCCIÓN:'], ['ING. MANUFACTURA:', 'COSTOS:'], ['CALIDAD:', 'HSE:'], ['COMPRAS:', 'MANTENIMIENTO:'], ['SQA:', '']].map(row => `<tr><td><label>${row[0]}</label><input class="w-2/3 ml-2 border-b-2 bg-transparent"></td><td>${row[1] ? `<label>${row[1]}</label><input class="w-2/3 ml-2 border-b-2 bg-transparent">` : ''}</td></tr>`).join('')}
+                    ${[['PILOTO ECR:', 'COMERCIAL:'], ['PILOTO:', 'PC&L/LOGÍSTICA:'], ['ING. PRODUCTO:', 'PRODUCCIÓN:'], ['ING. MANUFACTURA:', 'COSTOS:'], ['CALIDAD:', 'HSE:'], ['COMPRAS:', 'MANTENIMIENTO:'], ['SQA:', '']].map(row => {
+                        const col1 = `<div class="flex items-center"><label class="w-1/3 font-semibold">${row[0]}</label><input class="flex-grow ml-2 border-b-2 bg-transparent"></div>`;
+                        const col2 = row[1] ? `<div class="flex items-center"><label class="w-1/3 font-semibold">${row[1]}</label><input class="flex-grow ml-2 border-b-2 bg-transparent"></div>` : '';
+                        return `<tr><td>${col1}</td><td>${col2}</td></tr>`;
+                    }).join('')}
                  </tbody>
             </table>
         </div>
