@@ -1330,13 +1330,14 @@ async function runEcoFormLogic(params = null) {
         const approveButton = document.getElementById('eco-approve-button');
         const ecrInput = formElement.querySelector('#ecr_no');
 
+        // Always add a "Back" button
+        const backButtonHTML = `<button type="button" id="eco-back-button" class="bg-gray-200 text-gray-800 px-6 py-2 rounded-md hover:bg-gray-300">Volver a la Lista</button>`;
+        saveButton.insertAdjacentHTML('beforebegin', backButtonHTML);
+        document.getElementById('eco-back-button').addEventListener('click', () => switchView('ecos'));
+
         if (isEditing) {
             ecrInput.readOnly = true;
             ecrInput.classList.add('bg-gray-100', 'cursor-not-allowed');
-            // Add a "Back" button
-            const backButtonHTML = `<button type="button" id="eco-back-button" class="bg-gray-200 text-gray-800 px-6 py-2 rounded-md hover:bg-gray-300">Volver a la Lista</button>`;
-            saveButton.insertAdjacentHTML('beforebegin', backButtonHTML);
-            document.getElementById('eco-back-button').addEventListener('click', () => switchView('ecos'));
         }
 
         if (ecoId) {
@@ -1887,6 +1888,21 @@ async function exportEcoToPdf(ecoId) {
                 const styleSheet = document.getElementById('eco-form-styles');
                 if (styleSheet) {
                     clonedDoc.head.appendChild(styleSheet.cloneNode(true));
+                }
+
+                // Ocultar botones de acción para el PDF
+                const buttonContainer = clonedDoc.getElementById('action-buttons-container');
+                if (buttonContainer) {
+                    buttonContainer.style.display = 'none';
+                }
+
+                // Hacer que el input ECR N° parezca texto plano
+                const ecrInput = clonedDoc.getElementById('ecr_no');
+                if (ecrInput) {
+                    ecrInput.style.border = 'none';
+                    ecrInput.style.background = 'transparent';
+                    ecrInput.style.paddingLeft = '0';
+                    ecrInput.setAttribute('readonly', 'true');
                 }
             }
         });
