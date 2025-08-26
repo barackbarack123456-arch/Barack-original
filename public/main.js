@@ -613,41 +613,86 @@ async function clearOtherUsers() {
     }
 }
 
-async function seedEcos(batch, users) {
-    showToast('Generando ECOs de prueba...', 'info');
+async function seedEcos(batch, users, generatedData) {
+    showToast('Generando 25 ECOs de prueba detallados...', 'info');
     const ecoFormsRef = collection(db, COLLECTIONS.ECO_FORMS);
-    const sampleEcos = [
-        {
-            id: 'ECO-2024-001',
-            status: 'approved',
-            lastModified: new Date(),
-            modifiedBy: users[0]?.email || 'test@barackmercosul.com',
-            description: 'Cambio de material en Soporte A-12',
-            ecr_no: 'ECR-2024-015'
-        },
-        {
-            id: 'ECO-2024-002',
-            status: 'in-progress',
-            lastModified: new Date(),
-            modifiedBy: users[1]?.email || 'test2@barackmercosul.com',
-            description: 'Actualización de proceso de soldadura para Chasis B',
-            ecr_no: 'ECR-2024-018'
-        },
-        {
-            id: 'ECO-2024-003',
-            status: 'rejected',
-            lastModified: new Date(),
-            modifiedBy: users[0]?.email || 'test@barackmercosul.com',
-            description: 'Propuesta de nuevo proveedor para tornillería',
-            ecr_no: 'ECR-2024-021'
-        }
+    const TOTAL_ECOS = 25;
+
+    const getRandomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    const getRandomDate = (start, end) => new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
+
+    const formSectionsData = [
+        { id: 'eng_producto', checklist: Array(4).fill(0) }, { id: 'calidad', checklist: Array(4).fill(0) },
+        { id: 'eng_proceso', checklist: Array(4).fill(0) }, { id: 'compras', checklist: Array(4).fill(0) },
+        { id: 'logistica', checklist: Array(4).fill(0) }, { id: 'implementacion', checklist: Array(4).fill(0) },
+        { id: 'aprobacion_final', checklist: null }
     ];
 
-    sampleEcos.forEach(eco => {
-        const docRef = doc(ecoFormsRef, eco.id);
-        batch.set(docRef, eco);
-    });
-    console.log(`${sampleEcos.length} ECOs de prueba añadidos al batch.`);
+    const sampleComments = [
+        "Revisado según procedimiento estándar.", "Se necesita más información sobre el impacto.", "Aprobado sin objeciones.",
+        "Cambio crítico, proceder con cautela.", "El proveedor alternativo no cumple los requisitos.", "Implementación requiere coordinación con producción.",
+        "Layout validado por el equipo de seguridad.", "Plan de control actualizado y liberado."
+    ];
+
+    for (let i = 1; i <= TOTAL_ECOS; i++) {
+        const user1 = getRandomItem(users) || { email: 'test@example.com', name: 'Usuario de Prueba 1' };
+        const user2 = getRandomItem(users) || { email: 'test2@example.com', name: 'Usuario de Prueba 2' };
+        const status = getRandomItem(['approved', 'in-progress', 'rejected']);
+        const ecoId = `ECO-2024-${String(i).padStart(3, '0')}`;
+        const ecrId = `ECR-2024-${String(i + 14).padStart(3, '0')}`; // Offset to make it look different
+
+        const ecoData = {
+            id: ecoId,
+            ecr_no: ecrId,
+            status: status,
+            lastModified: getRandomDate(new Date(2023, 0, 1), new Date()),
+            modifiedBy: user1.email,
+            checklists: {},
+            comments: {},
+            signatures: {}
+        };
+
+        formSectionsData.forEach(section => {
+            // Populate checklists
+            if (section.checklist) {
+                ecoData.checklists[section.id] = section.checklist.map(() => {
+                    const choice = Math.random();
+                    if (choice < 0.6) return { si: true, na: false }; // 60% chance of SI
+                    if (choice < 0.8) return { si: false, na: true }; // 20% chance of NA
+                    return { si: false, na: false }; // 20% chance of neither
+                });
+            }
+
+            // Populate comments
+            if (Math.random() < 0.7) { // 70% chance of having a comment
+                ecoData.comments[section.id] = getRandomItem(sampleComments);
+            }
+
+            // Populate signatures
+            if (Math.random() < 0.8) { // 80% chance of being signed
+                const approver = getRandomItem([user1, user2]);
+                const reviewDate = getRandomDate(new Date(2023, 6, 1), new Date());
+                let sectionStatus = 'ok';
+                if (status === 'rejected' && Math.random() < 0.5) {
+                    sectionStatus = 'nok';
+                } else if (status === 'in-progress' && Math.random() < 0.3) {
+                    sectionStatus = null; // Not yet reviewed
+                }
+
+                ecoData.signatures[section.id] = {
+                    date_review: reviewDate.toISOString().split('T')[0],
+                    name: approver.name,
+                    visto: approver.name.split(' ').map(n => n[0]).join('').toUpperCase(),
+                    status: section.checklist ? sectionStatus : null
+                };
+            }
+        });
+
+        const docRef = doc(ecoFormsRef, ecoId);
+        batch.set(docRef, ecoData);
+    }
+
+    console.log(`${TOTAL_ECOS} ECOs de prueba detallados añadidos al batch.`);
 }
 
 async function seedDatabase() {
@@ -850,7 +895,7 @@ async function seedDatabase() {
     const users = appState.collections.usuarios.filter(u => u.disabled !== true);
 
     // --- GENERACIÓN DE ECOS DE PRUEBA ---
-    await seedEcos(batch, users);
+    await seedEcos(batch, users, generated);
 
     for (let i = 1; i <= TOTAL_TAREAS; i++) {
         const creator = getRandomItem(users);
@@ -1082,8 +1127,10 @@ async function runEcoFormLogic(params = null) {
             if (key === 'checklists' && typeof data.checklists === 'object') {
                 for (const section in data.checklists) {
                     data.checklists[section].forEach((item, index) => {
-                        if (item.si) form.querySelector(`input[name="check_${section}_${index}_si"]`).checked = true;
-                        if (item.na) form.querySelector(`input[name="check_${section}_${index}_na"]`).checked = true;
+                        const siCheckbox = form.querySelector(`input[name="check_${section}_${index}_si"]`);
+                        if (siCheckbox) siCheckbox.checked = !!item.si;
+                        const naCheckbox = form.querySelector(`input[name="check_${section}_${index}_na"]`);
+                        if (naCheckbox) naCheckbox.checked = !!item.na;
                     });
                 }
             } else if (key === 'comments' && typeof data.comments === 'object') {
@@ -1166,18 +1213,28 @@ async function runEcoFormLogic(params = null) {
 
 
     try {
-        const response = await fetch('eco_form.html');
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const html = await response.text();
-
-        // Use a template to safely parse the HTML and get a direct reference to the form element
-        const template = document.createElement('template');
-        template.innerHTML = html.trim();
-        const formElement = template.content.firstElementChild;
-
+        // --- DYNAMICALLY CREATE THE FORM STRUCTURE ---
         dom.viewContent.innerHTML = ''; // Clear previous content
-        dom.viewContent.appendChild(formElement);
 
+        const formElement = document.createElement('form');
+        formElement.id = 'eco-form';
+        formElement.className = 'max-w-7xl mx-auto bg-white shadow-lg rounded-lg p-8';
+        formElement.innerHTML = `
+            <header class="flex justify-between items-center border-b-2 pb-4 mb-6">
+                <img src="/barack_logo.png" alt="Logo" class="h-12">
+                <div>
+                    <label for="ecr_no" class="text-lg font-semibold mr-2">ECR N°:</label>
+                    <input type="text" id="ecr_no" name="ecr_no" class="border-2 border-gray-300 rounded-md p-2 w-48">
+                </div>
+            </header>
+            <main id="dynamic-form-sections"></main>
+            <div id="action-buttons-container" class="mt-8 flex justify-end space-x-4">
+                <button type="button" id="eco-save-button" class="bg-gray-500 text-white px-6 py-2 rounded-md hover:bg-gray-600">Guardar Progreso</button>
+                <button type="button" id="eco-clear-button" class="bg-yellow-500 text-white px-6 py-2 rounded-md hover:bg-yellow-600">Limpiar Formulario</button>
+                <button type="button" id="eco-approve-button" class="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700">Aprobar y Guardar</button>
+            </div>
+        `;
+        dom.viewContent.appendChild(formElement);
 
         // Also need to load the css.
         if (!document.getElementById('eco-form-styles')) {
