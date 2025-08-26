@@ -1834,31 +1834,31 @@ async function exportEcoToPdf(ecoId) {
         const logoBase64 = await getLogoBase64();
 
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF('p', 'mm', 'a4');
+        const pdf = new jsPDF('p', 'mm', 'a4');
 
         const MARGIN = 15;
-        const PAGE_WIDTH = doc.internal.pageSize.getWidth();
+        const PAGE_WIDTH = pdf.internal.pageSize.getWidth();
         const CONTENT_WIDTH = PAGE_WIDTH - (MARGIN * 2);
         let y = MARGIN;
 
         const checkPageBreak = (heightNeeded) => {
-            if (y + heightNeeded > doc.internal.pageSize.getHeight() - MARGIN) {
-                doc.addPage();
+            if (y + heightNeeded > pdf.internal.pageSize.getHeight() - MARGIN) {
+                pdf.addPage();
                 y = MARGIN;
             }
         };
 
         // --- Header ---
         if (logoBase64) {
-            doc.addImage(logoBase64, 'PNG', MARGIN, y, 30, 15);
+            pdf.addImage(logoBase64, 'PNG', MARGIN, y, 30, 15);
         }
-        doc.setFontSize(18);
-        doc.setFont('helvetica', 'bold');
-        doc.text('ECO DE PRODUCTO / PROCESO', PAGE_WIDTH / 2, y + 5, { align: 'center' });
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text('I-IN-003.1 ECR - ECO B', PAGE_WIDTH / 2, y + 10, { align: 'center' });
-        doc.text(`ECR N°: ${ecoData.ecr_no || 'N/A'}`, PAGE_WIDTH - MARGIN, y + 15, { align: 'right' });
+        pdf.setFontSize(18);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('ECO DE PRODUCTO / PROCESO', PAGE_WIDTH / 2, y + 5, { align: 'center' });
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text('I-IN-003.1 ECR - ECO B', PAGE_WIDTH / 2, y + 10, { align: 'center' });
+        pdf.text(`ECR N°: ${ecoData.ecr_no || 'N/A'}`, PAGE_WIDTH - MARGIN, y + 15, { align: 'right' });
         y += 25;
 
         // --- Sections ---
@@ -1866,11 +1866,11 @@ async function exportEcoToPdf(ecoId) {
 
         formSectionsData.forEach(section => {
             checkPageBreak(25); // Minimum height for a section header
-            doc.setFillColor(230, 230, 230);
-            doc.rect(MARGIN, y, CONTENT_WIDTH, 8, 'F');
-            doc.setFontSize(12);
-            doc.setFont('helvetica', 'bold');
-            doc.text(section.title, MARGIN + 2, y + 5.5);
+            pdf.setFillColor(230, 230, 230);
+            pdf.rect(MARGIN, y, CONTENT_WIDTH, 8, 'F');
+            pdf.setFontSize(12);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text(section.title, MARGIN + 2, y + 5.5);
             y += 10;
 
             if (section.checklist) {
@@ -1883,22 +1883,22 @@ async function exportEcoToPdf(ecoId) {
                 const checklistWidth = CONTENT_WIDTH * 0.6;
                 const commentsWidth = CONTENT_WIDTH * 0.4 - 5;
 
-                doc.setFontSize(9);
-                doc.setFont('helvetica', 'normal');
+                pdf.setFontSize(9);
+                pdf.setFont('helvetica', 'normal');
                 section.checklist.forEach((item, index) => {
                     checkPageBreak(8);
                     const itemData = checklistData[index] || {};
-                    doc.text(item, MARGIN, y + 5);
+                    pdf.text(item, MARGIN, y + 5);
 
                     // SI Checkbox
-                    doc.rect(MARGIN + checklistWidth - 20, y + 2, 3, 3);
-                    if (itemData.si) doc.text('X', MARGIN + checklistWidth - 19, y + 4.5);
-                    doc.text('SI', MARGIN + checklistWidth - 16, y + 5);
+                    pdf.rect(MARGIN + checklistWidth - 20, y + 2, 3, 3);
+                    if (itemData.si) pdf.text('X', MARGIN + checklistWidth - 19, y + 4.5);
+                    pdf.text('SI', MARGIN + checklistWidth - 16, y + 5);
 
                     // N/A Checkbox
-                    doc.rect(MARGIN + checklistWidth - 8, y + 2, 3, 3);
-                    if (itemData.na) doc.text('X', MARGIN + checklistWidth - 7, y + 4.5);
-                    doc.text('N/A', MARGIN + checklistWidth - 4, y + 5);
+                    pdf.rect(MARGIN + checklistWidth - 8, y + 2, 3, 3);
+                    if (itemData.na) pdf.text('X', MARGIN + checklistWidth - 7, y + 4.5);
+                    pdf.text('N/A', MARGIN + checklistWidth - 4, y + 5);
 
                     y += 7;
                 });
@@ -1906,54 +1906,54 @@ async function exportEcoToPdf(ecoId) {
                 const checklistYEnd = y;
                 y = checklistYStart; // Reset y to draw comments next to the checklist
 
-                doc.setFont('helvetica', 'bold');
-                doc.text('Comentarios:', MARGIN + checklistWidth + 5, y + 5);
-                doc.setFont('helvetica', 'normal');
-                const commentLines = doc.splitTextToSize(comments, commentsWidth);
-                doc.text(commentLines, MARGIN + checklistWidth + 5, y + 10);
+                pdf.setFont('helvetica', 'bold');
+                pdf.text('Comentarios:', MARGIN + checklistWidth + 5, y + 5);
+                pdf.setFont('helvetica', 'normal');
+                const commentLines = pdf.splitTextToSize(comments, commentsWidth);
+                pdf.text(commentLines, MARGIN + checklistWidth + 5, y + 10);
 
                 y = Math.max(checklistYEnd, y + 10 + commentLines.length * 4);
                 y += 5; // spacing
 
                 // Footer Signatures
                 checkPageBreak(20);
-                doc.setDrawColor(150);
-                doc.line(MARGIN, y, PAGE_WIDTH - MARGIN, y);
+                pdf.setDrawColor(150);
+                pdf.line(MARGIN, y, PAGE_WIDTH - MARGIN, y);
                 y += 5;
 
-                doc.setFontSize(8);
+                pdf.setFontSize(8);
                 const sigDate = signatures.date_review || '____/____/____';
                 const sigStatus = signatures.status || 'N/A';
                 const sigName = signatures.name || '____________________';
                 const sigVisto = signatures.visto || '____________________';
 
-                doc.text(`Fecha de Revisión: ${sigDate}`, MARGIN, y);
+                pdf.text(`Fecha de Revisión: ${sigDate}`, MARGIN, y);
 
-                doc.text(`Estado:`, MARGIN + 60, y);
-                doc.circle(MARGIN + 72, y - 1, 1.5);
-                doc.text('OK', MARGIN + 74, y);
-                if (sigStatus === 'ok') doc.circle(MARGIN + 72, y - 1, 1, 'F');
+                pdf.text(`Estado:`, MARGIN + 60, y);
+                pdf.circle(MARGIN + 72, y - 1, 1.5);
+                pdf.text('OK', MARGIN + 74, y);
+                if (sigStatus === 'ok') pdf.circle(MARGIN + 72, y - 1, 1, 'F');
 
-                doc.circle(MARGIN + 82, y - 1, 1.5);
-                doc.text('NOK', MARGIN + 84, y);
-                if (sigStatus === 'nok') doc.circle(MARGIN + 82, y - 1, 1, 'F');
+                pdf.circle(MARGIN + 82, y - 1, 1.5);
+                pdf.text('NOK', MARGIN + 84, y);
+                if (sigStatus === 'nok') pdf.circle(MARGIN + 82, y - 1, 1, 'F');
 
-                doc.text(`Aprobador: ${sigName}`, MARGIN, y + 7);
-                doc.text(`Firma: ${sigVisto}`, MARGIN + 100, y + 7);
+                pdf.text(`Aprobador: ${sigName}`, MARGIN, y + 7);
+                pdf.text(`Firma: ${sigVisto}`, MARGIN + 100, y + 7);
                 y += 12;
 
             } else if (section.description) {
                 checkPageBreak(15);
-                doc.setFontSize(10);
-                doc.setFont('helvetica', 'italic');
-                const descLines = doc.splitTextToSize(section.description, CONTENT_WIDTH);
-                doc.text(descLines, MARGIN, y + 5);
+                pdf.setFontSize(10);
+                pdf.setFont('helvetica', 'italic');
+                const descLines = pdf.splitTextToSize(section.description, CONTENT_WIDTH);
+                pdf.text(descLines, MARGIN, y + 5);
                 y += 5 + descLines.length * 5;
             }
 
         });
 
-        doc.save(`ECO_${ecoId}.pdf`);
+        pdf.save(`ECO_${ecoId}.pdf`);
 
     } catch (error) {
         console.error("Error exporting ECO to PDF:", error);
