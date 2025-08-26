@@ -1364,11 +1364,26 @@ async function runEcoFormLogic(params = null) {
                 } else if (key.startsWith('comments_')) {
                     const [, section] = key.split('_');
                     data.comments[section] = value;
-                } else if (key.startsWith('date_') || key.startsWith('status_') || key.startsWith('name_') || key.startsWith('visto_')) {
-                     const [type, section, ...rest] = key.split('_');
-                     const sectionId = rest.length > 0 ? `${section}_${rest.join('_')}` : section;
-                     if (!data.signatures[sectionId]) data.signatures[sectionId] = {};
-                     data.signatures[sectionId][type] = value;
+                } else if (key.startsWith('date_review_') || key.startsWith('status_') || key.startsWith('name_') || key.startsWith('visto_')) {
+                    let fieldType, sectionId;
+                    const knownSectionIds = formSectionsData.map(s => s.id);
+
+                    for (const id of knownSectionIds) {
+                        // Check if the key ends with a known section ID, preceded by an underscore.
+                        if (key.endsWith(`_${id}`)) {
+                            sectionId = id;
+                            fieldType = key.substring(0, key.length - id.length - 1); // -1 for the underscore
+                            break;
+                        }
+                    }
+
+                    if (sectionId && fieldType) {
+                        if (!data.signatures[sectionId]) data.signatures[sectionId] = {};
+                        data.signatures[sectionId][fieldType] = value;
+                    } else {
+                        // Fallback for keys that might not match the pattern but passed the check.
+                        data[key] = value;
+                    }
                 } else {
                     data[key] = value;
                 }
