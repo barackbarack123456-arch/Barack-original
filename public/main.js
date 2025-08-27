@@ -558,8 +558,9 @@ function deleteItem(docId) {
 async function clearDataOnly() {
     showToast('Limpiando colecciones de datos...', 'info', 5000);
     const collectionNames = Object.values(COLLECTIONS);
+    const collectionsToSkip = [COLLECTIONS.USUARIOS, COLLECTIONS.TAREAS, COLLECTIONS.COVER_MASTER];
     for (const name of collectionNames) {
-        if (name === COLLECTIONS.USUARIOS || name === COLLECTIONS.TAREAS) {
+        if (collectionsToSkip.includes(name)) {
             console.log(`Se omite la limpieza de la colección '${name}' para preservar los datos.`);
             continue;
         }
@@ -866,6 +867,7 @@ async function seedDatabase() {
 
     // --- GENERACIÓN DE PRODUCTOS Y ESTRUCTURAS ---
     showToast(`Generando ${TOTAL_PRODUCTS} productos con estructura...`, 'info');
+    generated.productos = []; // Make sure to initialize the array
 
     for (let i = 1; i <= TOTAL_PRODUCTS; i++) {
         const productId = `PROD${String(i).padStart(4, '0')}`;
@@ -918,6 +920,7 @@ async function seedDatabase() {
 
         buildTree(rootNode, 1);
         productoData.estructura = [rootNode];
+        generated.productos.push(productoData); // This line was missing
         setInBatch(COLLECTIONS.PRODUCTOS, productoData);
     }
 
@@ -2041,14 +2044,14 @@ async function runEcrFormLogic(params = null) {
                 ${createTextField('Denominación del Producto:', 'denominacion_producto', '...', true)}
             </section>
 
-            <table class="full-width-table mt-4">
-                <thead><tr><th style="width: 33.33%;">OBJETIVO DE ECR</th><th style="width: 33.33%;">TIPO DE ALTERACIÓN</th><th style="width: 33.33%;">AFECTA S/R</th></tr></thead>
-                <tbody><tr>
-                    <td><div class="flex flex-col gap-2">${['Productividad', 'Mejora de calidad', 'Estrategia del Cliente', 'Estrategia Barack', 'Nacionalización'].map(l => createCheckbox(l, `obj_${l.toLowerCase().replace(/ /g,'_')}`)).join('')}</div></td>
-                    <td><div class="flex flex-col gap-2">${['Producto', 'Proceso', 'Fuente de suministro', 'Embalaje'].map(l => createCheckbox(l, `tipo_${l.toLowerCase().replace(/ /g,'_')}`)).join('')} <div class="flex items-center gap-2 mt-1"><input type="checkbox" id="tipo_otro" name="tipo_otro"><label for="tipo_otro" class="text-sm">Otro:</label><input name="tipo_otro_text" type="text" class="border-b-2 bg-transparent flex-grow"></div></div></td>
-                    <td><div class="flex flex-col gap-2">${['Relocalización de Planta', 'Modificación de Layout', 'Modificación de herramental'].map(l => createCheckbox(l, `afecta_${l.toLowerCase().replace(/ /g,'_')}`)).join('')}</div></td>
-                </tr></tbody>
-            </table>
+            <div class="ecr-grid-section">
+                <div class="ecr-grid-header">OBJETIVO DE ECR</div>
+                <div class="ecr-grid-header">TIPO DE ALTERACIÓN</div>
+                <div class="ecr-grid-header">AFECTA S/R</div>
+                <div class="ecr-grid-cell">${['Productividad', 'Mejora de calidad', 'Estrategia del Cliente', 'Estrategia Barack', 'Nacionalización'].map(l => createCheckbox(l, `obj_${l.toLowerCase().replace(/ /g,'_')}`)).join('')}</div>
+                <div class="ecr-grid-cell">${['Producto', 'Proceso', 'Fuente de suministro', 'Embalaje'].map(l => createCheckbox(l, `tipo_${l.toLowerCase().replace(/ /g,'_')}`)).join('')} <div class="flex items-center gap-2 mt-1"><input type="checkbox" id="tipo_otro" name="tipo_otro"><label for="tipo_otro" class="text-sm">Otro:</label><input name="tipo_otro_text" type="text" class="border-b-2 bg-transparent flex-grow"></div></div>
+                <div class="ecr-grid-cell">${['Relocalización de Planta', 'Modificación de Layout', 'Modificación de herramental'].map(l => createCheckbox(l, `afecta_${l.toLowerCase().replace(/ /g,'_')}`)).join('')}</div>
+            </div>
 
             <div class="two-column-layout mt-4">
                 <div class="column-box"><h3>SITUACIÓN EXISTENTE:</h3>${createTextarea('situacion_existente')}</div>
