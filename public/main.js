@@ -1694,12 +1694,9 @@ async function runEcoLogic() {
             <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
                 <div>
                     <h2 class="text-2xl font-bold text-slate-800">Planilla General de ECO</h2>
-                    <p class="text-sm text-slate-500">Aquí puede ver, gestionar y crear nuevos ECOs.</p>
+                    <p class="text-sm text-slate-500">Aquí puede ver, gestionar y crear un nuevo ECO.</p>
                 </div>
                 <div class="flex items-center gap-4">
-                    <button data-action="create-new-ecr" class="bg-white border border-slate-300 text-slate-600 px-5 py-2.5 rounded-full hover:bg-slate-100 font-semibold shadow-sm transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed" title="Funcionalidad en desarrollo" disabled>
-                        <i data-lucide="file-plus-2" class="mr-2 h-5 w-5"></i>Crear Nuevo ECR
-                    </button>
                     <button data-action="create-new-eco" class="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 flex items-center shadow-md transition-transform transform hover:scale-105">
                         <i data-lucide="recycle" class="mr-2 h-5 w-5"></i>Crear Nuevo ECO
                     </button>
@@ -1815,7 +1812,7 @@ async function runEcrLogic() {
             <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
                 <div>
                     <h2 class="text-2xl font-bold text-slate-800">Planilla General de ECR</h2>
-                    <p class="text-sm text-slate-500">Aquí puede ver, gestionar y crear nuevos ECRs.</p>
+                    <p class="text-sm text-slate-500">Aquí puede ver, gestionar y crear un nuevo ECR.</p>
                 </div>
                 <div class="flex items-center gap-4">
                     <button data-action="create-new-ecr" class="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 flex items-center shadow-md transition-transform transform hover:scale-105">
@@ -2009,26 +2006,26 @@ async function runEcrTableViewLogic() {
 
             return `
             <tr class="hover:bg-slate-50 transition-colors">
-                <td class="px-3 py-2">${ecr.id || 'N/A'}</td>
-                <td class="px-3 py-2">${ecr.cliente || 'N/A'}</td>
-                <td class="px-3 py-2">${'MAL'}</td>
-                <td class="px-3 py-2">${origem}</td>
-                <td class="px-3 py-2">${tipoEcr}</td>
-                <td class="px-3 py-2">${ecr.fecha_emision || 'N/A'}</td>
-                <td class="px-3 py-2">${ecr.denominacion_producto || 'N/A'}</td>
-                <td class="px-3 py-2">${ecr.codigo_barack || 'N/A'}</td>
-                <td class="px-3 py-2">${ecr.codigo_cliente || 'N/A'}</td>
-                <td class="px-3 py-2">${ecr.equipo_c1_0 || ecr.modifiedBy || 'N/A'}</td>
-                <td class="px-3 py-2">${ecr.fecha_cierre || 'N/A'}</td>
-                <td class="px-3 py-2">${ecr.fecha_realizacion_ecr || 'N/A'}</td>
+                <td class="px-3 py-2" title="${ecr.id || ''}">${ecr.id || 'N/A'}</td>
+                <td class="px-3 py-2" title="${ecr.cliente || ''}">${ecr.cliente || 'N/A'}</td>
+                <td class="px-3 py-2" title="MAL">MAL</td>
+                <td class="px-3 py-2" title="${origem}">${origem}</td>
+                <td class="px-3 py-2" title="${tipoEcr}">${tipoEcr}</td>
+                <td class="px-3 py-2" title="${ecr.fecha_emision || ''}">${ecr.fecha_emision || 'N/A'}</td>
+                <td class="px-3 py-2" title="${ecr.denominacion_producto || ''}">${ecr.denominacion_producto || 'N/A'}</td>
+                <td class="px-3 py-2" title="${ecr.codigo_barack || ''}">${ecr.codigo_barack || 'N/A'}</td>
+                <td class="px-3 py-2" title="${ecr.codigo_cliente || ''}">${ecr.codigo_cliente || 'N/A'}</td>
+                <td class="px-3 py-2" title="${ecr.equipo_c1_0 || ecr.modifiedBy || ''}">${ecr.equipo_c1_0 || ecr.modifiedBy || 'N/A'}</td>
+                <td class="px-3 py-2" title="${ecr.fecha_cierre || ''}">${ecr.fecha_cierre || 'N/A'}</td>
+                <td class="px-3 py-2" title="${ecr.fecha_realizacion_ecr || ''}">${ecr.fecha_realizacion_ecr || 'N/A'}</td>
                 <td class="px-3 py-2">${statusPill(ecr.status)}</td>
                 <td class="px-3 py-2" id="${ecoStatusCellId}">${statusPill(null)}</td>
-                <td class="px-3 py-2 whitespace-normal">${ecr.situacion_propuesta || 'N/A'}</td>
-                <td class="px-3 py-2">${ecr.causas_solicitud || 'N/A'}</td>
-                <td class="px-3 py-2">${ecr.comentarios_alertas || 'N/A'}</td>
-                <td class="px-3 py-2">${ecr.componentes_obsoletos || 'N/A'}</td>
-                <td class="px-3 py-2">${ecr.accion_objetiva || 'N/A'}</td>
-                <td class="px-3 py-2">${ecr.final_coordinador || 'N/A'}</td>
+                <td class="px-3 py-2 whitespace-normal" title="${ecr.situacion_propuesta || ''}">${ecr.situacion_propuesta || 'N/A'}</td>
+                <td class="px-3 py-2" title="${ecr.causas_solicitud || ''}">${ecr.causas_solicitud || 'N/A'}</td>
+                <td class="px-3 py-2" title="${ecr.comentarios_alertas || ''}">${ecr.comentarios_alertas || 'N/A'}</td>
+                <td class="px-3 py-2" title="${ecr.componentes_obsoletos || ''}">${ecr.componentes_obsoletos || 'N/A'}</td>
+                <td class="px-3 py-2" title="${ecr.accion_objetiva || ''}">${ecr.accion_objetiva || 'N/A'}</td>
+                <td class="px-3 py-2" title="${ecr.final_coordinador || ''}">${ecr.final_coordinador || 'N/A'}</td>
             </tr>
         `}).join('');
     };
@@ -2065,7 +2062,7 @@ async function runEcrTableViewLogic() {
             .status-red { background-color: #fee2e2; color: #991b1b; }
             .corporate-header { background-color: #4A5568; color: white; }
             .modern-table { border-collapse: collapse; width: 100%; font-size: 0.8rem; table-layout: fixed; min-width: 2400px;}
-            .modern-table th, .modern-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #E2E8F0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .modern-table th, .modern-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #E2E8F0; white-space: nowrap; }
             .modern-table th { font-weight: bold; }
             .modern-table th:nth-child(15), .modern-table td:nth-child(15) { width: 400px; white-space: normal; }
             .modern-table th:nth-child(16), .modern-table td:nth-child(16) { width: 250px; white-space: normal; }
@@ -3678,7 +3675,8 @@ function renderTable(data, config) {
             tableHTML += `<tr class="bg-white border-b hover:bg-gray-50 transition-colors duration-150">`;
             config.columns.forEach(col => {
                 const value = col.format ? col.format(item[col.key]) : (item[col.key] || 'N/A');
-                tableHTML += `<td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">${value}</td>`;
+                const titleValue = String(value).replace(/"/g, '&quot;');
+                tableHTML += `<td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap" title="${titleValue}">${value}</td>`;
             });
             tableHTML += `<td class="px-6 py-4 flex items-center justify-end space-x-3">
                 <button data-action="details" data-id="${item.id}" data-doc-id="${item.docId}" class="text-gray-500 hover:text-blue-600" title="Ver Detalles"><i data-lucide="info" class="h-5 w-5 pointer-events-none"></i></button>
