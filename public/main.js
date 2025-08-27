@@ -2165,6 +2165,7 @@ async function runIndicadoresEcmViewLogic() {
     let ecrChart = null;
     let ecoChart = null;
     let obsoletosChart = null;
+    let actionPlanUnsub = null;
 
     const cleanup = () => {
         if (ecrChart) ecrChart.destroy();
@@ -2176,6 +2177,10 @@ async function runIndicadoresEcmViewLogic() {
         if (activeDashboardUnsub) {
             activeDashboardUnsub();
             activeDashboardUnsub = null;
+        }
+        if (actionPlanUnsub) {
+            actionPlanUnsub();
+            actionPlanUnsub = null;
         }
     };
 
@@ -2198,9 +2203,20 @@ async function runIndicadoresEcmViewLogic() {
                         </button>
                         <h2 class="text-3xl font-bold text-slate-800">Indicadores ECM</h2>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <label for="ecm-year-filter" class="text-sm font-medium">Período:</label>
-                        <select id="ecm-year-filter" class="border-gray-300 rounded-md shadow-sm">${yearOptions}</select>
+                    <div class="flex items-center gap-4">
+                        <div>
+                            <label for="ecm-status-filter" class="text-sm font-medium">Estado:</label>
+                            <select id="ecm-status-filter" class="border-gray-300 rounded-md shadow-sm">
+                                <option value="all">Todos</option>
+                                <option value="approved">Aprobado</option>
+                                <option value="in-progress">En Progreso</option>
+                                <option value="rejected">Rechazado</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="ecm-year-filter" class="text-sm font-medium">Período:</label>
+                            <select id="ecm-year-filter" class="border-gray-300 rounded-md shadow-sm">${yearOptions}</select>
+                        </div>
                     </div>
                 </div>
 
@@ -2244,14 +2260,23 @@ async function runIndicadoresEcmViewLogic() {
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">
                             <thead class="text-xs text-gray-700 uppercase bg-gray-100">
-                                <tr><th class="px-4 py-3 text-left">Acción</th><th class="px-4 py-3 text-left">Responsable</th><th class="px-4 py-3 text-left">Plazo</th><th class="px-4 py-3 text-center">Realizado</th></tr>
+                                <tr>
+                                    <th class="px-4 py-3 text-left">Acción</th>
+                                    <th class="px-4 py-3 text-left">Responsable</th>
+                                    <th class="px-4 py-3 text-left">Plazo</th>
+                                    <th class="px-4 py-3 text-center">Realizado</th>
+                                    <th class="px-4 py-3 text-right"></th>
+                                </tr>
                             </thead>
-                            <tbody>
-                                <tr class="border-b"><td class="px-4 py-3">Definir plan de reducción de ECRs fuera de plazo</td><td class="px-4 py-3">Líder de Ingeniería</td><td class="px-4 py-3">30/12/${currentYear}</td><td class="px-4 py-3 text-center"><span class="inline-block w-4 h-4 rounded-full bg-red-400"></span></td></tr>
-                                <tr class="border-b"><td class="px-4 py-3">Analizar causas de cancelación de ECRs</td><td class="px-4 py-3">Equipo de Calidad</td><td class="px-4 py-3">15/01/${currentYear + 1}</td><td class="px-4 py-3 text-center"><span class="inline-block w-4 h-4 rounded-full bg-red-400"></span></td></tr>
-                                <tr class="border-b"><td class="px-4 py-3">Revisar KPIs de ECOs con el equipo de Proceso</td><td class="px-4 py-3">Líder de Proceso</td><td class="px-4 py-3">28/12/${currentYear}</td><td class="px-4 py-3 text-center"><span class="inline-block w-4 h-4 rounded-full bg-green-400"></span></td></tr>
+                            <tbody id="action-plan-tbody">
+                                <!-- Rows will be rendered here dynamically -->
                             </tbody>
                         </table>
+                    </div>
+                    <div class="mt-4 text-right">
+                        <button id="add-action-plan-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm font-semibold">
+                            <i data-lucide="plus" class="inline-block w-4 h-4 mr-1.5 -mt-0.5"></i>Agregar Acción
+                        </button>
                     </div>
                 </section>
             </div>
@@ -2261,11 +2286,16 @@ async function runIndicadoresEcmViewLogic() {
 
         const updateEcmDashboard = () => {
             const yearFilter = document.getElementById('ecm-year-filter');
-            if (!yearFilter || !appState.isAppInitialized) return;
+            const statusFilter = document.getElementById('ecm-status-filter');
+            if (!yearFilter || !statusFilter || !appState.isAppInitialized) return;
             const selectedYear = parseInt(yearFilter.value, 10);
+            const selectedStatus = statusFilter.value;
 
             // ECR Data
-            const ecrDocs = appState.collections[COLLECTIONS.ECR_FORMS] || [];
+            let ecrDocs = appState.collections[COLLECTIONS.ECR_FORMS] || [];
+            if (selectedStatus !== 'all') {
+                ecrDocs = ecrDocs.filter(ecr => ecr.status === selectedStatus);
+            }
             const filteredEcrs = ecrDocs.filter(ecr => ecr.fecha_emision && new Date(ecr.fecha_emision + "T00:00:00").getFullYear() === selectedYear);
             let ecrAbierta = 0, ecrCancelada = 0, ecrCerradaPlazo = 0, ecrCerradaFueraPlazo = 0;
             filteredEcrs.forEach(ecr => {
@@ -2293,7 +2323,10 @@ async function runIndicadoresEcmViewLogic() {
             }
 
             // ECO Data
-            const ecoDocs = appState.collections[COLLECTIONS.ECO_FORMS] || [];
+            let ecoDocs = appState.collections[COLLECTIONS.ECO_FORMS] || [];
+            if (selectedStatus !== 'all') {
+                ecoDocs = ecoDocs.filter(eco => eco.status === selectedStatus);
+            }
             const filteredEcos = ecoDocs.filter(eco => eco.lastModified?.toDate && eco.lastModified.toDate().getFullYear() === selectedYear);
             const ecoPendiente = filteredEcos.filter(eco => eco.status === 'in-progress').length;
             const ecoApertura = filteredEcos.filter(eco => eco.status === 'approved').length;
@@ -2312,29 +2345,17 @@ async function runIndicadoresEcmViewLogic() {
             // Obsoletos Data (Calculated from ECRs)
             let s1 = 0;
             let s2 = 0;
-
-            console.log(`[ECM DEBUG] Running update for year ${selectedYear}. Found ${ecrDocs.length} total ECRs in appState.`);
-            console.log(`[ECM DEBUG] Found ${filteredEcrs.length} ECRs after filtering for year ${selectedYear}.`);
-
             if (filteredEcrs && filteredEcrs.length > 0) {
                 filteredEcrs.forEach(ecr => {
                     const obsoletosValue = parseInt(ecr.componentes_obsoletos, 10);
                     if (!isNaN(obsoletosValue)) {
                         const ecrDate = new Date(ecr.fecha_emision + "T00:00:00");
-                        const month = ecrDate.getMonth(); // 0-11
-                        if (month < 6) { // Semestre 1 (Enero-Junio)
-                            s1 += obsoletosValue;
-                        } else { // Semestre 2 (Julio-Diciembre)
-                            s2 += obsoletosValue;
-                        }
-                    } else {
-                        console.log(`[ECM DEBUG] ECR ${ecr.id} has invalid 'componentes_obsoletos':`, ecr.componentes_obsoletos);
+                        const month = ecrDate.getMonth();
+                        if (month < 6) s1 += obsoletosValue;
+                        else s2 += obsoletosValue;
                     }
                 });
             }
-
-            console.log(`[ECM DEBUG] Calculated obsoletos: S1=${s1}, S2=${s2}, Total=${s1+s2}`);
-
             document.getElementById('obsoletos-anual').textContent = s1 + s2;
             document.getElementById('obsoletos-s1').textContent = s1;
             document.getElementById('obsoletos-s2').textContent = s2;
@@ -2351,9 +2372,94 @@ async function runIndicadoresEcmViewLogic() {
                  });
             }
             lucide.createIcons();
+
+            // Setup Action Plan listener
+            if (actionPlanUnsub) actionPlanUnsub();
+            const actionPlanCollection = collection(db, 'action_plans');
+            const q = query(actionPlanCollection, where("year", "==", selectedYear));
+            actionPlanUnsub = onSnapshot(q, (snapshot) => {
+                const plans = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+                renderActionPlan(plans);
+            });
         };
 
+        const renderActionPlan = (plans) => {
+            const tbody = document.getElementById('action-plan-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = plans.map(plan => `
+                <tr class="border-b group" data-id="${plan.docId}">
+                    <td class="px-4 py-3" contenteditable="true" data-field="action">${plan.action}</td>
+                    <td class="px-4 py-3" contenteditable="true" data-field="responsible">${plan.responsible}</td>
+                    <td class="px-4 py-3" contenteditable="true" data-field="deadline">${plan.deadline}</td>
+                    <td class="px-4 py-3 text-center">
+                        <input type="checkbox" class="action-plan-status h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300" ${plan.status === 'done' ? 'checked' : ''}>
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <button class="delete-action-plan-btn text-slate-400 hover:text-red-600 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+            lucide.createIcons();
+        };
+
+        const setupActionPlanListeners = () => {
+            const tbody = document.getElementById('action-plan-tbody');
+            const addBtn = document.getElementById('add-action-plan-btn');
+            if (!tbody || !addBtn) return;
+
+            addBtn.addEventListener('click', async () => {
+                const selectedYear = parseInt(document.getElementById('ecm-year-filter').value, 10);
+                const newPlan = { action: 'Nueva acción...', responsible: 'Responsable...', deadline: 'dd/mm/aaaa', status: 'pending', year: selectedYear };
+                try {
+                    await addDoc(collection(db, 'action_plans'), newPlan);
+                    showToast('Nueva acción agregada.', 'success');
+                } catch (error) {
+                    showToast('Error al agregar la acción.', 'error');
+                }
+            });
+
+            tbody.addEventListener('focusout', async (e) => {
+                if (e.target.tagName === 'TD' && e.target.isContentEditable) {
+                    const docId = e.target.parentElement.dataset.id;
+                    const field = e.target.dataset.field;
+                    const value = e.target.textContent;
+                    const docRef = doc(db, 'action_plans', docId);
+                    try {
+                        await updateDoc(docRef, { [field]: value });
+                        showToast('Plan de acción actualizado.', 'success');
+                    } catch (error) { showToast('Error al actualizar.', 'error'); }
+                }
+            });
+
+            tbody.addEventListener('change', async (e) => {
+                if (e.target.matches('.action-plan-status')) {
+                    const docId = e.target.closest('tr').dataset.id;
+                    const status = e.target.checked ? 'done' : 'pending';
+                    const docRef = doc(db, 'action_plans', docId);
+                    try {
+                        await updateDoc(docRef, { status: status });
+                        showToast('Estado actualizado.', 'success');
+                    } catch (error) { showToast('Error al actualizar estado.', 'error'); }
+                }
+            });
+
+            tbody.addEventListener('click', async (e) => {
+                const deleteBtn = e.target.closest('.delete-action-plan-btn');
+                if (deleteBtn) {
+                    const docId = deleteBtn.closest('tr').dataset.id;
+                    showConfirmationModal('Eliminar Acción', '¿Está seguro?', async () => {
+                        try {
+                            await deleteDoc(doc(db, 'action_plans', docId));
+                            showToast('Acción eliminada.', 'success');
+                        } catch (error) { showToast('Error al eliminar la acción.', 'error'); }
+                    });
+                }
+            });
+        };
+
+        setupActionPlanListeners();
         document.getElementById('ecm-year-filter').addEventListener('change', updateEcmDashboard);
+        document.getElementById('ecm-status-filter').addEventListener('change', updateEcmDashboard);
         const unsub1 = onSnapshot(collection(db, COLLECTIONS.ECR_FORMS), updateEcmDashboard);
         const unsub2 = onSnapshot(collection(db, COLLECTIONS.ECO_FORMS), updateEcmDashboard);
         activeDashboardUnsub = () => { unsub1(); unsub2(); };
