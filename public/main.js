@@ -2137,6 +2137,7 @@ async function runEcrTableViewLogic() {
 
     // --- Drag-to-scroll logic ---
     const slider = dom.viewContent.querySelector('.ecr-control-table-container');
+    const scrollableArea = slider.querySelector('.overflow-x-auto');
     let isDown = false;
     let startX;
     let scrollLeft;
@@ -2145,7 +2146,7 @@ async function runEcrTableViewLogic() {
         isDown = true;
         slider.classList.add('active');
         startX = e.pageX - slider.offsetLeft;
-        scrollLeft = slider.scrollLeft;
+        scrollLeft = scrollableArea.scrollLeft;
     };
 
     const mouseLeaveHandler = () => {
@@ -2163,7 +2164,7 @@ async function runEcrTableViewLogic() {
         e.preventDefault();
         const x = e.pageX - slider.offsetLeft;
         const walk = (x - startX) * 2; // The multiplier makes scrolling faster
-        slider.scrollLeft = scrollLeft - walk;
+        scrollableArea.scrollLeft = scrollLeft - walk;
     };
 
     slider.addEventListener('mousedown', mouseDownHandler);
