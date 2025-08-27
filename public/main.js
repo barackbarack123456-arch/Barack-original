@@ -56,8 +56,15 @@ const viewConfig = {
     sinoptico_tabular: { title: 'Reporte BOM (Tabular)', singular: 'Reporte BOM (Tabular)' },
     eco_form: { title: 'ECO de Producto / Proceso', singular: 'ECO Form' },
     eco: { title: 'Gestión de ECO', singular: 'ECO' },
-    ecr_form: { title: 'ECR de Producto / Proceso', singular: 'ECR Form' },
     ecr: { title: 'Gestión de ECR', singular: 'ECR' },
+    ecr_form: {
+        title: 'ECR de Producto / Proceso',
+        singular: 'ECR Form',
+        dataKey: COLLECTIONS.ECR_FORMS,
+        // The 'fields' array will be populated in a later step.
+        // For now, this structure makes it consistent with other views.
+        fields: []
+    },
     control_ecrs: { title: 'Panel de Control', singular: 'Control ECR' },
     ecr_table_view: { title: 'Tabla de Control ECR', singular: 'Control ECR' },
     indicadores_ecm_view: { title: 'Indicadores ECM', singular: 'Indicador' },
@@ -1277,15 +1284,7 @@ async function runEcoFormLogic(params = null) {
         `;
         dom.viewContent.appendChild(formElement);
 
-        // Also need to load the css.
-        if (!document.getElementById('eco-form-styles')) {
-            const link = document.createElement('link');
-            link.id = 'eco-form-styles';
-            link.rel = 'stylesheet';
-            link.href = 'eco_form.css';
-            document.head.appendChild(link);
-        }
-
+        // CSS is now loaded via index.html
         if (!document.getElementById('print-styles')) {
             const link = document.createElement('link');
             link.id = 'print-styles';
@@ -2360,48 +2359,23 @@ async function runControlEcrsLogic() {
 async function runEcrFormLogic(params = null) {
     const ecrId = params ? params.ecrId : null;
     const isEditing = !!ecrId;
+    const ECR_FORM_STORAGE_KEY = isEditing ? `inProgressEcrForm_${ecrId}` : 'inProgressEcrForm_new';
 
-    dom.viewContent.innerHTML = `<div class="p-4 flex justify-center items-center"><div class="loading-spinner"></div><p class="mt-4 ml-4 text-slate-600 font-semibold">Cargando formulario ECR...</p></div>`;
+    // --- Render the basic structure ---
+    dom.viewContent.innerHTML = `
+        <div class="form-container">
+            <form id="ecr-form" class="bg-white p-6"></form>
+            <div id="action-buttons-container" class="max-w-7xl mx-auto mt-[-1rem] mb-8 px-8 pb-4 bg-white rounded-b-lg shadow-lg border-t flex justify-end items-center gap-4">
+                <button type="button" id="ecr-back-button" class="bg-gray-200 text-gray-800 px-6 py-2 rounded-md hover:bg-gray-300 mr-auto">Volver a la Lista</button>
+                <button type="button" id="ecr-save-button" class="bg-gray-500 text-white px-6 py-2 rounded-md hover:bg-gray-600">Guardar Progreso</button>
+                <button type="button" id="ecr-clear-button" class="bg-yellow-500 text-white px-6 py-2 rounded-md hover:bg-yellow-600">Limpiar</button>
+                <button type="button" id="ecr-approve-button" class="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700">Aprobar y Guardar</button>
+            </div>
+        </div>
+    `;
+    const formContainer = document.getElementById('ecr-form');
 
-    // Ensure CSS is loaded
-    if (!document.getElementById('ecr-form-styles')) {
-        const link = document.createElement('link');
-        link.id = 'ecr-form-styles';
-        link.rel = 'stylesheet';
-        link.href = 'ecr_form.css';
-        document.head.appendChild(link);
-    }
-    if (!document.getElementById('print-styles')) {
-        const link = document.createElement('link');
-        link.id = 'print-styles';
-        link.rel = 'stylesheet';
-        link.href = 'print.css';
-        link.media = 'print';
-        document.head.appendChild(link);
-    }
-
-    const populateEcrForm = (form, data) => {
-        if (!data || !form) return;
-        for (const key in data) {
-            const elements = form.querySelectorAll(`[name="${key}"]`);
-            elements.forEach(element => {
-                if (element.type === 'checkbox' || element.type === 'radio') {
-                    // For radio buttons, check the one with the matching value
-                    if(element.type === 'radio') {
-                        if(element.value === data[key]) {
-                            element.checked = true;
-                        }
-                    } else { // For checkboxes
-                        element.checked = !!data[key];
-                    }
-                } else {
-                    element.value = data[key];
-                }
-            });
-        }
-    };
-
-    // --- Helper functions for building form elements ---
+    // --- Helper Functions ---
     const createCheckbox = (label, name, value = '') => `<div class="flex items-center gap-2"><input type="checkbox" name="${name}" id="${name}" value="${value}" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"><label for="${name}" class="text-sm select-none">${label}</label></div>`;
     const createTextField = (label, name, placeholder = '', isFullWidth = false) => `<div class="form-field ${isFullWidth ? 'col-span-full' : ''}"><label for="${name}" class="text-sm font-bold mb-1">${label}</label><input type="text" name="${name}" id="${name}" placeholder="${placeholder}" class="w-full"></div>`;
     const createDateField = (label, name) => `<div class="form-field"><label for="${name}" class="text-sm font-bold mb-1">${label}</label><input type="date" name="${name}" id="${name}" class="w-full"></div>`;
@@ -2658,15 +2632,46 @@ async function runEcrFormLogic(params = null) {
         </div>
     `;
 
-    const formContainer = document.createElement('form');
-    formContainer.id = 'ecr-form';
-    formContainer.className = 'ecr-container bg-white p-6';
     formContainer.innerHTML = page1HTML + page2HTML + page3HTML + page4HTML + finalPageHTML;
 
-    dom.viewContent.innerHTML = '';
-    dom.viewContent.appendChild(formContainer);
+    // --- Local Storage and Data Handling ---
+    const saveEcrFormToLocalStorage = () => {
+        const formData = new FormData(formContainer);
+        const data = Object.fromEntries(formData.entries());
+        formContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            data[cb.name] = cb.checked;
+        });
+        localStorage.setItem(ECR_FORM_STORAGE_KEY, JSON.stringify(data));
+    };
 
-     if (isEditing) {
+    const loadEcrFormFromLocalStorage = () => {
+        const savedData = localStorage.getItem(ECR_FORM_STORAGE_KEY);
+        if (!savedData) return;
+        const data = JSON.parse(savedData);
+        populateEcrForm(formContainer, data);
+    };
+
+    const populateEcrForm = (form, data) => {
+        if (!data || !form) return;
+        for (const key in data) {
+            const elements = form.querySelectorAll(`[name="${key}"]`);
+            elements.forEach(element => {
+                if (element.type === 'checkbox' || element.type === 'radio') {
+                    if(element.type === 'radio') {
+                        if(element.value === String(data[key])) element.checked = true;
+                    } else {
+                        element.checked = !!data[key];
+                    }
+                } else {
+                    element.value = data[key];
+                }
+            });
+        }
+    };
+
+
+    // --- Load Data and Attach Listeners ---
+    if (isEditing) {
         const docRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
@@ -2676,13 +2681,81 @@ async function runEcrFormLogic(params = null) {
             switchView('ecr');
             return;
         }
+    } else {
+        loadEcrFormFromLocalStorage();
     }
 
+    formContainer.addEventListener('input', saveEcrFormToLocalStorage);
+
+    // --- Button Event Listeners ---
+    document.getElementById('ecr-back-button').addEventListener('click', () => switchView('ecr'));
+    document.getElementById('ecr-clear-button').addEventListener('click', () => {
+        showConfirmationModal('Limpiar Formulario', '¿Está seguro? Se borrará todo el progreso no guardado.', () => {
+            formContainer.reset();
+            localStorage.removeItem(ECR_FORM_STORAGE_KEY);
+            showToast('Formulario limpiado.', 'info');
+        });
+    });
+
+    const saveEcrForm = async (status = 'in-progress') => {
+        const ecrInput = formContainer.querySelector('[name="ecr_no"]');
+        const ecrId = ecrInput.value.trim();
+        if (!ecrId) {
+            showToast('Por favor, ingrese un ECR N° para guardar.', 'error');
+            ecrInput.focus();
+            return;
+        }
+
+        const formData = new FormData(formContainer);
+        const dataToSave = Object.fromEntries(formData.entries());
+        formContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            dataToSave[cb.name] = cb.checked;
+        });
+
+        dataToSave.status = status;
+        dataToSave.id = ecrId;
+        dataToSave.lastModified = new Date();
+        dataToSave.modifiedBy = appState.currentUser.email;
+
+        showToast('Guardando formulario ECR...', 'info');
+        try {
+            const docRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
+            await setDoc(docRef, dataToSave, { merge: true });
+
+            localStorage.removeItem(ECR_FORM_STORAGE_KEY);
+            showToast(`ECR "${ecrId}" guardado con éxito.`, 'success');
+            switchView('ecr');
+
+        } catch(error) {
+            console.error("Error saving ECR form: ", error);
+            showToast('Error al guardar el formulario.', 'error');
+        }
+    };
+
+    const validateEcrForm = () => {
+        const ecrInput = formContainer.querySelector('[name="ecr_no"]');
+        if (!ecrInput.value.trim()) {
+            showToast('El campo "ECR N°" es obligatorio para aprobar.', 'error');
+            ecrInput.focus();
+            ecrInput.classList.add('validation-error');
+            return false;
+        }
+        ecrInput.classList.remove('validation-error');
+        return true;
+    };
+
+    document.getElementById('ecr-save-button').addEventListener('click', () => saveEcrForm('in-progress'));
+    document.getElementById('ecr-approve-button').addEventListener('click', () => {
+        if (validateEcrForm()) {
+            showConfirmationModal('Aprobar ECR', '¿Está seguro de que desea aprobar y guardar este ECR?', () => {
+                saveEcrForm('approved');
+            });
+        }
+    });
+
+    // --- Cleanup ---
     appState.currentViewCleanup = () => {
-        const ecrStyle = document.getElementById('ecr-form-styles');
-        if (ecrStyle) ecrStyle.remove();
-        const printStyle = document.getElementById('print-styles');
-        if (printStyle) printStyle.remove();
+        formContainer.removeEventListener('input', saveEcrFormToLocalStorage);
     };
 }
 
@@ -3103,128 +3176,107 @@ async function exportEcrToPdf(ecrId) {
     dom.loadingOverlay.style.display = 'flex';
     dom.loadingOverlay.querySelector('p').textContent = 'Generando PDF de ECR...';
 
+    // Switch to the form view temporarily to render the content
+    const originalView = appState.currentView;
+    switchView('ecr_form', { ecrId });
+
+    // Wait for the form to render
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    const formElement = document.getElementById('ecr-form');
+    if (!formElement) {
+        showToast('Error: No se pudo encontrar el formulario ECR para exportar.', 'error');
+        dom.loadingOverlay.style.display = 'none';
+        switchView(originalView); // Switch back to original view
+        return;
+    }
+
+    // Temporarily apply print-friendly styles
+    const styleId = 'pdf-export-styles';
+    const tempStyle = document.createElement('style');
+    tempStyle.id = styleId;
+    tempStyle.innerHTML = `
+        body { background-color: #ffffff !important; }
+        .form-container {
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+        }
+        .ecr-page {
+            box-shadow: none !important;
+            border: none !important;
+            page-break-after: always;
+            margin: 0;
+            padding: 15px; /* Add some padding for the PDF */
+        }
+        #action-buttons-container { display: none !important; }
+        .watermark { display: none !important; }
+    `;
+    document.head.appendChild(tempStyle);
+
     try {
-        const ecrDocRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
-        const ecrDocSnap = await getDoc(ecrDocRef);
-        if (!ecrDocSnap.exists()) throw new Error(`No se encontró el ECR con ID ${ecrId}`);
-        const ecrData = ecrDocSnap.data();
-
-        const printableContainer = document.createElement('div');
-        printableContainer.id = 'printable-ecr-container';
-        printableContainer.style.position = 'absolute';
-        printableContainer.style.left = '-9999px';
-        printableContainer.style.width = '8.5in';
-
-        const getCheckboxHTML = (checked) => {
-            const isChecked = !!checked;
-            const style = `display: inline-block; width: 10px; height: 10px; border: 1px solid black; text-align: center; line-height: 10px; font-weight: bold; vertical-align: middle; margin: 0 4px;`;
-            return `<div style="${style}">${isChecked ? 'X' : '&nbsp;'}</div>`;
-        };
-
-        const getValue = (field, defaultValue = '&nbsp;') => {
-            const value = ecrData[field];
-            if (value === null || value === undefined || value === '') return defaultValue;
-            return String(value).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        };
-
-        const departmentConfigs = {
-            page2: [
-                { title: 'INGENIERÍA PRODUCTO — DISEÑO', id: 'ing_producto', checklist: ['ESTRUCTURA DE PRODUCTO', 'PLANO DE VALIDACIÓN', 'LANZAMIENTO DE PROTOTIPOS', 'EVALUADO POR EL ESPECIALISTA DE PRODUCTO', 'ACTUALIZAR DISEÑO 3D', 'ACTUALIZAR DISEÑO 2D', 'ACTUALIZAR DFMEA', 'COPIA DE ESTA ECR PARA OTRO SITIO?', 'NECESITA PIEZA DE REPOSICIÓN'].map(l => ({label: l, name: `prod_check_${l.toLowerCase().replace(/ /g,'_')}`})) },
-                { title: 'INGENIERÍA MANUFACTURA Y PROCESO', id: 'ing_manufatura', checklist: ['HACER RUN A RATE', 'ACTUALIZAR DISEÑO MANUFACTURA', 'LAY OUT', 'AFECTA EQUIPAMIENTO', 'ACTUALIZAR INSTRUCCIONES, FLUJOGRAMAS', 'ACTUALIZAR PFMEA', 'POKA YOKES', 'ACTUALIZAR TIEMPOS', 'CAPACIDAD DE PERSONAL', 'AFECTA A S&R / HSE'].map(l => ({label: l, name: `manuf_${l.toLowerCase().replace(/ /g,'_')}`})) },
-                { title: 'HSE', id: 'hse', checklist: ['CHECK LIST DE LIB DE MÁQUINA', 'COMUNICAR ÓRGANO AMBIENTAL', 'COMUNICACIÓN MINISTERIO DE TRABAJO'].map(l => ({label: l, name: `hse_${l.toLowerCase().replace(/ /g,'_')}`})) },
-            ],
-            page3: [
-                 { title: 'CALIDAD', id: 'calidad', checklist: ['AFECTA DIMENSIONAL CLIENTE?', 'AFECTA FUNCIONAL Y MONTABILIDAD?', 'ACTUALIZAR PLANO DE CONTROLES/ INSTRUCCIONES', 'AFECTA ASPECTO/ACTUALIZAR BIBLIA DE DEFECTOS/PZA PATRÓN?', 'AFECTA CAPABILIDAD (AFECTA CAPACIDAD)', 'MODIFICAR DISPOSITIVO DE CONTROL Y SU MODO DE CONTROL', 'NUEVO ESTUDIO DE MSA / CALIBRACIÓN', 'NECESITA VALIDACIÓN (PLANO DEBE ESTAR EN ANEXO)', 'NECESARIO NUEVO PPAP/PSW CLIENTE', 'ANÁLISIS DE MATERIA PRIMA', 'IMPLEMENTAR MURO DE CALIDAD', 'NECESITA AUDITORÍA S&R', 'AFECTA POKA-YOKE?', 'AFECTA AUDITORÍA DE PRODUCTO?'].map(l => ({label: l, name: `calidad_${l.toLowerCase().replace(/ /g,'_')}`})) },
-                { title: 'COMPRAS', id: 'compras', checklist: ['COSTOS EVALUADOS', 'PEDIDO COMPRA PROTOTIPOS', 'PEDIDO COMPRA TOOLING', 'AFECTA HERRAMIENTA DE PROVEEDOR', 'NECESARIO ENVIAR DISEÑO P/ PROVEEDOR', 'IMPACTO POST VENTA ANALIZADO'].map(l => ({label: l, name: `compras_${l.toLowerCase().replace(/ /g,'_')}`})) },
-                { title: 'CALIDAD PROVEEDORES (SQA)', id: 'sqa', checklist: ['NECESITA NUEVO PSW PROVEEDOR - FECHA LÍMITE: __/__/____', 'AFECTA LAY OUT', 'AFECTA EMBALAJE', 'AFECTA DISPOSITIVO CONTROL PROVEEDOR', 'AFECTA SUBPROVEEDOR', 'NECESITA DE ASISTENTE'].map(l => ({label: l, name: `sqa_${l.toLowerCase().replace(/ /g,'_')}`})) },
-            ],
-            page4: [
-                { title: 'LOGÍSTICA Y PC&L', id: 'logistica', checklist: ['Parámetros logísticos/items nuevos', 'Gestión de stock (pieza antigua/nueva)', 'Necesita stock de seguridad', 'Altera programa p/ proveedor', 'Nuevo protocolo logístico', 'Impacto post venta', 'Impacto MOI/MOD', 'Afecta embalaje'].map(l => ({label: l, name: `logistica_${l.toLowerCase().replace(/ /g,'_')}`})) },
-                { title: 'FINANCIERO / COSTOS', id: 'financiero', checklist: ['BUSINESS PLAN', 'BOA - BUSINESS OPPORTUNITY', 'MoB - ANALYSIS', 'PAYBACK / UPFRONT'].map(l => ({label: l, name: `financiero_${l.toLowerCase().replace(/ /g,'_')}`})) },
-                { title: 'COMERCIAL', id: 'comercial', checklist: ['NECESARIO RENEGOCIAR CON EL CLIENTE', 'IMPACTO POST VENTA ANALIZADO', 'NECESARIA NUEVA ORDEN DE VENTA AL CLIENTE', 'NEGOCIACIÓN DE OBSOLETOS'].map(l => ({label: l, name: `comercial_${l.toLowerCase().replace(/ /g,'_')}`})) }
-            ]
-        };
-
-        const buildPrintableDepartmentSection = (config) => {
-            const checklistHTML = config.checklist.map(item => `<div style="display: flex; align-items: center; gap: 8px; padding: 2px 0;">${getCheckboxHTML(getValue(item.name))} <span style="font-size: 9px;">${item.label}</span></div>`).join('');
-            return `<div class="department-section" style="margin-top: 8px;"><div class="department-header"><span>${config.title}</span><div style="display: flex; align-items: center; gap: 16px; font-size: 10px;"><div style="display: flex; align-items: center; gap: 4px;">${getCheckboxHTML(getValue(`na_${config.id}`))} No Afecta</div><div style="display: flex; align-items: center; gap: 4px;">${getCheckboxHTML(getValue(`afecta_${config.id}`))} Afecta</div></div></div><div class="department-content" style="flex-direction: column;"><div class="department-checklist" style="width: 100%; border-right: none; border-bottom: 1px solid #9ca3af;">${checklistHTML}</div><div class="department-comments" style="width: 100%;"><label class="font-bold text-sm mb-1 block">Comentarios:</label><p style="white-space: pre-wrap; font-size: 10px; min-height: 50px;">${getValue(`comments_${config.id}`)}</p></div></div><div class="department-footer" style="font-size: 10px;"><div style="display: flex; align-items: center; gap: 8px;">${getCheckboxHTML(getValue(`ok_${config.id}`))} OK ${getCheckboxHTML(getValue(`nok_${config.id}`))} NOK</div><div><strong>Fecha:</strong> ${getValue(`date_${config.id}`)}</div><div><strong>Nombre:</strong> ${getValue(`name_${config.id}`)}</div><div><strong>Visto:</strong> ${getValue(`visto_${config.id}`)}</div></div></div>`;
-        };
-
-        const objetivoTableHTML = `
-            <table class="full-width-table" style="font-size: 9px; margin-top: 5px; table-layout: fixed;">
-                <thead><tr><th style="width: 33%;">OBJETIVO DE ECR</th><th style="width: 34%;">TIPO DE ALTERACIÓN</th><th style="width: 33%;">AFECTA S/R</th></tr></thead>
-                <tbody>
-                    <tr>
-                        <td style="vertical-align: top; padding: 4px;">
-                            ${['Productividad', 'Mejora de calidad', 'Estrategia del Cliente', 'Estrategia Barack', 'Nacionalización'].map(l => `<div style="padding: 1px 0;">${getCheckboxHTML(getValue(`obj_${l.toLowerCase().replace(/ /g,'_')}`))} ${l}</div>`).join('')}
-                        </td>
-                        <td style="vertical-align: top; padding: 4px;">
-                            ${['Producto', 'Proceso', 'Fuente de suministro', 'Embalaje'].map(l => `<div style="padding: 1px 0;">${getCheckboxHTML(getValue(`tipo_${l.toLowerCase().replace(/ /g,'_')}`))} ${l}</div>`).join('')}
-                            <div style="padding: 1px 0;">${getCheckboxHTML(getValue('tipo_otro'))} Otro: ${getValue('tipo_otro_text')}</div>
-                        </td>
-                        <td style="vertical-align: top; padding: 4px;">
-                            ${['Relocalización de Planta', 'Modificación de Layout', 'Modificación de herramental'].map(l => `<div style="padding: 1px 0;">${getCheckboxHTML(getValue(`afecta_${l.toLowerCase().replace(/ /g,'_')}`))} ${l}</div>`).join('')}
-                        </td>
-                    </tr>
-                </tbody>
-            </table>`;
-
-
-        let fullHtml = `<div class="ecr-page" style="padding: 0.5in; break-after: page !important;">
-                <header class="ecr-header"><img src="/barack_logo.png" alt="Logo" style="height: 48px;"><div class="title-block"><div class="ecr-main-title">ECR</div><div class="ecr-subtitle">DE PRODUCTO / PROCESO</div></div><div class="ecr-number-box"><span>ECR N°:</span> ${getValue('ecr_no')}</div></header>
-                <div class="ecr-checklist-bar">CHECK LIST ECR - ENGINEERING CHANGE REQUEST</div>
-                <table class="full-width-table" style="font-size: 9px; margin-top: 5px;">
-                    <tr><td style="width: 50%;"><strong>ORIGEN:</strong> ${getCheckboxHTML(getValue('origen_cliente'))} Cliente ${getCheckboxHTML(getValue('origen_proveedor'))} Proveedor ${getCheckboxHTML(getValue('origen_interno'))} Interno ${getCheckboxHTML(getValue('origen_reglamentacion'))} Reglamentación</td><td style="width: 25%;"><strong>Proyecto:</strong> ${getValue('proyecto')}</td><td style="width: 25%;"><strong>Cliente:</strong> ${getValue('cliente')}</td></tr>
-                    <tr><td><strong>FASE:</strong> ${getCheckboxHTML(getValue('fase_programa'))} Programa ${getCheckboxHTML(getValue('fase_serie'))} Serie</td><td><strong>Fecha Emisión:</strong> ${getValue('fecha_emision')}</td><td><strong>Fecha Cierre:</strong> ${getValue('fecha_cierre')}</td></tr>
-                </table>
-                ${objetivoTableHTML}
-                <div class="two-column-layout" style="margin-top: 5px; grid-template-columns: 1fr 1fr; gap: 8px;"><div class="column-box" style="height: auto;"><h3 style="margin-bottom: 5px;">SITUACIÓN EXISTENTE:</h3><p style="white-space: pre-wrap;">${getValue('situacion_existente')}</p></div><div class="column-box" style="height: auto;"><h3 style="margin-bottom: 5px;">SITUACIÓN PROPUESTA:</h3><p style="white-space: pre-wrap;">${getValue('situacion_propuesta')}</p></div></div>
-                <table class="full-width-table" style="font-size: 8px;"><thead><tr><th colspan="7">IMPACTO EN CASO DE FALLA</th></tr><tr><th>RESPONSABLE</th><th>ANÁLISIS DE RIESGO</th><th>Nivel</th><th>Observaciones</th><th>NOMBRE</th><th>FECHA</th><th>VISTO</th></tr></thead><tbody>
-                ${['RETORNO DE GARANTÍA', 'RECLAMACIÓN ZERO KM', 'HSE', 'SATISFACCIÓN DEL CLIENTE', 'S/R (Seguridad y/o Regulamentación)'].map((r, i) => `<tr><td>Gerente de Calidad</td><td>${r}</td><td>${getValue(`impacto_nivel_${i}`)}</td><td>${getValue(`impacto_obs_${i}`)}</td><td>${getValue(`impacto_nombre_${i}`)}</td><td>${getValue(`impacto_fecha_${i}`)}</td><td>${getValue(`impacto_visto_${i}`)}</td></tr>`).join('')}
-                </tbody></table>
-            </div>`;
-
-        fullHtml += `<div class="ecr-page" style="padding: 0.5in; break-after: page !important;">${departmentConfigs.page2.map(buildPrintableDepartmentSection).join('')}</div>`;
-        fullHtml += `<div class="ecr-page" style="padding: 0.5in; break-after: page !important;">${departmentConfigs.page3.map(buildPrintableDepartmentSection).join('')}</div>`;
-        fullHtml += `<div class="ecr-page" style="padding: 0.5in; break-after: page !important;">${departmentConfigs.page4.map(buildPrintableDepartmentSection).join('')}</div>`;
-
-        printableContainer.innerHTML = fullHtml;
-        document.body.appendChild(printableContainer);
-
-        // Ensure styles are loaded
-        if (!document.getElementById('ecr-form-styles')) {
-            const link = document.createElement('link');
-            link.id = 'ecr-form-styles'; link.rel = 'stylesheet'; link.href = 'ecr_form.css';
-            document.head.appendChild(link);
-            await new Promise(resolve => link.onload = resolve);
-        }
-
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF('p', 'mm', 'a4');
-
-        const pageElements = printableContainer.querySelectorAll('.ecr-page');
-        for (let i = 0; i < pageElements.length; i++) {
-            const page = pageElements[i];
-            const canvas = await html2canvas(page, { scale: 2, useCORS: true, logging: false });
+        await html2canvas(formElement, {
+            scale: 2, // Increase resolution
+            useCORS: true,
+            windowWidth: formElement.scrollWidth,
+            windowHeight: formElement.scrollHeight,
+            onclone: (document) => {
+                // This ensures all styles are applied in the cloned document
+                // that html2canvas uses for rendering.
+                const clonedStyle = document.createElement('style');
+                clonedStyle.innerHTML = tempStyle.innerHTML;
+                document.head.appendChild(clonedStyle);
+            }
+        }).then(canvas => {
             const imgData = canvas.toDataURL('image/png');
-            const imgProps = pdf.getImageProperties(imgData);
+            const { jsPDF } = window.jspdf;
+
+            const pdf = new jsPDF({
+                orientation: 'p',
+                unit: 'px',
+                format: 'a4'
+            });
+
             const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const canvasWidth = canvas.width;
+            const canvasHeight = canvas.height;
+            const canvasAspectRatio = canvasWidth / canvasHeight;
+            const pdfAspectRatio = pdfWidth / pdfHeight;
 
-            if (i > 0) pdf.addPage();
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-        }
+            let finalCanvasWidth, finalCanvasHeight;
 
-        pdf.save(`ECR_${ecrId}.pdf`);
-        document.body.removeChild(printableContainer);
+            // Fit canvas to page width
+            finalCanvasWidth = pdfWidth;
+            finalCanvasHeight = finalCanvasWidth / canvasAspectRatio;
 
+            // If the height is still too large, it means we need multiple pages
+            const totalPages = Math.ceil(finalCanvasHeight / pdfHeight);
+
+            for (let i = 0; i < totalPages; i++) {
+                if (i > 0) {
+                    pdf.addPage();
+                }
+                // Calculate the y position of the image slice for the current page
+                const yPos = -(pdfHeight * i);
+                pdf.addImage(imgData, 'PNG', 0, yPos, finalCanvasWidth, finalCanvasHeight);
+            }
+
+            pdf.save(`ECR_${ecrId}.pdf`);
+            showToast('ECR exportado a PDF con éxito.', 'success');
+        });
     } catch (error) {
         console.error("Error exporting ECR to PDF:", error);
         showToast('Error al exportar el PDF.', 'error');
     } finally {
+        // Cleanup: remove temporary styles and switch back to the original view
+        const styleElement = document.getElementById(styleId);
+        if (styleElement) {
+            styleElement.remove();
+        }
         dom.loadingOverlay.style.display = 'none';
-        const container = document.getElementById('printable-ecr-container');
-        if (container) container.remove();
+        switchView(originalView);
     }
 }
 

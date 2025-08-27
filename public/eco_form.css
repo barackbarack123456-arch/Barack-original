@@ -1,39 +1,10 @@
-/* Main container for a section */
-.section-block {
-    display: flex;
-    margin-top: 1.5rem; /* Reduced margin */
-    border: 1px solid #e5e7eb; /* border-gray-200 */
-    border-radius: 0.5rem; /* rounded-lg */
-    overflow: hidden; /* To keep children within rounded corners */
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-}
+@import url('forms.css');
 
-/* Vertical sidebar for the section title */
+/* --- ECO FORM SPECIFIC STYLES --- */
+
+/* Override sidebar color for ECO form */
 .section-sidebar {
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    background-color: #4A5568; /* bg-gray-700 */
-    color: #FFFFFF; /* text-white */
-    font-weight: bold;
-    text-transform: uppercase;
-    padding: 0.75rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    letter-spacing: 0.1em;
-}
-
-/* Main content area of the section */
-.section-main {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-}
-
-/* Container for checklist and comments */
-.section-content {
-    display: flex;
-    flex-grow: 1;
+    background-color: #374151; /* bg-gray-700 */
 }
 
 /* Checklist area */
@@ -82,60 +53,5 @@
     border: 1px solid #d1d5db; /* border-gray-300 */
     border-radius: 0.375rem; /* rounded-md */
     padding: 0.5rem;
-}
-
-/* Footer of the section */
-.section-footer {
-    background-color: #f9fafb; /* bg-gray-50 */
-    padding: 1rem;
-    border-top: 1px solid #e5e7eb;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.footer-fields {
-    display: flex;
-    gap: 1.5rem;
-    align-items: center;
-}
-
-.footer-field {
-    display: flex;
-    flex-direction: column;
-}
-
-.footer-field label {
-    font-size: 0.75rem; /* text-xs */
-    color: #6b7280; /* text-gray-500 */
-    margin-bottom: 0.25rem;
-}
-
-.footer-field input, .footer-field select {
-    border: 1px solid #d1d5db;
-    border-radius: 0.375rem;
-    padding: 0.5rem;
-}
-
-.status-options {
-    display: flex;
-    gap: 1rem;
-}
-
-.status-options label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-/* Estilo para resaltar errores de validación */
-.validation-error {
-    border: 2px solid #ef4444 !important; /* red-500 */
-    background-color: #fee2e2 !important; /* red-100 */
-    border-radius: 4px;
-}
-
-.validation-error-label {
-    color: #ef4444 !important; /* red-500 */
-    font-weight: bold;
+    resize: vertical;
 }
