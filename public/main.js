@@ -559,8 +559,8 @@ async function clearDataOnly() {
     showToast('Limpiando colecciones de datos...', 'info', 5000);
     const collectionNames = Object.values(COLLECTIONS);
     for (const name of collectionNames) {
-        if (name === COLLECTIONS.USUARIOS) {
-            console.log(`Se omite la limpieza de la colección '${name}' para preservar los usuarios.`);
+        if (name === COLLECTIONS.USUARIOS || name === COLLECTIONS.TAREAS) {
+            console.log(`Se omite la limpieza de la colección '${name}' para preservar los datos.`);
             continue;
         }
         try {
@@ -941,32 +941,32 @@ async function seedDatabase() {
     await seedEcos(batch, users, generated);
     await seedEcrs(batch, users, generated);
 
-    for (let i = 1; i <= TOTAL_TAREAS; i++) {
-        const creator = getRandomItem(users);
-        const assignee = Math.random() > 0.2 ? getRandomItem(users) : null; // 20% de tareas no asignadas
+    // for (let i = 1; i <= TOTAL_TAREAS; i++) {
+    //     const creator = getRandomItem(users);
+    //     const assignee = Math.random() > 0.2 ? getRandomItem(users) : null; // 20% de tareas no asignadas
 
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - Math.floor(Math.random() * 30));
-        const dueDate = new Date(startDate);
-        dueDate.setDate(dueDate.getDate() + Math.floor(Math.random() * 60));
+    //     const startDate = new Date();
+    //     startDate.setDate(startDate.getDate() - Math.floor(Math.random() * 30));
+    //     const dueDate = new Date(startDate);
+    //     dueDate.setDate(dueDate.getDate() + Math.floor(Math.random() * 60));
 
-        const taskData = {
-            title: `${getRandomItem(taskTitles)} #${i}`,
-            description: getRandomItem(taskDescriptions),
-            creatorUid: creator.docId,
-            assigneeUid: assignee ? assignee.docId : null,
-            status: getRandomItem(statuses),
-            priority: getRandomItem(priorities),
-            isPublic: Math.random() > 0.3, // 70% de tareas públicas
-            createdAt: startDate,
-            startDate: startDate.toISOString().split('T')[0],
-            dueDate: dueDate.toISOString().split('T')[0],
-            subtasks: []
-        };
+    //     const taskData = {
+    //         title: `${getRandomItem(taskTitles)} #${i}`,
+    //         description: getRandomItem(taskDescriptions),
+    //         creatorUid: creator.docId,
+    //         assigneeUid: assignee ? assignee.docId : null,
+    //         status: getRandomItem(statuses),
+    //         priority: getRandomItem(priorities),
+    //         isPublic: Math.random() > 0.3, // 70% de tareas públicas
+    //         createdAt: startDate,
+    //         startDate: startDate.toISOString().split('T')[0],
+    //         dueDate: dueDate.toISOString().split('T')[0],
+    //         subtasks: []
+    //     };
 
-        const docRef = doc(collection(db, COLLECTIONS.TAREAS));
-        batch.set(docRef, taskData);
-    }
+    //     const docRef = doc(collection(db, COLLECTIONS.TAREAS));
+    //     batch.set(docRef, taskData);
+    // }
 
 
     // --- COMMIT FINAL ---
