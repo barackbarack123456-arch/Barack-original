@@ -2042,7 +2042,7 @@ async function runEcrFormLogic(params = null) {
             </section>
 
             <table class="full-width-table mt-4">
-                <thead><tr><th>OBJETIVO DE ECR</th><th>TIPO DE ALTERACIÓN</th><th>AFECTA S/R</th></tr></thead>
+                <thead><tr><th style="width: 33.33%;">OBJETIVO DE ECR</th><th style="width: 33.33%;">TIPO DE ALTERACIÓN</th><th style="width: 33.33%;">AFECTA S/R</th></tr></thead>
                 <tbody><tr>
                     <td><div class="flex flex-col gap-2">${['Productividad', 'Mejora de calidad', 'Estrategia del Cliente', 'Estrategia Barack', 'Nacionalización'].map(l => createCheckbox(l, `obj_${l.toLowerCase().replace(/ /g,'_')}`)).join('')}</div></td>
                     <td><div class="flex flex-col gap-2">${['Producto', 'Proceso', 'Fuente de suministro', 'Embalaje'].map(l => createCheckbox(l, `tipo_${l.toLowerCase().replace(/ /g,'_')}`)).join('')} <div class="flex items-center gap-2 mt-1"><input type="checkbox" id="tipo_otro" name="tipo_otro"><label for="tipo_otro" class="text-sm">Otro:</label><input name="tipo_otro_text" type="text" class="border-b-2 bg-transparent flex-grow"></div></div></td>
