@@ -178,6 +178,7 @@ body {
     padding: 4px 6px;
     text-align: left;
     word-wrap: break-word; /* Wraps long content */
+    vertical-align: top;
 }
 .full-width-table th {
     background-color: #e5e7eb; /* gray-200 */
