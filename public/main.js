@@ -1978,13 +1978,13 @@ async function runEcrTableViewLogic() {
         }
 
         const statusPill = (status) => {
-            if (!status) return `<span class="status-pill bg-gray-200 text-gray-800">N/A</span>`;
+            if (!status) return `<span class="status-pill status-gray">N/A</span>`;
             const statusMap = {
                 'approved': { text: 'Aprobado', class: 'status-green' },
                 'in-progress': { text: 'En Progreso', class: 'status-yellow' },
                 'rejected': { text: 'Rechazado', class: 'status-red' }
             };
-            const s = statusMap[status] || { text: status, class: 'bg-gray-200 text-gray-800' };
+            const s = statusMap[status] || { text: status, class: 'status-gray' };
             return `<span class="status-pill ${s.class}">${s.text}</span>`;
         };
 
@@ -1992,7 +1992,6 @@ async function runEcrTableViewLogic() {
             const origem = ecr.origen_cliente ? 'Cliente' : (ecr.origen_interno ? 'Interno' : (ecr.origen_proveedor ? 'Proveedor' : (ecr.origen_reglamentacion ? 'Reglamentación' : 'N/A')));
             const tipoEcr = ecr.tipo_producto ? 'Producto' : (ecr.tipo_proceso ? 'Proceso' : (ecr.tipo_otro ? ecr.tipo_otro_text || 'Otro' : 'N/A'));
 
-            // Asynchronously fetch related ECO status
             const ecoStatusCellId = `eco-status-${ecr.id}`;
             if (ecr.id) {
                 getDoc(doc(db, COLLECTIONS.ECO_FORMS, ecr.id)).then(ecoSnap => {
@@ -2006,26 +2005,26 @@ async function runEcrTableViewLogic() {
 
             return `
             <tr class="hover:bg-slate-50 transition-colors">
-                <td class="px-3 py-2" title="${ecr.id || ''}">${ecr.id || 'N/A'}</td>
-                <td class="px-3 py-2" title="${ecr.cliente || ''}">${ecr.cliente || 'N/A'}</td>
-                <td class="px-3 py-2" title="MAL">MAL</td>
-                <td class="px-3 py-2" title="${origem}">${origem}</td>
-                <td class="px-3 py-2" title="${tipoEcr}">${tipoEcr}</td>
-                <td class="px-3 py-2" title="${ecr.fecha_emision || ''}">${ecr.fecha_emision || 'N/A'}</td>
-                <td class="px-3 py-2" title="${ecr.denominacion_producto || ''}">${ecr.denominacion_producto || 'N/A'}</td>
-                <td class="px-3 py-2" title="${ecr.codigo_barack || ''}">${ecr.codigo_barack || 'N/A'}</td>
-                <td class="px-3 py-2" title="${ecr.codigo_cliente || ''}">${ecr.codigo_cliente || 'N/A'}</td>
-                <td class="px-3 py-2" title="${ecr.equipo_c1_0 || ecr.modifiedBy || ''}">${ecr.equipo_c1_0 || ecr.modifiedBy || 'N/A'}</td>
-                <td class="px-3 py-2" title="${ecr.fecha_cierre || ''}">${ecr.fecha_cierre || 'N/A'}</td>
-                <td class="px-3 py-2" title="${ecr.fecha_realizacion_ecr || ''}">${ecr.fecha_realizacion_ecr || 'N/A'}</td>
-                <td class="px-3 py-2">${statusPill(ecr.status)}</td>
-                <td class="px-3 py-2" id="${ecoStatusCellId}">${statusPill(null)}</td>
-                <td class="px-3 py-2 whitespace-normal" title="${ecr.situacion_propuesta || ''}">${ecr.situacion_propuesta || 'N/A'}</td>
-                <td class="px-3 py-2" title="${ecr.causas_solicitud || ''}">${ecr.causas_solicitud || 'N/A'}</td>
-                <td class="px-3 py-2" title="${ecr.comentarios_alertas || ''}">${ecr.comentarios_alertas || 'N/A'}</td>
-                <td class="px-3 py-2" title="${ecr.componentes_obsoletos || ''}">${ecr.componentes_obsoletos || 'N/A'}</td>
-                <td class="px-3 py-2" title="${ecr.accion_objetiva || ''}">${ecr.accion_objetiva || 'N/A'}</td>
-                <td class="px-3 py-2" title="${ecr.final_coordinador || ''}">${ecr.final_coordinador || 'N/A'}</td>
+                <td title="${ecr.id || ''}">${ecr.id || 'N/A'}</td>
+                <td title="${ecr.cliente || ''}">${ecr.cliente || 'N/A'}</td>
+                <td title="MAL">MAL</td>
+                <td title="${origem}">${origem}</td>
+                <td title="${tipoEcr}">${tipoEcr}</td>
+                <td title="${ecr.fecha_emision || ''}">${ecr.fecha_emision || 'N/A'}</td>
+                <td title="${ecr.denominacion_producto || ''}">${ecr.denominacion_producto || 'N/A'}</td>
+                <td title="${ecr.codigo_barack || ''}">${ecr.codigo_barack || 'N/A'}</td>
+                <td title="${ecr.codigo_cliente || ''}">${ecr.codigo_cliente || 'N/A'}</td>
+                <td title="${ecr.equipo_c1_0 || ecr.modifiedBy || ''}">${ecr.equipo_c1_0 || ecr.modifiedBy || 'N/A'}</td>
+                <td title="${ecr.fecha_cierre || ''}">${ecr.fecha_cierre || 'N/A'}</td>
+                <td title="${ecr.fecha_realizacion_ecr || ''}">${ecr.fecha_realizacion_ecr || 'N/A'}</td>
+                <td>${statusPill(ecr.status)}</td>
+                <td id="${ecoStatusCellId}">${statusPill(null)}</td>
+                <td title="${ecr.situacion_propuesta || ''}">${ecr.situacion_propuesta || 'N/A'}</td>
+                <td title="${ecr.causas_solicitud || ''}">${ecr.causas_solicitud || 'N/A'}</td>
+                <td title="${ecr.comentarios_alertas || ''}">${ecr.comentarios_alertas || 'N/A'}</td>
+                <td title="${ecr.componentes_obsoletos || ''}">${ecr.componentes_obsoletos || 'N/A'}</td>
+                <td title="${ecr.accion_objetiva || ''}">${ecr.accion_objetiva || 'N/A'}</td>
+                <td title="${ecr.final_coordinador || ''}">${ecr.final_coordinador || 'N/A'}</td>
             </tr>
         `}).join('');
     };
@@ -2054,21 +2053,7 @@ async function runEcrTableViewLogic() {
     };
 
     const viewHTML = `
-    <div class="bg-white p-6 rounded-xl shadow-lg animate-fade-in-up">
-        <style>
-            .status-pill { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 9999px; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
-            .status-green { background-color: #d1fae5; color: #065f46; }
-            .status-yellow { background-color: #fef9c3; color: #854d0e; }
-            .status-red { background-color: #fee2e2; color: #991b1b; }
-            .corporate-header { background-color: #4A5568; color: white; }
-            .modern-table { border-collapse: collapse; width: 100%; font-size: 0.8rem; table-layout: fixed; min-width: 2400px;}
-            .modern-table th, .modern-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #E2E8F0; white-space: nowrap; }
-            .modern-table th { font-weight: bold; }
-            .modern-table th:nth-child(15), .modern-table td:nth-child(15) { width: 400px; white-space: normal; }
-            .modern-table th:nth-child(16), .modern-table td:nth-child(16) { width: 250px; white-space: normal; }
-            .modern-table th:nth-child(17), .modern-table td:nth-child(17) { width: 250px; white-space: normal; }
-            .modern-table th:nth-child(7), .modern-table td:nth-child(7) { width: 250px; white-space: normal; }
-        </style>
+    <div class="ecr-control-table-container animate-fade-in-up">
         <header class="flex justify-between items-center mb-6">
             <div class="flex items-center gap-4">
                  <button data-view="control_ecrs" class="flex items-center justify-center p-2 rounded-full hover:bg-slate-100 transition-colors">
@@ -2105,9 +2090,9 @@ async function runEcrTableViewLogic() {
              <i data-lucide="info" class="inline-block w-4 h-4 mr-2 -mt-0.5"></i>Sugerencia: Desplácese horizontalmente en la tabla para ver todas las columnas.
         </div>
 
-        <div class="overflow-x-auto border border-slate-200 rounded-lg">
+        <div class="overflow-x-auto">
             <table class="modern-table">
-                <thead class="corporate-header">
+                <thead>
                     <tr>
                         <th>N° de ECR</th>
                         <th>Cliente</th>
@@ -2148,7 +2133,6 @@ async function runEcrTableViewLogic() {
     const unsubscribe = onSnapshot(collection(db, COLLECTIONS.ECR_FORMS), (snapshot) => {
         allEcrs = snapshot.docs.map(doc => doc.data());
 
-        // Populate client filter
         const clientFilterEl = dom.viewContent.querySelector('#ecr-client-filter');
         const clients = [...new Set(allEcrs.map(ecr => ecr.cliente).filter(Boolean))];
         clientFilterEl.innerHTML = '<option value="all">Todos los Clientes</option>';
