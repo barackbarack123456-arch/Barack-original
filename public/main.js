@@ -2003,6 +2003,26 @@ async function runControlEcrsLogic() {
                     </div>
                 </div>
 
+                <!-- Quick Actions Navigation -->
+                <section>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <a href="#" data-view="ecr" class="nav-link dashboard-action-card bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 p-6 flex items-center gap-6 transform hover:-translate-y-1">
+                            <i data-lucide="file-plus-2" class="w-12 h-12 text-blue-600"></i>
+                            <div>
+                                <h4 class="text-xl font-bold text-slate-800">Gestionar ECRs</h4>
+                                <p class="text-slate-500">Ver, crear y editar Engineering Change Requests.</p>
+                            </div>
+                        </a>
+                        <a href="#" data-view="eco" class="nav-link dashboard-action-card bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 p-6 flex items-center gap-6 transform hover:-translate-y-1">
+                            <i data-lucide="recycle" class="w-12 h-12 text-green-600"></i>
+                            <div>
+                                <h4 class="text-xl font-bold text-slate-800">Gestionar ECOs</h4>
+                                <p class="text-slate-500">Ver, crear y editar Engineering Change Orders.</p>
+                            </div>
+                        </a>
+                    </div>
+                </section>
+
                 <!-- ECR Section -->
                 <section class="bg-white p-6 rounded-xl shadow-lg">
                     <h3 class="text-xl font-bold text-slate-800 mb-4">Análisis de ECR</h3>
