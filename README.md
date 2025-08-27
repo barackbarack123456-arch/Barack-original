@@ -38,6 +38,16 @@ El proyecto ha evolucionado desde un prototipo hasta convertirse en una aplicaci
 - **Exportación de BOM a PDF Profesional:** Se ha implementado una función de exportación que genera un listado de materiales (BOM) en formato PDF tabular. El reporte se presenta en formato horizontal e incluye columnas detalladas para Nivel, Descripción, Código, Cantidad y Unidad de Medida.
 - **Próximamente: Flujograma de Procesos:** Se está implementando una nueva vista dedicada que leerá la información de los árboles de producto para generar automáticamente un flujograma visual del proceso de fabricación completo.
 
+### Gestión de Cambios de Ingeniería (ECR/ECO)
+Para digitalizar y controlar el proceso formal de modificaciones de la compañía (basado en el instructivo `I-IN-003`), el sistema incluye un módulo completo de ECR/ECO.
+
+- **Flujo de Trabajo Integrado:** El proceso comienza con la creación de una **Solicitud de Cambio de Ingeniería (ECR)**. Una vez que esta solicitud es aprobada internamente, el sistema permite **generar una Orden de Cambio de Ingeniería (ECO)** con un solo clic, automatizando el flujo y evitando la entrada manual de datos.
+- **Trazabilidad Completa:** El sistema asegura una trazabilidad de extremo a extremo:
+    - **Aprobación del Cliente:** El formulario de ECR incluye campos para registrar si se requiere aprobación del cliente y/o un proceso PPAP, así como el estado de dicha aprobación.
+    - **Actualización de Documentos:** El formulario de ECO contiene una sección de checklist para verificar y firmar la actualización de documentos críticos de calidad (AMFE, Planes de Control, etc.).
+- **Paneles de Control:** El módulo cuenta con dashboards y tablas de control que permiten un seguimiento detallado del estado de todos los ECRs y ECOs en curso, incluyendo los nuevos estados de aprobación del cliente.
+- **Ayuda Contextual:** A lo largo de los formularios, se han añadido íconos de ayuda (`?`) que ofrecen explicaciones breves para guiar al usuario en el llenado de la información compleja.
+
 ## Panel de Administración del Dashboard
 
 El dashboard incluye un panel de administración con herramientas potentes para gestionar el estado de la base de datos. Estas acciones son delicadas y deben usarse con precaución.

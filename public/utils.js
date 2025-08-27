@@ -28,3 +28,20 @@ export function getUniqueKeyForCollection(collectionName) {
             return 'id';
     }
 }
+
+/**
+ * Creates an HTML string for a help tooltip icon.
+ * @param {string} message - The help text to display in the tooltip.
+ * @returns {string} - The HTML string for the tooltip component.
+ */
+export function createHelpTooltip(message) {
+    const tooltipId = `tooltip-${Math.random().toString(36).substr(2, 9)}`;
+    return `
+        <div class="help-tooltip-container" tabindex="0" role="tooltip" aria-describedby="${tooltipId}">
+            <i data-lucide="help-circle" class="help-icon"></i>
+            <div class="help-tooltip-content" id="${tooltipId}">
+                ${message}
+            </div>
+        </div>
+    `;
+}
