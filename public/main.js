@@ -59,7 +59,7 @@ const viewConfig = {
     eco: { title: 'Gestión de ECO', singular: 'ECO' },
     ecr_form: { title: 'ECR de Producto / Proceso', singular: 'ECR Form' },
     ecr: { title: 'Gestión de ECR', singular: 'ECR' },
-    control_ecrs: { title: 'Control de ECRs: Bancos / Interiores', singular: 'Control ECR' },
+    control_ecrs: { title: 'PANEL de control', singular: 'Control ECR' },
     flujograma: { title: 'Flujograma de Procesos', singular: 'Flujograma' },
     arboles: { title: 'Editor de Árboles', singular: 'Árbol' },
     profile: { title: 'Mi Perfil', singular: 'Mi Perfil' },
@@ -1919,119 +1919,113 @@ async function runEcrLogic() {
 
 async function runControlEcrsLogic() {
     dom.headerActions.style.display = 'none';
+    let allEcrs = []; // To store all ECRs for client-side filtering
+
+    const renderTableRows = (ecrsToRender) => {
+        const tableBody = dom.viewContent.querySelector('#ecr-control-table-body');
+        if (!tableBody) return;
+
+        if (ecrsToRender.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="20" class="text-center py-16 text-gray-500">No se encontraron ECRs que coincidan con la búsqueda.</td></tr>`;
+            return;
+        }
+
+        const statusPill = (status) => {
+            if (!status) return `<span class="status-pill bg-gray-200 text-gray-800">N/A</span>`;
+            const statusMap = {
+                'approved': { text: 'Aprobado', class: 'status-green' },
+                'in-progress': { text: 'En Progreso', class: 'status-yellow' },
+                'rejected': { text: 'Rechazado', class: 'status-red' }
+            };
+            const s = statusMap[status] || { text: status, class: 'bg-gray-200 text-gray-800' };
+            return `<span class="status-pill ${s.class}">${s.text}</span>`;
+        };
+
+        tableBody.innerHTML = ecrsToRender.map(ecr => `
+            <tr class="hover:bg-slate-50 transition-colors">
+                <td class="px-3 py-2">${ecr.id || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.cliente || 'N/A'}</td>
+                <td class="px-3 py-2">${'MAL'}</td>
+                <td class="px-3 py-2">${ecr.origen_cliente ? 'Cliente' : (ecr.origen_interno ? 'Interno' : 'N/A')}</td>
+                <td class="px-3 py-2">${'N/A'}</td>
+                <td class="px-3 py-2">${ecr.fecha_emision || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.denominacion_producto || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.codigo_barack || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.modifiedBy || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.modifiedBy || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.fecha_emision || 'N/A'}</td>
+                <td class="px-3 py-2">${'N/A'}</td>
+                <td class="px-3 py-2">${statusPill(ecr.status)}</td>
+                <td class="px-3 py-2">${statusPill(null)}</td>
+                <td class="px-3 py-2 whitespace-normal">${ecr.situacion_propuesta || 'N/A'}</td>
+                <td class="px-3 py-2">${'N/A'}</td>
+                <td class="px-3 py-2">${''}</td>
+                <td class="px-3 py-2">${'N/A'}</td>
+                <td class="px-3 py-2">${'N/A'}</td>
+                <td class="px-3 py-2">${'N/A'}</td>
+            </tr>
+        `).join('');
+    };
+
+    const filterAndRender = () => {
+        const searchTerm = dom.viewContent.querySelector('#ecr-control-search').value.toLowerCase();
+        if (!searchTerm) {
+            renderTableRows(allEcrs);
+            return;
+        }
+        const filtered = allEcrs.filter(ecr =>
+            Object.values(ecr).some(val =>
+                String(val).toLowerCase().includes(searchTerm)
+            )
+        );
+        renderTableRows(filtered);
+    };
 
     const viewHTML = `
-    <div class="bg-white p-8 rounded-xl shadow-lg animate-fade-in-up">
+    <div class="bg-white p-6 rounded-xl shadow-lg animate-fade-in-up">
         <style>
-            .status-pill {
-                display: inline-block;
-                padding: 0.25rem 0.75rem;
-                border-radius: 9999px;
-                font-weight: 600;
-                font-size: 0.8rem;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-            }
-            .status-green {
-                background-color: #d1fae5;
-                color: #065f46;
-            }
-            .status-yellow {
-                background-color: #fef9c3;
-                color: #854d0e;
-            }
-            .status-red {
-                background-color: #fee2e2;
-                color: #991b1b;
-            }
-            .corporate-header {
-                background-color: #4A5568; /* Azul pizarra */
-                color: white;
-            }
-            .table-container {
-                border: 1px solid #E2E8F0;
-                border-radius: 0.75rem;
-                overflow: hidden;
-            }
-            .modern-table {
-                border-collapse: collapse;
-                width: 100%;
-            }
-            .modern-table th, .modern-table td {
-                padding: 1rem 1.25rem;
-                text-align: left;
-                border-bottom: 1px solid #E2E8F0;
-            }
-            .modern-table tbody tr:nth-child(even) {
-                background-color: #F7FAFC;
-            }
-            .modern-table tbody tr:hover {
-                background-color: #EDF2F7;
-            }
+            .status-pill { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 9999px; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+            .status-green { background-color: #d1fae5; color: #065f46; }
+            .status-yellow { background-color: #fef9c3; color: #854d0e; }
+            .status-red { background-color: #fee2e2; color: #991b1b; }
+            .corporate-header { background-color: #4A5568; color: white; }
+            .modern-table { border-collapse: collapse; width: 100%; font-size: 0.8rem; }
+            .modern-table th, .modern-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #E2E8F0; }
+            .modern-table th { font-weight: bold; }
         </style>
-        <header class="flex justify-between items-start mb-8">
+        <header class="flex justify-between items-start mb-6">
             <div class="flex items-center gap-4">
-                <img src="barack_logo.png" alt="Logo BARACK MERCOSUL" class="h-16 w-16">
+                <img src="barack_logo.png" alt="Logo BARACK MERCOSUL" class="h-12 w-auto">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-800" style="font-family: 'Inter', sans-serif;">Control de ECRs: Bancos / Interiores</h1>
-                    <p class="text-gray-500">Hoja de seguimiento de proyectos corporativa</p>
+                    <h1 class="text-2xl font-bold text-gray-800" style="font-family: 'Inter', sans-serif;">PANEL de control ECR</h1>
+                    <p class="text-gray-500 text-sm">Hoja de seguimiento de proyectos corporativa</p>
                 </div>
             </div>
-            <div class="text-sm text-gray-600">
-                <div><strong>Fecha de Revisión:</strong> ${new Date().toLocaleDateString('es-AR')}</div>
-                <div><strong>Responsable:</strong> Andrew Godoy</div>
+            <div class="text-sm text-gray-600 text-right">
+                <div><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-AR')}</div>
+                <div><strong>Responsable:</strong> ${appState.currentUser.name}</div>
             </div>
         </header>
 
-        <div class="table-container">
+        <div class="mb-4">
+            <div class="relative">
+                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
+                <input type="text" id="ecr-control-search" placeholder="Buscar en todos los campos..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full shadow-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+
+        <div class="overflow-x-auto border border-slate-200 rounded-lg">
             <table class="modern-table">
                 <thead class="corporate-header">
                     <tr>
-                        <th>N° de Cli</th>
-                        <th>Cliente</th>
-                        <th>Site</th>
-                        <th>Origen del Pedido</th>
-                        <th>Tipo ECR</th>
-                        <th>Fecha de Apertura</th>
-                        <th>Producto Afectado</th>
-                        <th>Código Programa</th>
-                        <th>Solicitante (SC)</th>
-                        <th>Responsable</th>
-                        <th>Fecha ECR</th>
-                        <th>Fecha Notificación ECR</th>
-                        <th>Status ECR</th>
-                        <th>Status ECI</th>
-                        <th>Descripción</th>
-                        <th>Causa Solicitada</th>
-                        <th>Comentarios / Alertas</th>
-                        <th>Componentes Obsoletos</th>
-                        <th>Acción Objetivo</th>
-                        <th>Área Responsable Final</th>
+                        <th>ECR N°</th><th>Cliente</th><th>Site</th><th>Origen</th><th>Tipo</th><th>Apertura</th>
+                        <th>Producto</th><th>Código</th><th>Solicitante</th><th>Responsable</th><th>Fecha ECR</th>
+                        <th>Fecha Notif.</th><th>Status ECR</th><th>Status ECI</th><th>Descripción</th><th>Causa</th>
+                        <th>Alertas</th><th>Obsoletos</th><th>Acción</th><th>Área Resp.</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <tr>
-                        <td>36-17</td>
-                        <td>PSA</td>
-                        <td>MAL</td>
-                        <td>Cliente</td>
-                        <td>Estrategia del Cliente</td>
-                        <td>07/07/2017</td>
-                        <td>Caja guantera XV #98103958 -- DP ST C&ADM...</td>
-                        <td>#98103958 -- DP ST C&ADM...</td>
-                        <td>ANDREW GODOY</td>
-                        <td>Andrew Godoy</td>
-                        <td>21/07/2017</td>
-                        <td>14/07/2017</td>
-                        <td><span class="status-pill status-green">Cerrado</span></td>
-                        <td><span class="status-pill status-green">Cerrado</span></td>
-                        <td>Caja de guantera: unificación de topes con los ya planificados en D16.</td>
-                        <td>Pedido del Cliente</td>
-                        <td>FETE-HICMA-D17</td>
-                        <td>0</td>
-                        <td>Consumir stock antes del corte</td>
-                        <td>Producción</td>
-                    </tr>
+                <tbody id="ecr-control-table-body">
+                    <tr><td colspan="20" class="text-center py-16 text-gray-500"><i data-lucide="loader" class="animate-spin h-8 w-8 mx-auto"></i><p class="mt-2">Cargando datos...</p></td></tr>
                 </tbody>
             </table>
         </div>
@@ -2039,6 +2033,25 @@ async function runControlEcrsLogic() {
     `;
     dom.viewContent.innerHTML = viewHTML;
     lucide.createIcons();
+
+    dom.viewContent.querySelector('#ecr-control-search').addEventListener('input', filterAndRender);
+
+    const unsubscribe = onSnapshot(collection(db, COLLECTIONS.ECR_FORMS), (snapshot) => {
+        allEcrs = snapshot.docs.map(doc => doc.data());
+        filterAndRender(); // Render with current search term
+    }, (error) => {
+        console.error("Error fetching ECRs for control panel:", error);
+        showToast('Error al cargar los datos de ECR.', 'error');
+        const tableBody = dom.viewContent.querySelector('#ecr-control-table-body');
+        if (tableBody) {
+            tableBody.innerHTML = `<tr><td colspan="20" class="text-center py-16 text-red-500"><i data-lucide="alert-triangle" class="mx-auto h-8 w-8"></i><p class="mt-2">Error al cargar los datos.</p></td></tr>`;
+            lucide.createIcons();
+        }
+    });
+
+    appState.currentViewCleanup = () => {
+        unsubscribe();
+    };
 }
 
 async function runEcrFormLogic(params = null) {
