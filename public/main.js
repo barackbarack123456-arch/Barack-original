@@ -55,11 +55,12 @@ const viewConfig = {
     dashboard: { title: 'Dashboard', singular: 'Dashboard' },
     sinoptico_tabular: { title: 'Reporte BOM (Tabular)', singular: 'Reporte BOM (Tabular)' },
     eco_form: { title: 'ECO de Producto / Proceso', singular: 'ECO Form' },
-    eco_form: { title: 'ECO de Producto / Proceso', singular: 'ECO Form' },
     eco: { title: 'Gestión de ECO', singular: 'ECO' },
     ecr_form: { title: 'ECR de Producto / Proceso', singular: 'ECR Form' },
     ecr: { title: 'Gestión de ECR', singular: 'ECR' },
-    control_ecrs: { title: 'Panel de Control', singular: 'Panel de Control' },
+    control_ecrs: { title: 'Panel de Control', singular: 'Control ECR' },
+    ecr_table_view: { title: 'Tabla de Control ECR', singular: 'Control ECR' },
+    indicadores_ecm_view: { title: 'Indicadores ECM', singular: 'Indicador' },
     flujograma: { title: 'Flujograma de Procesos', singular: 'Flujograma' },
     arboles: { title: 'Editor de Árboles', singular: 'Árbol' },
     profile: { title: 'Mi Perfil', singular: 'Mi Perfil' },
@@ -1061,21 +1062,7 @@ function setupGlobalEventListeners() {
     dom.addNewButton.addEventListener('click', () => openFormModal());
 
     document.getElementById('main-nav').addEventListener('click', (e) => {
-        const link = e.target.closest('.nav-link');
-
-        // Handle view switching from any nav-link with a data-view attribute
-        if (link && link.dataset.view) {
-            e.preventDefault();
-            switchView(link.dataset.view);
-
-            // Close dropdowns after selection
-            const openDropdown = link.closest('.nav-dropdown.open');
-            if (openDropdown) {
-                openDropdown.classList.remove('open');
-            }
-        }
-
-        // Handle dropdown toggling
+        // This listener now ONLY handles dropdown toggling
         const toggle = e.target.closest('.dropdown-toggle');
         if (toggle) {
             e.preventDefault(); // Prevent view switch if clicking dropdown toggle
@@ -1151,6 +1138,8 @@ function switchView(viewName, params = null) {
     else if (viewName === 'eco') runEcoLogic();
     else if (viewName === 'ecr') runEcrLogic();
     else if (viewName === 'control_ecrs') runControlEcrsLogic();
+    else if (viewName === 'ecr_table_view') runEcrTableViewLogic();
+    else if (viewName === 'indicadores_ecm_view') runIndicadoresEcmViewLogic();
     else if (viewName === 'eco_form') runEcoFormLogic(params);
     else if (viewName === 'ecr_form') runEcrFormLogic(params);
     else if (config?.dataKey) {
@@ -1965,12 +1954,185 @@ const createDashboardChartConfig = (type, labels, data, title) => ({
 });
 
 
-async function runControlEcrsLogic() {
+async function runEcrTableViewLogic() {
     dom.headerActions.style.display = 'none';
+    let allEcrs = []; // To store all ECRs for client-side filtering
+
+    const renderTableRows = (ecrsToRender) => {
+        const tableBody = dom.viewContent.querySelector('#ecr-control-table-body');
+        if (!tableBody) return;
+
+        if (ecrsToRender.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="20" class="text-center py-16 text-gray-500">No se encontraron ECRs que coincidan con la búsqueda.</td></tr>`;
+            return;
+        }
+
+        const statusPill = (status) => {
+            if (!status) return `<span class="status-pill bg-gray-200 text-gray-800">N/A</span>`;
+            const statusMap = {
+                'approved': { text: 'Aprobado', class: 'status-green' },
+                'in-progress': { text: 'En Progreso', class: 'status-yellow' },
+                'rejected': { text: 'Rechazado', class: 'status-red' }
+            };
+            const s = statusMap[status] || { text: status, class: 'bg-gray-200 text-gray-800' };
+            return `<span class="status-pill ${s.class}">${s.text}</span>`;
+        };
+
+        tableBody.innerHTML = ecrsToRender.map(ecr => {
+            const origem = ecr.origen_cliente ? 'Cliente' : (ecr.origen_interno ? 'Interno' : (ecr.origen_proveedor ? 'Proveedor' : (ecr.origen_reglamentacion ? 'Reglamentación' : 'N/A')));
+            const tipoEcr = ecr.tipo_producto ? 'Producto' : (ecr.tipo_proceso ? 'Proceso' : (ecr.tipo_otro ? ecr.tipo_otro_text || 'Otro' : 'N/A'));
+
+            // Asynchronously fetch related ECO status
+            const ecoStatusCellId = `eco-status-${ecr.id}`;
+            if (ecr.id) {
+                getDoc(doc(db, COLLECTIONS.ECO_FORMS, ecr.id)).then(ecoSnap => {
+                    const ecoStatus = ecoSnap.exists() ? ecoSnap.data().status : null;
+                    const cell = document.getElementById(ecoStatusCellId);
+                    if (cell) {
+                        cell.innerHTML = statusPill(ecoStatus);
+                    }
+                });
+            }
+
+            return `
+            <tr class="hover:bg-slate-50 transition-colors">
+                <td class="px-3 py-2">${ecr.id || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.cliente || 'N/A'}</td>
+                <td class="px-3 py-2">${'MAL'}</td>
+                <td class="px-3 py-2">${origem}</td>
+                <td class="px-3 py-2">${tipoEcr}</td>
+                <td class="px-3 py-2">${ecr.fecha_emision || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.denominacion_producto || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.codigo_barack || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.codigo_cliente || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.equipo_c1_0 || ecr.modifiedBy || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.fecha_cierre || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.fecha_realizacion_ecr || 'N/A'}</td>
+                <td class="px-3 py-2">${statusPill(ecr.status)}</td>
+                <td class="px-3 py-2" id="${ecoStatusCellId}">${statusPill(null)}</td>
+                <td class="px-3 py-2 whitespace-normal">${ecr.situacion_propuesta || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.causas_solicitud || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.comentarios_alertas || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.componentes_obsoletos || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.accion_objetiva || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.final_coordinador || 'N/A'}</td>
+            </tr>
+        `}).join('');
+    };
+
+    const filterAndRender = () => {
+        const searchTerm = dom.viewContent.querySelector('#ecr-control-search').value.toLowerCase();
+        if (!searchTerm) {
+            renderTableRows(allEcrs);
+            return;
+        }
+        const filtered = allEcrs.filter(ecr =>
+            Object.values(ecr).some(val =>
+                String(val).toLowerCase().includes(searchTerm)
+            )
+        );
+        renderTableRows(filtered);
+    };
+
+    const viewHTML = `
+    <div class="bg-white p-6 rounded-xl shadow-lg animate-fade-in-up">
+        <style>
+            .status-pill { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 9999px; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+            .status-green { background-color: #d1fae5; color: #065f46; }
+            .status-yellow { background-color: #fef9c3; color: #854d0e; }
+            .status-red { background-color: #fee2e2; color: #991b1b; }
+            .corporate-header { background-color: #4A5568; color: white; }
+            .modern-table { border-collapse: collapse; width: 100%; font-size: 0.8rem; table-layout: fixed; min-width: 2400px;}
+            .modern-table th, .modern-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #E2E8F0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .modern-table th { font-weight: bold; }
+            .modern-table th:nth-child(15), .modern-table td:nth-child(15) { width: 400px; white-space: normal; }
+            .modern-table th:nth-child(16), .modern-table td:nth-child(16) { width: 250px; white-space: normal; }
+            .modern-table th:nth-child(17), .modern-table td:nth-child(17) { width: 250px; white-space: normal; }
+            .modern-table th:nth-child(7), .modern-table td:nth-child(7) { width: 250px; white-space: normal; }
+        </style>
+        <header class="flex justify-between items-start mb-6">
+            <div class="flex items-center gap-4">
+                <img src="barack_logo.png" alt="Logo BARACK MERCOSUL" class="h-12 w-auto">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800" style="font-family: 'Inter', sans-serif;">Tabla de Control ECR</h1>
+                    <p class="text-gray-500 text-sm">Hoja de seguimiento de proyectos corporativa</p>
+                </div>
+            </div>
+            <div class="text-sm text-gray-600 text-right">
+                <div><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-AR')}</div>
+                <div><strong>Responsable:</strong> ${appState.currentUser.name}</div>
+            </div>
+        </header>
+
+        <div class="mb-4">
+            <div class="relative">
+                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
+                <input type="text" id="ecr-control-search" placeholder="Buscar en todos los campos..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full shadow-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+
+        <div class="overflow-x-auto border border-slate-200 rounded-lg">
+            <table class="modern-table">
+                <thead class="corporate-header">
+                    <tr>
+                        <th>N° de ECR</th>
+                        <th>Cliente</th>
+                        <th>Site</th>
+                        <th>Origem del Pedido (Cliente ou interno)</th>
+                        <th>Tipo ECR</th>
+                        <th>Fecha de Abertura</th>
+                        <th>Producto Afectado</th>
+                        <th>Código Programa</th>
+                        <th>SIC</th>
+                        <th>Responsable</th>
+                        <th>Plazo ECR</th>
+                        <th>Fecha realizacion ECR</th>
+                        <th>Status ECR</th>
+                        <th>Status ECO</th>
+                        <th>Descripcion</th>
+                        <th>Causas Quien solicito el pedido</th>
+                        <th>Comentarios N°de Alert / Fete / concert</th>
+                        <th>Componente Obsoletos</th>
+                        <th>Accion Objetiva</th>
+                        <th>Responsable</th>
+                    </tr>
+                </thead>
+                <tbody id="ecr-control-table-body">
+                    <tr><td colspan="20" class="text-center py-16 text-gray-500"><i data-lucide="loader" class="animate-spin h-8 w-8 mx-auto"></i><p class="mt-2">Cargando datos...</p></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    `;
+    dom.viewContent.innerHTML = viewHTML;
+    lucide.createIcons();
+
+    dom.viewContent.querySelector('#ecr-control-search').addEventListener('input', filterAndRender);
+
+    const unsubscribe = onSnapshot(collection(db, COLLECTIONS.ECR_FORMS), (snapshot) => {
+        allEcrs = snapshot.docs.map(doc => doc.data());
+        filterAndRender(); // Render with current search term
+    }, (error) => {
+        console.error("Error fetching ECRs for control panel:", error);
+        showToast('Error al cargar los datos de ECR.', 'error');
+        const tableBody = dom.viewContent.querySelector('#ecr-control-table-body');
+        if (tableBody) {
+            tableBody.innerHTML = `<tr><td colspan="20" class="text-center py-16 text-red-500"><i data-lucide="alert-triangle" class="mx-auto h-8 w-8"></i><p class="mt-2">Error al cargar los datos.</p></td></tr>`;
+            lucide.createIcons();
+        }
+    });
+
+    appState.currentViewCleanup = () => {
+        unsubscribe();
+    };
+}
+
+async function runIndicadoresEcmViewLogic() {
+    dom.headerActions.style.display = 'none';
+    let activeDashboardUnsub = null;
     let ecrChart = null;
     let ecoChart = null;
     let obsoletosChart = null;
-    let activeUnsubscribes = [];
 
     const cleanup = () => {
         if (ecrChart) ecrChart.destroy();
@@ -1979,11 +2141,13 @@ async function runControlEcrsLogic() {
         ecrChart = null;
         ecoChart = null;
         obsoletosChart = null;
-        activeUnsubscribes.forEach(unsub => unsub());
-        activeUnsubscribes = [];
+        if (activeDashboardUnsub) {
+            activeDashboardUnsub();
+            activeDashboardUnsub = null;
+        }
     };
 
-    const renderDashboard = () => {
+    const renderIndicadorEcmView = () => {
         cleanup();
         const currentYear = new Date().getFullYear();
         let yearOptions = '';
@@ -1994,34 +2158,19 @@ async function runControlEcrsLogic() {
 
         const viewHTML = `
             <div class="animate-fade-in space-y-8">
-                <!-- Header -->
                 <div class="flex flex-col md:flex-row justify-between items-center gap-4">
-                     <h2 class="text-3xl font-bold text-slate-800">Panel de Control de Indicadores ECO/ECR</h2>
+                     <div>
+                        <button data-view="control_ecrs" class="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-800 mb-2">
+                            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                            Volver al Panel de Control
+                        </button>
+                        <h2 class="text-3xl font-bold text-slate-800">Indicadores ECM</h2>
+                    </div>
                     <div class="flex items-center gap-2">
-                        <label for="dashboard-year-filter" class="text-sm font-medium">Período:</label>
-                        <select id="dashboard-year-filter" class="border-gray-300 rounded-md shadow-sm">${yearOptions}</select>
+                        <label for="ecm-year-filter" class="text-sm font-medium">Período:</label>
+                        <select id="ecm-year-filter" class="border-gray-300 rounded-md shadow-sm">${yearOptions}</select>
                     </div>
                 </div>
-
-                <!-- Quick Actions Navigation -->
-                <section>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <a href="#" data-view="ecr" class="nav-link dashboard-action-card bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 p-6 flex items-center gap-6 transform hover:-translate-y-1">
-                            <i data-lucide="file-plus-2" class="w-12 h-12 text-blue-600"></i>
-                            <div>
-                                <h4 class="text-xl font-bold text-slate-800">Gestionar ECRs</h4>
-                                <p class="text-slate-500">Ver, crear y editar Engineering Change Requests.</p>
-                            </div>
-                        </a>
-                        <a href="#" data-view="eco" class="nav-link dashboard-action-card bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 p-6 flex items-center gap-6 transform hover:-translate-y-1">
-                            <i data-lucide="recycle" class="w-12 h-12 text-green-600"></i>
-                            <div>
-                                <h4 class="text-xl font-bold text-slate-800">Gestionar ECOs</h4>
-                                <p class="text-slate-500">Ver, crear y editar Engineering Change Orders.</p>
-                            </div>
-                        </a>
-                    </div>
-                </section>
 
                 <!-- ECR Section -->
                 <section class="bg-white p-6 rounded-xl shadow-lg">
@@ -2078,30 +2227,24 @@ async function runControlEcrsLogic() {
         dom.viewContent.innerHTML = viewHTML;
         lucide.createIcons();
 
-        const updateDashboardData = () => {
-            const yearFilter = document.getElementById('dashboard-year-filter');
+        const updateEcmDashboard = () => {
+            const yearFilter = document.getElementById('ecm-year-filter');
             if (!yearFilter || !appState.isAppInitialized) return;
             const selectedYear = parseInt(yearFilter.value, 10);
 
             // ECR Data
             const ecrDocs = appState.collections[COLLECTIONS.ECR_FORMS] || [];
             const filteredEcrs = ecrDocs.filter(ecr => ecr.fecha_emision && new Date(ecr.fecha_emision).getFullYear() === selectedYear);
-
             let ecrAbierta = 0, ecrCancelada = 0, ecrCerradaPlazo = 0, ecrCerradaFueraPlazo = 0;
             filteredEcrs.forEach(ecr => {
                 if (ecr.status === 'in-progress') ecrAbierta++;
                 else if (ecr.status === 'rejected') ecrCancelada++;
                 else if (ecr.status === 'approved') {
-                    // Check if fecha_emision and lastModified are valid
                     if (ecr.fecha_emision && ecr.lastModified?.toDate) {
-                        const fechaEmision = new Date(ecr.fecha_emision + "T00:00:00"); // Ensure it's parsed correctly
+                        const fechaEmision = new Date(ecr.fecha_emision + "T00:00:00");
                         const fechaCierre = ecr.lastModified.toDate();
                         const diffDays = (fechaCierre - fechaEmision) / (1000 * 60 * 60 * 24);
-                        if(diffDays <= 30) {
-                            ecrCerradaPlazo++;
-                        } else {
-                            ecrCerradaFueraPlazo++;
-                        }
+                        diffDays <= 30 ? ecrCerradaPlazo++ : ecrCerradaFueraPlazo++;
                     }
                 }
             });
@@ -2114,7 +2257,7 @@ async function runControlEcrsLogic() {
             const ecrChartCtx = document.getElementById('ecr-doughnut-chart')?.getContext('2d');
             if (ecrChartCtx) {
                 if (ecrChart) ecrChart.destroy();
-                ecrChart = new Chart(ecrChartCtx, createDashboardChartConfig('doughnut', ["Abiertas", "Canceladas", "En Plazo", "Fuera de Plazo"], [ecrAbierta, ecrCancelada, ecrCerradaPlazo, ecrCerradaFueraPlazo]));
+                ecrChart = new Chart(ecrChartCtx, createDashboardChartConfig('doughnut', ["Abiertas", "Canceladas", "En Plazo", "Fuera de Plazo"], [ecrAbierta, ecrCancelada, ecrCerradaPlazo, ecrCerradaFueraPlazo], "Distribución de ECRs"));
             }
 
             // ECO Data
@@ -2123,7 +2266,6 @@ async function runControlEcrsLogic() {
             const ecoPendiente = filteredEcos.filter(eco => eco.status === 'in-progress').length;
             const ecoApertura = filteredEcos.filter(eco => eco.status === 'approved').length;
             const ecoRechazada = filteredEcos.filter(eco => eco.status === 'rejected').length;
-
             document.getElementById('eco-kpi-cards').innerHTML =
                 createKpiCard("ECO Pendiente", ecoPendiente, 'hourglass', 'yellow') +
                 createKpiCard("ECO Apertura", ecoApertura, 'folder-check', 'green') +
@@ -2132,16 +2274,14 @@ async function runControlEcrsLogic() {
             const ecoChartCtx = document.getElementById('eco-pie-chart')?.getContext('2d');
             if (ecoChartCtx) {
                 if (ecoChart) ecoChart.destroy();
-                ecoChart = new Chart(ecoChartCtx, createDashboardChartConfig('pie', ["Pendiente", "Apertura", "Rechazada"], [ecoPendiente, ecoApertura, ecoRechazada]));
+                ecoChart = new Chart(ecoChartCtx, createDashboardChartConfig('pie', ["Pendiente", "Apertura", "Rechazada"], [ecoPendiente, ecoApertura, ecoRechazada], "Distribución de ECOs"));
             }
 
             // Obsoletos Data (dummy data as requested)
-            const s1 = 0;
-            const s2 = 0;
+            const s1 = 0; const s2 = 0;
             document.getElementById('obsoletos-anual').textContent = s1 + s2;
             document.getElementById('obsoletos-s1').textContent = s1;
             document.getElementById('obsoletos-s2').textContent = s2;
-
             const obsoletosChartCtx = document.getElementById('obsoletos-bar-chart')?.getContext('2d');
             if (obsoletosChartCtx) {
                  if (obsoletosChart) obsoletosChart.destroy();
@@ -2149,37 +2289,72 @@ async function runControlEcrsLogic() {
                     type: 'bar',
                     data: {
                         labels: ['Semestre 1', 'Semestre 2'],
-                        datasets: [{
-                            label: 'Cantidad de Obsoletos',
-                            data: [s1, s2],
-                            backgroundColor: ['#60a5fa', '#3b82f6'],
-                            borderRadius: 4,
-                            maxBarThickness: 50
-                        }]
+                        datasets: [{ label: 'Cantidad de Obsoletos', data: [s1, s2], backgroundColor: ['#60a5fa', '#3b82f6'], borderRadius: 4, maxBarThickness: 50 }]
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } }
-                    }
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } } }
                  });
             }
-
             lucide.createIcons();
         };
 
-        document.getElementById('dashboard-year-filter').addEventListener('change', updateDashboardData);
-
-        const unsub1 = onSnapshot(collection(db, COLLECTIONS.ECR_FORMS), updateDashboardData);
-        const unsub2 = onSnapshot(collection(db, COLLECTIONS.ECO_FORMS), updateDashboardData);
-        activeUnsubscribes.push(unsub1, unsub2);
-
-        updateDashboardData();
+        document.getElementById('ecm-year-filter').addEventListener('change', updateEcmDashboard);
+        const unsub1 = onSnapshot(collection(db, COLLECTIONS.ECR_FORMS), updateEcmDashboard);
+        const unsub2 = onSnapshot(collection(db, COLLECTIONS.ECO_FORMS), updateEcmDashboard);
+        activeDashboardUnsub = () => { unsub1(); unsub2(); };
+        updateEcmDashboard();
     };
 
-    renderDashboard();
+    renderIndicadorEcmView();
     appState.currentViewCleanup = cleanup;
+}
+
+async function runControlEcrsLogic() {
+    dom.headerActions.style.display = 'none';
+
+    const viewHTML = `
+        <div class="animate-fade-in-up">
+            <div class="text-center mb-12">
+                <h2 class="text-4xl font-extrabold text-slate-800">Panel de Control</h2>
+                <p class="text-lg text-slate-500 mt-2">Seleccione un módulo para visualizar.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                <a href="#" data-view="ecr_table_view" class="nav-link dashboard-card bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer overflow-hidden transform hover:-translate-y-1">
+                    <div class="p-6 bg-slate-700 text-white">
+                        <div class="flex items-center gap-4">
+                            <i data-lucide="table-properties" class="w-10 h-10"></i>
+                            <div>
+                                <h3 class="text-2xl font-bold">Tabla de Control ECR</h3>
+                                <p class="opacity-90">Hoja de seguimiento de proyectos.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <p class="text-slate-600">Ver y gestionar la tabla maestra de todos los Engineering Change Requests (ECR).</p>
+                    </div>
+                </a>
+                <a href="#" data-view="indicadores_ecm_view" class="nav-link dashboard-card bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer overflow-hidden transform hover:-translate-y-1">
+                    <div class="p-6 bg-blue-600 text-white">
+                        <div class="flex items-center gap-4">
+                            <i data-lucide="bar-chart-3" class="w-10 h-10"></i>
+                            <div>
+                                <h3 class="text-2xl font-bold">Indicadores ECM</h3>
+                                <p class="opacity-90">Dashboard de ECR / ECO.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <p class="text-slate-600">Visualizar KPIs y gráficos sobre el estado y rendimiento de los ECRs y ECOs.</p>
+                    </div>
+                </a>
+            </div>
+        </div>
+    `;
+
+    dom.viewContent.innerHTML = viewHTML;
+    lucide.createIcons();
+
+    // No specific cleanup needed for this simple view
+    appState.currentViewCleanup = () => {};
 }
 
 async function runEcrFormLogic(params = null) {
@@ -3095,8 +3270,24 @@ function handleGodModeRoleChange(role) {
 
 function handleGlobalClick(e) {
     const target = e.target;
+
+    // Generic view switcher
+    const viewLink = target.closest('[data-view]');
+    if (viewLink && !viewLink.closest('.dropdown-toggle')) {
+        e.preventDefault();
+        const viewName = viewLink.dataset.view;
+        const params = viewLink.dataset.params ? JSON.parse(viewLink.dataset.params) : null;
+        switchView(viewName, params);
+
+        // Close any open dropdowns after a view switch
+        const openDropdown = viewLink.closest('.nav-dropdown.open');
+        if (openDropdown) {
+            openDropdown.classList.remove('open');
+        }
+        return; // Prioritize view switching
+    }
+
     const authLink = target.closest('a[data-auth-screen]');
-    const profileLink = target.closest('a[data-view="profile"]');
     if (authLink) {
         e.preventDefault();
         const verifyPanel = document.getElementById('verify-email-panel');
@@ -3105,13 +3296,6 @@ function handleGlobalClick(e) {
         } else {
             showAuthScreen(authLink.dataset.authScreen);
         }
-        return;
-    }
-    
-    if(profileLink) {
-        e.preventDefault();
-        document.getElementById('user-dropdown')?.classList.add('hidden');
-        switchView(profileLink.dataset.view);
         return;
     }
     
