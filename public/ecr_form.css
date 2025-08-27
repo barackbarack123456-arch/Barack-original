@@ -140,6 +140,41 @@ body {
     align-items: center;
 }
 
+/* New Grid Layout for ECR Objectives section */
+.ecr-grid-section {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border: 1px solid black;
+    border-radius: 4px;
+    margin-top: 1rem;
+    overflow: hidden; /* Ensures the border-radius is respected by children */
+}
+
+.ecr-grid-header {
+    background-color: #e5e7eb; /* gray-200 */
+    font-weight: bold;
+    padding: 4px 6px;
+    border-bottom: 1px solid black;
+    text-align: center;
+}
+
+/* Add border to all but the last header */
+.ecr-grid-header:not(:last-child) {
+    border-right: 1px solid black;
+}
+
+.ecr-grid-cell {
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem; /* Same as checkbox-group for consistency */
+}
+
+/* Add border to all but the last cell in a row */
+.ecr-grid-cell:not(:last-child) {
+    border-right: 1px solid black;
+}
+
 /* Two-column layout for "Situacion" */
 .two-column-layout {
     display: grid;
