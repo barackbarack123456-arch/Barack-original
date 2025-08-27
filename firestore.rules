@@ -19,8 +19,8 @@ service cloud.firestore {
 
     // --- USUARIOS ---
     match /usuarios/{userId} {
-      // Los admins pueden listar todos los usuarios.
-      allow list: if isUserAdmin();
+      // Cualquier usuario autenticado puede listar los usuarios para asignación de tareas.
+      allow list: if request.auth != null;
 
       // Un usuario puede leer su propio perfil. Los admins pueden leer todos.
       allow read: if request.auth.uid == userId || isUserAdmin();
@@ -88,6 +88,11 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create, update: if canCreateUpdate();
       allow delete: if isUserAdmin();
+    }
+
+    match /action_plans/{planId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if canCreateUpdate();
     }
 
     match /eco_forms/{ecoId} {
