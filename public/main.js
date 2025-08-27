@@ -1801,6 +1801,11 @@ async function runEcoLogic() {
 
     appState.currentViewCleanup = () => {
         unsubscribe();
+        // Clean up drag-to-scroll event listeners
+        slider.removeEventListener('mousedown', mouseDownHandler);
+        slider.removeEventListener('mouseleave', mouseLeaveHandler);
+        slider.removeEventListener('mouseup', mouseUpHandler);
+        slider.removeEventListener('mousemove', mouseMoveHandler);
     };
 }
 
@@ -2129,6 +2134,43 @@ async function runEcrTableViewLogic() {
     dom.viewContent.querySelector('#ecr-control-search').addEventListener('input', filterAndRender);
     dom.viewContent.querySelector('#ecr-client-filter').addEventListener('change', filterAndRender);
     dom.viewContent.querySelector('#ecr-status-filter').addEventListener('change', filterAndRender);
+
+    // --- Drag-to-scroll logic ---
+    const slider = dom.viewContent.querySelector('.ecr-control-table-container');
+    let isDown = false;
+    let startX;
+    let scrollLeft;
+
+    const mouseDownHandler = (e) => {
+        isDown = true;
+        slider.classList.add('active');
+        startX = e.pageX - slider.offsetLeft;
+        scrollLeft = slider.scrollLeft;
+    };
+
+    const mouseLeaveHandler = () => {
+        isDown = false;
+        slider.classList.remove('active');
+    };
+
+    const mouseUpHandler = () => {
+        isDown = false;
+        slider.classList.remove('active');
+    };
+
+    const mouseMoveHandler = (e) => {
+        if (!isDown) return;
+        e.preventDefault();
+        const x = e.pageX - slider.offsetLeft;
+        const walk = (x - startX) * 2; // The multiplier makes scrolling faster
+        slider.scrollLeft = scrollLeft - walk;
+    };
+
+    slider.addEventListener('mousedown', mouseDownHandler);
+    slider.addEventListener('mouseleave', mouseLeaveHandler);
+    slider.addEventListener('mouseup', mouseUpHandler);
+    slider.addEventListener('mousemove', mouseMoveHandler);
+
 
     const unsubscribe = onSnapshot(collection(db, COLLECTIONS.ECR_FORMS), (snapshot) => {
         allEcrs = snapshot.docs.map(doc => doc.data());

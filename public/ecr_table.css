@@ -4,6 +4,12 @@
     overflow-x: auto;
     background-color: white;
     padding: 0; /* Remove padding to allow table to fill container */
+    cursor: grab;
+    user-select: none; /* Prevent text selection while dragging */
+}
+
+.ecr-control-table-container.active {
+    cursor: grabbing;
 }
 
 .modern-table {
