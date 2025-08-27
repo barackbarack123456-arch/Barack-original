@@ -27,3 +27,19 @@ This file contains guidelines and lessons learned for AI agents working on this 
 *   **Form Modals:** The `openFormModal` function is generic and driven by the `viewConfig` object. It can be extended to support new field types and configurations.
 *   **Styling:** The project uses TailwindCSS. All new UI should conform to this styling.
 *   **Icons:** The project uses the Lucide icon library. Refer to the official Lucide website for a list of available icons.
+
+## Development Credentials
+
+To run the application and verify frontend changes, use the following credentials for login:
+
+- **Username:** `f.santoro@barackmercosul.com`
+- **Password:** `$oof@k24`
+
+## Verification Workflow
+
+The application is a static site but uses ES modules, which are blocked by browser CORS policies when running from `file:///`. To verify changes, you must use a local HTTP server.
+
+1.  Navigate to the `public` directory: `cd public`
+2.  Start a simple Python HTTP server: `python -m http.server 8080 &`
+3.  In your Playwright verification script, navigate to `http://localhost:8080`.
+4.  After verification, stop the server with `kill %1`.
