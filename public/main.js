@@ -1298,6 +1298,15 @@ async function runEcoFormLogic(params = null) {
                 </div>
             </header>
             <main id="dynamic-form-sections"></main>
+            <div id="ppap-confirmation-container" class="hidden mt-6 p-4 border-2 border-yellow-400 bg-yellow-50 rounded-lg">
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" name="ppap_completed_confirmation" class="h-5 w-5 rounded text-blue-600 focus:ring-blue-500 border-gray-300">
+                    <div class="flex-grow">
+                        <p class="font-bold text-yellow-800">Confirmación de PPAP Requerida</p>
+                        <p class="text-sm text-yellow-700">El ECR asociado indica que se requiere un PPAP. Marque esta casilla para confirmar que el PPAP ha sido completado y aprobado por el cliente antes de cerrar este ECO.</p>
+                    </div>
+                </label>
+            </div>
             <div id="action-buttons-container" class="mt-8 flex justify-end space-x-4">
                 <button type="button" id="eco-save-button" class="bg-gray-500 text-white px-6 py-2 rounded-md hover:bg-gray-600">Guardar Progreso</button>
                 <button type="button" id="eco-clear-button" class="bg-yellow-500 text-white px-6 py-2 rounded-md hover:bg-yellow-600">Limpiar Formulario</button>
@@ -1526,8 +1535,19 @@ async function runEcoFormLogic(params = null) {
             ecrInput.value = ecrDataFromParam.id;
             ecrInput.readOnly = true;
             ecrInput.classList.add('bg-gray-100', 'cursor-not-allowed');
-            // We can pre-populate more fields here in the future if needed.
-            // For now, just setting the ECR number is the key requirement.
+
+            // Pre-populate other relevant fields from the ECR
+            const fieldsToPrepopulate = {
+                'name_eng_producto': ecrDataFromParam.equipo_c1_2, // Ing. Producto
+                'comments_eng_producto': `Basado en la situación propuesta en el ECR ${ecrDataFromParam.id}:\n${ecrDataFromParam.situacion_propuesta || ''}`
+            };
+
+            for (const fieldName in fieldsToPrepopulate) {
+                const element = formElement.querySelector(`[name="${fieldName}"]`);
+                if (element && !element.value) { // Don't overwrite if already has a value (e.g., from local storage)
+                    element.value = fieldsToPrepopulate[fieldName];
+                }
+            }
 
             // Also check local storage in case the user started filling it and refreshed
             loadEcoFormFromLocalStorage();
@@ -1641,62 +1661,68 @@ async function runEcoFormLogic(params = null) {
             });
         });
 
-        const validateEcoForm = () => {
-            // Clear previous errors first
+        // This function now handles all validation logic, including the new business rules.
+        const validateAndApproveEco = async () => {
             formElement.querySelectorAll('.validation-error').forEach(el => el.classList.remove('validation-error'));
-            let isValid = true;
+            let errorMessages = [];
             const ERROR_CLASS = 'validation-error';
 
+            // Rule 1: Check for any "NOK" status
+            let hasNok = false;
             formSectionsData.forEach(section => {
                 if (section.checklist) {
-                    // Rule 1: For each section, if the status is "NOK", the comments field must have text.
                     const nokRadio = formElement.querySelector(`input[name="status_${section.id}"][value="nok"]`);
                     if (nokRadio && nokRadio.checked) {
-                        const commentsTextarea = formElement.querySelector(`#comments_${section.id}`);
-                        if (commentsTextarea && commentsTextarea.value.trim() === '') {
-                            isValid = false;
-                            commentsTextarea.classList.add(ERROR_CLASS);
-                            nokRadio.closest('label').classList.add(ERROR_CLASS);
-                        }
-                    }
-
-                    // Rule 2: For each item, one of the two checkboxes ("SI" or "N/A") must be marked.
-                    section.checklist.forEach((item, index) => {
-                        const si_checkbox = formElement.querySelector(`input[name="check_${section.id}_${index}_si"]`);
-                        const na_checkbox = formElement.querySelector(`input[name="check_${section.id}_${index}_na"]`);
-
-                        if (si_checkbox && na_checkbox && !si_checkbox.checked && !na_checkbox.checked) {
-                            isValid = false;
-                            // Find the parent .checklist-item and highlight it
-                            si_checkbox.closest('.checklist-item').classList.add(ERROR_CLASS);
-                        }
-                    });
-
-                    // Rule 3: Each section must have a final status ("OK" or "NOK") selected.
-                    const statusRadio = formElement.querySelector(`input[name="status_${section.id}"]:checked`);
-                    if (!statusRadio) {
-                        isValid = false;
-                        const statusOptionsContainer = formElement.querySelector(`input[name="status_${section.id}"]`).closest('.status-options');
-                        if (statusOptionsContainer) {
-                            statusOptionsContainer.classList.add(ERROR_CLASS);
-                        }
+                        hasNok = true;
+                        nokRadio.closest('.department-footer').classList.add(ERROR_CLASS);
                     }
                 }
             });
+            if (hasNok) {
+                errorMessages.push('No se puede aprobar: una o más secciones están marcadas como "NOK".');
+            }
 
-            return isValid;
+            // Rule 2: Check PPAP confirmation if required
+            const ecrNo = formElement.querySelector('[name="ecr_no"]').value;
+            if (ecrNo) {
+                const ecrDocRef = doc(db, COLLECTIONS.ECR_FORMS, ecrNo);
+                const ecrDocSnap = await getDoc(ecrDocRef);
+                if (ecrDocSnap.exists() && ecrDocSnap.data().cliente_requiere_ppap) {
+                    const ppapContainer = document.getElementById('ppap-confirmation-container');
+                    ppapContainer.classList.remove('hidden'); // Make sure it's visible
+                    const ppapCheckbox = formElement.querySelector('[name="ppap_completed_confirmation"]');
+                    if (!ppapCheckbox.checked) {
+                        errorMessages.push('Se requiere confirmación de PPAP antes de aprobar este ECO.');
+                        ppapContainer.classList.add(ERROR_CLASS);
+                    }
+                }
+            }
+
+            // Rule 3: Validate all fields are filled (original logic)
+            formSectionsData.forEach(section => {
+                 if (section.checklist) {
+                    const statusRadio = formElement.querySelector(`input[name="status_${section.id}"]:checked`);
+                    if (!statusRadio) {
+                        errorMessages.push(`La sección "${section.title}" debe tener un estado (OK/NOK).`);
+                        const statusOptionsContainer = formElement.querySelector(`input[name="status_${section.id}"]`).closest('.status-options');
+                        if (statusOptionsContainer) statusOptionsContainer.classList.add(ERROR_CLASS);
+                    }
+                 }
+            });
+
+
+            if (errorMessages.length > 0) {
+                showToast(errorMessages.join(' '), 'error', 5000);
+                return;
+            }
+
+            showConfirmationModal('Aprobar ECO', '¿Está seguro de que desea aprobar y guardar este ECO? Esta acción registrará la versión actual como aprobada.', () => {
+                saveEcoForm('approved');
+            });
         };
 
         saveButton.addEventListener('click', () => saveEcoForm('in-progress'));
-        approveButton.addEventListener('click', () => {
-            if (validateEcoForm()) {
-                showConfirmationModal('Aprobar ECO', '¿Está seguro de que desea aprobar y guardar este ECO? Esta acción registrará la versión actual como aprobada.', () => {
-                     saveEcoForm('approved');
-                });
-            } else {
-                showToast('Por favor, corrija los errores resaltados en el formulario.', 'error');
-            }
-        });
+        approveButton.addEventListener('click', validateAndApproveEco);
 
         appState.currentViewCleanup = () => {
             const ecoStyle = document.getElementById('eco-form-styles');
