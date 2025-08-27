@@ -327,7 +327,17 @@ function startRealtimeListeners() {
         let loadedCount = 0;
 
         collectionNames.forEach(name => {
-            const q = query(collection(db, name));
+            let q;
+            // For tasks, non-admins can only query tasks relevant to them, matching security rules.
+            if (name === COLLECTIONS.TAREAS && appState.currentUser.role !== 'admin') {
+                q = query(collection(db, name), or(
+                    where('isPublic', '==', true),
+                    where('assigneeUid', '==', appState.currentUser.uid),
+                    where('creatorUid', '==', appState.currentUser.uid)
+                ));
+            } else {
+                q = query(collection(db, name));
+            }
             const unsubscribe = onSnapshot(q, (querySnapshot) => {
                 const data = [];
                 const dataMap = new Map();
@@ -2062,9 +2072,11 @@ async function runEcrTableViewLogic() {
             .modern-table th:nth-child(17), .modern-table td:nth-child(17) { width: 250px; white-space: normal; }
             .modern-table th:nth-child(7), .modern-table td:nth-child(7) { width: 250px; white-space: normal; }
         </style>
-        <header class="flex justify-between items-start mb-6">
+        <header class="flex justify-between items-center mb-6">
             <div class="flex items-center gap-4">
-                <img src="barack_logo.png" alt="Logo BARACK MERCOSUL" class="h-12 w-auto">
+                 <button data-view="control_ecrs" class="flex items-center justify-center p-2 rounded-full hover:bg-slate-100 transition-colors">
+                    <i data-lucide="arrow-left" class="w-6 h-6 text-slate-600"></i>
+                </button>
                 <div>
                     <h1 class="text-2xl font-bold text-gray-800" style="font-family: 'Inter', sans-serif;">Tabla de Control ECR</h1>
                     <p class="text-gray-500 text-sm">Hoja de seguimiento de proyectos corporativa</p>
@@ -2090,6 +2102,10 @@ async function runEcrTableViewLogic() {
                     <option value="rejected">Rechazado</option>
                 </select>
             </div>
+        </div>
+
+        <div class="p-2 bg-slate-100 border border-slate-200 rounded-md text-center text-sm text-slate-600 mb-4">
+             <i data-lucide="info" class="inline-block w-4 h-4 mr-2 -mt-0.5"></i>Sugerencia: Desplácese horizontalmente en la tabla para ver todas las columnas.
         </div>
 
         <div class="overflow-x-auto border border-slate-200 rounded-lg">
@@ -2376,10 +2392,18 @@ async function runIndicadoresEcmViewLogic() {
             // Setup Action Plan listener
             if (actionPlanUnsub) actionPlanUnsub();
             const actionPlanCollection = collection(db, 'action_plans');
-            const q = query(actionPlanCollection, where("year", "==", selectedYear));
+            // Remove the where() clause to avoid needing a specific index.
+            // Filtering will be done on the client side.
+            const q = query(actionPlanCollection);
             actionPlanUnsub = onSnapshot(q, (snapshot) => {
-                const plans = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+                const currentSelectedYear = parseInt(document.getElementById('ecm-year-filter').value, 10);
+                const plans = snapshot.docs
+                    .map(doc => ({ ...doc.data(), docId: doc.id }))
+                    .filter(plan => plan.year === currentSelectedYear); // Filter by year on the client
                 renderActionPlan(plans);
+            }, (error) => {
+                console.error("Error listening to action plans:", error);
+                showToast("Error al cargar el plan de acción.", "error");
             });
         };
 
