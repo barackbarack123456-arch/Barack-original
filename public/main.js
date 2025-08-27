@@ -2513,6 +2513,13 @@ async function runEcrFormLogic(params = null) {
                 ${createTextField('Denominación del Producto:', 'denominacion_producto', '...', true)}
             </section>
 
+            <section class="form-row">
+                <div class="form-field">
+                    <label for="componentes_obsoletos" class="text-sm font-bold mb-1">Componentes Obsoletos (Cantidad):</label>
+                    <input type="number" name="componentes_obsoletos" id="componentes_obsoletos" placeholder="0" class="w-full" min="0">
+                </div>
+            </section>
+
             <div class="ecr-flex-section">
                 <div class="ecr-flex-header">OBJETIVO DE ECR</div>
                 <div class="ecr-flex-content ecr-flex-columns-2">
