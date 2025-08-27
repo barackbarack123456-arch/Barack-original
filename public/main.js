@@ -55,9 +55,11 @@ const viewConfig = {
     dashboard: { title: 'Dashboard', singular: 'Dashboard' },
     sinoptico_tabular: { title: 'Reporte BOM (Tabular)', singular: 'Reporte BOM (Tabular)' },
     eco_form: { title: 'ECO de Producto / Proceso', singular: 'ECO Form' },
-    ecos: { title: 'Gestión de ECOs', singular: 'ECO' },
+    eco_form: { title: 'ECO de Producto / Proceso', singular: 'ECO Form' },
+    eco: { title: 'Gestión de ECO', singular: 'ECO' },
     ecr_form: { title: 'ECR de Producto / Proceso', singular: 'ECR Form' },
-    ecrs: { title: 'Gestión de ECRs', singular: 'ECR' },
+    ecr: { title: 'Gestión de ECR', singular: 'ECR' },
+    control_ecrs: { title: 'Control de ECRs: Bancos / Interiores', singular: 'Control ECR' },
     flujograma: { title: 'Flujograma de Procesos', singular: 'Flujograma' },
     arboles: { title: 'Editor de Árboles', singular: 'Árbol' },
     profile: { title: 'Mi Perfil', singular: 'Mi Perfil' },
@@ -1146,8 +1148,9 @@ function switchView(viewName, params = null) {
     else if (viewName === 'arboles') renderArbolesInitialView();
     else if (viewName === 'profile') runProfileLogic();
     else if (viewName === 'tareas') runTasksLogic();
-    else if (viewName === 'ecos') runEcosLogic();
-    else if (viewName === 'ecrs') runEcrsLogic();
+    else if (viewName === 'eco') runEcoLogic();
+    else if (viewName === 'ecr') runEcrLogic();
+    else if (viewName === 'control_ecrs') runControlEcrsLogic();
     else if (viewName === 'eco_form') runEcoFormLogic(params);
     else if (viewName === 'ecr_form') runEcrFormLogic(params);
     else if (config?.dataKey) {
@@ -1483,7 +1486,7 @@ async function runEcoFormLogic(params = null) {
         // Always add a "Back" button
         const backButtonHTML = `<button type="button" id="eco-back-button" class="bg-gray-200 text-gray-800 px-6 py-2 rounded-md hover:bg-gray-300">Volver a la Lista</button>`;
         saveButton.insertAdjacentHTML('beforebegin', backButtonHTML);
-        document.getElementById('eco-back-button').addEventListener('click', () => switchView('ecos'));
+        document.getElementById('eco-back-button').addEventListener('click', () => switchView('eco'));
 
         if (isEditing) {
             ecrInput.readOnly = true;
@@ -1497,7 +1500,7 @@ async function runEcoFormLogic(params = null) {
                 populateEcoForm(formElement, docSnap.data());
             } else {
                 showToast(`Error: No se encontró el ECO con ID ${ecoId}`, 'error');
-                switchView('ecos');
+                switchView('eco');
                 return;
             }
         } else {
@@ -1681,14 +1684,14 @@ async function runEcoFormLogic(params = null) {
     }
 }
 
-async function runEcosLogic() {
+async function runEcoLogic() {
     dom.headerActions.style.display = 'none'; // Ocultar acciones globales
 
     const viewHTML = `
         <div class="animate-fade-in-up">
             <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
                 <div>
-                    <h2 class="text-2xl font-bold text-slate-800">Planilla General de ECOs</h2>
+                    <h2 class="text-2xl font-bold text-slate-800">Planilla General de ECO</h2>
                     <p class="text-sm text-slate-500">Aquí puede ver, gestionar y crear nuevos ECOs.</p>
                 </div>
                 <div class="flex items-center gap-4">
@@ -1712,12 +1715,12 @@ async function runEcosLogic() {
                                 <th scope="col" class="px-6 py-3 text-right">Acciones</th>
                             </tr>
                         </thead>
-                        <tbody id="ecos-table-body">
+                        <tbody id="eco-table-body">
                             <tr>
                                 <td colspan="5" class="text-center py-16 text-gray-500">
                                     <div class="flex flex-col items-center gap-3">
                                         <i data-lucide="loader" class="w-12 h-12 text-gray-300 animate-spin"></i>
-                                        <h4 class="font-semibold">Cargando ECOs...</h4>
+                                        <h4 class="font-semibold">Cargando ECO...</h4>
                                     </div>
                                 </td>
                             </tr>
@@ -1741,11 +1744,11 @@ async function runEcosLogic() {
     const q = query(ecoFormsRef, orderBy('lastModified', 'desc'));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const ecosTableBody = document.getElementById('ecos-table-body');
-        if (!ecosTableBody) return;
+        const ecoTableBody = document.getElementById('eco-table-body');
+        if (!ecoTableBody) return;
 
         if (querySnapshot.empty) {
-            ecosTableBody.innerHTML = `<tr><td colspan="5" class="text-center py-16 text-gray-500"><i data-lucide="search-x" class="mx-auto h-16 w-16 text-gray-300"></i><h3 class="mt-4 text-lg font-semibold">No se encontraron ECOs</h3><p class="text-sm">Puede crear uno nuevo con el botón de arriba.</p></div></td></tr>`;
+            ecoTableBody.innerHTML = `<tr><td colspan="5" class="text-center py-16 text-gray-500"><i data-lucide="search-x" class="mx-auto h-16 w-16 text-gray-300"></i><h3 class="mt-4 text-lg font-semibold">No se encontraron ECOs</h3><p class="text-sm">Puede crear uno nuevo con el botón de arriba.</p></div></td></tr>`;
             lucide.createIcons();
             return;
         }
@@ -1786,13 +1789,13 @@ async function runEcosLogic() {
                 </tr>
             `;
         });
-        ecosTableBody.innerHTML = tableRowsHTML;
+        ecoTableBody.innerHTML = tableRowsHTML;
         lucide.createIcons();
     }, (error) => {
         console.error("Error fetching ECOs: ", error);
-        const ecosTableBody = document.getElementById('ecos-table-body');
-        if(ecosTableBody) {
-            ecosTableBody.innerHTML = `<tr><td colspan="5" class="text-center py-16 text-red-500"><i data-lucide="alert-triangle" class="mx-auto h-16 w-16"></i><h3 class="mt-4 text-lg font-semibold">Error al cargar ECOs</h3><p class="text-sm">${error.message}</p></div></td></tr>`;
+        const ecoTableBody = document.getElementById('eco-table-body');
+        if(ecoTableBody) {
+            ecoTableBody.innerHTML = `<tr><td colspan="5" class="text-center py-16 text-red-500"><i data-lucide="alert-triangle" class="mx-auto h-16 w-16"></i><h3 class="mt-4 text-lg font-semibold">Error al cargar ECO</h3><p class="text-sm">${error.message}</p></div></td></tr>`;
             lucide.createIcons();
         }
     });
@@ -1802,14 +1805,14 @@ async function runEcosLogic() {
     };
 }
 
-async function runEcrsLogic() {
+async function runEcrLogic() {
     dom.headerActions.style.display = 'none'; // Ocultar acciones globales
 
     const viewHTML = `
         <div class="animate-fade-in-up">
             <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
                 <div>
-                    <h2 class="text-2xl font-bold text-slate-800">Planilla General de ECRs</h2>
+                    <h2 class="text-2xl font-bold text-slate-800">Planilla General de ECR</h2>
                     <p class="text-sm text-slate-500">Aquí puede ver, gestionar y crear nuevos ECRs.</p>
                 </div>
                 <div class="flex items-center gap-4">
@@ -1830,12 +1833,12 @@ async function runEcrsLogic() {
                                 <th scope="col" class="px-6 py-3 text-right">Acciones</th>
                             </tr>
                         </thead>
-                        <tbody id="ecrs-table-body">
+                        <tbody id="ecr-table-body">
                             <tr>
                                 <td colspan="5" class="text-center py-16 text-gray-500">
                                     <div class="flex flex-col items-center gap-3">
                                         <i data-lucide="loader" class="w-12 h-12 text-gray-300 animate-spin"></i>
-                                        <h4 class="font-semibold">Cargando ECRs...</h4>
+                                        <h4 class="font-semibold">Cargando ECR...</h4>
                                     </div>
                                 </td>
                             </tr>
@@ -1857,11 +1860,11 @@ async function runEcrsLogic() {
     const q = query(ecrFormsRef, orderBy('lastModified', 'desc'));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const ecrsTableBody = document.getElementById('ecrs-table-body');
-        if (!ecrsTableBody) return;
+        const ecrTableBody = document.getElementById('ecr-table-body');
+        if (!ecrTableBody) return;
 
         if (querySnapshot.empty) {
-            ecrsTableBody.innerHTML = `<tr><td colspan="5" class="text-center py-16 text-gray-500"><i data-lucide="search-x" class="mx-auto h-16 w-16 text-gray-300"></i><h3 class="mt-4 text-lg font-semibold">No se encontraron ECRs</h3><p class="text-sm">Puede crear uno nuevo con el botón de arriba.</p></div></td></tr>`;
+            ecrTableBody.innerHTML = `<tr><td colspan="5" class="text-center py-16 text-gray-500"><i data-lucide="search-x" class="mx-auto h-16 w-16 text-gray-300"></i><h3 class="mt-4 text-lg font-semibold">No se encontraron ECRs</h3><p class="text-sm">Puede crear uno nuevo con el botón de arriba.</p></div></td></tr>`;
             lucide.createIcons();
             return;
         }
@@ -1898,13 +1901,13 @@ async function runEcrsLogic() {
                 </tr>
             `;
         });
-        ecrsTableBody.innerHTML = tableRowsHTML;
+        ecrTableBody.innerHTML = tableRowsHTML;
         lucide.createIcons();
     }, (error) => {
         console.error("Error fetching ECRs: ", error);
-        const ecrsTableBody = document.getElementById('ecrs-table-body');
-        if(ecrsTableBody) {
-            ecrsTableBody.innerHTML = `<tr><td colspan="5" class="text-center py-16 text-red-500"><i data-lucide="alert-triangle" class="mx-auto h-16 w-16"></i><h3 class="mt-4 text-lg font-semibold">Error al cargar ECRs</h3><p class="text-sm">${error.message}</p></div></td></tr>`;
+        const ecrTableBody = document.getElementById('ecr-table-body');
+        if(ecrTableBody) {
+            ecrTableBody.innerHTML = `<tr><td colspan="5" class="text-center py-16 text-red-500"><i data-lucide="alert-triangle" class="mx-auto h-16 w-16"></i><h3 class="mt-4 text-lg font-semibold">Error al cargar ECR</h3><p class="text-sm">${error.message}</p></div></td></tr>`;
             lucide.createIcons();
         }
     });
@@ -1912,6 +1915,130 @@ async function runEcrsLogic() {
     appState.currentViewCleanup = () => {
         unsubscribe();
     };
+}
+
+async function runControlEcrsLogic() {
+    dom.headerActions.style.display = 'none';
+
+    const viewHTML = `
+    <div class="bg-white p-8 rounded-xl shadow-lg animate-fade-in-up">
+        <style>
+            .status-pill {
+                display: inline-block;
+                padding: 0.25rem 0.75rem;
+                border-radius: 9999px;
+                font-weight: 600;
+                font-size: 0.8rem;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            .status-green {
+                background-color: #d1fae5;
+                color: #065f46;
+            }
+            .status-yellow {
+                background-color: #fef9c3;
+                color: #854d0e;
+            }
+            .status-red {
+                background-color: #fee2e2;
+                color: #991b1b;
+            }
+            .corporate-header {
+                background-color: #4A5568; /* Azul pizarra */
+                color: white;
+            }
+            .table-container {
+                border: 1px solid #E2E8F0;
+                border-radius: 0.75rem;
+                overflow: hidden;
+            }
+            .modern-table {
+                border-collapse: collapse;
+                width: 100%;
+            }
+            .modern-table th, .modern-table td {
+                padding: 1rem 1.25rem;
+                text-align: left;
+                border-bottom: 1px solid #E2E8F0;
+            }
+            .modern-table tbody tr:nth-child(even) {
+                background-color: #F7FAFC;
+            }
+            .modern-table tbody tr:hover {
+                background-color: #EDF2F7;
+            }
+        </style>
+        <header class="flex justify-between items-start mb-8">
+            <div class="flex items-center gap-4">
+                <img src="barack_logo.png" alt="Logo BARACK MERCOSUL" class="h-16 w-16">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800" style="font-family: 'Inter', sans-serif;">Control de ECRs: Bancos / Interiores</h1>
+                    <p class="text-gray-500">Hoja de seguimiento de proyectos corporativa</p>
+                </div>
+            </div>
+            <div class="text-sm text-gray-600">
+                <div><strong>Fecha de Revisión:</strong> ${new Date().toLocaleDateString('es-AR')}</div>
+                <div><strong>Responsable:</strong> Andrew Godoy</div>
+            </div>
+        </header>
+
+        <div class="table-container">
+            <table class="modern-table">
+                <thead class="corporate-header">
+                    <tr>
+                        <th>N° de Cli</th>
+                        <th>Cliente</th>
+                        <th>Site</th>
+                        <th>Origen del Pedido</th>
+                        <th>Tipo ECR</th>
+                        <th>Fecha de Apertura</th>
+                        <th>Producto Afectado</th>
+                        <th>Código Programa</th>
+                        <th>Solicitante (SC)</th>
+                        <th>Responsable</th>
+                        <th>Fecha ECR</th>
+                        <th>Fecha Notificación ECR</th>
+                        <th>Status ECR</th>
+                        <th>Status ECI</th>
+                        <th>Descripción</th>
+                        <th>Causa Solicitada</th>
+                        <th>Comentarios / Alertas</th>
+                        <th>Componentes Obsoletos</th>
+                        <th>Acción Objetivo</th>
+                        <th>Área Responsable Final</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>36-17</td>
+                        <td>PSA</td>
+                        <td>MAL</td>
+                        <td>Cliente</td>
+                        <td>Estrategia del Cliente</td>
+                        <td>07/07/2017</td>
+                        <td>Caja guantera XV #98103958 -- DP ST C&ADM...</td>
+                        <td>#98103958 -- DP ST C&ADM...</td>
+                        <td>ANDREW GODOY</td>
+                        <td>Andrew Godoy</td>
+                        <td>21/07/2017</td>
+                        <td>14/07/2017</td>
+                        <td><span class="status-pill status-green">Cerrado</span></td>
+                        <td><span class="status-pill status-green">Cerrado</span></td>
+                        <td>Caja de guantera: unificación de topes con los ya planificados en D16.</td>
+                        <td>Pedido del Cliente</td>
+                        <td>FETE-HICMA-D17</td>
+                        <td>0</td>
+                        <td>Consumir stock antes del corte</td>
+                        <td>Producción</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    `;
+    dom.viewContent.innerHTML = viewHTML;
+    lucide.createIcons();
 }
 
 async function runEcrFormLogic(params = null) {
@@ -2230,7 +2357,7 @@ async function runEcrFormLogic(params = null) {
             populateEcrForm(formContainer, docSnap.data());
         } else {
             showToast(`Error: No se encontró el ECR con ID ${ecrId}`, 'error');
-            switchView('ecrs');
+            switchView('ecr');
             return;
         }
     }
