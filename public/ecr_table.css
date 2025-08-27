@@ -23,7 +23,7 @@
 .modern-table th,
 .modern-table td {
     padding: 0.75rem;
-    text-align: left;
+    text-align: center;
     border-bottom: 1px solid #e2e8f0;
     white-space: nowrap;
     vertical-align: middle;
