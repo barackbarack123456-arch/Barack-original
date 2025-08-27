@@ -715,13 +715,14 @@ async function seedEcrs(batch, users, generatedData) {
 
     const getRandomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
     const getRandomDate = (start, end) => new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime())).toISOString().split('T')[0];
+    const currentYear = new Date().getFullYear();
 
     for (let i = 1; i <= TOTAL_ECRS; i++) {
         const user1 = getRandomItem(users);
         const product = getRandomItem(generatedData.productos || []);
         const client = getRandomItem(generatedData.clientes.filter(c => c.id === product.clienteId)) || getRandomItem(generatedData.clientes);
 
-        const ecrId = `ECR-2024-${String(i).padStart(3, '0')}`;
+        const ecrId = `ECR-${currentYear}-${String(i).padStart(3, '0')}`;
         const ecrData = {
             id: ecrId,
             ecr_no: ecrId,
@@ -735,11 +736,12 @@ async function seedEcrs(batch, users, generatedData) {
             proyecto: (getRandomItem(generatedData.proyectos) || {}).nombre || 'Proyecto Alpha',
             cliente: client?.descripcion || 'Cliente General',
             fase_serie: true,
-            fecha_emision: getRandomDate(new Date(2023, 0, 1), new Date()),
+            fecha_emision: getRandomDate(new Date(currentYear, 0, 1), new Date(currentYear, 11, 31)),
             codigo_barack: product?.id || `PROD-00${i}`,
             denominacion_producto: product?.descripcion || 'Componente de Muestra',
             situacion_existente: 'El componente actual presenta fallas de material bajo alta temperatura.',
             situacion_propuesta: 'Reemplazar el polímero por una aleación de aluminio 6061-T6 para mejorar la resistencia térmica y durabilidad.',
+            componentes_obsoletos: Math.floor(Math.random() * 11),
         };
 
         const docRef = doc(ecrFormsRef, ecrId);
@@ -985,7 +987,7 @@ async function seedDatabase() {
     // --- COMMIT FINAL ---
     try {
         await batch.commit();
-        showToast(`Carga masiva completada: ${TOTAL_PRODUCTS} productos y miles de componentes creados.`, 'success', 5000);
+        showToast('Carga masiva completada.', 'success', 5000);
         switchView('dashboard');
     } catch (error) {
         console.error("Error al cargar datos de prueba masivos: ", error);
@@ -2259,7 +2261,7 @@ async function runIndicadoresEcmViewLogic() {
 
             // ECR Data
             const ecrDocs = appState.collections[COLLECTIONS.ECR_FORMS] || [];
-            const filteredEcrs = ecrDocs.filter(ecr => ecr.fecha_emision && new Date(ecr.fecha_emision).getFullYear() === selectedYear);
+            const filteredEcrs = ecrDocs.filter(ecr => ecr.fecha_emision && new Date(ecr.fecha_emision + "T00:00:00").getFullYear() === selectedYear);
             let ecrAbierta = 0, ecrCancelada = 0, ecrCerradaPlazo = 0, ecrCerradaFueraPlazo = 0;
             filteredEcrs.forEach(ecr => {
                 if (ecr.status === 'in-progress') ecrAbierta++;
@@ -2302,8 +2304,25 @@ async function runIndicadoresEcmViewLogic() {
                 ecoChart = new Chart(ecoChartCtx, createDashboardChartConfig('pie', ["Pendiente", "Apertura", "Rechazada"], [ecoPendiente, ecoApertura, ecoRechazada], "Distribución de ECOs"));
             }
 
-            // Obsoletos Data (dummy data as requested)
-            const s1 = 0; const s2 = 0;
+            // Obsoletos Data (Calculated from ECRs)
+            let s1 = 0;
+            let s2 = 0;
+
+            if (filteredEcrs && filteredEcrs.length > 0) {
+                filteredEcrs.forEach(ecr => {
+                    const obsoletosValue = parseInt(ecr.componentes_obsoletos, 10);
+                    if (!isNaN(obsoletosValue)) {
+                        const ecrDate = new Date(ecr.fecha_emision + "T00:00:00");
+                        const month = ecrDate.getMonth(); // 0-11
+                        if (month < 6) { // Semestre 1 (Enero-Junio)
+                            s1 += obsoletosValue;
+                        } else { // Semestre 2 (Julio-Diciembre)
+                            s2 += obsoletosValue;
+                        }
+                    }
+                });
+            }
+
             document.getElementById('obsoletos-anual').textContent = s1 + s2;
             document.getElementById('obsoletos-s1').textContent = s1;
             document.getElementById('obsoletos-s2').textContent = s2;
