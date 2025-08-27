@@ -2044,13 +2044,38 @@ async function runEcrFormLogic(params = null) {
                 ${createTextField('Denominación del Producto:', 'denominacion_producto', '...', true)}
             </section>
 
-            <div class="ecr-grid-section">
-                <div class="ecr-grid-header">OBJETIVO DE ECR</div>
-                <div class="ecr-grid-header">TIPO DE ALTERACIÓN</div>
-                <div class="ecr-grid-header">AFECTA S/R</div>
-                <div class="ecr-grid-cell">${['Productividad', 'Mejora de calidad', 'Estrategia del Cliente', 'Estrategia Barack', 'Nacionalización'].map(l => createCheckbox(l, `obj_${l.toLowerCase().replace(/ /g,'_')}`)).join('')}</div>
-                <div class="ecr-grid-cell">${['Producto', 'Proceso', 'Fuente de suministro', 'Embalaje'].map(l => createCheckbox(l, `tipo_${l.toLowerCase().replace(/ /g,'_')}`)).join('')} <div class="flex items-center gap-2 mt-1"><input type="checkbox" id="tipo_otro" name="tipo_otro"><label for="tipo_otro" class="text-sm">Otro:</label><input name="tipo_otro_text" type="text" class="border-b-2 bg-transparent flex-grow"></div></div>
-                <div class="ecr-grid-cell">${['Relocalización de Planta', 'Modificación de Layout', 'Modificación de herramental'].map(l => createCheckbox(l, `afecta_${l.toLowerCase().replace(/ /g,'_')}`)).join('')}</div>
+            <div class="ecr-flex-section">
+                <div class="ecr-flex-header">OBJETIVO DE ECR</div>
+                <div class="ecr-flex-content ecr-flex-columns-2">
+                    <div class="ecr-flex-column">
+                        ${['Productividad', 'Mejora de calidad', 'Estrategia del Cliente'].map(l => createCheckbox(l, `obj_${l.toLowerCase().replace(/ /g, '_')}`)).join('')}
+                    </div>
+                    <div class="ecr-flex-column">
+                        ${['Estrategia Barack', 'Nacionalización'].map(l => createCheckbox(l, `obj_${l.toLowerCase().replace(/ /g, '_')}`)).join('')}
+                    </div>
+                </div>
+            </div>
+
+            <div class="ecr-flex-section">
+                <div class="ecr-flex-header">TIPO DE ALTERACIÓN</div>
+                <div class="ecr-flex-content ecr-flex-columns-2">
+                    <div class="ecr-flex-column">
+                        ${['Producto', 'Proceso'].map(l => createCheckbox(l, `tipo_${l.toLowerCase().replace(/ /g, '_')}`)).join('')}
+                    </div>
+                    <div class="ecr-flex-column">
+                        ${['Fuente de suministro', 'Embalaje'].map(l => createCheckbox(l, `tipo_${l.toLowerCase().replace(/ /g, '_')}`)).join('')}
+                        <div class="flex items-center gap-2 mt-1"><input type="checkbox" id="tipo_otro" name="tipo_otro"><label for="tipo_otro" class="text-sm">Otro:</label><input name="tipo_otro_text" type="text" class="border-b-2 bg-transparent flex-grow"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ecr-flex-section">
+                <div class="ecr-flex-header">AFECTA S/R</div>
+                <div class="ecr-flex-content">
+                    <div class="ecr-flex-column">
+                        ${['Relocalización de Planta', 'Modificación de Layout', 'Modificación de herramental'].map(l => createCheckbox(l, `afecta_${l.toLowerCase().replace(/ /g, '_')}`)).join('')}
+                    </div>
+                </div>
             </div>
 
             <div class="two-column-layout mt-4">
