@@ -1853,7 +1853,6 @@ async function runEcoLogic() {
 
     appState.currentViewCleanup = () => {
         unsubscribe();
-        // Clean up drag-to-scroll event listeners to prevent memory leaks
         slider.removeEventListener('mousedown', mouseDownHandler);
         slider.removeEventListener('mouseleave', mouseLeaveHandler);
         slider.removeEventListener('mouseup', mouseUpHandler);
