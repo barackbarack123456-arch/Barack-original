@@ -2308,6 +2308,9 @@ async function runIndicadoresEcmViewLogic() {
             let s1 = 0;
             let s2 = 0;
 
+            console.log(`[ECM DEBUG] Running update for year ${selectedYear}. Found ${ecrDocs.length} total ECRs in appState.`);
+            console.log(`[ECM DEBUG] Found ${filteredEcrs.length} ECRs after filtering for year ${selectedYear}.`);
+
             if (filteredEcrs && filteredEcrs.length > 0) {
                 filteredEcrs.forEach(ecr => {
                     const obsoletosValue = parseInt(ecr.componentes_obsoletos, 10);
@@ -2319,9 +2322,13 @@ async function runIndicadoresEcmViewLogic() {
                         } else { // Semestre 2 (Julio-Diciembre)
                             s2 += obsoletosValue;
                         }
+                    } else {
+                        console.log(`[ECM DEBUG] ECR ${ecr.id} has invalid 'componentes_obsoletos':`, ecr.componentes_obsoletos);
                     }
                 });
             }
+
+            console.log(`[ECM DEBUG] Calculated obsoletos: S1=${s1}, S2=${s2}, Total=${s1+s2}`);
 
             document.getElementById('obsoletos-anual').textContent = s1 + s2;
             document.getElementById('obsoletos-s1').textContent = s1;
@@ -4048,7 +4055,7 @@ function renderDashboardKpis() {
 
     const { productos, insumos, tareas, proyectos } = appState.collections;
     const myTasks = tareas.filter(t => t.assigneeUid === appState.currentUser.uid && t.status !== 'done');
-    const overdueTasks = myTasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date());
+    const overdueTasks = myTasks.filter(t => t.dueDate && new Date(t.dueDate + "T00:00:00") < new Date());
     const activeProjects = proyectos.filter(p => p.status !== 'finalizado');
 
     const kpis = [
@@ -4084,7 +4091,7 @@ function renderDashboardTasks() {
         `;
     } else {
         taskListHTML = myTasks.slice(0, 5).map(task => {
-            const dueDate = task.dueDate ? new Date(task.dueDate + 'T00:00:00') : null;
+            const dueDate = task.dueDate ? new Date(task.dueDate + "T00:00:00") : null;
             const today = new Date();
             today.setHours(0,0,0,0);
             const isOverdue = dueDate && dueDate < today;
@@ -5519,7 +5526,7 @@ function createTaskCard(task) {
     };
     const priority = priorities[task.priority] || priorities.medium;
 
-    const dueDate = task.dueDate ? new Date(task.dueDate + 'T00:00:00') : null;
+    const dueDate = task.dueDate ? new Date(task.dueDate + "T00:00:00") : null;
     const today = new Date();
     today.setHours(0,0,0,0);
     const isOverdue = dueDate && dueDate < today;
