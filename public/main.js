@@ -311,7 +311,9 @@ function startRealtimeListeners() {
             COLLECTIONS.ROLES,
             COLLECTIONS.SECTORES,
             COLLECTIONS.TAREAS,
-            COLLECTIONS.PROYECTOS
+            COLLECTIONS.PROYECTOS,
+            COLLECTIONS.ECR_FORMS,
+            COLLECTIONS.ECO_FORMS
         ]);
 
         if (appState.unsubscribeListeners.length > 0) {
