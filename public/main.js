@@ -1941,30 +1941,46 @@ async function runControlEcrsLogic() {
             return `<span class="status-pill ${s.class}">${s.text}</span>`;
         };
 
-        tableBody.innerHTML = ecrsToRender.map(ecr => `
+        tableBody.innerHTML = ecrsToRender.map(ecr => {
+            const origem = ecr.origen_cliente ? 'Cliente' : (ecr.origen_interno ? 'Interno' : (ecr.origen_proveedor ? 'Proveedor' : (ecr.origen_reglamentacion ? 'Reglamentación' : 'N/A')));
+            const tipoEcr = ecr.tipo_producto ? 'Producto' : (ecr.tipo_proceso ? 'Proceso' : (ecr.tipo_otro ? ecr.tipo_otro_text || 'Otro' : 'N/A'));
+
+            // Asynchronously fetch related ECO status
+            const ecoStatusCellId = `eco-status-${ecr.id}`;
+            if (ecr.id) {
+                getDoc(doc(db, COLLECTIONS.ECO_FORMS, ecr.id)).then(ecoSnap => {
+                    const ecoStatus = ecoSnap.exists() ? ecoSnap.data().status : null;
+                    const cell = document.getElementById(ecoStatusCellId);
+                    if (cell) {
+                        cell.innerHTML = statusPill(ecoStatus);
+                    }
+                });
+            }
+
+            return `
             <tr class="hover:bg-slate-50 transition-colors">
                 <td class="px-3 py-2">${ecr.id || 'N/A'}</td>
                 <td class="px-3 py-2">${ecr.cliente || 'N/A'}</td>
                 <td class="px-3 py-2">${'MAL'}</td>
-                <td class="px-3 py-2">${ecr.origen_cliente ? 'Cliente' : (ecr.origen_interno ? 'Interno' : 'N/A')}</td>
-                <td class="px-3 py-2">${'N/A'}</td>
+                <td class="px-3 py-2">${origem}</td>
+                <td class="px-3 py-2">${tipoEcr}</td>
                 <td class="px-3 py-2">${ecr.fecha_emision || 'N/A'}</td>
                 <td class="px-3 py-2">${ecr.denominacion_producto || 'N/A'}</td>
                 <td class="px-3 py-2">${ecr.codigo_barack || 'N/A'}</td>
-                <td class="px-3 py-2">${ecr.modifiedBy || 'N/A'}</td>
-                <td class="px-3 py-2">${ecr.modifiedBy || 'N/A'}</td>
-                <td class="px-3 py-2">${ecr.fecha_emision || 'N/A'}</td>
-                <td class="px-3 py-2">${'N/A'}</td>
+                <td class="px-3 py-2">${ecr.codigo_cliente || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.equipo_c1_0 || ecr.modifiedBy || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.fecha_cierre || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.fecha_realizacion_ecr || 'N/A'}</td>
                 <td class="px-3 py-2">${statusPill(ecr.status)}</td>
-                <td class="px-3 py-2">${statusPill(null)}</td>
+                <td class="px-3 py-2" id="${ecoStatusCellId}">${statusPill(null)}</td>
                 <td class="px-3 py-2 whitespace-normal">${ecr.situacion_propuesta || 'N/A'}</td>
-                <td class="px-3 py-2">${'N/A'}</td>
-                <td class="px-3 py-2">${''}</td>
-                <td class="px-3 py-2">${'N/A'}</td>
-                <td class="px-3 py-2">${'N/A'}</td>
-                <td class="px-3 py-2">${'N/A'}</td>
+                <td class="px-3 py-2">${ecr.causas_solicitud || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.comentarios_alertas || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.componentes_obsoletos || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.accion_objetiva || 'N/A'}</td>
+                <td class="px-3 py-2">${ecr.final_coordinador || 'N/A'}</td>
             </tr>
-        `).join('');
+        `}).join('');
     };
 
     const filterAndRender = () => {
@@ -1989,9 +2005,13 @@ async function runControlEcrsLogic() {
             .status-yellow { background-color: #fef9c3; color: #854d0e; }
             .status-red { background-color: #fee2e2; color: #991b1b; }
             .corporate-header { background-color: #4A5568; color: white; }
-            .modern-table { border-collapse: collapse; width: 100%; font-size: 0.8rem; }
-            .modern-table th, .modern-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #E2E8F0; }
+            .modern-table { border-collapse: collapse; width: 100%; font-size: 0.8rem; table-layout: fixed; min-width: 2400px;}
+            .modern-table th, .modern-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #E2E8F0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             .modern-table th { font-weight: bold; }
+            .modern-table th:nth-child(15), .modern-table td:nth-child(15) { width: 400px; white-space: normal; }
+            .modern-table th:nth-child(16), .modern-table td:nth-child(16) { width: 250px; white-space: normal; }
+            .modern-table th:nth-child(17), .modern-table td:nth-child(17) { width: 250px; white-space: normal; }
+            .modern-table th:nth-child(7), .modern-table td:nth-child(7) { width: 250px; white-space: normal; }
         </style>
         <header class="flex justify-between items-start mb-6">
             <div class="flex items-center gap-4">
@@ -2018,10 +2038,26 @@ async function runControlEcrsLogic() {
             <table class="modern-table">
                 <thead class="corporate-header">
                     <tr>
-                        <th>ECR N°</th><th>Cliente</th><th>Site</th><th>Origen</th><th>Tipo</th><th>Apertura</th>
-                        <th>Producto</th><th>Código</th><th>Solicitante</th><th>Responsable</th><th>Fecha ECR</th>
-                        <th>Fecha Notif.</th><th>Status ECR</th><th>Status ECI</th><th>Descripción</th><th>Causa</th>
-                        <th>Alertas</th><th>Obsoletos</th><th>Acción</th><th>Área Resp.</th>
+                        <th>N° de ECR</th>
+                        <th>Cliente</th>
+                        <th>Site</th>
+                        <th>Origem del Pedido (Cliente ou interno)</th>
+                        <th>Tipo ECR</th>
+                        <th>Fecha de Abertura</th>
+                        <th>Producto Afectado</th>
+                        <th>Código Programa</th>
+                        <th>SIC</th>
+                        <th>Responsable</th>
+                        <th>Plazo ECR</th>
+                        <th>Fecha realizacion ECR</th>
+                        <th>Status ECR</th>
+                        <th>Status ECO</th>
+                        <th>Descripcion</th>
+                        <th>Causas Quien solicito el pedido</th>
+                        <th>Comentarios N°de Alert / Fete / concert</th>
+                        <th>Componente Obsoletos</th>
+                        <th>Accion Objetiva</th>
+                        <th>Responsable</th>
                     </tr>
                 </thead>
                 <tbody id="ecr-control-table-body">
