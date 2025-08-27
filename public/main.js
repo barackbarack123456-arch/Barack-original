@@ -1383,7 +1383,7 @@ async function runEcoFormLogic(params = null) {
                 </div>
                 <div class="section-comments">
                     <label for="comments_${section.id}" class="font-bold text-gray-700">Comentarios:</label>
-                    <textarea id="comments_${section.id}" name="comments_${section.id}" rows="4" class="mt-2 w-full border rounded-md p-2"></textarea>
+                    <textarea id="comments_${section.id}" name="comments_${section.id}" rows="6" class="mt-2 w-full border rounded-md p-2"></textarea>
                 </div>`
                 : `<div class="p-4 w-full">
                     <p class="text-gray-700">${section.description}</p>
@@ -1409,22 +1409,19 @@ async function runEcoFormLogic(params = null) {
                         ${mainContentHTML}
                     </div>
                     <div class="section-footer">
-                        <div class="footer-fields">
-                            <div class="footer-field">
-                                <label for="date_review_${section.id}">Fecha de Revisión</label>
-                                <input type="date" id="date_review_${section.id}" name="date_review_${section.id}" class="p-1 border rounded-md">
-                            </div>
-                            ${statusFieldHTML}
+                        <div class="footer-field">
+                            <label for="date_review_${section.id}">Fecha de Revisión</label>
+                            <input type="date" id="date_review_${section.id}" name="date_review_${section.id}" class="p-1 border rounded-md">
                         </div>
-                        <div class="footer-fields">
-                             <div class="footer-field">
-                                <label for="name_${section.id}">Nombre del Aprobador</label>
-                                <input type="text" id="name_${section.id}" name="name_${section.id}" class="p-1 border rounded-md">
-                            </div>
-                             <div class="footer-field">
-                                <label for="visto_${section.id}">Firma de Aprobación</label>
-                                <input type="text" id="visto_${section.id}" name="visto_${section.id}" class="p-1 border rounded-md">
-                            </div>
+                        ${statusFieldHTML}
+                        <div class="flex-grow"></div>
+                        <div class="footer-field">
+                            <label for="name_${section.id}">Nombre del Aprobador</label>
+                            <input type="text" id="name_${section.id}" name="name_${section.id}" class="p-1 border rounded-md w-48">
+                        </div>
+                        <div class="footer-field">
+                            <label for="visto_${section.id}">Firma</label>
+                            <input type="text" id="visto_${section.id}" name="visto_${section.id}" class="p-1 border rounded-md w-32">
                         </div>
                     </div>
                 </div>
@@ -2021,15 +2018,24 @@ async function runEcrTableViewLogic() {
 
     const filterAndRender = () => {
         const searchTerm = dom.viewContent.querySelector('#ecr-control-search').value.toLowerCase();
-        if (!searchTerm) {
-            renderTableRows(allEcrs);
-            return;
+        const clientFilter = dom.viewContent.querySelector('#ecr-client-filter').value;
+        const statusFilter = dom.viewContent.querySelector('#ecr-status-filter').value;
+
+        let filtered = allEcrs;
+
+        if (clientFilter !== 'all') {
+            filtered = filtered.filter(ecr => ecr.cliente === clientFilter);
         }
-        const filtered = allEcrs.filter(ecr =>
-            Object.values(ecr).some(val =>
-                String(val).toLowerCase().includes(searchTerm)
-            )
-        );
+        if (statusFilter !== 'all') {
+            filtered = filtered.filter(ecr => ecr.status === statusFilter);
+        }
+        if (searchTerm) {
+            filtered = filtered.filter(ecr =>
+                Object.values(ecr).some(val =>
+                    String(val).toLowerCase().includes(searchTerm)
+                )
+            );
+        }
         renderTableRows(filtered);
     };
 
@@ -2063,10 +2069,19 @@ async function runEcrTableViewLogic() {
             </div>
         </header>
 
-        <div class="mb-4">
-            <div class="relative">
+        <div class="flex flex-col md:flex-row gap-4 mb-4">
+            <div class="relative flex-grow">
                 <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
-                <input type="text" id="ecr-control-search" placeholder="Buscar en todos los campos..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full shadow-sm focus:ring-2 focus:ring-blue-500">
+                <input type="text" id="ecr-control-search" placeholder="Buscar en todos los campos..." class="w-full pl-10 pr-4 py-2 border rounded-full bg-slate-50 focus:bg-white">
+            </div>
+            <div class="flex items-center gap-4 flex-wrap">
+                 <select id="ecr-client-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white"><option value="all">Todos los Clientes</option></select>
+                 <select id="ecr-status-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white">
+                    <option value="all">Todos los Estados</option>
+                    <option value="approved">Aprobado</option>
+                    <option value="in-progress">En Progreso</option>
+                    <option value="rejected">Rechazado</option>
+                </select>
             </div>
         </div>
 
@@ -2107,10 +2122,21 @@ async function runEcrTableViewLogic() {
     lucide.createIcons();
 
     dom.viewContent.querySelector('#ecr-control-search').addEventListener('input', filterAndRender);
+    dom.viewContent.querySelector('#ecr-client-filter').addEventListener('change', filterAndRender);
+    dom.viewContent.querySelector('#ecr-status-filter').addEventListener('change', filterAndRender);
 
     const unsubscribe = onSnapshot(collection(db, COLLECTIONS.ECR_FORMS), (snapshot) => {
         allEcrs = snapshot.docs.map(doc => doc.data());
-        filterAndRender(); // Render with current search term
+
+        // Populate client filter
+        const clientFilterEl = dom.viewContent.querySelector('#ecr-client-filter');
+        const clients = [...new Set(allEcrs.map(ecr => ecr.cliente).filter(Boolean))];
+        clientFilterEl.innerHTML = '<option value="all">Todos los Clientes</option>';
+        clients.sort().forEach(client => {
+            clientFilterEl.innerHTML += `<option value="${client}">${client}</option>`;
+        });
+
+        filterAndRender(); // Initial render
     }, (error) => {
         console.error("Error fetching ECRs for control panel:", error);
         showToast('Error al cargar los datos de ECR.', 'error');
@@ -2397,7 +2423,7 @@ async function runEcrFormLogic(params = null) {
                     <div class="department-checklist">${checklistHTML}${customContent}</div>
                     <div class="department-comments">
                         <label class="font-bold text-sm mb-1 block">Comentarios Generales y Justificativos:</label>
-                        <textarea name="comments_${config.id}" class="h-48"></textarea>
+                        <textarea name="comments_${config.id}" rows="6" class="form-field"></textarea>
                     </div>
                 </div>
                 <div class="department-footer">
@@ -3878,10 +3904,10 @@ function renderDashboardAdminPanel() {
             <h3 class="text-xl font-bold text-slate-800 mb-4">Panel de Administración</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="border border-yellow-300 bg-yellow-50 p-4 rounded-lg">
-                    <h4 class="font-bold text-yellow-800">Limpiar y Cargar Datos</h4>
-                    <p class="text-xs text-yellow-700 my-2">Borra todo excepto usuarios y carga datos de prueba.</p>
+                    <h4 class="font-bold text-yellow-800">Poblar con Datos de Prueba</h4>
+                    <p class="text-xs text-yellow-700 my-2">Borra los datos actuales (excepto usuarios) y carga un set de datos de prueba completo para ECR, ECO, productos, etc.</p>
                     <button data-action="seed-database" class="w-full bg-yellow-500 text-white px-3 py-2 rounded-md hover:bg-yellow-600 font-semibold text-sm">
-                        <i data-lucide="database-zap" class="inline-block mr-1.5 h-4 w-4"></i>Ejecutar
+                        <i data-lucide="database-zap" class="inline-block mr-1.5 h-4 w-4"></i>Poblar Base de Datos
                     </button>
                 </div>
                 <div class="border border-orange-300 bg-orange-50 p-4 rounded-lg">
