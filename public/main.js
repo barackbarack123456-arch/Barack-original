@@ -4,7 +4,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser, sendEmailVerification, updateProfile } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, writeBatch, runTransaction, orderBy, limit, startAfter, or, getCountFromServer } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
-import { COLLECTIONS, getUniqueKeyForCollection } from './utils.js';
+import { COLLECTIONS, getUniqueKeyForCollection, createHelpTooltip } from './utils.js';
 import { deleteProductAndOrphanedSubProducts } from './data_logic.js';
 
 // NOTA DE SEGURIDAD: La configuración de Firebase no debe estar hardcodeada en el código fuente.
@@ -1181,9 +1181,11 @@ function switchView(viewName, params = null) {
 }
 
 async function runEcoFormLogic(params = null) {
-    const ecoId = params ? params.ecoId : null;
+    const ecoId = params?.ecoId;
+    const ecrDataFromParam = params?.ecrData;
     const isEditing = !!ecoId;
-    const ECO_FORM_STORAGE_KEY = isEditing ? `inProgressEcoForm_${ecoId}` : 'inProgressEcoForm_new';
+    // Use a specific key when creating from an ECR to avoid conflicts with a generic new form
+    const ECO_FORM_STORAGE_KEY = isEditing ? `inProgressEcoForm_${ecoId}` : (ecrDataFromParam ? `inProgressEcoForm_from_ecr_${ecrDataFromParam.id}` : 'inProgressEcoForm_new');
 
     const populateEcoForm = (form, data) => {
         if (!data || !form) return;
@@ -1286,7 +1288,10 @@ async function runEcoFormLogic(params = null) {
         formElement.className = 'max-w-7xl mx-auto bg-white shadow-lg rounded-lg p-8';
         formElement.innerHTML = `
             <header class="flex justify-between items-center border-b-2 pb-4 mb-6">
-                <img src="/barack_logo.png" alt="Logo" class="h-12">
+                <div class="flex items-center gap-2">
+                    <img src="/barack_logo.png" alt="Logo" class="h-12">
+                    ${createHelpTooltip('ECO (Engineering Change Order): Este formulario se usa para implementar y documentar el cierre de un cambio de ingeniería ya aprobado. Cada sección debe ser revisada y firmada por el departamento correspondiente.')}
+                </div>
                 <div>
                     <label for="ecr_no" class="text-lg font-semibold mr-2">ECR N°:</label>
                     <input type="text" id="ecr_no" name="ecr_no" class="border-2 border-gray-300 rounded-md p-2 w-48">
@@ -1340,6 +1345,16 @@ async function runEcoFormLogic(params = null) {
                     '¿Se requiere un nuevo AMEF?',
                     '¿Se requiere un nuevo estudio de tiempos?',
                     '¿Se requiere una nueva instrucción de trabajo?'
+                ]
+            },
+            {
+                title: 'DOCUMENTACIÓN CALIDAD',
+                id: 'doc_calidad',
+                checklist: [
+                    '¿Se actualizó el AMFE de Proceso?',
+                    '¿Se actualizó el Plan de Control?',
+                    '¿Se actualizaron las Hojas de Proceso?',
+                    '¿Se actualizó el Diagrama de Flujo?'
                 ]
             },
             {
@@ -1496,6 +1511,7 @@ async function runEcoFormLogic(params = null) {
         }
 
         if (ecoId) {
+            // Editing an existing ECO
             const docRef = doc(db, COLLECTIONS.ECO_FORMS, ecoId);
             const docSnap = await getDoc(docRef);
             if (docSnap.exists()) {
@@ -1505,8 +1521,18 @@ async function runEcoFormLogic(params = null) {
                 switchView('eco');
                 return;
             }
+        } else if (ecrDataFromParam) {
+            // Creating a new ECO from an ECR
+            ecrInput.value = ecrDataFromParam.id;
+            ecrInput.readOnly = true;
+            ecrInput.classList.add('bg-gray-100', 'cursor-not-allowed');
+            // We can pre-populate more fields here in the future if needed.
+            // For now, just setting the ECR number is the key requirement.
+
+            // Also check local storage in case the user started filling it and refreshed
+            loadEcoFormFromLocalStorage();
         } else {
-            // Load data from Local Storage only for new forms
+            // Creating a brand new, blank ECO
             loadEcoFormFromLocalStorage();
         }
 
@@ -1901,6 +1927,11 @@ async function runEcrLogic() {
                     <td class="px-6 py-4 text-right">
                         <button data-action="view-ecr" data-id="${ecr.id}" class="text-gray-500 hover:text-blue-600 p-1" title="Ver/Editar"><i data-lucide="eye" class="h-5 w-5 pointer-events-none"></i></button>
                         <button data-action="export-ecr-pdf" data-id="${ecr.id}" class="text-gray-500 hover:text-red-600 p-1" title="Exportar a PDF"><i data-lucide="file-text" class="h-5 w-5 pointer-events-none"></i></button>
+                        ${ecr.status === 'approved' ? `
+                        <button data-action="generate-eco-from-ecr" data-id="${ecr.id}" class="text-gray-500 hover:text-green-600 p-1" title="Generar ECO desde este ECR">
+                            <i data-lucide="file-output" class="h-5 w-5 pointer-events-none"></i>
+                        </button>
+                        ` : ''}
                     </td>
                 </tr>
             `;
@@ -1987,7 +2018,11 @@ async function runEcrTableViewLogic() {
             const statusMap = {
                 'approved': { text: 'Aprobado', class: 'status-green' },
                 'in-progress': { text: 'En Progreso', class: 'status-yellow' },
-                'rejected': { text: 'Rechazado', class: 'status-red' }
+            'rejected': { text: 'Rechazado', class: 'status-red' },
+            'aprobado': { text: 'Aprobado', class: 'status-green' }, // For client status
+            'pendiente': { text: 'Pendiente', class: 'status-blue' },
+            'rechazado': { text: 'Rechazado', class: 'status-red' },
+            'na': { text: 'No Aplica', class: 'status-gray' }
             };
             const s = statusMap[status] || { text: status, class: 'status-gray' };
             return `<span class="status-pill ${s.class}">${s.text}</span>`;
@@ -2024,6 +2059,9 @@ async function runEcrTableViewLogic() {
                 <td title="${ecr.fecha_realizacion_ecr || ''}">${ecr.fecha_realizacion_ecr || 'N/A'}</td>
                 <td>${statusPill(ecr.status)}</td>
                 <td id="${ecoStatusCellId}">${statusPill(null)}</td>
+                <td title="${ecr.cliente_requiere_aprobacion ? 'Sí' : 'No'}">${ecr.cliente_requiere_aprobacion ? 'Sí' : 'No'}</td>
+                <td title="${ecr.cliente_aprobacion_estado || ''}">${statusPill(ecr.cliente_aprobacion_estado)}</td>
+                <td title="${ecr.cliente_requiere_ppap ? 'Sí' : 'No'}">${ecr.cliente_requiere_ppap ? 'Sí' : 'No'}</td>
                 <td title="${ecr.situacion_propuesta || ''}">${ecr.situacion_propuesta || 'N/A'}</td>
                 <td title="${ecr.causas_solicitud || ''}">${ecr.causas_solicitud || 'N/A'}</td>
                 <td title="${ecr.comentarios_alertas || ''}">${ecr.comentarios_alertas || 'N/A'}</td>
@@ -2113,6 +2151,9 @@ async function runEcrTableViewLogic() {
                         <th>Fecha realizacion ECR</th>
                         <th>Status ECR</th>
                         <th>Status ECO</th>
+                        <th>Req. Aprob. Cliente</th>
+                        <th>Estado Aprob. Cliente</th>
+                        <th>Req. PPAP</th>
                         <th>Descripcion</th>
                         <th>Causas Quien solicito el pedido</th>
                         <th>Comentarios N°de Alert / Fete / concert</th>
@@ -2628,7 +2669,10 @@ async function runEcrFormLogic(params = null) {
             <header class="ecr-header">
                 <img src="/barack_logo.png" alt="Logo" class="h-12">
                 <div class="title-block">
-                    <div class="ecr-main-title">ECR</div>
+                    <div class="flex items-center gap-2">
+                        <span class="ecr-main-title">ECR</span>
+                        ${createHelpTooltip('ECR (Engineering Change Request): Use este formulario para iniciar una solicitud formal de cambio en un producto o proceso. Complete todos los campos relevantes para su evaluación.')}
+                    </div>
                     <div class="ecr-subtitle">DE PRODUCTO / PROCESO</div>
                 </div>
                 <div class="ecr-number-box">
@@ -2700,6 +2744,20 @@ async function runEcrFormLogic(params = null) {
                     <div class="ecr-flex-column">
                         ${['Fuente de suministro', 'Embalaje'].map(l => createCheckbox(l, `tipo_${l.toLowerCase().replace(/ /g, '_')}`)).join('')}
                         <div class="flex items-center gap-2 mt-1"><input type="checkbox" id="tipo_otro" name="tipo_otro"><label for="tipo_otro" class="text-sm">Otro:</label><input name="tipo_otro_text" type="text" class="border-b-2 bg-transparent flex-grow"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ecr-flex-section">
+                <div class="ecr-flex-header">VALIDACIÓN DEL CLIENTE</div>
+                <div class="ecr-flex-content ecr-flex-columns-2">
+                    <div class="ecr-flex-column space-y-2">
+                        ${createCheckbox('Requiere Aprobación del Cliente', 'cliente_requiere_aprobacion')}
+                        ${createCheckbox('Requiere PPAP', 'cliente_requiere_ppap')}
+                    </div>
+                    <div class="ecr-flex-column space-y-2">
+                        <div class="form-field"><label for="cliente_aprobacion_estado" class="text-sm font-bold">Estado:</label><select name="cliente_aprobacion_estado" id="cliente_aprobacion_estado" class="w-full text-sm"><option value="na">No Aplica</option><option value="pendiente">Pendiente</option><option value="aprobado">Aprobado</option><option value="rechazado">Rechazado</option></select></div>
+                        <div class="form-field"><label for="cliente_aprobacion_fecha" class="text-sm font-bold">Fecha de Decisión:</label><input type="date" name="cliente_aprobacion_fecha" id="cliente_aprobacion_fecha" class="w-full text-sm"></div>
                     </div>
                 </div>
             </div>
@@ -2994,6 +3052,15 @@ function handleViewContentActions(e) {
     const userId = button.dataset.userId;
 
     const actions = {
+        'generate-eco-from-ecr': () => {
+            const ecrId = button.dataset.id;
+            const ecrData = appState.collections[COLLECTIONS.ECR_FORMS].find(e => e.id === ecrId);
+            if (ecrData) {
+                switchView('eco_form', { ecrData: ecrData });
+            } else {
+                showToast(`No se encontraron datos para el ECR: ${ecrId}`, 'error');
+            }
+        },
         'view-eco': () => switchView('eco_form', { ecoId: button.dataset.id }),
         'view-ecr': () => switchView('ecr_form', { ecrId: button.dataset.id }),
         'view-eco-history': () => showEcoHistoryModal(button.dataset.id),

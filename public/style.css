@@ -147,6 +147,64 @@ ul.sortable-drag-over {
     padding-top: 0.5rem; /* Espacio entre un semiterminado y sus hijos */
 }
 
+/* Help Tooltip Styles */
+.help-tooltip-container {
+    display: inline-block;
+    position: relative;
+    cursor: help;
+}
+
+.help-icon {
+    width: 1rem;
+    height: 1rem;
+    color: #94a3b8; /* slate-400 */
+    vertical-align: middle;
+    transition: color 0.2s ease-in-out;
+}
+
+.help-tooltip-container:hover .help-icon,
+.help-tooltip-container:focus .help-icon {
+    color: #3b82f6; /* blue-500 */
+}
+
+.help-tooltip-content {
+    visibility: hidden;
+    opacity: 0;
+    width: 280px;
+    background-color: #1e293b; /* slate-800 */
+    color: #fff;
+    text-align: left;
+    border-radius: 6px;
+    padding: 12px;
+    position: absolute;
+    z-index: 10;
+    bottom: 150%;
+    left: 50%;
+    margin-left: -140px; /* Half of the width */
+    transition: opacity 0.3s, visibility 0.3s;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.help-tooltip-content::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: #1e293b transparent transparent transparent;
+}
+
+.help-tooltip-container:hover .help-tooltip-content,
+.help-tooltip-container:focus .help-tooltip-content,
+.help-tooltip-container:focus-within .help-tooltip-content {
+    visibility: visible;
+    opacity: 1;
+}
+
 .toast-link {
     display: inline-block;
     margin-left: 1rem;
