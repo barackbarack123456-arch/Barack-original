@@ -109,10 +109,32 @@ service cloud.firestore {
       }
     }
 
+    function getUserData() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+
+    function isUserInSector(sector) {
+        return exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
+               getUserData().sector == sector;
+    }
+
     match /ecr_forms/{ecrId} {
       allow read: if request.auth != null;
-      allow create, update: if canCreateUpdate();
+      allow create: if canCreateUpdate();
       allow delete: if isUserAdmin();
+
+      allow update: if isUserAdmin() || (
+        // Allow general edits by the creator if it's a draft or rejected
+        (request.resource.data.diff(resource.data).affectedKeys()
+            .removeAll(['approvals', 'status']).size() == 0) &&
+        (resource.data.status == 'draft' || resource.data.status == 'rejected') &&
+        getUserData().email == resource.data.modifiedBy
+      ) || (
+        // Allow sector-specific approval updates
+        request.resource.data.approvals.diff(resource.data.approvals)
+            .affectedKeys().hasOnly(getUserData().sector) &&
+        isUserInSector(getUserData().sector)
+      );
 
       match /history/{historyId} {
         allow read: if request.auth != null;
