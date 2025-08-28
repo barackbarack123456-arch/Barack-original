@@ -2698,6 +2698,18 @@ async function runControlEcrsLogic() {
 
 async function runEcrSeguimientoLogic() {
     dom.headerActions.style.display = 'none';
+
+    // Centralized list of departments
+    const DEPARTAMENTOS = [
+        { id: 'ing_manufatura', label: 'Ing. Manufatura' }, { id: 'hse', label: 'HSE' },
+        { id: 'calidad', label: 'Calidad' }, { id: 'compras', label: 'Compras' },
+        { id: 'sqa', label: 'Calidad Prov.' }, { id: 'tooling', label: 'Herramental' },
+        { id: 'logistica', label: 'Logística PC&L' }, { id: 'financiero', label: 'Finanzas' },
+        { id: 'comercial', label: 'Comercial' }, { id: 'mantenimiento', label: 'Mantenimiento' },
+        { id: 'produccion', label: 'Producción' }, { id: 'calidad_cliente', label: 'Calidad Cliente' },
+        { id: 'ing_producto', label: 'Ing. Producto' }
+    ];
+
     const viewHTML = `
         <div class="animate-fade-in-up space-y-8">
             <div>
@@ -2737,15 +2749,15 @@ async function runEcrSeguimientoLogic() {
             <!-- Sección 3: Resumen y Gráficos -->
             <section id="resumen-graficos-section" class="bg-white p-6 rounded-xl shadow-lg">
                 <h3 class="text-xl font-bold text-slate-800 mb-4">Resumen y Gráficos de Asistencia</h3>
-                <div id="resumen-graficos-container" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div id="resumen-graficos-container" class="space-y-8">
                     <div id="resumen-container">
                          <p class="text-slate-500">Cargando resumen...</p>
                     </div>
-                    <div id="graficos-container" class="space-y-8">
-                        <div id="grafico-ausentismo-dias">
+                    <div id="graficos-container" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div id="grafico-ausentismo-dias" class="min-h-[300px]">
                             <p class="text-slate-500">Cargando gráfico de días de ausentismo...</p>
                         </div>
-                        <div id="grafico-ausentismo-porcentaje">
+                        <div id="grafico-ausentismo-porcentaje" class="min-h-[300px]">
                              <p class="text-slate-500">Cargando gráfico de % de ausentismo...</p>
                         </div>
                     </div>
@@ -2757,7 +2769,7 @@ async function runEcrSeguimientoLogic() {
     dom.viewContent.innerHTML = viewHTML;
     lucide.createIcons();
 
-    const renderEcrLog = async () => {
+    const renderEcrLog = async (departamentos) => {
         const ecrLogContainer = document.getElementById('ecr-log-container');
         if (!ecrLogContainer) return;
 
@@ -2768,16 +2780,6 @@ async function runEcrSeguimientoLogic() {
                 ecrLogContainer.innerHTML = `<p class="text-slate-500">No se encontraron registros de ECR.</p>`;
                 return;
             }
-
-            const departamentos = [
-                { id: 'ing_manufatura', label: 'Ing. Manufatura' }, { id: 'hse', label: 'HSE' },
-                { id: 'calidad', label: 'Calidad' }, { id: 'compras', label: 'Compras' },
-                { id: 'sqa', label: 'Calidad Prov.' }, { id: 'tooling', label: 'Herramental' },
-                { id: 'logistica', label: 'Logística PC&L' }, { id: 'financiero', label: 'Finanzas' },
-                { id: 'comercial', label: 'Comercial' }, { id: 'mantenimiento', label: 'Mantenimiento' },
-                { id: 'produccion', label: 'Producción' }, { id: 'calidad_cliente', label: 'Calidad Cliente' },
-                { id: 'ing_producto', label: 'Ing. Producto' }
-            ];
 
             const calcularAtraso = (fechaAbertura, fechaCierre) => {
                 if (!fechaAbertura && !fechaCierre) return { dias: '', clase: '' };
@@ -2857,7 +2859,7 @@ async function runEcrSeguimientoLogic() {
         }
     };
 
-    renderEcrLog();
+    renderEcrLog(DEPARTAMENTOS);
 
     const ecrLogContainer = document.getElementById('ecr-log-container');
     if (ecrLogContainer) {
@@ -2906,7 +2908,7 @@ async function runEcrSeguimientoLogic() {
         });
     }
 
-    const renderAsistenciaMatriz = async () => {
+    const renderAsistenciaMatriz = async (departamentos) => {
         const container = document.getElementById('asistencia-matriz-container');
         if (!container) return;
 
@@ -2916,17 +2918,6 @@ async function runEcrSeguimientoLogic() {
                 container.innerHTML = `<p class="text-slate-500">No se encontraron reuniones.</p>`;
                 return;
             }
-
-            // Re-usar la misma lista de departamentos que el log de ECR
-            const departamentos = [
-                { id: 'ing_manufatura', label: 'Ing. Manufatura' }, { id: 'hse', label: 'HSE' },
-                { id: 'calidad', label: 'Calidad' }, { id: 'compras', label: 'Compras' },
-                { id: 'sqa', label: 'Calidad Prov.' }, { id: 'tooling', label: 'Herramental' },
-                { id: 'logistica', label: 'Logística PC&L' }, { id: 'financiero', label: 'Finanzas' },
-                { id: 'comercial', label: 'Comercial' }, { id: 'mantenimiento', label: 'Mantenimiento' },
-                { id: 'produccion', label: 'Producción' }, { id: 'calidad_cliente', label: 'Calidad Cliente' },
-                { id: 'ing_producto', label: 'Ing. Producto' }
-            ];
 
             reuniones.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
 
@@ -2964,7 +2955,7 @@ async function runEcrSeguimientoLogic() {
         }
     };
 
-    renderAsistenciaMatriz();
+    renderAsistenciaMatriz(DEPARTAMENTOS);
 
     const asistenciaMatrizContainer = document.getElementById('asistencia-matriz-container');
     if (asistenciaMatrizContainer) {
@@ -3009,16 +3000,11 @@ async function runEcrSeguimientoLogic() {
                 return;
             }
 
-            const departamentos = [
-                'ing_manufatura', 'hse', 'calidad', 'compras', 'sqa', 'tooling',
-                'logistica', 'financiero', 'comercial', 'mantenimiento', 'produccion',
-                'calidad_cliente', 'ing_producto'
-            ];
             const newReunionData = {
                 id: reunionId,
                 fecha: newDate,
-                asistencia: departamentos.reduce((acc, depto) => {
-                    acc[depto] = ''; // Initialize all as empty
+                asistencia: DEPARTAMENTOS.reduce((acc, depto) => {
+                    acc[depto.id] = ''; // Initialize all as empty
                     return acc;
                 }, {})
             };
@@ -3033,7 +3019,7 @@ async function runEcrSeguimientoLogic() {
         });
     }
 
-    const renderResumenYGraficos = async () => {
+    const renderResumenYGraficos = async (departamentos) => {
         const resumenContainer = document.getElementById('resumen-container');
         const graficoDiasContainer = document.getElementById('grafico-ausentismo-dias');
         const graficoPorcContainer = document.getElementById('grafico-ausentismo-porcentaje');
@@ -3048,16 +3034,6 @@ async function runEcrSeguimientoLogic() {
                 graficoPorcContainer.innerHTML = '';
                 return;
             }
-
-            const departamentos = [
-                { id: 'ing_manufatura', label: 'Ing. Manufatura' }, { id: 'hse', label: 'HSE' },
-                { id: 'calidad', label: 'Calidad' }, { id: 'compras', label: 'Compras' },
-                { id: 'sqa', label: 'Calidad Prov.' }, { id: 'tooling', label: 'Herramental' },
-                { id: 'logistica', label: 'Logística PC&L' }, { id: 'financiero', label: 'Finanzas' },
-                { id: 'comercial', label: 'Comercial' }, { id: 'mantenimiento', label: 'Mantenimiento' },
-                { id: 'produccion', label: 'Producción' }, { id: 'calidad_cliente', label: 'Calidad Cliente' },
-                { id: 'ing_producto', label: 'Ing. Producto' }
-            ];
 
             const resumenData = departamentos.map(depto => {
                 let p = 0, a = 0, o = 0;
@@ -3160,7 +3136,7 @@ async function runEcrSeguimientoLogic() {
         }
     };
 
-    renderResumenYGraficos();
+    renderResumenYGraficos(DEPARTAMENTOS);
 
     appState.currentViewCleanup = () => {
         // Future cleanup logic
