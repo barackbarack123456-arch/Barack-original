@@ -275,8 +275,8 @@ const tutorial = (app) => {
                 postAction: async () => {
                     const menu = document.querySelector('[data-tutorial-id="eco-ecr-menu"]');
                     if (menu) {
-                        menu.querySelector('.dropdown-toggle')?.click();
-                        // Wait for the dropdown menu to become visible
+                        // Direct class manipulation is more reliable than a programmatic click.
+                        menu.classList.add('open');
                         await waitForVisibleElement('a[data-view="ecr"]');
                     }
                 }
@@ -286,34 +286,36 @@ const tutorial = (app) => {
                 title: 'Gestión de ECR',
                 content: 'Aquí es donde se inician las solicitudes de cambio. Haremos clic aquí para ir a la pantalla de gestión de ECR.',
                 position: 'right',
-                click: true
+                click: true,
+                postAction: async () => {
+                    // Direct navigation instead of simulated click
+                    await app.switchView('ecr');
+                }
             },
             {
                 element: '#view-title',
                 title: 'Pantalla de Gestión de ECR',
                 content: 'Esta tabla muestra todos los ECRs existentes. Para proponer un nuevo cambio, debemos crear un nuevo ECR.',
-                position: 'bottom',
-                preAction: async () => {
-                    await app.switchView('ecr');
-                    await new Promise(resolve => setTimeout(resolve, 250));
-                }
+                position: 'bottom'
+                // No preAction needed, handled by previous step's postAction
             },
             {
                 element: 'button[data-action="create-new-ecr"]',
                 title: 'Crear un Nuevo ECR',
                 content: 'Este botón nos llevará al formulario para detallar nuestra solicitud de cambio.',
                 position: 'bottom',
-                click: true
+                click: true,
+                postAction: async () => {
+                    // Direct navigation instead of simulated click
+                    await app.switchView('ecr_form');
+                }
             },
             {
                 element: '.ecr-header',
                 title: 'Formulario de ECR',
                 content: 'Este es el formulario de Solicitud de Cambio de Ingeniería. Aquí se documenta toda la información necesaria para que el cambio sea evaluado.',
-                position: 'bottom',
-                 preAction: async () => {
-                    await app.switchView('ecr_form');
-                    await new Promise(resolve => setTimeout(resolve, 250));
-                }
+                position: 'bottom'
+                 // No preAction needed, handled by previous step's postAction
             },
             {
                 element: 'input[name="ecr_no"]',
