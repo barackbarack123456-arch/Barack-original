@@ -77,7 +77,6 @@
 
 #tutorial-tooltip-nav button {
     border: none;
-    background: none;
     cursor: pointer;
     font-weight: 600;
     padding: 6px 12px;
@@ -86,6 +85,7 @@
 }
 
 #tutorial-skip-btn {
+    background: none;
     color: #64748b; /* slate-500 */
 }
 
@@ -115,4 +115,24 @@
 
 #tutorial-next-btn:hover {
     background-color: #1d4ed8; /* blue-700 */
+}
+
+@keyframes tutorial-click-animation {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 0 10px rgba(37, 99, 235, 0);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(37, 99, 235, 0);
+    }
+}
+
+.tutorial-click-effect {
+    animation: tutorial-click-animation 1s ease-out;
+    border-radius: 6px; /* Match highlight radius */
 }

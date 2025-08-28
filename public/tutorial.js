@@ -80,6 +80,17 @@ const tutorial = (app) => {
             return;
         }
 
+        // Scroll the target element into view
+        targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Add a visual click effect if the step requires it
+        if (step.click) {
+            targetElement.classList.add('tutorial-click-effect');
+            setTimeout(() => {
+                 targetElement.classList.remove('tutorial-click-effect');
+            }, 1000); // Duration of the effect
+        }
+
         // Update tooltip content
         document.getElementById('tutorial-tooltip-title').textContent = step.title;
         document.getElementById('tutorial-tooltip-text').innerHTML = step.content;
@@ -203,7 +214,8 @@ const tutorial = (app) => {
                 element: 'a[data-view="ecr"]',
                 title: 'Gestión de ECR',
                 content: 'Aquí es donde se inician las solicitudes de cambio. Haremos clic aquí para ir a la pantalla de gestión de ECR.',
-                position: 'right'
+                position: 'right',
+                click: true // Add click effect
             },
             {
                 element: 'body', // The view will be switched before this step
@@ -211,14 +223,17 @@ const tutorial = (app) => {
                 content: 'Esta tabla muestra todos los ECRs existentes. Para proponer un nuevo cambio, debemos crear un nuevo ECR.',
                 position: 'center',
                  preAction: async () => {
-                    await app.switchView('ecr');
+                    // This action happens *after* the click on the previous step
+                    document.querySelector('a[data-view="ecr"]').click();
+                    await new Promise(resolve => setTimeout(resolve, 100)); // Brief pause for navigation
                 }
             },
             {
                 element: 'button[data-action="create-new-ecr"]',
                 title: 'Crear un Nuevo ECR',
                 content: 'Este botón nos llevará al formulario para detallar nuestra solicitud de cambio.',
-                position: 'bottom'
+                position: 'bottom',
+                click: true
             },
             {
                 element: '#ecr-form',
@@ -226,7 +241,8 @@ const tutorial = (app) => {
                 content: 'Este es el formulario de Solicitud de Cambio de Ingeniería. Aquí se documenta toda la información necesaria para que el cambio sea evaluado.',
                 position: 'top',
                 preAction: async () => {
-                    await app.switchView('ecr_form', { ecrId: null });
+                    document.querySelector('button[data-action="create-new-ecr"]').click();
+                    await new Promise(resolve => setTimeout(resolve, 100)); // Brief pause for navigation
                 }
             },
             {
