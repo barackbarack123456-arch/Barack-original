@@ -374,6 +374,9 @@ function startRealtimeListeners() {
                     if (viewConfig[appState.currentView]?.dataKey === name) {
                         runTableLogic();
                     }
+                    if (appState.currentView === 'ecr_seguimiento' && (name === COLLECTIONS.REUNIONES_ECR || name === COLLECTIONS.ECR_FORMS)) {
+                        runEcrSeguimientoLogic();
+                    }
                 }
 
             }, (error) => {
