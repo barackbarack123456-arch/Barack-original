@@ -5078,7 +5078,7 @@ function handleGlobalClick(e) {
     }
 
     // Close nav dropdowns
-    if (!target.closest('.nav-dropdown')) {
+    if (!target.closest('.nav-dropdown') && !target.closest('#tutorial-overlay')) {
         document.querySelectorAll('.nav-dropdown.open').forEach(dropdown => {
             dropdown.classList.remove('open');
         });
