@@ -13,7 +13,8 @@ export const COLLECTIONS = {
     ROLES: 'roles',
     ECO_FORMS: 'eco_forms',
     ECR_FORMS: 'ecr_forms',
-    COVER_MASTER: 'cover_master'
+    COVER_MASTER: 'cover_master',
+    REUNIONES_ECR: 'reuniones_ecr'
 };
 
 export function getUniqueKeyForCollection(collectionName) {
