@@ -58,6 +58,14 @@ const tutorial = (app) => {
      */
     const waitForVisibleElement = (selector, timeout = 3000) => {
         return new Promise(resolve => {
+            // Special case for the 'body' selector, as its offsetParent is null.
+            if (selector === 'body') {
+                if (document.body) {
+                    resolve(document.body);
+                    return;
+                }
+            }
+
             const interval = 100;
             let elapsedTime = 0;
 
@@ -256,6 +264,8 @@ const tutorial = (app) => {
                     const menu = document.querySelector('[data-tutorial-id="eco-ecr-menu"]');
                     if (menu) {
                         menu.querySelector('.dropdown-toggle')?.click();
+                        // Wait for the dropdown menu to become visible
+                        await waitForVisibleElement('a[data-view="ecr"]');
                     }
                 }
             },
@@ -264,34 +274,38 @@ const tutorial = (app) => {
                 title: 'Gestión de ECR',
                 content: 'Aquí es donde se inician las solicitudes de cambio. Haremos clic aquí para ir a la pantalla de gestión de ECR.',
                 position: 'right',
-                click: true
+                click: true,
+                postAction: async () => {
+                    document.querySelector('a[data-view="ecr"]').click();
+                    // Wait for a key element in the ECR view to be visible
+                    await waitForVisibleElement('button[data-action="create-new-ecr"]');
+                }
             },
             {
                 element: '#view-title',
                 title: 'Pantalla de Gestión de ECR',
                 content: 'Esta tabla muestra todos los ECRs existentes. Para proponer un nuevo cambio, debemos crear un nuevo ECR.',
-                position: 'bottom',
-                preAction: async () => {
-                    document.querySelector('a[data-view="ecr"]').click();
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                }
+                position: 'bottom'
+                // No preAction needed, handled by previous step's postAction
             },
             {
                 element: 'button[data-action="create-new-ecr"]',
                 title: 'Crear un Nuevo ECR',
                 content: 'Este botón nos llevará al formulario para detallar nuestra solicitud de cambio.',
                 position: 'bottom',
-                click: true
+                click: true,
+                postAction: async () => {
+                    document.querySelector('button[data-action="create-new-ecr"]').click();
+                    // Wait for a key element in the ECR form to be visible
+                    await waitForVisibleElement('.ecr-header');
+                }
             },
             {
                 element: '.ecr-header',
                 title: 'Formulario de ECR',
                 content: 'Este es el formulario de Solicitud de Cambio de Ingeniería. Aquí se documenta toda la información necesaria para que el cambio sea evaluado.',
-                position: 'bottom',
-                preAction: async () => {
-                    document.querySelector('button[data-action="create-new-ecr"]').click();
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                }
+                position: 'bottom'
+                 // No preAction needed, handled by previous step's postAction
             },
             {
                 element: 'input[name="ecr_no"]',
@@ -330,22 +344,20 @@ const tutorial = (app) => {
                 position: 'center',
                 preAction: async () => {
                     await app.switchView('ecr');
+                    await waitForVisibleElement('#ecr-table-body');
                 }
             },
             {
                 element: '#ecr-table-body thead',
                 title: 'Generar ECO',
-                content: 'Cuando un ECR es aprobado, aparece un botón de "Generar ECO" en la fila correspondiente. Permite convertir la solicitud en una Orden de Cambio, que es el documento para ejecutar el cambio.',
+                content: 'Cuando un ECR es aprobado, aparece un botón para "Generar ECO". Esto convierte la solicitud en una Orden de Cambio, que es el documento para ejecutar la modificación.',
                 position: 'bottom'
             },
-             {
-                element: '#action-plan-section',
+            {
+                element: 'body',
                 title: 'Plan de Acción del ECO',
-                content: 'La ECO se enfoca en la implementación. Esta sección permite crear una lista de tareas, asignar responsables y fechas límite para asegurar que el cambio se realice correctamente.',
-                position: 'top',
-                 preAction: async () => {
-                    await app.switchView('eco_form');
-                }
+                content: 'La ECO generada contendrá una sección de "Plan de Acción". Esta sección permite crear una lista de tareas, asignar responsables y fechas límite para asegurar que el cambio se realice correctamente.',
+                position: 'center'
             },
             {
                 element: 'body',
