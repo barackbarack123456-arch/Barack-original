@@ -56,6 +56,27 @@ const tutorial = (app) => {
      * Shows a specific step of the tutorial.
      * @param {number} index - The index of the step to show.
      */
+    const waitForElement = (selector, timeout = 3000) => {
+        return new Promise(resolve => {
+            const interval = 100;
+            let elapsedTime = 0;
+
+            const timer = setInterval(() => {
+                const element = document.querySelector(selector);
+                if (element) {
+                    clearInterval(timer);
+                    resolve(element);
+                } else {
+                    elapsedTime += interval;
+                    if (elapsedTime >= timeout) {
+                        clearInterval(timer);
+                        resolve(null);
+                    }
+                }
+            }, interval);
+        });
+    };
+
     const showStep = async (index) => {
         if (index < 0 || index >= steps.length) {
             skip();
@@ -68,11 +89,11 @@ const tutorial = (app) => {
         // Execute any pre-action for the step (e.g., changing view)
         if (step.preAction) {
             await step.preAction();
-            // Give the DOM time to update after the action
-            await new Promise(resolve => setTimeout(resolve, 500));
+             // Give the DOM a moment to start updating before we poll
+            await new Promise(resolve => setTimeout(resolve, 200));
         }
 
-        const targetElement = document.querySelector(step.element);
+        const targetElement = await waitForElement(step.element);
 
         if (!targetElement) {
             console.warn(`Tutorial element not found: ${step.element}. Skipping to next step.`);
@@ -80,8 +101,8 @@ const tutorial = (app) => {
             return;
         }
 
-        // Scroll the target element into view
-        targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Scroll the target element into view if needed
+        smartScroll(targetElement);
 
         // Add a visual click effect if the step requires it
         if (step.click) {
@@ -113,17 +134,55 @@ const tutorial = (app) => {
     };
 
     /**
+     * Scrolls the element into view only if it's not already visible.
+     * @param {Element} element - The DOM element to scroll to.
+     */
+    const smartScroll = (element) => {
+        const rect = element.getBoundingClientRect();
+        const isVisible = (
+            rect.top >= 0 &&
+            rect.left >= 0 &&
+            rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+            rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+        );
+
+        if (!isVisible) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    };
+
+    /**
      * Positions the tooltip relative to the target element.
      * @param {DOMRect} targetRect - The bounding rect of the highlighted element.
      * @param {string} position - The desired position ('top', 'bottom', 'left', 'right').
      */
     const positionTooltip = (targetRect, position = 'bottom') => {
         const tooltipRect = dom.tooltip.getBoundingClientRect();
-        const spacing = 10; // Reduced spacing
+        const spacing = 10;
         let top, left;
 
-        // Default positions
-        switch (position) {
+        // --- Position Calculation with Smart Flipping ---
+        let finalPosition = position;
+
+        // Try to flip right to left if there's no space
+        if (position === 'right' && (targetRect.right + spacing + tooltipRect.width > window.innerWidth)) {
+            finalPosition = 'left';
+        }
+        // Try to flip left to right if there's no space
+        if (position === 'left' && (targetRect.left - spacing - tooltipRect.width < 0)) {
+            finalPosition = 'right';
+        }
+        // Try to flip top to bottom if there's no space
+        if (position === 'top' && (targetRect.top - spacing - tooltipRect.height < 0)) {
+            finalPosition = 'bottom';
+        }
+        // Try to flip bottom to top if there's no space
+        if (position === 'bottom' && (targetRect.bottom + spacing + tooltipRect.height > window.innerHeight)) {
+            finalPosition = 'top';
+        }
+
+        // Calculate position based on the (potentially flipped) finalPosition
+        switch (finalPosition) {
             case 'top':
                 top = targetRect.top - tooltipRect.height - spacing;
                 left = targetRect.left + (targetRect.width / 2) - (tooltipRect.width / 2);
@@ -143,33 +202,20 @@ const tutorial = (app) => {
                 break;
         }
 
-        // --- Auto-adjustment logic ---
-        // Adjust horizontal position
+        // --- Final Boundary Enforcement ---
+        // Ensure the tooltip never goes out of bounds, no matter what.
         if (left < spacing) {
             left = spacing;
         }
         if (left + tooltipRect.width > window.innerWidth - spacing) {
             left = window.innerWidth - tooltipRect.width - spacing;
         }
-
-        // Adjust vertical position
         if (top < spacing) {
             top = spacing;
         }
         if (top + tooltipRect.height > window.innerHeight - spacing) {
             top = window.innerHeight - tooltipRect.height - spacing;
         }
-
-        // If position is right and it overflows, try to switch to left
-        if (position === 'right' && (targetRect.right + spacing + tooltipRect.width > window.innerWidth)) {
-            left = targetRect.left - tooltipRect.width - spacing;
-        }
-
-        // If position is left and it overflows, try to switch to right
-        if (position === 'left' && (targetRect.left - spacing - tooltipRect.width < 0)) {
-            left = targetRect.right + spacing;
-        }
-
 
         dom.tooltip.style.top = `${top}px`;
         dom.tooltip.style.left = `${left}px`;
@@ -209,7 +255,7 @@ const tutorial = (app) => {
                 position: 'bottom',
                 preAction: async () => {
                     document.querySelector('a[data-view="ecr"]').click();
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                 }
             },
             {
@@ -226,7 +272,7 @@ const tutorial = (app) => {
                 position: 'bottom',
                 preAction: async () => {
                     document.querySelector('button[data-action="create-new-ecr"]').click();
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                 }
             },
             {
