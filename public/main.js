@@ -1853,10 +1853,6 @@ async function runEcoLogic() {
 
     appState.currentViewCleanup = () => {
         unsubscribe();
-        slider.removeEventListener('mousedown', mouseDownHandler);
-        slider.removeEventListener('mouseleave', mouseLeaveHandler);
-        slider.removeEventListener('mouseup', mouseUpHandler);
-        slider.removeEventListener('mousemove', mouseMoveHandler);
     };
 }
 
