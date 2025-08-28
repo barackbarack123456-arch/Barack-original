@@ -232,6 +232,7 @@ let appState = {
     currentUser: null,
     currentViewCleanup: null,
     isAppInitialized: false,
+    isTutorialActive: false,
     collections: {
         [COLLECTIONS.PRODUCTOS]: [], [COLLECTIONS.SEMITERMINADOS]: [], [COLLECTIONS.INSUMOS]: [], [COLLECTIONS.CLIENTES]: [],
         [COLLECTIONS.SECTORES]: [], [COLLECTIONS.PROCESOS]: [],
@@ -1183,13 +1184,20 @@ function setupGlobalEventListeners() {
     dom.searchInput.addEventListener('input', handleSearch);
     dom.addNewButton.addEventListener('click', () => openFormModal());
 
+    const onTutorialEnd = () => {
+        appState.isTutorialActive = false;
+        console.log("Tutorial finished, global clicks re-enabled.");
+    };
+
     document.getElementById('start-tutorial-btn')?.addEventListener('click', () => {
+        appState.isTutorialActive = true;
         const app = {
             switchView,
             showToast,
             openFormModal,
             appState,
-            db
+            db,
+            onTutorialEnd
         };
         tutorial(app).start();
     });
@@ -4993,6 +5001,8 @@ function handleGodModeRoleChange(role) {
 }
 
 function handleGlobalClick(e) {
+    if (appState.isTutorialActive) return; // Don't process global clicks if tutorial is running
+
     const target = e.target;
 
     // Generic view switcher

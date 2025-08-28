@@ -400,6 +400,10 @@ const tutorial = (app) => {
             dom.tooltip = null;
             dom.highlight = null;
         }
+        // Signal to the main app that the tutorial has ended.
+        if (app && typeof app.onTutorialEnd === 'function') {
+            app.onTutorialEnd();
+        }
     };
 
     // Expose public methods
