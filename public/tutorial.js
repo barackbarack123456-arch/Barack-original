@@ -56,14 +56,15 @@ const tutorial = (app) => {
      * Shows a specific step of the tutorial.
      * @param {number} index - The index of the step to show.
      */
-    const waitForElement = (selector, timeout = 3000) => {
+    const waitForVisibleElement = (selector, timeout = 3000) => {
         return new Promise(resolve => {
             const interval = 100;
             let elapsedTime = 0;
 
             const timer = setInterval(() => {
                 const element = document.querySelector(selector);
-                if (element) {
+                // Check if the element exists and is visible (not display:none and has dimensions)
+                if (element && element.offsetParent !== null) {
                     clearInterval(timer);
                     resolve(element);
                 } else {
@@ -77,7 +78,28 @@ const tutorial = (app) => {
         });
     };
 
+    let resizeObserver = null;
+
+    const updateHighlight = (targetElement, step) => {
+        if (!targetElement || !dom.highlight) return;
+
+        const targetRect = targetElement.getBoundingClientRect();
+        const padding = 5;
+
+        dom.highlight.style.width = `${targetRect.width + (padding * 2)}px`;
+        dom.highlight.style.height = `${targetRect.height + (padding * 2)}px`;
+        dom.highlight.style.top = `${targetRect.top - padding}px`;
+        dom.highlight.style.left = `${targetRect.left - padding}px`;
+
+        positionTooltip(targetRect, step.position);
+    };
+
     const showStep = async (index) => {
+        if (resizeObserver) {
+            resizeObserver.disconnect();
+            resizeObserver = null;
+        }
+
         if (index < 0 || index >= steps.length) {
             skip();
             return;
@@ -86,14 +108,12 @@ const tutorial = (app) => {
         currentStepIndex = index;
         const step = steps[index];
 
-        // Execute any pre-action for the step (e.g., changing view)
         if (step.preAction) {
             await step.preAction();
-             // Give the DOM a moment to start updating before we poll
             await new Promise(resolve => setTimeout(resolve, 200));
         }
 
-        const targetElement = await waitForElement(step.element);
+        const targetElement = await waitForVisibleElement(step.element);
 
         if (!targetElement) {
             console.warn(`Tutorial element not found: ${step.element}. Skipping to next step.`);
@@ -101,36 +121,28 @@ const tutorial = (app) => {
             return;
         }
 
-        // Scroll the target element into view if needed
         smartScroll(targetElement);
 
-        // Add a visual click effect if the step requires it
         if (step.click) {
             targetElement.classList.add('tutorial-click-effect');
             setTimeout(() => {
                  targetElement.classList.remove('tutorial-click-effect');
-            }, 1000); // Duration of the effect
+            }, 1000);
         }
 
-        // Update tooltip content
         document.getElementById('tutorial-tooltip-title').textContent = step.title;
         document.getElementById('tutorial-tooltip-text').innerHTML = step.content;
-
-        // Update button states
         document.getElementById('tutorial-prev-btn').style.display = index === 0 ? 'none' : 'inline-block';
         document.getElementById('tutorial-next-btn').textContent = index === steps.length - 1 ? 'Finalizar' : 'Siguiente';
 
-        // Position highlight and tooltip
-        const targetRect = targetElement.getBoundingClientRect();
-        const padding = 5;
+        updateHighlight(targetElement, step);
 
-        // Position the highlight
-        dom.highlight.style.width = `${targetRect.width + (padding * 2)}px`;
-        dom.highlight.style.height = `${targetRect.height + (padding * 2)}px`;
-        dom.highlight.style.top = `${targetRect.top - padding}px`;
-        dom.highlight.style.left = `${targetRect.left - padding}px`;
-
-        positionTooltip(targetRect, step.position);
+        // --- Reactive Highlighting ---
+        resizeObserver = new ResizeObserver(() => {
+            updateHighlight(targetElement, step);
+        });
+        resizeObserver.observe(targetElement);
+        resizeObserver.observe(document.body);
     };
 
     /**
@@ -239,7 +251,13 @@ const tutorial = (app) => {
                 element: '[data-tutorial-id="eco-ecr-menu"]',
                 title: 'Módulo ECO/ECR',
                 content: 'Toda la gestión de cambios de ingeniería se encuentra en este menú. Vamos a explorarlo.',
-                position: 'bottom'
+                position: 'bottom',
+                postAction: async () => {
+                    const menu = document.querySelector('[data-tutorial-id="eco-ecr-menu"]');
+                    if (menu) {
+                        menu.querySelector('.dropdown-toggle')?.click();
+                    }
+                }
             },
             {
                 element: 'a[data-view="ecr"]',
@@ -360,6 +378,10 @@ const tutorial = (app) => {
      * Skips and closes the tutorial.
      */
     const skip = () => {
+        if (resizeObserver) {
+            resizeObserver.disconnect();
+            resizeObserver = null;
+        }
         if (dom.overlay) {
             dom.overlay.remove();
             dom.overlay = null;
