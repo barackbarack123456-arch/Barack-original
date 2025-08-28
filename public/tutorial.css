@@ -1,0 +1,118 @@
+/**
+ * Styles for the Interactive Tutorial Module
+ */
+
+/* Overlay for dimming the background */
+#tutorial-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    display: none;
+}
+
+/* Element to highlight the focused part of the UI */
+#tutorial-overlay {
+    /* ... existing styles ... */
+    /* This will be controlled by JS now */
+    clip-path: polygon(0% 0%, 0% 100%, 100% 100%, 100% 0%);
+    transition: clip-path 0.3s ease-in-out;
+}
+
+#tutorial-highlight {
+    position: absolute;
+    border: 2px dashed rgba(255, 255, 255, 0.7);
+    border-radius: 8px;
+    transition: all 0.3s ease-in-out;
+    pointer-events: none;
+}
+
+/* Tooltip container */
+#tutorial-tooltip {
+    position: absolute;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    width: 320px;
+    max-width: 90vw;
+    z-index: 10001;
+    transition: all 0.3s ease-in-out;
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Main content area of the tooltip */
+#tutorial-tooltip-content {
+    padding: 16px;
+}
+
+#tutorial-tooltip-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1e293b; /* slate-800 */
+    margin-bottom: 8px;
+}
+
+#tutorial-tooltip-text {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: #475569; /* slate-600 */
+}
+
+/* Navigation bar at the bottom of the tooltip */
+#tutorial-tooltip-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-top: 1px solid #e2e8f0; /* slate-200 */
+    background-color: #f8fafc; /* slate-50 */
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+#tutorial-tooltip-nav button {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+
+#tutorial-skip-btn {
+    color: #64748b; /* slate-500 */
+}
+
+#tutorial-skip-btn:hover {
+    background-color: #e2e8f0; /* slate-200 */
+}
+
+#tutorial-nav-right {
+    display: flex;
+    gap: 8px;
+}
+
+#tutorial-prev-btn {
+    color: #475569; /* slate-600 */
+    background-color: #f1f5f9; /* slate-100 */
+    border: 1px solid #e2e8f0; /* slate-200 */
+}
+
+#tutorial-prev-btn:hover {
+    background-color: #e2e8f0; /* slate-200 */
+}
+
+#tutorial-next-btn {
+    color: white;
+    background-color: #2563eb; /* blue-600 */
+}
+
+#tutorial-next-btn:hover {
+    background-color: #1d4ed8; /* blue-700 */
+}

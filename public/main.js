@@ -6,6 +6,7 @@ import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWith
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, writeBatch, runTransaction, orderBy, limit, startAfter, or, getCountFromServer } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { COLLECTIONS, getUniqueKeyForCollection, createHelpTooltip } from './utils.js';
 import { deleteProductAndOrphanedSubProducts } from './data_logic.js';
+import tutorial from './tutorial.js';
 
 // NOTA DE SEGURIDAD: La configuración de Firebase no debe estar hardcodeada en el código fuente.
 // En un entorno de producción, estos valores deben cargarse de forma segura,
@@ -1181,6 +1182,17 @@ function initializeAppListeners() {
 function setupGlobalEventListeners() {
     dom.searchInput.addEventListener('input', handleSearch);
     dom.addNewButton.addEventListener('click', () => openFormModal());
+
+    document.getElementById('start-tutorial-btn')?.addEventListener('click', () => {
+        const app = {
+            switchView,
+            showToast,
+            openFormModal,
+            appState,
+            db
+        };
+        tutorial(app).start();
+    });
 
     document.getElementById('main-nav').addEventListener('click', (e) => {
         // This listener now ONLY handles dropdown toggling
