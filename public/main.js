@@ -762,6 +762,18 @@ async function seedEcrs(batch, users, generatedData) {
             componentes_obsoletos: Math.floor(Math.random() * 11),
         };
 
+        // Add random department statuses
+        const departamentos = [ 'ing_manufatura', 'hse', 'calidad', 'compras', 'sqa', 'tooling', 'logistica', 'financiero', 'comercial', 'mantenimiento', 'produccion', 'calidad_cliente', 'ing_producto' ];
+        departamentos.forEach(depto => {
+            const random = Math.random();
+            if (random < 0.3) { // 30% chance to be OK
+                ecrData[`ok_${depto}`] = true;
+            } else if (random < 0.5) { // 20% chance to be NOK
+                ecrData[`nok_${depto}`] = true;
+            }
+            // 50% chance to be undefined
+        });
+
         const docRef = doc(ecrFormsRef, ecrId);
         batch.set(docRef, ecrData);
     }
@@ -2693,7 +2705,6 @@ async function runEcrSeguimientoLogic() {
                     <i data-lucide="arrow-left" class="w-4 h-4"></i>
                     Volver al Panel de Control
                 </button>
-                <h2 class="text-3xl font-bold text-slate-800">Seguimiento y Métricas de ECR</h2>
             </div>
 
             <!-- Sección 1: Registro de ECR -->
@@ -2712,7 +2723,12 @@ async function runEcrSeguimientoLogic() {
 
             <!-- Sección 2: Matriz de Asistencia -->
             <section id="asistencia-matriz-section" class="bg-white p-6 rounded-xl shadow-lg">
-                <h3 class="text-xl font-bold text-slate-800 mb-4">Matriz de Asistencia a Reuniones</h3>
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-slate-800">Matriz de Asistencia a Reuniones</h3>
+                    <button id="add-reunion-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm font-semibold flex items-center gap-2">
+                        <i data-lucide="plus"></i> Agregar Reunión
+                    </button>
+                </div>
                 <div id="asistencia-matriz-container">
                     <p class="text-slate-500">Cargando matriz de asistencia...</p>
                 </div>
@@ -2815,11 +2831,18 @@ async function runEcrSeguimientoLogic() {
                         <td class="text-center font-bold ${atraso.clase}">${atraso.dias}</td>
                         <td class="bg-slate-400 w-2"></td>
                         ${departamentos.map(depto => {
-                            let statusClass = '';
-                            let statusText = '';
-                            if (ecr[`ok_${depto.id}`]) { statusClass = 'status-ok'; statusText = 'OK'; }
-                            else if (ecr[`nok_${depto.id}`]) { statusClass = 'status-nok'; statusText = 'NOK'; }
-                            return `<td class="text-center font-bold ${statusClass}">${statusText}</td>`;
+                            const okKey = `ok_${depto.id}`;
+                            const nokKey = `nok_${depto.id}`;
+                            let status = '';
+                            let statusClass = 'status-empty';
+                            if (ecr[okKey]) {
+                                status = 'OK';
+                                statusClass = 'status-ok';
+                            } else if (ecr[nokKey]) {
+                                status = 'NOK';
+                                statusClass = 'status-nok';
+                            }
+                            return `<td><button data-action="toggle-ecr-status" data-ecr-id="${ecr.id}" data-depto-id="${depto.id}" class="w-full h-full text-center font-bold ${statusClass}">${status}</button></td>`;
                         }).join('')}
                     </tr>
                 `;
@@ -2835,6 +2858,53 @@ async function runEcrSeguimientoLogic() {
     };
 
     renderEcrLog();
+
+    const ecrLogContainer = document.getElementById('ecr-log-container');
+    if (ecrLogContainer) {
+        ecrLogContainer.addEventListener('click', async (e) => {
+            const button = e.target.closest('button[data-action="toggle-ecr-status"]');
+            if (!button) return;
+
+            const ecrId = button.dataset.ecrId;
+            const deptoId = button.dataset.deptoId;
+
+            if (!ecrId || !deptoId) return;
+
+            const okKey = `ok_${deptoId}`;
+            const nokKey = `nok_${deptoId}`;
+
+            const docRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
+            const docSnap = await getDoc(docRef);
+
+            if (!docSnap.exists()) {
+                showToast('Error: No se encontró el ECR.', 'error');
+                return;
+            }
+
+            const data = docSnap.data();
+            const updateData = {};
+
+            if (data[okKey]) { // Current state is OK
+                updateData[okKey] = false;
+                updateData[nokKey] = true;
+            } else if (data[nokKey]) { // Current state is NOK
+                updateData[okKey] = false;
+                updateData[nokKey] = false;
+            } else { // Current state is empty
+                updateData[okKey] = true;
+                updateData[nokKey] = false;
+            }
+
+            try {
+                await updateDoc(docRef, updateData);
+                showToast('Estado de ECR actualizado.', 'success');
+                // The onSnapshot listener for ECR_FORMS will automatically re-render the table.
+            } catch (error) {
+                console.error("Error updating ECR status:", error);
+                showToast('Error al actualizar el estado.', 'error');
+            }
+        });
+    }
 
     const renderAsistenciaMatriz = async () => {
         const container = document.getElementById('asistencia-matriz-container');
@@ -2878,10 +2948,8 @@ async function runEcrSeguimientoLogic() {
                         <td class="font-semibold sticky left-0 bg-white z-10">${depto.label}</td>
                         ${reuniones.map(reunion => {
                             const status = reunion.asistencia[depto.id] || '';
-                            const statusClass = {
-                                'P': 'status-p', 'A': 'status-a', 'O': 'status-o'
-                            }[status] || '';
-                            return `<td class="text-center font-bold ${statusClass}">${status}</td>`;
+                            const statusClass = { 'P': 'status-p', 'A': 'status-a', 'O': 'status-o' }[status] || 'status-empty';
+                            return `<td><button data-action="toggle-asistencia-status" data-reunion-id="${reunion.id}" data-depto-id="${depto.id}" class="w-full h-full text-center font-bold ${statusClass}">${status}</button></td>`;
                         }).join('')}
                     </tr>
                 `;
@@ -2897,6 +2965,73 @@ async function runEcrSeguimientoLogic() {
     };
 
     renderAsistenciaMatriz();
+
+    const asistenciaMatrizContainer = document.getElementById('asistencia-matriz-container');
+    if (asistenciaMatrizContainer) {
+        asistenciaMatrizContainer.addEventListener('click', async (e) => {
+            const button = e.target.closest('button[data-action="toggle-asistencia-status"]');
+            if (!button) return;
+
+            const reunionId = button.dataset.reunionId;
+            const deptoId = button.dataset.deptoId;
+
+            if (!reunionId || !deptoId) return;
+
+            const statusCycle = { '': 'P', 'P': 'A', 'A': 'O', 'O': '' };
+            const currentStatus = button.textContent;
+            const nextStatus = statusCycle[currentStatus];
+
+            const docRef = doc(db, COLLECTIONS.REUNIONES_ECR, reunionId);
+            const update = { [`asistencia.${deptoId}`]: nextStatus };
+
+            try {
+                await updateDoc(docRef, update);
+                showToast('Asistencia actualizada.', 'success');
+            } catch (error) {
+                console.error('Error updating asistencia:', error);
+                showToast('Error al actualizar la asistencia.', 'error');
+            }
+        });
+    }
+
+    const addReunionBtn = document.getElementById('add-reunion-btn');
+    if (addReunionBtn) {
+        addReunionBtn.addEventListener('click', async () => {
+            const newDate = await showDatePromptModal('Agregar Reunión', 'Seleccione la fecha para la nueva reunión:');
+            if (!newDate) return; // User cancelled
+
+            const reunionId = `reunion_${newDate}`;
+            const docRef = doc(db, COLLECTIONS.REUNIONES_ECR, reunionId);
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+                showToast('Ya existe una reunión para esta fecha.', 'error');
+                return;
+            }
+
+            const departamentos = [
+                'ing_manufatura', 'hse', 'calidad', 'compras', 'sqa', 'tooling',
+                'logistica', 'financiero', 'comercial', 'mantenimiento', 'produccion',
+                'calidad_cliente', 'ing_producto'
+            ];
+            const newReunionData = {
+                id: reunionId,
+                fecha: newDate,
+                asistencia: departamentos.reduce((acc, depto) => {
+                    acc[depto] = ''; // Initialize all as empty
+                    return acc;
+                }, {})
+            };
+
+            try {
+                await setDoc(docRef, newReunionData);
+                showToast('Nueva reunión agregada con éxito.', 'success');
+            } catch (error) {
+                console.error('Error adding new reunion:', error);
+                showToast('Error al agregar la nueva reunión.', 'error');
+            }
+        });
+    }
 
     const renderResumenYGraficos = async () => {
         const resumenContainer = document.getElementById('resumen-container');
@@ -9103,6 +9238,51 @@ async function cloneProduct() {
         console.error("Error clonando el producto:", error);
         showToast('Ocurrió un error al clonar el producto.', 'error');
     }
+}
+
+function showDatePromptModal(title, message) {
+    return new Promise(resolve => {
+        const modalId = `date-prompt-modal-${Date.now()}`;
+        const today = new Date().toISOString().split('T')[0];
+        const modalHTML = `<div id="${modalId}" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop animate-fade-in">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-md m-4 modal-content">
+                <div class="p-6">
+                    <h3 class="text-xl font-bold mb-2">${title}</h3>
+                    <p class="text-gray-600 mb-4">${message}</p>
+                    <input type="date" id="date-prompt-input" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" value="${today}">
+                </div>
+                <div class="flex justify-end items-center p-4 border-t bg-gray-50 space-x-4">
+                    <button data-action="cancel" class="bg-gray-200 text-gray-800 px-6 py-2 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
+                    <button data-action="confirm" class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 font-semibold">Aceptar</button>
+                </div>
+            </div>
+        </div>`;
+        dom.modalContainer.innerHTML = modalHTML;
+        const modalElement = document.getElementById(modalId);
+        const input = modalElement.querySelector('#date-prompt-input');
+        input.focus();
+
+        const close = (value) => {
+            modalElement.remove();
+            resolve(value);
+        };
+
+        modalElement.addEventListener('click', e => {
+            const action = e.target.closest('button')?.dataset.action;
+            if (action === 'confirm') {
+                close(input.value);
+            } else if (action === 'cancel') {
+                close(null);
+            }
+        });
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                close(input.value);
+            } else if (e.key === 'Escape') {
+                close(null);
+            }
+        });
+    });
 }
 
 function showPromptModal(title, message) {
