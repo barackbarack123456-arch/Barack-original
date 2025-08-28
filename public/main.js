@@ -1451,78 +1451,35 @@ async function runEcoFormLogic(params = null) {
 
         const formSectionsData = [
             {
-                title: 'ENG. PRODUCTO',
-                id: 'eng_producto',
-                checklist: [
-                    '¿Se requiere cambio en el plano?',
-                    '¿Se requiere cambio en la especificación?',
-                    '¿Se requiere un nuevo herramental?',
-                    '¿Se requiere un nuevo dispositivo?'
-                ]
+                title: 'ENG. PRODUCTO', id: 'eng_producto', icon: 'drafting-compass',
+                checklist: [ '¿Se requiere cambio en el plano?', '¿Se requiere cambio en la especificación?', '¿Se requiere un nuevo herramental?', '¿Se requiere un nuevo dispositivo?' ]
             },
             {
-                title: 'CALIDAD',
-                id: 'calidad',
-                checklist: [
-                    '¿Se requiere un nuevo plan de control?',
-                    '¿Se requiere un nuevo estudio de capacidad?',
-                    '¿Se requiere un nuevo R&R?',
-                    '¿Se requiere un nuevo layout?'
-                ]
+                title: 'CALIDAD', id: 'calidad', icon: 'award',
+                checklist: [ '¿Se requiere un nuevo plan de control?', '¿Se requiere un nuevo estudio de capacidad?', '¿Se requiere un nuevo R&R?', '¿Se requiere un nuevo layout?' ]
             },
             {
-                title: 'ENG. PROCESO',
-                id: 'eng_proceso',
-                checklist: [
-                    '¿Se requiere un nuevo diagrama de flujo?',
-                    '¿Se requiere un nuevo AMEF?',
-                    '¿Se requiere un nuevo estudio de tiempos?',
-                    '¿Se requiere una nueva instrucción de trabajo?'
-                ]
+                title: 'ENG. PROCESO', id: 'eng_proceso', icon: 'cpu',
+                checklist: [ '¿Se requiere un nuevo diagrama de flujo?', '¿Se requiere un nuevo AMEF?', '¿Se requiere un nuevo estudio de tiempos?', '¿Se requiere una nueva instrucción de trabajo?' ]
             },
             {
-                title: 'DOCUMENTACIÓN CALIDAD',
-                id: 'doc_calidad',
-                checklist: [
-                    '¿Se actualizó el AMFE de Proceso?',
-                    '¿Se actualizó el Plan de Control?',
-                    '¿Se actualizaron las Hojas de Proceso?',
-                    '¿Se actualizó el Diagrama de Flujo?'
-                ]
+                title: 'DOCUMENTACIÓN CALIDAD', id: 'doc_calidad', icon: 'folder-check',
+                checklist: [ '¿Se actualizó el AMFE de Proceso?', '¿Se actualizó el Plan de Control?', '¿Se actualizaron las Hojas de Proceso?', '¿Se actualizó el Diagrama de Flujo?' ]
             },
             {
-                title: 'COMPRAS',
-                id: 'compras',
-                checklist: [
-                    '¿Se requiere un nuevo proveedor?',
-                    '¿Se requiere un nuevo acuerdo de precios?',
-                    '¿Se requiere un nuevo embalaje?',
-                    '¿Se requiere un nuevo transporte?'
-                ]
+                title: 'COMPRAS', id: 'compras', icon: 'shopping-cart',
+                checklist: [ '¿Se requiere un nuevo proveedor?', '¿Se requiere un nuevo acuerdo de precios?', '¿Se requiere un nuevo embalaje?', '¿Se requiere un nuevo transporte?' ]
             },
             {
-                title: 'LOGISTICA',
-                id: 'logistica',
-                checklist: [
-                    '¿Se requiere un nuevo layout de almacén?',
-                    '¿Se requiere un nuevo sistema de identificación?',
-                    '¿Se requiere un nuevo flujo de materiales?',
-                    '¿Se requiere un nuevo sistema de transporte interno?'
-                ]
+                title: 'LOGISTICA', id: 'logistica', icon: 'truck',
+                checklist: [ '¿Se requiere un nuevo layout de almacén?', '¿Se requiere un nuevo sistema de identificación?', '¿Se requiere un nuevo flujo de materiales?', '¿Se requiere un nuevo sistema de transporte interno?' ]
             },
             {
-                title: 'IMPLEMENTACIÓN',
-                id: 'implementacion',
-                checklist: [
-                    '¿Se requiere actualizar el stock?',
-                    '¿Se requiere notificar al cliente?',
-                    '¿Se requiere capacitar al personal?',
-                    '¿Se requiere validar el proceso?'
-                ]
+                title: 'IMPLEMENTACIÓN', id: 'implementacion', icon: 'rocket',
+                checklist: [ '¿Se requiere actualizar el stock?', '¿Se requiere notificar al cliente?', '¿Se requiere capacitar al personal?', '¿Se requiere validar el proceso?' ]
             },
             {
-                title: 'APROBACIÓN FINAL',
-                id: 'aprobacion_final',
+                title: 'APROBACIÓN FINAL', id: 'aprobacion_final', icon: 'flag',
                 description: 'Aprobación final del ECO y cierre del proceso.',
                 checklist: null
             }
@@ -1532,10 +1489,12 @@ async function runEcoFormLogic(params = null) {
             const checklistItemsHTML = section.checklist
                 ? section.checklist.map((item, index) => `
                     <div class="checklist-item">
-                        <span class="checklist-item-label">${item}</span>
+                        <span class="checklist-item-label text-sm">${item}</span>
                         <div class="checklist-item-options">
+                            <label class="text-sm font-medium">SI</label>
                             <input type="checkbox" name="check_${section.id}_${index}_si" class="form-checkbox h-5 w-5 text-blue-600">
-                            <input type="checkbox" name="check_${section.id}_${index}_na" class="form-checkbox h-5 w-5 text-blue-600">
+                            <label class="text-sm font-medium">N/A</label>
+                            <input type="checkbox" name="check_${section.id}_${index}_na" class="form-checkbox h-5 w-5 text-gray-400">
                         </div>
                     </div>
                 `).join('')
@@ -1543,23 +1502,21 @@ async function runEcoFormLogic(params = null) {
 
             const mainContentHTML = section.checklist
                 ? `
-                <div class="section-checklist">
-                    ${checklistItemsHTML}
-                </div>
+                <div class="section-checklist">${checklistItemsHTML}</div>
                 <div class="section-comments">
-                    <label for="comments_${section.id}" class="font-bold text-gray-700">Comentarios:</label>
-                    <textarea id="comments_${section.id}" name="comments_${section.id}" rows="6" class="mt-2 w-full border rounded-md p-2"></textarea>
+                    <label for="comments_${section.id}" class="block font-bold text-gray-700 mb-2">Comentarios:</label>
+                    <textarea id="comments_${section.id}" name="comments_${section.id}" rows="8" class="form-field"></textarea>
                 </div>`
-                : `<div class="p-4 w-full">
-                    <p class="text-gray-700">${section.description}</p>
+                : `<div class="p-4 w-full col-span-2">
+                    <p class="text-gray-700 text-center italic">${section.description}</p>
                 </div>`;
 
             const statusFieldHTML = section.checklist
                 ? `<div class="footer-field">
                     <label>Estado de Revisión</label>
                     <div class="status-options">
-                        <label class="flex items-center"><input type="radio" name="status_${section.id}" value="ok" class="form-radio h-4 w-4 text-green-600"> <span class="ml-2">OK</span></label>
-                        <label class="flex items-center"><input type="radio" name="status_${section.id}" value="nok" class="form-radio h-4 w-4 text-red-600"> <span class="ml-2">NOK</span></label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="status_${section.id}" value="ok" class="form-radio h-4 w-4 text-green-600"> <span class="font-semibold text-green-700">OK</span></label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="status_${section.id}" value="nok" class="form-radio h-4 w-4 text-red-600"> <span class="font-semibold text-red-700">NOK</span></label>
                     </div>
                 </div>`
                 : '';
@@ -1567,6 +1524,7 @@ async function runEcoFormLogic(params = null) {
             return `
             <div class="section-block">
                 <div class="section-sidebar">
+                    <i data-lucide="${section.icon || 'help-circle'}" class="w-6 h-6 text-slate-500"></i>
                     <span>${section.title}</span>
                 </div>
                 <div class="section-main">
@@ -1576,17 +1534,17 @@ async function runEcoFormLogic(params = null) {
                     <div class="section-footer">
                         <div class="footer-field">
                             <label for="date_review_${section.id}">Fecha de Revisión</label>
-                            <input type="date" id="date_review_${section.id}" name="date_review_${section.id}" class="p-1 border rounded-md">
+                            <input type="date" id="date_review_${section.id}" name="date_review_${section.id}" class="p-1 border rounded-md form-field">
                         </div>
                         ${statusFieldHTML}
                         <div class="flex-grow"></div>
                         <div class="footer-field">
                             <label for="name_${section.id}">Nombre del Aprobador</label>
-                            <input type="text" id="name_${section.id}" name="name_${section.id}" class="p-1 border rounded-md w-48">
+                            <input type="text" id="name_${section.id}" name="name_${section.id}" class="p-1 border rounded-md form-field w-48">
                         </div>
                         <div class="footer-field">
                             <label for="visto_${section.id}">Firma</label>
-                            <input type="text" id="visto_${section.id}" name="visto_${section.id}" class="p-1 border rounded-md w-32">
+                            <input type="text" id="visto_${section.id}" name="visto_${section.id}" class="p-1 border rounded-md form-field w-32">
                         </div>
                     </div>
                 </div>
@@ -3756,6 +3714,8 @@ async function runEcrFormLogic(params = null) {
     // --- Render the basic structure ---
     dom.viewContent.innerHTML = `
         <div class="form-container">
+            <div id="ecr-progress-bar" class="sticky top-0 bg-white/80 backdrop-blur-sm z-10 p-4 shadow-sm mb-4 rounded-lg border">
+                </div>
             <form id="ecr-form" class="bg-white p-6"></form>
             <div id="action-buttons-container" class="max-w-7xl mx-auto mt-[-1rem] mb-8 px-8 pb-4 bg-white rounded-b-lg shadow-lg border-t flex justify-end items-center gap-4">
                 <button type="button" id="ecr-back-button" class="bg-gray-200 text-gray-800 px-6 py-2 rounded-md hover:bg-gray-300 mr-auto">Volver a la Lista</button>
@@ -3766,6 +3726,56 @@ async function runEcrFormLogic(params = null) {
         </div>
     `;
     const formContainer = document.getElementById('ecr-form');
+
+    // --- Progress Bar Logic ---
+    const progressBarContainer = document.getElementById('ecr-progress-bar');
+    const pages = [
+        { id: 'page1', title: 'Información General' },
+        { id: 'page2', title: 'Evaluación (Parte 1)' },
+        { id: 'page3', title: 'Evaluación (Parte 2)' },
+        { id: 'page4', title: 'Evaluación (Parte 3)' },
+        { id: 'page_final', title: 'Aprobación Final' }
+    ];
+
+    let progressBarHTML = '<ol class="flex items-center w-full">';
+    pages.forEach((page, index) => {
+        const isLast = index === pages.length - 1;
+        progressBarHTML += `
+            <li class="flex w-full items-center ${!isLast ? "text-blue-600 after:content-[''] after:w-full after:h-1 after:border-b after:border-gray-100 after:border-4 after:inline-block" : ""}">
+                <button data-target="${page.id}" class="progress-step flex items-center justify-center w-10 h-10 bg-gray-100 rounded-full lg:h-12 lg:w-12 shrink-0">
+                    <span class="font-bold">${index + 1}</span>
+                </button>
+            </li>
+        `;
+    });
+    progressBarHTML += '</ol>';
+    progressBarContainer.innerHTML = progressBarHTML;
+
+    progressBarContainer.addEventListener('click', (e) => {
+        const button = e.target.closest('.progress-step');
+        if (button) {
+            const targetId = button.dataset.target;
+            const targetElement = document.getElementById(targetId);
+            if (targetElement) {
+                targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+    });
+
+    // --- Intersection Observer for Progress Bar ---
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            const pageId = entry.target.id;
+            const progressButton = progressBarContainer.querySelector(`[data-target="${pageId}"]`);
+            if (entry.isIntersecting) {
+                progressButton.classList.remove('bg-gray-100');
+                progressButton.classList.add('bg-blue-600', 'text-white');
+            } else {
+                progressButton.classList.add('bg-gray-100');
+                progressButton.classList.remove('bg-blue-600', 'text-white');
+            }
+        });
+    }, { threshold: 0.5 }); // 50% of the page must be visible
 
     // --- Helper Functions ---
     const createCheckbox = (label, name, value = '') => `<div class="flex items-center gap-2"><input type="checkbox" name="${name}" id="${name}" value="${value}" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"><label for="${name}" class="text-sm select-none">${label}</label></div>`;
@@ -3804,7 +3814,7 @@ async function runEcrFormLogic(params = null) {
         return `
             <div class="department-section ${isApprovedOrRejected ? 'approved' : ''}">
                 <div class="department-header">
-                    <span>${config.title}</span>
+                     <span class="flex items-center gap-3"><i data-lucide="${config.icon || 'help-circle'}" class="w-6 h-6 text-slate-500"></i>${config.title}</span>
                     <div class="flex items-center gap-4">
                         ${createCheckbox('No Afecta', `na_${config.id}`)}
                         ${createCheckbox('Afecta', `afecta_${config.id}`)}
@@ -3970,7 +3980,7 @@ async function runEcrFormLogic(params = null) {
             <div class="watermark">Página 2</div>
             <div class="ecr-checklist-bar">EVALUACIÓN DE PROPUESTA POR LOS DEPARTAMENTOS</div>
             ${buildDepartmentSection({
-                title: 'INGENIERÍA PRODUCTO — DISEÑO', id: 'ing_producto',
+                title: 'INGENIERÍA PRODUCTO — DISEÑO', id: 'ing_producto', icon: 'drafting-compass',
                 customHTML: `
                     <table class="full-width-table text-xs my-2">
                         <thead><tr><th>REF. ACTUAL / IND</th><th>REF. NUEVA / IND</th><th>QTD./CARRO</th></tr></thead>
@@ -3983,15 +3993,15 @@ async function runEcrFormLogic(params = null) {
                 checklist: ['ESTRUCTURA DE PRODUCTO', 'PLANO DE VALIDACIÓN', 'LANZAMIENTO DE PROTOTIPOS', 'EVALUADO POR EL ESPECIALISTA DE PRODUCTO', 'ACTUALIZAR DISEÑO 3D', 'ACTUALIZAR DISEÑO 2D', 'ACTUALIZAR DFMEA', 'COPIA DE ESTA ECR PARA OTRO SITIO?', 'NECESITA PIEZA DE REPOSICIÓN'].map(l => ({label: l, name: `prod_check_${l.toLowerCase().replace(/ /g,'_')}`}))
             }, data)}
             ${buildDepartmentSection({
-                title: 'INGENIERÍA MANUFACTURA Y PROCESO', id: 'ing_manufatura',
+                title: 'INGENIERÍA MANUFACTURA Y PROCESO', id: 'ing_manufatura', icon: 'cpu',
                 checklist: ['HACER RUN A RATE', 'ACTUALIZAR DISEÑO MANUFACTURA', 'LAY OUT', 'AFECTA EQUIPAMIENTO', 'ACTUALIZAR INSTRUCCIONES, FLUJOGRAMAS', 'ACTUALIZAR PFMEA', 'POKA YOKES', 'ACTUALIZAR TIEMPOS', 'CAPACIDAD DE PERSONAL', 'AFECTA A S&R / HSE'].map(l => ({label: l, name: `manuf_${l.toLowerCase().replace(/ /g,'_')}`}))
             }, data)}
              ${buildDepartmentSection({
-                title: 'HSE', id: 'hse',
+                title: 'HSE', id: 'hse', icon: 'siren',
                 checklist: ['CHECK LIST DE LIB DE MÁQUINA', 'COMUNICAR ÓRGANO AMBIENTAL', 'COMUNICACIÓN MINISTERIO DE TRABAJO'].map(l => ({label: l, name: `hse_${l.toLowerCase().replace(/ /g,'_')}`}))
             }, data)}
             ${buildDepartmentSection({
-                title: 'CALIDAD', id: 'calidad',
+                title: 'CALIDAD', id: 'calidad', icon: 'award',
                 checklist: ['AFECTA DIMENSIONAL CLIENTE?', 'AFECTA FUNCIONAL Y MONTABILIDAD?', 'ACTUALIZAR PLANO DE CONTROLES/ INSTRUCCIONES', 'AFECTA ASPECTO/ACTUALIZAR BIBLIA DE DEFECTOS/PZA PATRÓN?', 'AFECTA CAPABILIDAD (AFECTA CAPACIDAD)', 'MODIFICAR DISPOSITIVO DE CONTROL Y SU MODO DE CONTROL', 'NUEVO ESTUDIO DE MSA / CALIBRACIÓN', 'NECESITA VALIDACIÓN (PLANO DEBE ESTAR EN ANEXO)', 'NECESARIO NUEVO PPAP/PSW CLIENTE', 'ANÁLISIS DE MATERIA PRIMA', 'IMPLEMENTAR MURO DE CALIDAD', 'NECESITA AUDITORÍA S&R', 'AFECTA POKA-YOKE?', 'AFECTA AUDITORÍA DE PRODUCTO?'].map(l => ({label: l, name: `calidad_${l.toLowerCase().replace(/ /g,'_')}`}))
             }, data)}
         </div>
@@ -4002,7 +4012,7 @@ async function runEcrFormLogic(params = null) {
             <div class="watermark">Página 3</div>
             <div class="ecr-checklist-bar">EVALUACIÓN DE PROPUESTA POR LOS DEPARTAMENTOS (Cont.)</div>
             ${buildDepartmentSection({
-                title: 'COMPRAS', id: 'compras',
+                title: 'COMPRAS', id: 'compras', icon: 'shopping-cart',
                 customHTML: `
                     <div class="grid grid-cols-2 gap-4 text-xs">
                         <div><strong>PIEZA Actual:</strong> ${createCheckbox('NACIONAL', 'compras_actual_nac')} ${createCheckbox('IMPORTADA', 'compras_actual_imp')} <input name="compras_proveedor_actual" placeholder="PROVEEDOR:" class="w-full mt-1"></div>
@@ -4013,11 +4023,11 @@ async function runEcrFormLogic(params = null) {
                 checklist: ['COSTOS EVALUADOS', 'PEDIDO COMPRA PROTOTIPOS', 'PEDIDO COMPRA TOOLING', 'AFECTA HERRAMIENTA DE PROVEEDOR', 'NECESARIO ENVIAR DISEÑO P/ PROVEEDOR', 'IMPACTO POST VENTA ANALIZADO'].map(l => ({label: l, name: `compras_${l.toLowerCase().replace(/ /g,'_')}`}))
             }, data)}
             ${buildDepartmentSection({
-                title: 'CALIDAD PROVEEDORES (SQA)', id: 'sqa',
+                title: 'CALIDAD PROVEEDORES (SQA)', id: 'sqa', icon: 'gem',
                 checklist: ['NECESITA NUEVO PSW PROVEEDOR - FECHA LÍMITE: __/__/____', 'AFECTA LAY OUT', 'AFECTA EMBALAJE', 'AFECTA DISPOSITIVO CONTROL PROVEEDOR', 'AFECTA SUBPROVEEDOR', 'NECESITA DE ASISTENTE'].map(l => ({label: l, name: `sqa_${l.toLowerCase().replace(/ /g,'_')}`}))
             }, data)}
             ${buildDepartmentSection({
-                title: 'Tooling & Equipments (T&E)', id: 'tooling',
+                title: 'Tooling & Equipments (T&E)', id: 'tooling', icon: 'wrench',
                 checklist: ['AFECTA HERRAMIENTA', 'ANÁLISIS TÉCNICO DE ALTERACIÓN', 'OTROS IMPACTOS CAUSADOS POR LA ALTERACIÓN NO HERRAMENTAL'].map(l => ({label: l, name: `tooling_${l.toLowerCase().replace(/ /g,'_')}`}))
             }, data)}
         </div>
@@ -4028,27 +4038,27 @@ async function runEcrFormLogic(params = null) {
             <div class="watermark">Página 4</div>
             <div class="ecr-checklist-bar">EVALUACIÓN DE PROPUESTA POR LOS DEPARTAMENTOS (Cont.)</div>
              ${buildDepartmentSection({
-                title: 'LOGÍSTICA Y PC&L', id: 'logistica',
+                title: 'LOGÍSTICA Y PC&L', id: 'logistica', icon: 'truck',
                 checklist: ['Parámetros logísticos/items nuevos', 'Gestión de stock (pieza antigua/nueva)', 'Necesita stock de seguridad', 'Altera programa p/ proveedor', 'Nuevo protocolo logístico', 'Impacto post venta', 'Impacto MOI/MOD', 'Afecta embalaje'].map(l => ({label: l, name: `logistica_${l.toLowerCase().replace(/ /g,'_')}`}))
             }, data)}
              ${buildDepartmentSection({
-                title: 'FINANCIERO / COSTOS', id: 'financiero',
+                title: 'FINANCIERO / COSTOS', id: 'financiero', icon: 'landmark',
                 checklist: ['BUSINESS PLAN', 'BOA - BUSINESS OPPORTUNITY', 'MoB - ANALYSIS', 'PAYBACK / UPFRONT'].map(l => ({label: l, name: `financiero_${l.toLowerCase().replace(/ /g,'_')}`}))
             }, data)}
             ${buildDepartmentSection({
-                title: 'COMERCIAL', id: 'comercial',
+                title: 'COMERCIAL', id: 'comercial', icon: 'trending-up',
                 checklist: ['NECESARIO RENEGOCIAR CON EL CLIENTE', 'IMPACTO POST VENTA ANALIZADO', 'NECESARIA NUEVA ORDEN DE VENTA AL CLIENTE', 'NEGOCIACIÓN DE OBSOLETOS'].map(l => ({label: l, name: `comercial_${l.toLowerCase().replace(/ /g,'_')}`}))
             }, data)}
             ${buildDepartmentSection({
-                title: 'MANTENIMIENTO', id: 'mantenimiento',
+                title: 'MANTENIMIENTO', id: 'mantenimiento', icon: 'shield-check',
                 checklist: ['PROYECTO PRESENTA VIABILIDAD TÉCNICA / TECNOLÓGICA', 'NECESITA ADQUISICIÓN DE MATERIALES/EQUIPOS', 'NECESIDAD / DISPONIBILIDAD DE ENERGÍAS: ELÉCTRICA, NEUMÁTICA E HIDRÁULICA', 'CREACIÓN/ALTERACIÓN DE MANTENIMIENTO PREVENTIVO', 'NECESITA REGISTRO DE NUEVOS ITEMS EN ALMACÉN'].map(l => ({label: l, name: `mantenimiento_${l.toLowerCase().replace(/ /g,'_')}`}))
             }, data)}
             ${buildDepartmentSection({
-                title: 'PRODUCCIÓN', id: 'produccion',
+                title: 'PRODUCCIÓN', id: 'produccion', icon: 'factory',
                 checklist: ['AFECTA INSTRUCCIÓN DE TRABAJO (SW)', 'AFECTA LIBERACIÓN DE PROCESO (SET UP)', 'IMPACTO MOD / MOI', 'CAPACITACIÓN', 'AFECTA ALTERACIÓN DE PLANO DE CORTE'].map(l => ({label: l, name: `produccion_${l.toLowerCase().replace(/ /g,'_')}`}))
             }, data)}
             ${buildDepartmentSection({
-                title: 'CALIDAD CLIENTE', id: 'calidad_cliente',
+                title: 'CALIDAD CLIENTE', id: 'calidad_cliente', icon: 'user-check',
                 checklist: ['NECESITA APROBACIÓN CLIENTE EXTERNO', 'NECESARIO APROBACIÓN CLIENTE INTERNO', 'ECR SOBRE DESVÍO N°: ____', 'OTROS: ______'].map(l => ({label: l, name: `calidad_cliente_${l.toLowerCase().replace(/ /g,'_')}`}))
             }, data)}
         </div>
@@ -4086,6 +4096,13 @@ async function runEcrFormLogic(params = null) {
     formContainer.innerHTML = page1HTML + page2HTML(ecrData) + page3HTML(ecrData) + page4HTML(ecrData) + finalPageHTML;
     lucide.createIcons();
 
+    // Start observing each page section for the progress bar
+    pages.forEach(page => {
+        const pageElement = document.getElementById(page.id);
+        if (pageElement) {
+            observer.observe(pageElement);
+        }
+    });
 
     // --- Local Storage and Data Handling ---
     const saveEcrFormToLocalStorage = () => {
@@ -4223,15 +4240,45 @@ async function runEcrFormLogic(params = null) {
     };
 
     const validateEcrForm = () => {
-        const ecrInput = formContainer.querySelector('[name="ecr_no"]');
-        if (!ecrInput.value.trim()) {
-            showToast('El campo "ECR N°" es obligatorio para aprobar.', 'error');
-            ecrInput.focus();
-            ecrInput.classList.add('validation-error');
-            return false;
+        let isValid = true;
+        let firstErrorElement = null;
+
+        // Clear previous errors
+        formContainer.querySelectorAll('.validation-error').forEach(el => el.classList.remove('validation-error'));
+        formContainer.querySelectorAll('.validation-error-message').forEach(el => el.remove());
+
+        const requiredFields = [
+            { name: 'ecr_no', label: 'ECR N°' },
+            { name: 'proyecto', label: 'Proyecto' },
+            { name: 'cliente', label: 'Cliente' },
+            { name: 'fecha_emision', label: 'Fecha de Emisión' },
+            { name: 'denominacion_producto', label: 'Denominación del Producto' }
+        ];
+
+        requiredFields.forEach(field => {
+            const input = formContainer.querySelector(`[name="${field.name}"]`);
+            if (input && !input.value.trim()) {
+                isValid = false;
+                input.classList.add('validation-error');
+                const errorMsg = document.createElement('p');
+                errorMsg.className = 'validation-error-message';
+                errorMsg.textContent = `El campo "${field.label}" es obligatorio.`;
+                input.parentElement.appendChild(errorMsg);
+                if (!firstErrorElement) {
+                    firstErrorElement = input;
+                }
+            }
+        });
+
+        if (!isValid) {
+            showToast('Por favor, corrija los errores en el formulario.', 'error');
+            if (firstErrorElement) {
+                firstErrorElement.focus();
+                firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         }
-        ecrInput.classList.remove('validation-error');
-        return true;
+
+        return isValid;
     };
 
     document.getElementById('ecr-save-button').addEventListener('click', () => saveEcrForm('in-progress'));
@@ -5666,7 +5713,7 @@ function renderDashboardKpis() {
     ];
 
     container.innerHTML = kpis.map(kpi => `
-        <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex items-center space-x-4">
+        <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex items-center space-x-4 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-lg cursor-pointer">
             <div class="p-3 rounded-full bg-${kpi.color}-100 text-${kpi.color}-600"><i data-lucide="${kpi.icon}" class="h-8 w-8"></i></div>
             <div><p id="${kpi.id}" class="text-3xl font-bold">${kpi.value}</p><p class="text-sm font-semibold text-gray-600">${kpi.label}</p></div>
         </div>
@@ -7176,7 +7223,7 @@ function createTaskCard(task) {
     const dragClass = checkUserPermission('edit', task) ? '' : 'no-drag';
 
     return `
-        <div class="task-card bg-white rounded-lg p-4 shadow-sm border ${urgencyClass} cursor-pointer hover:shadow-md hover:border-blue-400 animate-fade-in-up flex flex-col gap-3 ${dragClass}" data-task-id="${task.docId}">
+        <div class="task-card bg-white rounded-lg p-4 shadow-sm border ${urgencyClass} cursor-pointer hover:shadow-md hover:border-blue-400 animate-fade-in-up flex flex-col gap-3 ${dragClass} transition-transform transform hover:-translate-y-1" data-task-id="${task.docId}">
             <div class="flex justify-between items-start gap-2">
                 <h4 class="font-bold text-slate-800 flex-grow">${task.title}</h4>
                 ${taskTypeIcon}
