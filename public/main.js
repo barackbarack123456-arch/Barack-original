@@ -1422,7 +1422,7 @@ async function runEcoFormLogic(params = null) {
             </div>
 
             <!-- Action Plan Section -->
-            <section id="action-plan-section" class="mt-8" data-tutorial-id="eco-action-plan">
+            <section id="action-plan-section" class="mt-8">
                 <div class="ecr-checklist-bar">PLAN DE ACCIÓN</div>
                 <div class="p-4 border border-t-0 rounded-b-lg">
                     <div id="action-plan-list" class="space-y-2">
@@ -2055,7 +2055,7 @@ async function runEcrLogic() {
                         <p class="text-sm text-slate-500">Aquí puede ver, gestionar y crear un nuevo ECR.</p>
                     </div>
                     <div class="flex items-center gap-4">
-                    <button data-action="create-new-ecr" data-tutorial-id="create-new-ecr-btn" class="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 flex items-center shadow-md transition-transform transform hover:scale-105">
+                        <button data-action="create-new-ecr" class="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 flex items-center shadow-md transition-transform transform hover:scale-105">
                             <i data-lucide="file-plus-2" class="mr-2 h-5 w-5"></i>Crear Nuevo ECR
                         </button>
                     </div>
@@ -2200,253 +2200,243 @@ const createDashboardChartConfig = (type, labels, data, title) => ({
 
 
 async function runEcrTableViewLogic() {
-    return new Promise(resolve => {
-        dom.headerActions.style.display = 'none';
-        let allEcrs = []; // To store all ECRs for client-side filtering
+    dom.headerActions.style.display = 'none';
+    let allEcrs = []; // To store all ECRs for client-side filtering
 
-        const renderTableRows = (ecrsToRender) => {
-            const tableBody = dom.viewContent.querySelector('#ecr-control-table-body');
-            if (!tableBody) return;
+    const renderTableRows = (ecrsToRender) => {
+        const tableBody = dom.viewContent.querySelector('#ecr-control-table-body');
+        if (!tableBody) return;
 
-            if (ecrsToRender.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="20" class="text-center py-16 text-gray-500">No se encontraron ECRs que coincidan con la búsqueda.</td></tr>`;
-                return;
-            }
+        if (ecrsToRender.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="20" class="text-center py-16 text-gray-500">No se encontraron ECRs que coincidan con la búsqueda.</td></tr>`;
+            return;
+        }
 
-            const statusPill = (status) => {
-                if (!status) return `<span class="status-pill status-gray">N/A</span>`;
-                const statusMap = {
-                    'approved': { text: 'Aprobado', class: 'status-green' },
-                    'in-progress': { text: 'En Progreso', class: 'status-yellow' },
-                    'rejected': { text: 'Rechazado', class: 'status-red' },
-                    'aprobado': { text: 'Aprobado', class: 'status-green' }, // For client status
-                    'pendiente': { text: 'Pendiente', class: 'status-blue' },
-                    'rechazado': { text: 'Rechazado', class: 'status-red' },
-                    'na': { text: 'No Aplica', class: 'status-gray' }
-                };
-                const s = statusMap[status] || { text: status, class: 'status-gray' };
-                return `<span class="status-pill ${s.class}">${s.text}</span>`;
+        const statusPill = (status) => {
+            if (!status) return `<span class="status-pill status-gray">N/A</span>`;
+            const statusMap = {
+                'approved': { text: 'Aprobado', class: 'status-green' },
+                'in-progress': { text: 'En Progreso', class: 'status-yellow' },
+            'rejected': { text: 'Rechazado', class: 'status-red' },
+            'aprobado': { text: 'Aprobado', class: 'status-green' }, // For client status
+            'pendiente': { text: 'Pendiente', class: 'status-blue' },
+            'rechazado': { text: 'Rechazado', class: 'status-red' },
+            'na': { text: 'No Aplica', class: 'status-gray' }
             };
-
-            tableBody.innerHTML = ecrsToRender.map(ecr => {
-                const origem = ecr.origen_cliente ? 'Cliente' : (ecr.origen_interno ? 'Interno' : (ecr.origen_proveedor ? 'Proveedor' : (ecr.origen_reglamentacion ? 'Reglamentación' : 'N/A')));
-                const tipoEcr = ecr.tipo_producto ? 'Producto' : (ecr.tipo_proceso ? 'Proceso' : (ecr.tipo_otro ? ecr.tipo_otro_text || 'Otro' : 'N/A'));
-
-                const ecoStatusCellId = `eco-status-${ecr.id}`;
-                if (ecr.id) {
-                    getDoc(doc(db, COLLECTIONS.ECO_FORMS, ecr.id)).then(ecoSnap => {
-                        const ecoStatus = ecoSnap.exists() ? ecoSnap.data().status : null;
-                        const cell = document.getElementById(ecoStatusCellId);
-                        if (cell) {
-                            cell.innerHTML = statusPill(ecoStatus);
-                        }
-                    });
-                }
-
-                return `
-                <tr class="hover:bg-slate-50 transition-colors">
-                    <td title="${ecr.id || ''}">${ecr.id || 'N/A'}</td>
-                    <td title="${ecr.cliente || ''}">${ecr.cliente || 'N/A'}</td>
-                    <td title="MAL">MAL</td>
-                    <td title="${origem}">${origem}</td>
-                    <td title="${tipoEcr}">${tipoEcr}</td>
-                    <td title="${ecr.fecha_emision || ''}">${ecr.fecha_emision || 'N/A'}</td>
-                    <td title="${ecr.denominacion_producto || ''}">${ecr.denominacion_producto || 'N/A'}</td>
-                    <td title="${ecr.codigo_barack || ''}">${ecr.codigo_barack || 'N/A'}</td>
-                    <td title="${ecr.codigo_cliente || ''}">${ecr.codigo_cliente || 'N/A'}</td>
-                    <td title="${ecr.equipo_c1_0 || ecr.modifiedBy || ''}">${ecr.equipo_c1_0 || ecr.modifiedBy || 'N/A'}</td>
-                    <td title="${ecr.fecha_cierre || ''}">${ecr.fecha_cierre || 'N/A'}</td>
-                    <td title="${ecr.fecha_realizacion_ecr || ''}">${ecr.fecha_realizacion_ecr || 'N/A'}</td>
-                    <td>${statusPill(ecr.status)}</td>
-                    <td id="${ecoStatusCellId}">${statusPill(null)}</td>
-                    <td title="${ecr.cliente_requiere_aprobacion ? 'Sí' : 'No'}">${ecr.cliente_requiere_aprobacion ? 'Sí' : 'No'}</td>
-                    <td title="${ecr.cliente_aprobacion_estado || ''}">${statusPill(ecr.cliente_aprobacion_estado)}</td>
-                    <td title="${ecr.cliente_requiere_ppap ? 'Sí' : 'No'}">${ecr.cliente_requiere_ppap ? 'Sí' : 'No'}</td>
-                    <td title="${ecr.situacion_propuesta || ''}">${ecr.situacion_propuesta || 'N/A'}</td>
-                    <td title="${ecr.causas_solicitud || ''}">${ecr.causas_solicitud || 'N/A'}</td>
-                    <td title="${ecr.comentarios_alertas || ''}">${ecr.comentarios_alertas || 'N/A'}</td>
-                    <td title="${ecr.componentes_obsoletos || ''}">${ecr.componentes_obsoletos || 'N/A'}</td>
-                    <td title="${ecr.accion_objetiva || ''}">${ecr.accion_objetiva || 'N/A'}</td>
-                    <td title="${ecr.final_coordinador || ''}">${ecr.final_coordinador || 'N/A'}</td>
-                </tr>
-            `}).join('');
+            const s = statusMap[status] || { text: status, class: 'status-gray' };
+            return `<span class="status-pill ${s.class}">${s.text}</span>`;
         };
 
-        const filterAndRender = () => {
-            const searchTerm = dom.viewContent.querySelector('#ecr-control-search').value.toLowerCase();
-            const clientFilter = dom.viewContent.querySelector('#ecr-client-filter').value;
-            const statusFilter = dom.viewContent.querySelector('#ecr-status-filter').value;
+        tableBody.innerHTML = ecrsToRender.map(ecr => {
+            const origem = ecr.origen_cliente ? 'Cliente' : (ecr.origen_interno ? 'Interno' : (ecr.origen_proveedor ? 'Proveedor' : (ecr.origen_reglamentacion ? 'Reglamentación' : 'N/A')));
+            const tipoEcr = ecr.tipo_producto ? 'Producto' : (ecr.tipo_proceso ? 'Proceso' : (ecr.tipo_otro ? ecr.tipo_otro_text || 'Otro' : 'N/A'));
 
-            let filtered = allEcrs;
-
-            if (clientFilter !== 'all') {
-                filtered = filtered.filter(ecr => ecr.cliente === clientFilter);
+            const ecoStatusCellId = `eco-status-${ecr.id}`;
+            if (ecr.id) {
+                getDoc(doc(db, COLLECTIONS.ECO_FORMS, ecr.id)).then(ecoSnap => {
+                    const ecoStatus = ecoSnap.exists() ? ecoSnap.data().status : null;
+                    const cell = document.getElementById(ecoStatusCellId);
+                    if (cell) {
+                        cell.innerHTML = statusPill(ecoStatus);
+                    }
+                });
             }
-            if (statusFilter !== 'all') {
-                filtered = filtered.filter(ecr => ecr.status === statusFilter);
-            }
-            if (searchTerm) {
-                filtered = filtered.filter(ecr =>
-                    Object.values(ecr).some(val =>
-                        String(val).toLowerCase().includes(searchTerm)
-                    )
-                );
-            }
-            renderTableRows(filtered);
-        };
 
-        const viewHTML = `
-        <div class="ecr-control-table-container animate-fade-in-up">
-            <header class="flex justify-between items-center mb-6">
-                <div class="flex items-center gap-4">
-                     <button data-view="control_ecrs" class="flex items-center justify-center p-2 rounded-full hover:bg-slate-100 transition-colors">
-                        <i data-lucide="arrow-left" class="w-6 h-6 text-slate-600"></i>
-                    </button>
-                    <div>
-                        <h1 class="text-2xl font-bold text-gray-800" style="font-family: 'Inter', sans-serif;">Tabla de Control ECR</h1>
-                        <p class="text-gray-500 text-sm">Hoja de seguimiento de proyectos corporativa</p>
-                    </div>
-                </div>
-                <div class="text-sm text-gray-600 text-right">
-                    <div><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-AR')}</div>
-                    <div><strong>Responsable:</strong> ${appState.currentUser.name}</div>
-                </div>
-            </header>
+            return `
+            <tr class="hover:bg-slate-50 transition-colors">
+                <td title="${ecr.id || ''}">${ecr.id || 'N/A'}</td>
+                <td title="${ecr.cliente || ''}">${ecr.cliente || 'N/A'}</td>
+                <td title="MAL">MAL</td>
+                <td title="${origem}">${origem}</td>
+                <td title="${tipoEcr}">${tipoEcr}</td>
+                <td title="${ecr.fecha_emision || ''}">${ecr.fecha_emision || 'N/A'}</td>
+                <td title="${ecr.denominacion_producto || ''}">${ecr.denominacion_producto || 'N/A'}</td>
+                <td title="${ecr.codigo_barack || ''}">${ecr.codigo_barack || 'N/A'}</td>
+                <td title="${ecr.codigo_cliente || ''}">${ecr.codigo_cliente || 'N/A'}</td>
+                <td title="${ecr.equipo_c1_0 || ecr.modifiedBy || ''}">${ecr.equipo_c1_0 || ecr.modifiedBy || 'N/A'}</td>
+                <td title="${ecr.fecha_cierre || ''}">${ecr.fecha_cierre || 'N/A'}</td>
+                <td title="${ecr.fecha_realizacion_ecr || ''}">${ecr.fecha_realizacion_ecr || 'N/A'}</td>
+                <td>${statusPill(ecr.status)}</td>
+                <td id="${ecoStatusCellId}">${statusPill(null)}</td>
+                <td title="${ecr.cliente_requiere_aprobacion ? 'Sí' : 'No'}">${ecr.cliente_requiere_aprobacion ? 'Sí' : 'No'}</td>
+                <td title="${ecr.cliente_aprobacion_estado || ''}">${statusPill(ecr.cliente_aprobacion_estado)}</td>
+                <td title="${ecr.cliente_requiere_ppap ? 'Sí' : 'No'}">${ecr.cliente_requiere_ppap ? 'Sí' : 'No'}</td>
+                <td title="${ecr.situacion_propuesta || ''}">${ecr.situacion_propuesta || 'N/A'}</td>
+                <td title="${ecr.causas_solicitud || ''}">${ecr.causas_solicitud || 'N/A'}</td>
+                <td title="${ecr.comentarios_alertas || ''}">${ecr.comentarios_alertas || 'N/A'}</td>
+                <td title="${ecr.componentes_obsoletos || ''}">${ecr.componentes_obsoletos || 'N/A'}</td>
+                <td title="${ecr.accion_objetiva || ''}">${ecr.accion_objetiva || 'N/A'}</td>
+                <td title="${ecr.final_coordinador || ''}">${ecr.final_coordinador || 'N/A'}</td>
+            </tr>
+        `}).join('');
+    };
 
-            <div class="flex flex-col md:flex-row gap-4 mb-4">
-                <div class="relative flex-grow">
-                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
-                    <input type="text" id="ecr-control-search" placeholder="Buscar en todos los campos..." class="w-full pl-10 pr-4 py-2 border rounded-full bg-slate-50 focus:bg-white">
-                </div>
-                <div class="flex items-center gap-4 flex-wrap">
-                     <select id="ecr-client-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white"><option value="all">Todos los Clientes</option></select>
-                     <select id="ecr-status-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white">
-                        <option value="all">Todos los Estados</option>
-                        <option value="approved">Aprobado</option>
-                        <option value="in-progress">En Progreso</option>
-                        <option value="rejected">Rechazado</option>
-                    </select>
+    const filterAndRender = () => {
+        const searchTerm = dom.viewContent.querySelector('#ecr-control-search').value.toLowerCase();
+        const clientFilter = dom.viewContent.querySelector('#ecr-client-filter').value;
+        const statusFilter = dom.viewContent.querySelector('#ecr-status-filter').value;
+
+        let filtered = allEcrs;
+
+        if (clientFilter !== 'all') {
+            filtered = filtered.filter(ecr => ecr.cliente === clientFilter);
+        }
+        if (statusFilter !== 'all') {
+            filtered = filtered.filter(ecr => ecr.status === statusFilter);
+        }
+        if (searchTerm) {
+            filtered = filtered.filter(ecr =>
+                Object.values(ecr).some(val =>
+                    String(val).toLowerCase().includes(searchTerm)
+                )
+            );
+        }
+        renderTableRows(filtered);
+    };
+
+    const viewHTML = `
+    <div class="ecr-control-table-container animate-fade-in-up">
+        <header class="flex justify-between items-center mb-6">
+            <div class="flex items-center gap-4">
+                 <button data-view="control_ecrs" class="flex items-center justify-center p-2 rounded-full hover:bg-slate-100 transition-colors">
+                    <i data-lucide="arrow-left" class="w-6 h-6 text-slate-600"></i>
+                </button>
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800" style="font-family: 'Inter', sans-serif;">Tabla de Control ECR</h1>
+                    <p class="text-gray-500 text-sm">Hoja de seguimiento de proyectos corporativa</p>
                 </div>
             </div>
-
-            <div class="p-2 bg-slate-100 border border-slate-200 rounded-md text-center text-sm text-slate-600 mb-4">
-                 <i data-lucide="info" class="inline-block w-4 h-4 mr-2 -mt-0.5"></i>Sugerencia: Desplácese horizontalmente en la tabla para ver todas las columnas.
+            <div class="text-sm text-gray-600 text-right">
+                <div><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-AR')}</div>
+                <div><strong>Responsable:</strong> ${appState.currentUser.name}</div>
             </div>
+        </header>
 
-            <div class="overflow-x-auto">
-                <table class="modern-table">
-                    <thead>
-                        <tr>
-                            <th>N° de ECR</th>
-                            <th>Cliente</th>
-                            <th>Site</th>
-                            <th>Origem del Pedido (Cliente ou interno)</th>
-                            <th>Tipo ECR</th>
-                            <th>Fecha de Abertura</th>
-                            <th>Producto Afectado</th>
-                            <th>Código Programa</th>
-                            <th>SIC</th>
-                            <th>Responsable</th>
-                            <th>Plazo ECR</th>
-                            <th>Fecha realizacion ECR</th>
-                            <th>Status ECR</th>
-                            <th>Status ECO</th>
-                            <th>Req. Aprob. Cliente</th>
-                            <th>Estado Aprob. Cliente</th>
-                            <th>Req. PPAP</th>
-                            <th>Descripcion</th>
-                            <th>Causas Quien solicito el pedido</th>
-                            <th>Comentarios N°de Alert / Fete / concert</th>
-                            <th>Componente Obsoletos</th>
-                            <th>Accion Objetiva</th>
-                            <th>Responsable</th>
-                        </tr>
-                    </thead>
-                    <tbody id="ecr-control-table-body">
-                        <tr><td colspan="20" class="text-center py-16 text-gray-500"><i data-lucide="loader" class="animate-spin h-8 w-8 mx-auto"></i><p class="mt-2">Cargando datos...</p></td></tr>
-                    </tbody>
-                </table>
+        <div class="flex flex-col md:flex-row gap-4 mb-4">
+            <div class="relative flex-grow">
+                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
+                <input type="text" id="ecr-control-search" placeholder="Buscar en todos los campos..." class="w-full pl-10 pr-4 py-2 border rounded-full bg-slate-50 focus:bg-white">
+            </div>
+            <div class="flex items-center gap-4 flex-wrap">
+                 <select id="ecr-client-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white"><option value="all">Todos los Clientes</option></select>
+                 <select id="ecr-status-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white">
+                    <option value="all">Todos los Estados</option>
+                    <option value="approved">Aprobado</option>
+                    <option value="in-progress">En Progreso</option>
+                    <option value="rejected">Rechazado</option>
+                </select>
             </div>
         </div>
-        `;
-        dom.viewContent.innerHTML = viewHTML;
-        lucide.createIcons();
 
-        dom.viewContent.querySelector('#ecr-control-search').addEventListener('input', filterAndRender);
-        dom.viewContent.querySelector('#ecr-client-filter').addEventListener('change', filterAndRender);
-        dom.viewContent.querySelector('#ecr-status-filter').addEventListener('change', filterAndRender);
+        <div class="p-2 bg-slate-100 border border-slate-200 rounded-md text-center text-sm text-slate-600 mb-4">
+             <i data-lucide="info" class="inline-block w-4 h-4 mr-2 -mt-0.5"></i>Sugerencia: Desplácese horizontalmente en la tabla para ver todas las columnas.
+        </div>
 
-        // --- Drag-to-scroll logic ---
-        const slider = dom.viewContent.querySelector('.ecr-control-table-container');
-        const scrollableArea = slider.querySelector('.overflow-x-auto');
-        let isDown = false;
-        let startX;
-        let scrollLeft;
+        <div class="overflow-x-auto">
+            <table class="modern-table">
+                <thead>
+                    <tr>
+                        <th>N° de ECR</th>
+                        <th>Cliente</th>
+                        <th>Site</th>
+                        <th>Origem del Pedido (Cliente ou interno)</th>
+                        <th>Tipo ECR</th>
+                        <th>Fecha de Abertura</th>
+                        <th>Producto Afectado</th>
+                        <th>Código Programa</th>
+                        <th>SIC</th>
+                        <th>Responsable</th>
+                        <th>Plazo ECR</th>
+                        <th>Fecha realizacion ECR</th>
+                        <th>Status ECR</th>
+                        <th>Status ECO</th>
+                        <th>Req. Aprob. Cliente</th>
+                        <th>Estado Aprob. Cliente</th>
+                        <th>Req. PPAP</th>
+                        <th>Descripcion</th>
+                        <th>Causas Quien solicito el pedido</th>
+                        <th>Comentarios N°de Alert / Fete / concert</th>
+                        <th>Componente Obsoletos</th>
+                        <th>Accion Objetiva</th>
+                        <th>Responsable</th>
+                    </tr>
+                </thead>
+                <tbody id="ecr-control-table-body">
+                    <tr><td colspan="20" class="text-center py-16 text-gray-500"><i data-lucide="loader" class="animate-spin h-8 w-8 mx-auto"></i><p class="mt-2">Cargando datos...</p></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    `;
+    dom.viewContent.innerHTML = viewHTML;
+    lucide.createIcons();
 
-        const mouseDownHandler = (e) => {
-            isDown = true;
-            slider.classList.add('active');
-            startX = e.pageX - slider.offsetLeft;
-            scrollLeft = scrollableArea.scrollLeft;
-        };
+    dom.viewContent.querySelector('#ecr-control-search').addEventListener('input', filterAndRender);
+    dom.viewContent.querySelector('#ecr-client-filter').addEventListener('change', filterAndRender);
+    dom.viewContent.querySelector('#ecr-status-filter').addEventListener('change', filterAndRender);
 
-        const mouseLeaveHandler = () => {
-            isDown = false;
-            slider.classList.remove('active');
-        };
+    // --- Drag-to-scroll logic ---
+    const slider = dom.viewContent.querySelector('.ecr-control-table-container');
+    const scrollableArea = slider.querySelector('.overflow-x-auto');
+    let isDown = false;
+    let startX;
+    let scrollLeft;
 
-        const mouseUpHandler = () => {
-            isDown = false;
-            slider.classList.remove('active');
-        };
+    const mouseDownHandler = (e) => {
+        isDown = true;
+        slider.classList.add('active');
+        startX = e.pageX - slider.offsetLeft;
+        scrollLeft = scrollableArea.scrollLeft;
+    };
 
-        const mouseMoveHandler = (e) => {
-            if (!isDown) return;
-            e.preventDefault();
-            const x = e.pageX - slider.offsetLeft;
-            const walk = (x - startX) * 2; // The multiplier makes scrolling faster
-            scrollableArea.scrollLeft = scrollLeft - walk;
-        };
+    const mouseLeaveHandler = () => {
+        isDown = false;
+        slider.classList.remove('active');
+    };
 
-        slider.addEventListener('mousedown', mouseDownHandler);
-        slider.addEventListener('mouseleave', mouseLeaveHandler);
-        slider.addEventListener('mouseup', mouseUpHandler);
-        slider.addEventListener('mousemove', mouseMoveHandler);
+    const mouseUpHandler = () => {
+        isDown = false;
+        slider.classList.remove('active');
+    };
 
-        let isFirstRender = true;
-        const unsubscribe = onSnapshot(collection(db, COLLECTIONS.ECR_FORMS), (snapshot) => {
-            allEcrs = snapshot.docs.map(doc => doc.data());
+    const mouseMoveHandler = (e) => {
+        if (!isDown) return;
+        e.preventDefault();
+        const x = e.pageX - slider.offsetLeft;
+        const walk = (x - startX) * 2; // The multiplier makes scrolling faster
+        scrollableArea.scrollLeft = scrollLeft - walk;
+    };
 
-            const clientFilterEl = dom.viewContent.querySelector('#ecr-client-filter');
-            const clients = [...new Set(allEcrs.map(ecr => ecr.cliente).filter(Boolean))];
-            clientFilterEl.innerHTML = '<option value="all">Todos los Clientes</option>';
-            clients.sort().forEach(client => {
-                clientFilterEl.innerHTML += `<option value="${client}">${client}</option>`;
-            });
+    slider.addEventListener('mousedown', mouseDownHandler);
+    slider.addEventListener('mouseleave', mouseLeaveHandler);
+    slider.addEventListener('mouseup', mouseUpHandler);
+    slider.addEventListener('mousemove', mouseMoveHandler);
 
-            filterAndRender(); // Initial render
-            if (isFirstRender) {
-                isFirstRender = false;
-                resolve();
-            }
-        }, (error) => {
-            console.error("Error fetching ECRs for control panel:", error);
-            showToast('Error al cargar los datos de ECR.', 'error');
-            const tableBody = dom.viewContent.querySelector('#ecr-control-table-body');
-            if (tableBody) {
-                tableBody.innerHTML = `<tr><td colspan="20" class="text-center py-16 text-red-500"><i data-lucide="alert-triangle" class="mx-auto h-8 w-8"></i><p class="mt-2">Error al cargar los datos.</p></td></tr>`;
-                lucide.createIcons();
-            }
-            if (isFirstRender) {
-                isFirstRender = false;
-                resolve(); // Resolve even on error
-            }
+
+    const unsubscribe = onSnapshot(collection(db, COLLECTIONS.ECR_FORMS), (snapshot) => {
+        allEcrs = snapshot.docs.map(doc => doc.data());
+
+        const clientFilterEl = dom.viewContent.querySelector('#ecr-client-filter');
+        const clients = [...new Set(allEcrs.map(ecr => ecr.cliente).filter(Boolean))];
+        clientFilterEl.innerHTML = '<option value="all">Todos los Clientes</option>';
+        clients.sort().forEach(client => {
+            clientFilterEl.innerHTML += `<option value="${client}">${client}</option>`;
         });
 
-        appState.currentViewCleanup = () => {
-            unsubscribe();
-        };
+        filterAndRender(); // Initial render
+    }, (error) => {
+        console.error("Error fetching ECRs for control panel:", error);
+        showToast('Error al cargar los datos de ECR.', 'error');
+        const tableBody = dom.viewContent.querySelector('#ecr-control-table-body');
+        if (tableBody) {
+            tableBody.innerHTML = `<tr><td colspan="20" class="text-center py-16 text-red-500"><i data-lucide="alert-triangle" class="mx-auto h-8 w-8"></i><p class="mt-2">Error al cargar los datos.</p></td></tr>`;
+            lucide.createIcons();
+        }
     });
+
+    appState.currentViewCleanup = () => {
+        unsubscribe();
+    };
 }
 
 async function runIndicadoresEcmViewLogic() {
@@ -2766,7 +2756,6 @@ async function runIndicadoresEcmViewLogic() {
 
     renderIndicadorEcmView();
     appState.currentViewCleanup = cleanup;
-    return Promise.resolve();
 }
 
 async function runControlEcrsLogic() {
@@ -2830,445 +2819,441 @@ async function runControlEcrsLogic() {
 
     // No specific cleanup needed for this simple view
     appState.currentViewCleanup = () => {};
-    return Promise.resolve();
 }
 
 async function runSeguimientoEcrEcoLogic() {
-    return new Promise(resolve => {
-        dom.headerActions.style.display = 'none';
-        const SEGUIMIENTO_COLLECTION = 'seguimiento_ecr_eco';
-        let unsubscribe;
+    dom.headerActions.style.display = 'none';
+    const SEGUIMIENTO_COLLECTION = 'seguimiento_ecr_eco';
+    let unsubscribe;
 
-        const DEPARTAMENTOS = [
-            'ENG. PRODUCTO', 'ENG. PROCESSO PLTL', 'HSE', 'QUALIDADE / CALIDAD', 'COMPRAS',
-            'QUALIDADE COMPRAS', 'TOOLING & EQUIPAMENTS', 'LOGISTICA E PC&L', 'FINANCEIRO / COSTING',
-            'COMERCIAL', 'MANUTENÇÃO / MANTENIMIENTO', 'PRODUÇÃO / PRODUCCIÓN', 'QUALIDADE CLIENTE'
-        ];
+    const DEPARTAMENTOS = [
+        'ENG. PRODUCTO', 'ENG. PROCESSO PLTL', 'HSE', 'QUALIDADE / CALIDAD', 'COMPRAS',
+        'QUALIDADE COMPRAS', 'TOOLING & EQUIPAMENTS', 'LOGISTICA E PC&L', 'FINANCEIRO / COSTING',
+        'COMERCIAL', 'MANUTENÇÃO / MANTENIMIENTO', 'PRODUÇÃO / PRODUCCIÓN', 'QUALIDADE CLIENTE'
+    ];
 
-        const ESTADOS_FICHA = ['CERRADA', 'ABIERTA', 'RECHAZADO', 'PENDIENTE', 'SIN NOTAS', 'FALTA FIRMAR'];
-        const STATUS_COLORS = {
-            CERRADA: 'status-cerrada',
-            ABIERTA: 'status-abierta',
-            RECHAZADO: 'status-rechazado',
-            PENDIENTE: 'status-pendiente',
-            SIN_NOTAS: 'status-sin-notas',
-            FALTA_FIRMAR: 'status-falta-firmar'
+    const ESTADOS_FICHA = ['CERRADA', 'ABIERTA', 'RECHAZADO', 'PENDIENTE', 'SIN NOTAS', 'FALTA FIRMAR'];
+    const STATUS_COLORS = {
+        CERRADA: 'status-cerrada',
+        ABIERTA: 'status-abierta',
+        RECHAZADO: 'status-rechazado',
+        PENDIENTE: 'status-pendiente',
+        SIN_NOTAS: 'status-sin-notas',
+        FALTA_FIRMAR: 'status-falta-firmar'
+    };
+
+    const renderFichaForm = (fichaData = null, isReadOnly = false) => {
+        if (!checkUserPermission('edit')) {
+            isReadOnly = true;
+        }
+        const isEditing = fichaData !== null;
+        const ecrEcoId = isEditing ? fichaData.id : `ECR-ECO-${Date.now()}`;
+
+        let departamentosHTML = '';
+        DEPARTAMENTOS.forEach(depto => {
+            const deptoKey = depto.replace(/[\s/&]/g, '_');
+            const ecrComentario = isEditing ? (fichaData.departamentos?.[deptoKey]?.ecrComentario || '') : '';
+            const ecrFirmada = isEditing ? (fichaData.departamentos?.[deptoKey]?.ecrFirmada || 'NO') : 'NO';
+            const ecoComentario = isEditing ? (fichaData.departamentos?.[deptoKey]?.ecoComentario || '') : '';
+            const ecoFirmada = isEditing ? (fichaData.departamentos?.[deptoKey]?.ecoFirmada || 'NO') : 'NO';
+
+            departamentosHTML += `
+                <tr>
+                    <td class="col-departamento">${depto}</td>
+                    <td class="col-comentarios"><textarea name="ecr_comentario_${deptoKey}">${ecrComentario}</textarea></td>
+                    <td class="col-firma">
+                        <select name="ecr_firmada_${deptoKey}">
+                            <option value="SI" ${ecrFirmada === 'SI' ? 'selected' : ''}>SI</option>
+                            <option value="NO" ${ecrFirmada === 'NO' ? 'selected' : ''}>NO</option>
+                        </select>
+                    </td>
+                    <td class="col-comentarios"><textarea name="eco_comentario_${deptoKey}">${ecoComentario}</textarea></td>
+                    <td class="col-firma">
+                        <select name="eco_firmada_${deptoKey}">
+                            <option value="SI" ${ecoFirmada === 'SI' ? 'selected' : ''}>SI</option>
+                            <option value="NO" ${ecoFirmada === 'NO' ? 'selected' : ''}>NO</option>
+                        </select>
+                    </td>
+                </tr>
+            `;
+        });
+
+        const estadoOptionsHTML = ESTADOS_FICHA.map(estado => {
+            const selected = isEditing && fichaData.estadoGeneral === estado ? 'selected' : '';
+            return `<option value="${estado}" ${selected}>${estado}</option>`;
+        }).join('');
+
+        const leyendaHTML = ESTADOS_FICHA.map(estado => `
+            <div class="leyenda-item">
+                <div class="leyenda-color-box ${STATUS_COLORS[estado.replace(' ', '_')]}"></div>
+                <span>${estado}</span>
+            </div>
+        `).join('');
+
+        const viewHTML = `
+            <div class="ficha-seguimiento animate-fade-in-up">
+                <form id="ficha-form" data-id="${ecrEcoId}">
+                    <header class="ficha-header">
+                        <div class="ficha-grid-meta">
+                            <div class="meta-item">
+                                <label for="n_eco_ecr">N° de Eco/Ecr</label>
+                                <input type="text" id="n_eco_ecr" name="n_eco_ecr" value="${isEditing ? fichaData.n_eco_ecr : ''}" required>
+                            </div>
+                            <div class="meta-item">
+                                <label for="cliente">Cliente</label>
+                                <input type="text" id="cliente" name="cliente" value="${isEditing ? fichaData.cliente : ''}">
+                            </div>
+                            <div class="meta-item">
+                                <label for="pedido">Pedido</label>
+                                <input type="text" id="pedido" name="pedido" value="${isEditing ? fichaData.pedido : ''}">
+                            </div>
+                             <div class="meta-item" style="grid-column: 1 / -1;">
+                                <label for="descripcion">Descripcion</label>
+                                <textarea id="descripcion" name="descripcion" rows="2">${isEditing ? fichaData.descripcion : ''}</textarea>
+                            </div>
+                        </div>
+                    </header>
+                    <div class="ficha-body">
+                        <table class="departamentos-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-departamento">Departamento</th>
+                                    <th class="col-comentarios">Comentarios según ECR</th>
+                                    <th class="col-firma">Firmada (ECR)</th>
+                                    <th class="col-comentarios">Comentarios según ECO</th>
+                                    <th class="col-firma">Firmada (ECO)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${departamentosHTML}
+                            </tbody>
+                        </table>
+                    </div>
+                    <footer class="ficha-footer">
+                        <div class="estado-general-container">
+                            <label for="estado-general">Estado General:</label>
+                            <select id="estado-general" name="estadoGeneral" class="estado-general-select ${STATUS_COLORS[(isEditing ? fichaData.estadoGeneral : 'ABIERTA').replace(' ', '_')]}">
+                                ${estadoOptionsHTML}
+                            </select>
+                        </div>
+                         <div class="leyenda-colores">
+                            ${leyendaHTML}
+                        </div>
+                        <div class="ficha-actions">
+                            <button type="button" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600" id="back-to-list-btn">Volver a la Lista</button>
+                            <button type="submit" class="btn-save">${isEditing ? 'Actualizar Ficha' : 'Guardar Ficha'}</button>
+                            ${isEditing ? `<button type="button" class="btn-delete" id="delete-ficha-btn">Eliminar Ficha</button>` : ''}
+                        </div>
+                    </footer>
+                </form>
+            </div>
+        `;
+        dom.viewContent.innerHTML = viewHTML;
+
+        const form = document.getElementById('ficha-form');
+
+        if (isReadOnly) {
+            form.querySelectorAll('input, textarea, select').forEach(el => {
+                el.disabled = true;
+            });
+            const saveBtn = form.querySelector('.btn-save');
+            if (saveBtn) saveBtn.style.display = 'none';
+            const deleteBtn = form.querySelector('.btn-delete');
+            if (deleteBtn) deleteBtn.style.display = 'none';
+
+            const actionsContainer = form.querySelector('.ficha-actions');
+            if (actionsContainer) {
+                const n_eco_ecr = fichaData.n_eco_ecr || '';
+                let associatedButtonHTML = '';
+                if (n_eco_ecr) {
+                    const type = n_eco_ecr.startsWith('ECR') ? 'ecr' : (n_eco_ecr.startsWith('ECO') ? 'eco' : null);
+                    if (type) {
+                        associatedButtonHTML = `
+                            <button type="button" data-action="view-associated-${type}" data-id="${n_eco_ecr}" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 font-semibold">
+                                Ver ${type.toUpperCase()}
+                            </button>`;
+                    }
+                }
+
+                const newButtonsHTML = `
+                    <button type="button" data-action="generate-ficha-pdf" data-id="${fichaData.id}" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 font-semibold">
+                        Generar PDF
+                    </button>
+                    ${associatedButtonHTML}
+                `;
+                actionsContainer.insertAdjacentHTML('beforeend', newButtonsHTML);
+            }
+        }
+
+        form.addEventListener('click', async (e) => {
+            const button = e.target.closest('button[data-action]');
+            if (!button || button.type === 'submit') return;
+
+            e.preventDefault();
+
+            const action = button.dataset.action;
+            const id = button.dataset.id;
+
+            if (action === 'generate-ficha-pdf') {
+                await generateFichaPdf(id);
+            } else if (action === 'view-associated-ecr') {
+                switchView('ecr_form', { ecrId: id });
+            } else if (action === 'view-associated-eco') {
+                switchView('eco_form', { ecoId: id });
+            }
+        });
+
+        form.addEventListener('submit', handleSaveFicha);
+
+        document.getElementById('back-to-list-btn').addEventListener('click', renderMainView);
+
+        if (isEditing && !isReadOnly) {
+            document.getElementById('delete-ficha-btn').addEventListener('click', () => handleDeleteFicha(ecrEcoId));
+        }
+
+        const estadoSelect = document.getElementById('estado-general');
+        estadoSelect.addEventListener('change', (e) => {
+            estadoSelect.className = 'estado-general-select'; // Reset classes
+            const selectedStatusClass = STATUS_COLORS[e.target.value.replace(' ', '_')];
+            if(selectedStatusClass) {
+                estadoSelect.classList.add(selectedStatusClass);
+            }
+        });
+    };
+
+    const handleSaveFicha = async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const id = form.dataset.id;
+        const n_eco_ecr = form.querySelector('[name="n_eco_ecr"]').value;
+
+        if (!n_eco_ecr) {
+            showToast('El campo "N° de Eco/Ecr" es obligatorio.', 'error');
+            return;
+        }
+
+        const fichaData = {
+            id: id,
+            n_eco_ecr: n_eco_ecr,
+            cliente: form.querySelector('[name="cliente"]').value,
+            pedido: form.querySelector('[name="pedido"]').value,
+            descripcion: form.querySelector('[name="descripcion"]').value,
+            estadoGeneral: form.querySelector('[name="estadoGeneral"]').value,
+            departamentos: {},
+            lastModified: new Date()
         };
 
-        const renderFichaForm = (fichaData = null, isReadOnly = false) => {
-            if (!checkUserPermission('edit')) {
-                isReadOnly = true;
+        DEPARTAMENTOS.forEach(depto => {
+            const deptoKey = depto.replace(/[\s/&]/g, '_');
+            fichaData.departamentos[deptoKey] = {
+                ecrComentario: form.querySelector(`[name="ecr_comentario_${deptoKey}"]`).value,
+                ecrFirmada: form.querySelector(`[name="ecr_firmada_${deptoKey}"]`).value,
+                ecoComentario: form.querySelector(`[name="eco_comentario_${deptoKey}"]`).value,
+                ecoFirmada: form.querySelector(`[name="eco_firmada_${deptoKey}"]`).value,
+            };
+        });
+
+        try {
+            const docRef = doc(db, SEGUIMIENTO_COLLECTION, id);
+            await setDoc(docRef, fichaData, { merge: true });
+            showToast('Ficha guardada con éxito.', 'success');
+            renderMainView();
+        } catch (error) {
+            console.error("Error guardando la ficha: ", error);
+            showToast('Error al guardar la ficha.', 'error');
+        }
+    };
+
+    const handleDeleteFicha = (id) => {
+        showConfirmationModal('Eliminar Ficha', '¿Está seguro de que desea eliminar esta ficha? Esta acción no se puede deshacer.', async () => {
+            try {
+                await deleteDoc(doc(db, SEGUIMIENTO_COLLECTION, id));
+                showToast('Ficha eliminada.', 'success');
+                renderMainView();
+            } catch (error) {
+                console.error("Error deleting ficha: ", error);
+                showToast('Error al eliminar la ficha.', 'error');
             }
-            const isEditing = fichaData !== null;
-            const ecrEcoId = isEditing ? fichaData.id : `ECR-ECO-${Date.now()}`;
+        });
+    };
 
-            let departamentosHTML = '';
-            DEPARTAMENTOS.forEach(depto => {
-                const deptoKey = depto.replace(/[\s/&]/g, '_');
-                const ecrComentario = isEditing ? (fichaData.departamentos?.[deptoKey]?.ecrComentario || '') : '';
-                const ecrFirmada = isEditing ? (fichaData.departamentos?.[deptoKey]?.ecrFirmada || 'NO') : 'NO';
-                const ecoComentario = isEditing ? (fichaData.departamentos?.[deptoKey]?.ecoComentario || '') : '';
-                const ecoFirmada = isEditing ? (fichaData.departamentos?.[deptoKey]?.ecoFirmada || 'NO') : 'NO';
+    const seedSeguimientoData = async () => {
+        const snapshot = await getDocs(query(collection(db, SEGUIMIENTO_COLLECTION), limit(1)));
+        if (!snapshot.empty) {
+            console.log('La colección de seguimiento ya tiene datos. No se necesita seeding.');
+            return;
+        }
 
-                departamentosHTML += `
-                    <tr>
-                        <td class="col-departamento">${depto}</td>
-                        <td class="col-comentarios"><textarea name="ecr_comentario_${deptoKey}">${ecrComentario}</textarea></td>
-                        <td class="col-firma">
-                            <select name="ecr_firmada_${deptoKey}">
-                                <option value="SI" ${ecrFirmada === 'SI' ? 'selected' : ''}>SI</option>
-                                <option value="NO" ${ecrFirmada === 'NO' ? 'selected' : ''}>NO</option>
-                            </select>
-                        </td>
-                        <td class="col-comentarios"><textarea name="eco_comentario_${deptoKey}">${ecoComentario}</textarea></td>
-                        <td class="col-firma">
-                            <select name="eco_firmada_${deptoKey}">
-                                <option value="SI" ${ecoFirmada === 'SI' ? 'selected' : ''}>SI</option>
-                                <option value="NO" ${ecoFirmada === 'NO' ? 'selected' : ''}>NO</option>
-                            </select>
+        showToast('Creando datos de prueba para seguimiento...', 'info');
+        const batch = writeBatch(db);
+        const sampleFicha1 = {
+            id: 'ECR-ECO-SAMPLE-1',
+            n_eco_ecr: 'ECR-2024-001',
+            cliente: 'Cliente de Prueba A',
+            pedido: 'PED-001',
+            descripcion: 'Modificación inicial del componente X para mejorar la durabilidad.',
+            estadoGeneral: 'ABIERTA',
+            departamentos: {
+                'ENG_PRODUCTO': { ecrComentario: 'Revisar planos y especificaciones.', ecrFirmada: 'SI', ecoComentario: '', ecoFirmada: 'NO' },
+                'COMPRAS': { ecrComentario: 'Evaluar impacto en proveedores.', ecrFirmada: 'NO', ecoComentario: '', ecoFirmada: 'NO' }
+            },
+            lastModified: new Date()
+        };
+        const sampleFicha2 = {
+            id: 'ECR-ECO-SAMPLE-2',
+            n_eco_ecr: 'ECO-2024-002',
+            cliente: 'Cliente de Prueba B',
+            pedido: 'PED-002',
+            descripcion: 'Implementación del cambio de material para el ensamblaje Y.',
+            estadoGeneral: 'PENDIENTE',
+            departamentos: {
+                'ENG_PRODUCTO': { ecrComentario: 'Planos actualizados.', ecrFirmada: 'SI', ecoComentario: 'Cambio implementado.', ecoFirmada: 'SI' },
+                'QUALIDADE_CALIDAD': { ecrComentario: 'Plan de control requerido.', ecrFirmada: 'SI', ecoComentario: 'Plan de control actualizado y validado.', ecoFirmada: 'NO' }
+            },
+            lastModified: new Date()
+        };
+
+        batch.set(doc(db, SEGUIMIENTO_COLLECTION, sampleFicha1.id), sampleFicha1);
+        batch.set(doc(db, SEGUIMIENTO_COLLECTION, sampleFicha2.id), sampleFicha2);
+
+        try {
+            await batch.commit();
+            showToast('Datos de prueba creados.', 'success');
+        } catch(error) {
+            console.error('Error al crear datos de prueba de seguimiento:', error);
+            showToast('Error al crear datos de prueba.', 'error');
+        }
+    };
+
+    const renderMainView = () => {
+        seedSeguimientoData();
+
+        const canCreate = checkUserPermission('edit');
+        const createButtonHTML = canCreate ? `
+            <button id="create-new-ficha-btn" class="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 flex items-center shadow-md">
+                <i data-lucide="plus" class="mr-2 h-5 w-5"></i>Crear Nueva Ficha
+            </button>` : '';
+
+        const viewHTML = `
+            <div class="animate-fade-in-up">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-slate-800">Listado de Fichas de Seguimiento</h2>
+                    ${createButtonHTML}
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <div class="overflow-x-auto list-container">
+                        <table class="w-full text-sm text-left text-gray-600">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3">N° Eco/Ecr</th>
+                                    <th scope="col" class="px-6 py-3">Descripción</th>
+                                    <th scope="col" class="px-6 py-3">Cliente</th>
+                                    <th scope="col" class="px-6 py-3">Estado</th>
+                                    <th scope="col" class="px-6 py-3">Última Modificación</th>
+                                    <th scope="col" class="px-6 py-3 text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fichas-list">
+                                <tr><td colspan="6" class="text-center py-16"><i data-lucide="loader" class="animate-spin h-8 w-8 mx-auto"></i></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+        dom.viewContent.innerHTML = viewHTML;
+        lucide.createIcons();
+
+        if (canCreate) {
+            document.getElementById('create-new-ficha-btn').addEventListener('click', () => renderFichaForm());
+        }
+
+        const listBody = document.getElementById('fichas-list');
+        listBody.addEventListener('click', async (e) => {
+            const button = e.target.closest('button[data-action]');
+            if (!button) return;
+
+            const fichaId = button.dataset.id;
+            const action = button.dataset.action;
+
+            if (action === 'view-ficha' || action === 'edit-ficha') {
+                const docRef = doc(db, SEGUIMIENTO_COLLECTION, fichaId);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const isReadOnly = action === 'view-ficha';
+                    renderFichaForm(docSnap.data(), isReadOnly);
+                } else {
+                    showToast('Error: No se encontró la ficha.', 'error');
+                }
+            }
+        });
+
+        const fichasCollection = collection(db, SEGUIMIENTO_COLLECTION);
+        const q = query(fichasCollection, orderBy('lastModified', 'desc'));
+
+        unsubscribe = onSnapshot(q, (snapshot) => {
+            const listBody = document.getElementById('fichas-list');
+            if (!listBody) return;
+
+            if (snapshot.empty) {
+                listBody.innerHTML = `<tr><td colspan="6" class="text-center py-16 text-gray-500">No hay fichas de seguimiento. Puede crear una nueva.</td></tr>`;
+                return;
+            }
+
+            listBody.innerHTML = snapshot.docs.map(doc => {
+                const ficha = doc.data();
+                const statusClass = STATUS_COLORS[ficha.estadoGeneral?.replace(' ', '_')] || 'bg-gray-100 text-gray-800';
+
+                const n_eco_ecr = ficha.n_eco_ecr || '';
+                let rejectedIndicatorHTML = '';
+                if (n_eco_ecr) {
+                    let associatedDoc;
+                    const ecrCollection = appState.collectionsById[COLLECTIONS.ECR_FORMS];
+                    const ecoCollection = appState.collectionsById[COLLECTIONS.ECO_FORMS];
+
+                    if (n_eco_ecr.startsWith('ECR') && ecrCollection) {
+                        associatedDoc = ecrCollection.get(n_eco_ecr);
+                    } else if (n_eco_ecr.startsWith('ECO') && ecoCollection) {
+                        associatedDoc = ecoCollection.get(n_eco_ecr);
+                    }
+
+                    if (associatedDoc && associatedDoc.status === 'rejected') {
+                        rejectedIndicatorHTML = `<span class="ml-2" title="El ECR/ECO asociado fue rechazado"><i data-lucide="alert-circle" class="h-5 w-5 text-red-500"></i></span>`;
+                    }
+                }
+
+                const editButtonHTML = checkUserPermission('edit') ?
+                    `<button data-id="${ficha.id}" data-action="edit-ficha" class="text-gray-500 hover:text-green-600 p-1" title="Editar Ficha"><i data-lucide="edit" class="h-5 w-5 pointer-events-none"></i></button>` :
+                    '';
+
+                return `
+                    <tr class="bg-white border-b hover:bg-gray-50">
+                        <td class="px-6 py-4 font-medium text-gray-900 flex items-center">${ficha.n_eco_ecr}${rejectedIndicatorHTML}</td>
+                        <td class="px-6 py-4">${ficha.descripcion}</td>
+                        <td class="px-6 py-4">${ficha.cliente}</td>
+                        <td class="px-6 py-4"><span class="px-2 py-1 font-semibold leading-tight rounded-full text-xs ${statusClass}">${ficha.estadoGeneral}</span></td>
+                        <td class="px-6 py-4">${ficha.lastModified.toDate().toLocaleString()}</td>
+                        <td class="px-6 py-4 text-right space-x-2">
+                            <button data-id="${ficha.id}" data-action="view-ficha" class="text-gray-500 hover:text-blue-600 p-1" title="Ver Ficha"><i data-lucide="eye" class="h-5 w-5 pointer-events-none"></i></button>
+                            ${editButtonHTML}
                         </td>
                     </tr>
                 `;
-            });
-
-            const estadoOptionsHTML = ESTADOS_FICHA.map(estado => {
-                const selected = isEditing && fichaData.estadoGeneral === estado ? 'selected' : '';
-                return `<option value="${estado}" ${selected}>${estado}</option>`;
             }).join('');
-
-            const leyendaHTML = ESTADOS_FICHA.map(estado => `
-                <div class="leyenda-item">
-                    <div class="leyenda-color-box ${STATUS_COLORS[estado.replace(' ', '_')]}"></div>
-                    <span>${estado}</span>
-                </div>
-            `).join('');
-
-            const viewHTML = `
-                <div class="ficha-seguimiento animate-fade-in-up">
-                    <form id="ficha-form" data-id="${ecrEcoId}">
-                        <header class="ficha-header">
-                            <div class="ficha-grid-meta">
-                                <div class="meta-item">
-                                    <label for="n_eco_ecr">N° de Eco/Ecr</label>
-                                    <input type="text" id="n_eco_ecr" name="n_eco_ecr" value="${isEditing ? fichaData.n_eco_ecr : ''}" required>
-                                </div>
-                                <div class="meta-item">
-                                    <label for="cliente">Cliente</label>
-                                    <input type="text" id="cliente" name="cliente" value="${isEditing ? fichaData.cliente : ''}">
-                                </div>
-                                <div class="meta-item">
-                                    <label for="pedido">Pedido</label>
-                                    <input type="text" id="pedido" name="pedido" value="${isEditing ? fichaData.pedido : ''}">
-                                </div>
-                                 <div class="meta-item" style="grid-column: 1 / -1;">
-                                    <label for="descripcion">Descripcion</label>
-                                    <textarea id="descripcion" name="descripcion" rows="2">${isEditing ? fichaData.descripcion : ''}</textarea>
-                                </div>
-                            </div>
-                        </header>
-                        <div class="ficha-body">
-                            <table class="departamentos-table">
-                                <thead>
-                                    <tr>
-                                        <th class="col-departamento">Departamento</th>
-                                        <th class="col-comentarios">Comentarios según ECR</th>
-                                        <th class="col-firma">Firmada (ECR)</th>
-                                        <th class="col-comentarios">Comentarios según ECO</th>
-                                        <th class="col-firma">Firmada (ECO)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${departamentosHTML}
-                                </tbody>
-                            </table>
-                        </div>
-                        <footer class="ficha-footer">
-                            <div class="estado-general-container">
-                                <label for="estado-general">Estado General:</label>
-                                <select id="estado-general" name="estadoGeneral" class="estado-general-select ${STATUS_COLORS[(isEditing ? fichaData.estadoGeneral : 'ABIERTA').replace(' ', '_')]}">
-                                    ${estadoOptionsHTML}
-                                </select>
-                            </div>
-                             <div class="leyenda-colores">
-                                ${leyendaHTML}
-                            </div>
-                            <div class="ficha-actions">
-                                <button type="button" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600" id="back-to-list-btn">Volver a la Lista</button>
-                                <button type="submit" class="btn-save">${isEditing ? 'Actualizar Ficha' : 'Guardar Ficha'}</button>
-                                ${isEditing ? `<button type="button" class="btn-delete" id="delete-ficha-btn">Eliminar Ficha</button>` : ''}
-                            </div>
-                        </footer>
-                    </form>
-                </div>
-            `;
-            dom.viewContent.innerHTML = viewHTML;
-
-            const form = document.getElementById('ficha-form');
-
-            if (isReadOnly) {
-                form.querySelectorAll('input, textarea, select').forEach(el => {
-                    el.disabled = true;
-                });
-                const saveBtn = form.querySelector('.btn-save');
-                if (saveBtn) saveBtn.style.display = 'none';
-                const deleteBtn = form.querySelector('.btn-delete');
-                if (deleteBtn) deleteBtn.style.display = 'none';
-
-                const actionsContainer = form.querySelector('.ficha-actions');
-                if (actionsContainer) {
-                    const n_eco_ecr = fichaData.n_eco_ecr || '';
-                    let associatedButtonHTML = '';
-                    if (n_eco_ecr) {
-                        const type = n_eco_ecr.startsWith('ECR') ? 'ecr' : (n_eco_ecr.startsWith('ECO') ? 'eco' : null);
-                        if (type) {
-                            associatedButtonHTML = `
-                                <button type="button" data-action="view-associated-${type}" data-id="${n_eco_ecr}" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 font-semibold">
-                                    Ver ${type.toUpperCase()}
-                                </button>`;
-                        }
-                    }
-
-                    const newButtonsHTML = `
-                        <button type="button" data-action="generate-ficha-pdf" data-id="${fichaData.id}" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 font-semibold">
-                            Generar PDF
-                        </button>
-                        ${associatedButtonHTML}
-                    `;
-                    actionsContainer.insertAdjacentHTML('beforeend', newButtonsHTML);
-                }
-            }
-
-            form.addEventListener('click', async (e) => {
-                const button = e.target.closest('button[data-action]');
-                if (!button || button.type === 'submit') return;
-
-                e.preventDefault();
-
-                const action = button.dataset.action;
-                const id = button.dataset.id;
-
-                if (action === 'generate-ficha-pdf') {
-                    await generateFichaPdf(id);
-                } else if (action === 'view-associated-ecr') {
-                    switchView('ecr_form', { ecrId: id });
-                } else if (action === 'view-associated-eco') {
-                    switchView('eco_form', { ecoId: id });
-                }
-            });
-
-            form.addEventListener('submit', handleSaveFicha);
-
-            document.getElementById('back-to-list-btn').addEventListener('click', renderMainView);
-
-            if (isEditing && !isReadOnly) {
-                document.getElementById('delete-ficha-btn').addEventListener('click', () => handleDeleteFicha(ecrEcoId));
-            }
-
-            const estadoSelect = document.getElementById('estado-general');
-            estadoSelect.addEventListener('change', (e) => {
-                estadoSelect.className = 'estado-general-select'; // Reset classes
-                const selectedStatusClass = STATUS_COLORS[e.target.value.replace(' ', '_')];
-                if(selectedStatusClass) {
-                    estadoSelect.classList.add(selectedStatusClass);
-                }
-            });
-        };
-
-        const handleSaveFicha = async (e) => {
-            e.preventDefault();
-            const form = e.target;
-            const id = form.dataset.id;
-            const n_eco_ecr = form.querySelector('[name="n_eco_ecr"]').value;
-
-            if (!n_eco_ecr) {
-                showToast('El campo "N° de Eco/Ecr" es obligatorio.', 'error');
-                return;
-            }
-
-            const fichaData = {
-                id: id,
-                n_eco_ecr: n_eco_ecr,
-                cliente: form.querySelector('[name="cliente"]').value,
-                pedido: form.querySelector('[name="pedido"]').value,
-                descripcion: form.querySelector('[name="descripcion"]').value,
-                estadoGeneral: form.querySelector('[name="estadoGeneral"]').value,
-                departamentos: {},
-                lastModified: new Date()
-            };
-
-            DEPARTAMENTOS.forEach(depto => {
-                const deptoKey = depto.replace(/[\s/&]/g, '_');
-                fichaData.departamentos[deptoKey] = {
-                    ecrComentario: form.querySelector(`[name="ecr_comentario_${deptoKey}"]`).value,
-                    ecrFirmada: form.querySelector(`[name="ecr_firmada_${deptoKey}"]`).value,
-                    ecoComentario: form.querySelector(`[name="eco_comentario_${deptoKey}"]`).value,
-                    ecoFirmada: form.querySelector(`[name="eco_firmada_${deptoKey}"]`).value,
-                };
-            });
-
-            try {
-                const docRef = doc(db, SEGUIMIENTO_COLLECTION, id);
-                await setDoc(docRef, fichaData, { merge: true });
-                showToast('Ficha guardada con éxito.', 'success');
-                renderMainView();
-            } catch (error) {
-                console.error("Error guardando la ficha: ", error);
-                showToast('Error al guardar la ficha.', 'error');
-            }
-        };
-
-        const handleDeleteFicha = (id) => {
-            showConfirmationModal('Eliminar Ficha', '¿Está seguro de que desea eliminar esta ficha? Esta acción no se puede deshacer.', async () => {
-                try {
-                    await deleteDoc(doc(db, SEGUIMIENTO_COLLECTION, id));
-                    showToast('Ficha eliminada.', 'success');
-                    renderMainView();
-                } catch (error) {
-                    console.error("Error deleting ficha: ", error);
-                    showToast('Error al eliminar la ficha.', 'error');
-                }
-            });
-        };
-
-        const seedSeguimientoData = async () => {
-            const snapshot = await getDocs(query(collection(db, SEGUIMIENTO_COLLECTION), limit(1)));
-            if (!snapshot.empty) {
-                console.log('La colección de seguimiento ya tiene datos. No se necesita seeding.');
-                return;
-            }
-
-            showToast('Creando datos de prueba para seguimiento...', 'info');
-            const batch = writeBatch(db);
-            const sampleFicha1 = {
-                id: 'ECR-ECO-SAMPLE-1',
-                n_eco_ecr: 'ECR-2024-001',
-                cliente: 'Cliente de Prueba A',
-                pedido: 'PED-001',
-                descripcion: 'Modificación inicial del componente X para mejorar la durabilidad.',
-                estadoGeneral: 'ABIERTA',
-                departamentos: {
-                    'ENG_PRODUCTO': { ecrComentario: 'Revisar planos y especificaciones.', ecrFirmada: 'SI', ecoComentario: '', ecoFirmada: 'NO' },
-                    'COMPRAS': { ecrComentario: 'Evaluar impacto en proveedores.', ecrFirmada: 'NO', ecoComentario: '', ecoFirmada: 'NO' }
-                },
-                lastModified: new Date()
-            };
-            const sampleFicha2 = {
-                id: 'ECR-ECO-SAMPLE-2',
-                n_eco_ecr: 'ECO-2024-002',
-                cliente: 'Cliente de Prueba B',
-                pedido: 'PED-002',
-                descripcion: 'Implementación del cambio de material para el ensamblaje Y.',
-                estadoGeneral: 'PENDIENTE',
-                departamentos: {
-                    'ENG_PRODUCTO': { ecrComentario: 'Planos actualizados.', ecrFirmada: 'SI', ecoComentario: 'Cambio implementado.', ecoFirmada: 'SI' },
-                    'QUALIDADE_CALIDAD': { ecrComentario: 'Plan de control requerido.', ecrFirmada: 'SI', ecoComentario: 'Plan de control actualizado y validado.', ecoFirmada: 'NO' }
-                },
-                lastModified: new Date()
-            };
-
-            batch.set(doc(db, SEGUIMIENTO_COLLECTION, sampleFicha1.id), sampleFicha1);
-            batch.set(doc(db, SEGUIMIENTO_COLLECTION, sampleFicha2.id), sampleFicha2);
-
-            try {
-                await batch.commit();
-                showToast('Datos de prueba creados.', 'success');
-            } catch(error) {
-                console.error('Error al crear datos de prueba de seguimiento:', error);
-                showToast('Error al crear datos de prueba.', 'error');
-            }
-        };
-
-        const renderMainView = () => {
-            seedSeguimientoData();
-
-            const canCreate = checkUserPermission('edit');
-            const createButtonHTML = canCreate ? `
-                <button id="create-new-ficha-btn" class="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 flex items-center shadow-md">
-                    <i data-lucide="plus" class="mr-2 h-5 w-5"></i>Crear Nueva Ficha
-                </button>` : '';
-
-            const viewHTML = `
-                <div class="animate-fade-in-up">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-2xl font-bold text-slate-800">Listado de Fichas de Seguimiento</h2>
-                        ${createButtonHTML}
-                    </div>
-                    <div class="bg-white p-6 rounded-xl shadow-lg">
-                        <div class="overflow-x-auto list-container">
-                            <table class="w-full text-sm text-left text-gray-600">
-                                <thead class="text-xs text-gray-700 uppercase bg-gray-100">
-                                    <tr>
-                                        <th scope="col" class="px-6 py-3">N° Eco/Ecr</th>
-                                        <th scope="col" class="px-6 py-3">Descripción</th>
-                                        <th scope="col" class="px-6 py-3">Cliente</th>
-                                        <th scope="col" class="px-6 py-3">Estado</th>
-                                        <th scope="col" class="px-6 py-3">Última Modificación</th>
-                                        <th scope="col" class="px-6 py-3 text-right">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="fichas-list">
-                                    <tr><td colspan="6" class="text-center py-16"><i data-lucide="loader" class="animate-spin h-8 w-8 mx-auto"></i></td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            `;
-            dom.viewContent.innerHTML = viewHTML;
             lucide.createIcons();
+        }, (error) => {
+            console.error("Error fetching fichas: ", error);
+            showToast('Error al cargar las fichas de seguimiento.', 'error');
+        });
+    };
 
-            if (canCreate) {
-                document.getElementById('create-new-ficha-btn').addEventListener('click', () => renderFichaForm());
-            }
+    renderMainView();
 
-            const listBody = document.getElementById('fichas-list');
-            listBody.addEventListener('click', async (e) => {
-                const button = e.target.closest('button[data-action]');
-                if (!button) return;
-
-                const fichaId = button.dataset.id;
-                const action = button.dataset.action;
-
-                if (action === 'view-ficha' || action === 'edit-ficha') {
-                    const docRef = doc(db, SEGUIMIENTO_COLLECTION, fichaId);
-                    const docSnap = await getDoc(docRef);
-                    if (docSnap.exists()) {
-                        const isReadOnly = action === 'view-ficha';
-                        renderFichaForm(docSnap.data(), isReadOnly);
-                    } else {
-                        showToast('Error: No se encontró la ficha.', 'error');
-                    }
-                }
-            });
-
-            const fichasCollection = collection(db, SEGUIMIENTO_COLLECTION);
-            const q = query(fichasCollection, orderBy('lastModified', 'desc'));
-
-            unsubscribe = onSnapshot(q, (snapshot) => {
-                const listBody = document.getElementById('fichas-list');
-                if (!listBody) return;
-
-                if (snapshot.empty) {
-                    listBody.innerHTML = `<tr><td colspan="6" class="text-center py-16 text-gray-500">No hay fichas de seguimiento. Puede crear una nueva.</td></tr>`;
-                    return;
-                }
-
-                listBody.innerHTML = snapshot.docs.map(doc => {
-                    const ficha = doc.data();
-                    const statusClass = STATUS_COLORS[ficha.estadoGeneral?.replace(' ', '_')] || 'bg-gray-100 text-gray-800';
-
-                    const n_eco_ecr = ficha.n_eco_ecr || '';
-                    let rejectedIndicatorHTML = '';
-                    if (n_eco_ecr) {
-                        let associatedDoc;
-                        const ecrCollection = appState.collectionsById[COLLECTIONS.ECR_FORMS];
-                        const ecoCollection = appState.collectionsById[COLLECTIONS.ECO_FORMS];
-
-                        if (n_eco_ecr.startsWith('ECR') && ecrCollection) {
-                            associatedDoc = ecrCollection.get(n_eco_ecr);
-                        } else if (n_eco_ecr.startsWith('ECO') && ecoCollection) {
-                            associatedDoc = ecoCollection.get(n_eco_ecr);
-                        }
-
-                        if (associatedDoc && associatedDoc.status === 'rejected') {
-                            rejectedIndicatorHTML = `<span class="ml-2" title="El ECR/ECO asociado fue rechazado"><i data-lucide="alert-circle" class="h-5 w-5 text-red-500"></i></span>`;
-                        }
-                    }
-
-                    const editButtonHTML = checkUserPermission('edit') ?
-                        `<button data-id="${ficha.id}" data-action="edit-ficha" class="text-gray-500 hover:text-green-600 p-1" title="Editar Ficha"><i data-lucide="edit" class="h-5 w-5 pointer-events-none"></i></button>` :
-                        '';
-
-                    return `
-                        <tr class="bg-white border-b hover:bg-gray-50">
-                            <td class="px-6 py-4 font-medium text-gray-900 flex items-center">${ficha.n_eco_ecr}${rejectedIndicatorHTML}</td>
-                            <td class="px-6 py-4">${ficha.descripcion}</td>
-                            <td class="px-6 py-4">${ficha.cliente}</td>
-                            <td class="px-6 py-4"><span class="px-2 py-1 font-semibold leading-tight rounded-full text-xs ${statusClass}">${ficha.estadoGeneral}</span></td>
-                            <td class="px-6 py-4">${ficha.lastModified.toDate().toLocaleString()}</td>
-                            <td class="px-6 py-4 text-right space-x-2">
-                                <button data-id="${ficha.id}" data-action="view-ficha" class="text-gray-500 hover:text-blue-600 p-1" title="Ver Ficha"><i data-lucide="eye" class="h-5 w-5 pointer-events-none"></i></button>
-                                ${editButtonHTML}
-                            </td>
-                        </tr>
-                    `;
-                }).join('');
-                lucide.createIcons();
-            }, (error) => {
-                console.error("Error fetching fichas: ", error);
-                showToast('Error al cargar las fichas de seguimiento.', 'error');
-            });
-        };
-
-        renderMainView();
-
-        appState.currentViewCleanup = () => {
-            if (unsubscribe) {
-                unsubscribe();
-            }
-        };
-        resolve();
-    });
+    appState.currentViewCleanup = () => {
+        if (unsubscribe) {
+            unsubscribe();
+        }
+    };
 }
 
 async function runEcrSeguimientoLogic() {
@@ -3716,600 +3701,596 @@ async function runEcrSeguimientoLogic() {
     appState.currentViewCleanup = () => {
         // Future cleanup logic
     };
-    return Promise.resolve();
 }
 
 async function runEcrFormLogic(params = null) {
-    return new Promise(async resolve => {
-        const ecrId = params ? params.ecrId : null;
-        const isEditing = !!ecrId;
-        const ECR_FORM_STORAGE_KEY = isEditing ? `inProgressEcrForm_${ecrId}` : 'inProgressEcrForm_new';
+    const ecrId = params ? params.ecrId : null;
+    const isEditing = !!ecrId;
+    const ECR_FORM_STORAGE_KEY = isEditing ? `inProgressEcrForm_${ecrId}` : 'inProgressEcrForm_new';
 
-        // --- Render the basic structure ---
-        dom.viewContent.innerHTML = `
-            <div class="form-container">
-                <div id="ecr-progress-bar" class="sticky top-0 bg-white/80 backdrop-blur-sm z-10 p-4 shadow-sm mb-4 rounded-lg border">
+    // --- Render the basic structure ---
+    dom.viewContent.innerHTML = `
+        <div class="form-container">
+            <div id="ecr-progress-bar" class="sticky top-0 bg-white/80 backdrop-blur-sm z-10 p-4 shadow-sm mb-4 rounded-lg border">
+                </div>
+            <form id="ecr-form" class="bg-white p-6"></form>
+            <div id="action-buttons-container" class="max-w-7xl mx-auto mt-[-1rem] mb-8 px-8 pb-4 bg-white rounded-b-lg shadow-lg border-t flex justify-end items-center gap-4">
+                <button type="button" id="ecr-back-button" class="bg-gray-200 text-gray-800 px-6 py-2 rounded-md hover:bg-gray-300 mr-auto">Volver a la Lista</button>
+                <button type="button" id="ecr-save-button" class="bg-gray-500 text-white px-6 py-2 rounded-md hover:bg-gray-600">Guardar Progreso</button>
+                <button type="button" id="ecr-clear-button" class="bg-yellow-500 text-white px-6 py-2 rounded-md hover:bg-yellow-600">Limpiar</button>
+                <button type="button" id="ecr-approve-button" class="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700">Aprobar y Guardar</button>
+            </div>
+        </div>
+    `;
+    const formContainer = document.getElementById('ecr-form');
+
+    // --- Progress Bar Logic ---
+    const progressBarContainer = document.getElementById('ecr-progress-bar');
+    const pages = [
+        { id: 'page1', title: 'Información General' },
+        { id: 'page2', title: 'Evaluación (Parte 1)' },
+        { id: 'page3', title: 'Evaluación (Parte 2)' },
+        { id: 'page4', title: 'Evaluación (Parte 3)' },
+        { id: 'page_final', title: 'Aprobación Final' }
+    ];
+
+    let progressBarHTML = '<ol class="flex items-center w-full">';
+    pages.forEach((page, index) => {
+        const isLast = index === pages.length - 1;
+        progressBarHTML += `
+            <li class="flex w-full items-center ${!isLast ? "text-blue-600 after:content-[''] after:w-full after:h-1 after:border-b after:border-gray-100 after:border-4 after:inline-block" : ""}">
+                <button data-target="${page.id}" class="progress-step flex items-center justify-center w-10 h-10 bg-gray-100 rounded-full lg:h-12 lg:w-12 shrink-0">
+                    <span class="font-bold">${index + 1}</span>
+                </button>
+            </li>
+        `;
+    });
+    progressBarHTML += '</ol>';
+    progressBarContainer.innerHTML = progressBarHTML;
+
+    progressBarContainer.addEventListener('click', (e) => {
+        const button = e.target.closest('.progress-step');
+        if (button) {
+            const targetId = button.dataset.target;
+            const targetElement = document.getElementById(targetId);
+            if (targetElement) {
+                targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+    });
+
+    // --- Intersection Observer for Progress Bar ---
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            const pageId = entry.target.id;
+            const progressButton = progressBarContainer.querySelector(`[data-target="${pageId}"]`);
+            if (entry.isIntersecting) {
+                progressButton.classList.remove('bg-gray-100');
+                progressButton.classList.add('bg-blue-600', 'text-white');
+            } else {
+                progressButton.classList.add('bg-gray-100');
+                progressButton.classList.remove('bg-blue-600', 'text-white');
+            }
+        });
+    }, { threshold: 0.5 }); // 50% of the page must be visible
+
+    // --- Helper Functions ---
+    const createCheckbox = (label, name, value = '') => `<div class="flex items-center gap-2"><input type="checkbox" name="${name}" id="${name}" value="${value}" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"><label for="${name}" class="text-sm select-none">${label}</label></div>`;
+    const createTextField = (label, name, placeholder = '', isFullWidth = false) => `<div class="form-field ${isFullWidth ? 'col-span-full' : ''}"><label for="${name}" class="text-sm font-bold mb-1">${label}</label><input type="text" name="${name}" id="${name}" placeholder="${placeholder}" class="w-full"></div>`;
+    const createDateField = (label, name) => `<div class="form-field"><label for="${name}" class="text-sm font-bold mb-1">${label}</label><input type="date" name="${name}" id="${name}" class="w-full"></div>`;
+    const createTextarea = (name, placeholder = '') => `<textarea name="${name}" placeholder="${placeholder}" class="w-full h-full border-none resize-none p-1 bg-transparent focus:outline-none"></textarea>`;
+
+    const buildDepartmentSection = (config, ecrData) => {
+        const checklistHTML = config.checklist.map(item => `<div class="check-item">${createCheckbox(item.label, item.name)}</div>`).join('');
+        const customContent = config.customHTML || '';
+        const departmentId = config.id;
+        const approval = ecrData?.approvals?.[departmentId];
+        const isApprovedOrRejected = approval?.status === 'approved' || approval?.status === 'rejected';
+        const canApprove = appState.currentUser.role === 'admin' || appState.currentUser.sector === departmentId;
+
+        let approvalControlsHTML = '';
+        if (isApprovedOrRejected) {
+            const statusClass = approval.status === 'approved' ? 'text-green-600' : 'text-red-600';
+            const statusIcon = approval.status === 'approved' ? 'check-circle' : 'x-circle';
+            approvalControlsHTML = `
+                <div class="flex items-center gap-2 font-bold ${statusClass}">
+                    <i data-lucide="${statusIcon}" class="w-5 h-5"></i>
+                    <span>${approval.status.charAt(0).toUpperCase() + approval.status.slice(1)} por ${approval.user} el ${approval.date}</span>
+                </div>
+            `;
+        } else if (canApprove) {
+            approvalControlsHTML = `
+                <button type="button" data-action="register-ecr-approval" data-decision="rejected" data-department-id="${departmentId}" class="bg-red-500 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-red-600">Rechazar</button>
+                <button type="button" data-action="register-ecr-approval" data-decision="approved" data-department-id="${departmentId}" class="bg-green-500 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-green-600">Aprobar</button>
+            `;
+        } else {
+             approvalControlsHTML = `<div class="text-xs text-slate-400 italic">Pendiente de aprobación por ${config.title}</div>`;
+        }
+
+
+        return `
+            <div class="department-section ${isApprovedOrRejected ? 'approved' : ''}">
+                <div class="department-header">
+                     <span class="flex items-center gap-3"><i data-lucide="${config.icon || 'help-circle'}" class="w-6 h-6 text-slate-500"></i>${config.title}</span>
+                    <div class="flex items-center gap-4">
+                        ${createCheckbox('No Afecta', `na_${config.id}`)}
+                        ${createCheckbox('Afecta', `afecta_${config.id}`)}
                     </div>
-            <form id="ecr-form" data-tutorial-id="ecr-form" class="bg-white p-6"></form>
-                <div id="action-buttons-container" class="max-w-7xl mx-auto mt-[-1rem] mb-8 px-8 pb-4 bg-white rounded-b-lg shadow-lg border-t flex justify-end items-center gap-4">
-                    <button type="button" id="ecr-back-button" class="bg-gray-200 text-gray-800 px-6 py-2 rounded-md hover:bg-gray-300 mr-auto">Volver a la Lista</button>
-                <button type="button" id="ecr-save-button" data-tutorial-id="ecr-save-btn" class="bg-gray-500 text-white px-6 py-2 rounded-md hover:bg-gray-600">Guardar Progreso</button>
-                    <button type="button" id="ecr-clear-button" class="bg-yellow-500 text-white px-6 py-2 rounded-md hover:bg-yellow-600">Limpiar</button>
-                    <button type="button" id="ecr-approve-button" class="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700">Aprobar y Guardar</button>
+                </div>
+                <div class="department-content">
+                    <div class="department-checklist">${checklistHTML}${customContent}</div>
+                    <div class="department-comments">
+                        <label class="font-bold text-sm mb-1 block">Comentarios Generales y Justificativos:</label>
+                        <textarea name="comments_${config.id}" rows="6" class="form-field"></textarea>
+                    </div>
+                </div>
+                <div class="department-footer">
+                    ${approvalControlsHTML}
                 </div>
             </div>
         `;
-        const formContainer = document.getElementById('ecr-form');
+    };
 
-        // --- Progress Bar Logic ---
-        const progressBarContainer = document.getElementById('ecr-progress-bar');
-        const pages = [
-            { id: 'page1', title: 'Información General' },
-            { id: 'page2', title: 'Evaluación (Parte 1)' },
-            { id: 'page3', title: 'Evaluación (Parte 2)' },
-            { id: 'page4', title: 'Evaluación (Parte 3)' },
-            { id: 'page_final', title: 'Aprobación Final' }
+    // --- Form HTML structure ---
+    const page1HTML = `
+        <div class="ecr-page relative" id="page1">
+            <div class="watermark">Página 1</div>
+            <header class="ecr-header">
+                <img src="/barack_logo.png" alt="Logo" class="h-12">
+                <div class="title-block">
+                    <div class="flex items-center gap-2">
+                        <span class="ecr-main-title">ECR</span>
+                        ${createHelpTooltip('ECR (Engineering Change Request): Use este formulario para iniciar una solicitud formal de cambio en un producto o proceso. Complete todos los campos relevantes para su evaluación.')}
+                    </div>
+                    <div class="ecr-subtitle">DE PRODUCTO / PROCESO</div>
+                </div>
+                <div class="ecr-number-box">
+                    <span>ECR N°:</span>
+                    <input type="text" name="ecr_no">
+                </div>
+            </header>
+            <div class="ecr-checklist-bar">CHECK LIST ECR - ENGINEERING CHANGE REQUEST</div>
+
+            <section class="form-row">
+                <div class="form-field" style="flex-grow: 2;">
+                    <label class="text-sm font-bold mb-1">ORIGEN DEL PEDIDO:</label>
+                    <div class="border p-2 rounded-lg flex flex-wrap gap-x-6 gap-y-2 mt-1">
+                        ${createCheckbox('Cliente', 'origen_cliente')}
+                        ${createCheckbox('Proveedor', 'origen_proveedor')}
+                        ${createCheckbox('Interno', 'origen_interno')}
+                        ${createCheckbox('Reglamentación', 'origen_reglamentacion')}
+                    </div>
+                </div>
+                ${createTextField('Proyecto:', 'proyecto')}
+                ${createTextField('Cliente:', 'cliente')}
+            </section>
+
+            <section class="form-row">
+                <div class="form-field" style="flex-grow: 2;">
+                    <label class="text-sm font-bold mb-1">FASE DE PROYECTO:</label>
+                    <div class="border p-2 rounded-lg flex flex-wrap gap-x-6 gap-y-2 mt-1">
+                        ${createCheckbox('Programa', 'fase_programa')}
+                        ${createCheckbox('Serie', 'fase_serie')}
+                    </div>
+                </div>
+                ${createDateField('Fecha de Emisión:', 'fecha_emision')}
+                ${createDateField('Fecha de Cierre:', 'fecha_cierre')}
+            </section>
+
+            <section class="form-row">
+                ${createTextField('Código(s) Barack:', 'codigo_barack', '...')}
+                ${createTextField('Código(s) Cliente:', 'codigo_cliente', '...')}
+            </section>
+            <section class="form-row">
+                ${createTextField('Denominación del Producto:', 'denominacion_producto', '...', true)}
+            </section>
+
+            <section class="form-row">
+                <div class="form-field">
+                    <label for="componentes_obsoletos" class="text-sm font-bold mb-1">Componentes Obsoletos (Cantidad):</label>
+                    <input type="number" name="componentes_obsoletos" id="componentes_obsoletos" placeholder="0" class="w-full" min="0">
+                </div>
+            </section>
+
+            <div class="ecr-flex-section">
+                <div class="ecr-flex-header">OBJETIVO DE ECR</div>
+                <div class="ecr-flex-content ecr-flex-columns-2">
+                    <div class="ecr-flex-column">
+                        ${['Productividad', 'Mejora de calidad', 'Estrategia del Cliente'].map(l => createCheckbox(l, `obj_${l.toLowerCase().replace(/ /g, '_')}`)).join('')}
+                    </div>
+                    <div class="ecr-flex-column">
+                        ${['Estrategia Barack', 'Nacionalización'].map(l => createCheckbox(l, `obj_${l.toLowerCase().replace(/ /g, '_')}`)).join('')}
+                    </div>
+                </div>
+            </div>
+
+            <div class="ecr-flex-section">
+                <div class="ecr-flex-header">TIPO DE ALTERACIÓN</div>
+                <div class="ecr-flex-content ecr-flex-columns-2">
+                    <div class="ecr-flex-column">
+                        ${['Producto', 'Proceso'].map(l => createCheckbox(l, `tipo_${l.toLowerCase().replace(/ /g, '_')}`)).join('')}
+                    </div>
+                    <div class="ecr-flex-column">
+                        ${['Fuente de suministro', 'Embalaje'].map(l => createCheckbox(l, `tipo_${l.toLowerCase().replace(/ /g, '_')}`)).join('')}
+                        <div class="flex items-center gap-2 mt-1"><input type="checkbox" id="tipo_otro" name="tipo_otro"><label for="tipo_otro" class="text-sm">Otro:</label><input name="tipo_otro_text" type="text" class="border-b-2 bg-transparent flex-grow"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ecr-flex-section">
+                <div class="ecr-flex-header">VALIDACIÓN DEL CLIENTE</div>
+                <div class="ecr-flex-content ecr-flex-columns-2">
+                    <div class="ecr-flex-column space-y-2">
+                        ${createCheckbox('Requiere Aprobación del Cliente', 'cliente_requiere_aprobacion')}
+                        ${createCheckbox('Requiere PPAP', 'cliente_requiere_ppap')}
+                    </div>
+                    <div class="ecr-flex-column space-y-2">
+                        <div class="form-field"><label for="cliente_aprobacion_estado" class="text-sm font-bold">Estado:</label><select name="cliente_aprobacion_estado" id="cliente_aprobacion_estado" class="w-full text-sm"><option value="na">No Aplica</option><option value="pendiente">Pendiente</option><option value="aprobado">Aprobado</option><option value="rechazado">Rechazado</option></select></div>
+                        <div class="form-field"><label for="cliente_aprobacion_fecha" class="text-sm font-bold">Fecha de Decisión:</label><input type="date" name="cliente_aprobacion_fecha" id="cliente_aprobacion_fecha" class="w-full text-sm"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ecr-flex-section">
+                <div class="ecr-flex-header">AFECTA S/R</div>
+                <div class="ecr-flex-content">
+                    <div class="ecr-flex-column">
+                        ${['Relocalización de Planta', 'Modificación de Layout', 'Modificación de herramental'].map(l => createCheckbox(l, `afecta_${l.toLowerCase().replace(/ /g, '_')}`)).join('')}
+                    </div>
+                </div>
+            </div>
+
+            <div class="two-column-layout mt-4">
+                <div class="column-box"><h3>SITUACIÓN EXISTENTE:</h3>${createTextarea('situacion_existente')}</div>
+                <div class="column-box"><h3>SITUACIÓN PROPUESTA:</h3>${createTextarea('situacion_propuesta')}</div>
+            </div>
+
+            <table class="full-width-table risk-analysis-table">
+                <thead><tr><th colspan="7">IMPACTO EN CASO DE FALLA</th></tr><tr><th>RESPONSABLE</th><th>ANÁLISIS DE RIESGO</th><th>Nivel</th><th>Observaciones</th><th>NOMBRE</th><th>FECHA</th><th>VISTO</th></tr></thead>
+                <tbody>${['RETORNO DE GARANTÍA', 'RECLAMACIÓN ZERO KM', 'HSE', 'SATISFACCIÓN DEL CLIENTE', 'S/R (Seguridad y/o Regulamentación)'].map((r, i) => `<tr><td>Gerente de Calidad</td><td>${r}</td><td><input name="impacto_nivel_${i}"></td><td><input name="impacto_obs_${i}"></td><td><input name="impacto_nombre_${i}"></td><td><input type="date" name="impacto_fecha_${i}"></td><td><input name="impacto_visto_${i}"></td></tr>`).join('')}</tbody>
+            </table>
+
+            <table class="full-width-table risk-analysis-table mt-4">
+                <thead><tr><th colspan="7">APROBACIÓN DE DIRECTORIO (CODIR)</th></tr><tr><th>Miembro de Directorio</th><th>Aprobado</th><th>Rechazado</th><th>Observaciones</th><th>NOMBRE</th><th>FECHA</th><th>VISTO</th></tr></thead>
+                <tbody>${['Director Comercial', 'Director Industrial'].map((r, i) => `<tr><td>${r}</td><td>${createCheckbox('', `codir_aprobado_${i}`)}</td><td>${createCheckbox('', `codir_rechazado_${i}`)}</td><td><input name="codir_obs_${i}"></td><td><input name="codir_nombre_${i}"></td><td><input type="date" name="codir_fecha_${i}"></td><td><input name="codir_visto_${i}"></td></tr>`).join('')}
+                    <tr><td>Otro: <input name="codir_otro_rol_2" class="border-b-2 bg-transparent w-full"></td><td>${createCheckbox('', 'codir_aprobado_2')}</td><td>${createCheckbox('', 'codir_rechazado_2')}</td><td><input name="codir_obs_2"></td><td><input name="codir_nombre_2"></td><td><input type="date" name="codir_fecha_2"></td><td><input name="codir_visto_2"></td></tr>
+                </tbody>
+            </table>
+
+            <table class="full-width-table mt-4">
+                 <thead><tr><th colspan="2">EQUIPO DE TRABAJO</th></tr></thead>
+                 <tbody>
+                    ${[['PILOTO ECR:', 'COMERCIAL:'], ['PILOTO:', 'PC&L/LOGÍSTICA:'], ['ING. PRODUCTO:', 'PRODUCCIÓN:'], ['ING. MANUFACTURA:', 'COSTOS:'], ['CALIDAD:', 'HSE:'], ['COMPRAS:', 'MANTENIMIENTO:'], ['SQA:', '']].map((row, i) => {
+                        const col1 = `<div class="flex items-center"><label class="w-1/3 font-semibold">${row[0]}</label><input name="equipo_c1_${i}" class="flex-grow ml-2 border-b-2 bg-transparent"></div>`;
+                        const col2 = row[1] ? `<div class="flex items-center"><label class="w-1/3 font-semibold">${row[1]}</label><input name="equipo_c2_${i}" class="flex-grow ml-2 border-b-2 bg-transparent"></div>` : '';
+                        return `<tr><td>${col1}</td><td>${col2}</td></tr>`;
+                    }).join('')}
+                 </tbody>
+            </table>
+        </div>
+    `;
+
+    // --- All other pages remain the same as they are already structured correctly.
+    // I will copy them here to ensure the full form is preserved.
+    const page2HTML = (data) => `
+        <div class="ecr-page relative" id="page2">
+            <div class="watermark">Página 2</div>
+            <div class="ecr-checklist-bar">EVALUACIÓN DE PROPUESTA POR LOS DEPARTAMENTOS</div>
+            ${buildDepartmentSection({
+                title: 'INGENIERÍA PRODUCTO — DISEÑO', id: 'ing_producto', icon: 'drafting-compass',
+                customHTML: `
+                    <table class="full-width-table text-xs my-2">
+                        <thead><tr><th>REF. ACTUAL / IND</th><th>REF. NUEVA / IND</th><th>QTD./CARRO</th></tr></thead>
+                        <tbody><tr><td><input name="prod_ref_actual"></td><td><input name="prod_ref_nueva"></td><td><input name="prod_qtd_carro"></td></tr></tbody>
+                    </table>
+                    <div class="grid grid-cols-2 gap-2 mt-2">
+                    ${['COSTO CLIENTE', 'COSTO BARACK', 'COSTO PROVEEDOR', 'AFECTA AL CLIENTE', 'AFECTA S&R'].map(l => createCheckbox(l, `prod_${l.toLowerCase().replace(/ /g,'_')}`)).join('')}
+                    </div>
+                `,
+                checklist: ['ESTRUCTURA DE PRODUCTO', 'PLANO DE VALIDACIÓN', 'LANZAMIENTO DE PROTOTIPOS', 'EVALUADO POR EL ESPECIALISTA DE PRODUCTO', 'ACTUALIZAR DISEÑO 3D', 'ACTUALIZAR DISEÑO 2D', 'ACTUALIZAR DFMEA', 'COPIA DE ESTA ECR PARA OTRO SITIO?', 'NECESITA PIEZA DE REPOSICIÓN'].map(l => ({label: l, name: `prod_check_${l.toLowerCase().replace(/ /g,'_')}`}))
+            }, data)}
+            ${buildDepartmentSection({
+                title: 'INGENIERÍA MANUFACTURA Y PROCESO', id: 'ing_manufatura', icon: 'cpu',
+                checklist: ['HACER RUN A RATE', 'ACTUALIZAR DISEÑO MANUFACTURA', 'LAY OUT', 'AFECTA EQUIPAMIENTO', 'ACTUALIZAR INSTRUCCIONES, FLUJOGRAMAS', 'ACTUALIZAR PFMEA', 'POKA YOKES', 'ACTUALIZAR TIEMPOS', 'CAPACIDAD DE PERSONAL', 'AFECTA A S&R / HSE'].map(l => ({label: l, name: `manuf_${l.toLowerCase().replace(/ /g,'_')}`}))
+            }, data)}
+             ${buildDepartmentSection({
+                title: 'HSE', id: 'hse', icon: 'siren',
+                checklist: ['CHECK LIST DE LIB DE MÁQUINA', 'COMUNICAR ÓRGANO AMBIENTAL', 'COMUNICACIÓN MINISTERIO DE TRABAJO'].map(l => ({label: l, name: `hse_${l.toLowerCase().replace(/ /g,'_')}`}))
+            }, data)}
+            ${buildDepartmentSection({
+                title: 'CALIDAD', id: 'calidad', icon: 'award',
+                checklist: ['AFECTA DIMENSIONAL CLIENTE?', 'AFECTA FUNCIONAL Y MONTABILIDAD?', 'ACTUALIZAR PLANO DE CONTROLES/ INSTRUCCIONES', 'AFECTA ASPECTO/ACTUALIZAR BIBLIA DE DEFECTOS/PZA PATRÓN?', 'AFECTA CAPABILIDAD (AFECTA CAPACIDAD)', 'MODIFICAR DISPOSITIVO DE CONTROL Y SU MODO DE CONTROL', 'NUEVO ESTUDIO DE MSA / CALIBRACIÓN', 'NECESITA VALIDACIÓN (PLANO DEBE ESTAR EN ANEXO)', 'NECESARIO NUEVO PPAP/PSW CLIENTE', 'ANÁLISIS DE MATERIA PRIMA', 'IMPLEMENTAR MURO DE CALIDAD', 'NECESITA AUDITORÍA S&R', 'AFECTA POKA-YOKE?', 'AFECTA AUDITORÍA DE PRODUCTO?'].map(l => ({label: l, name: `calidad_${l.toLowerCase().replace(/ /g,'_')}`}))
+            }, data)}
+        </div>
+    `;
+
+    const page3HTML = (data) => `
+        <div class="ecr-page relative" id="page3">
+            <div class="watermark">Página 3</div>
+            <div class="ecr-checklist-bar">EVALUACIÓN DE PROPUESTA POR LOS DEPARTAMENTOS (Cont.)</div>
+            ${buildDepartmentSection({
+                title: 'COMPRAS', id: 'compras', icon: 'shopping-cart',
+                customHTML: `
+                    <div class="grid grid-cols-2 gap-4 text-xs">
+                        <div><strong>PIEZA Actual:</strong> ${createCheckbox('NACIONAL', 'compras_actual_nac')} ${createCheckbox('IMPORTADA', 'compras_actual_imp')} <input name="compras_proveedor_actual" placeholder="PROVEEDOR:" class="w-full mt-1"></div>
+                        <div><strong>PIEZA Propuesta:</strong> ${createCheckbox('NACIONAL', 'compras_prop_nac')} ${createCheckbox('IMPORTADA', 'compras_prop_imp')} <input name="compras_proveedor_prop" placeholder="PROVEEDOR:" class="w-full mt-1"></div>
+                    </div>
+                    <div class="flex gap-4 mt-2">${createCheckbox('Modificación reversible', 'compras_rev')} ${createCheckbox('Modificación irreversible', 'compras_irrev')}</div>
+                `,
+                checklist: ['COSTOS EVALUADOS', 'PEDIDO COMPRA PROTOTIPOS', 'PEDIDO COMPRA TOOLING', 'AFECTA HERRAMIENTA DE PROVEEDOR', 'NECESARIO ENVIAR DISEÑO P/ PROVEEDOR', 'IMPACTO POST VENTA ANALIZADO'].map(l => ({label: l, name: `compras_${l.toLowerCase().replace(/ /g,'_')}`}))
+            }, data)}
+            ${buildDepartmentSection({
+                title: 'CALIDAD PROVEEDORES (SQA)', id: 'sqa', icon: 'gem',
+                checklist: ['NECESITA NUEVO PSW PROVEEDOR - FECHA LÍMITE: __/__/____', 'AFECTA LAY OUT', 'AFECTA EMBALAJE', 'AFECTA DISPOSITIVO CONTROL PROVEEDOR', 'AFECTA SUBPROVEEDOR', 'NECESITA DE ASISTENTE'].map(l => ({label: l, name: `sqa_${l.toLowerCase().replace(/ /g,'_')}`}))
+            }, data)}
+            ${buildDepartmentSection({
+                title: 'Tooling & Equipments (T&E)', id: 'tooling', icon: 'wrench',
+                checklist: ['AFECTA HERRAMIENTA', 'ANÁLISIS TÉCNICO DE ALTERACIÓN', 'OTROS IMPACTOS CAUSADOS POR LA ALTERACIÓN NO HERRAMENTAL'].map(l => ({label: l, name: `tooling_${l.toLowerCase().replace(/ /g,'_')}`}))
+            }, data)}
+        </div>
+    `;
+
+    const page4HTML = (data) => `
+         <div class="ecr-page relative" id="page4">
+            <div class="watermark">Página 4</div>
+            <div class="ecr-checklist-bar">EVALUACIÓN DE PROPUESTA POR LOS DEPARTAMENTOS (Cont.)</div>
+             ${buildDepartmentSection({
+                title: 'LOGÍSTICA Y PC&L', id: 'logistica', icon: 'truck',
+                checklist: ['Parámetros logísticos/items nuevos', 'Gestión de stock (pieza antigua/nueva)', 'Necesita stock de seguridad', 'Altera programa p/ proveedor', 'Nuevo protocolo logístico', 'Impacto post venta', 'Impacto MOI/MOD', 'Afecta embalaje'].map(l => ({label: l, name: `logistica_${l.toLowerCase().replace(/ /g,'_')}`}))
+            }, data)}
+             ${buildDepartmentSection({
+                title: 'FINANCIERO / COSTOS', id: 'financiero', icon: 'landmark',
+                checklist: ['BUSINESS PLAN', 'BOA - BUSINESS OPPORTUNITY', 'MoB - ANALYSIS', 'PAYBACK / UPFRONT'].map(l => ({label: l, name: `financiero_${l.toLowerCase().replace(/ /g,'_')}`}))
+            }, data)}
+            ${buildDepartmentSection({
+                title: 'COMERCIAL', id: 'comercial', icon: 'trending-up',
+                checklist: ['NECESARIO RENEGOCIAR CON EL CLIENTE', 'IMPACTO POST VENTA ANALIZADO', 'NECESARIA NUEVA ORDEN DE VENTA AL CLIENTE', 'NEGOCIACIÓN DE OBSOLETOS'].map(l => ({label: l, name: `comercial_${l.toLowerCase().replace(/ /g,'_')}`}))
+            }, data)}
+            ${buildDepartmentSection({
+                title: 'MANTENIMIENTO', id: 'mantenimiento', icon: 'shield-check',
+                checklist: ['PROYECTO PRESENTA VIABILIDAD TÉCNICA / TECNOLÓGICA', 'NECESITA ADQUISICIÓN DE MATERIALES/EQUIPOS', 'NECESIDAD / DISPONIBILIDAD DE ENERGÍAS: ELÉCTRICA, NEUMÁTICA E HIDRÁULICA', 'CREACIÓN/ALTERACIÓN DE MANTENIMIENTO PREVENTIVO', 'NECESITA REGISTRO DE NUEVOS ITEMS EN ALMACÉN'].map(l => ({label: l, name: `mantenimiento_${l.toLowerCase().replace(/ /g,'_')}`}))
+            }, data)}
+            ${buildDepartmentSection({
+                title: 'PRODUCCIÓN', id: 'produccion', icon: 'factory',
+                checklist: ['AFECTA INSTRUCCIÓN DE TRABAJO (SW)', 'AFECTA LIBERACIÓN DE PROCESO (SET UP)', 'IMPACTO MOD / MOI', 'CAPACITACIÓN', 'AFECTA ALTERACIÓN DE PLANO DE CORTE'].map(l => ({label: l, name: `produccion_${l.toLowerCase().replace(/ /g,'_')}`}))
+            }, data)}
+            ${buildDepartmentSection({
+                title: 'CALIDAD CLIENTE', id: 'calidad_cliente', icon: 'user-check',
+                checklist: ['NECESITA APROBACIÓN CLIENTE EXTERNO', 'NECESARIO APROBACIÓN CLIENTE INTERNO', 'ECR SOBRE DESVÍO N°: ____', 'OTROS: ______'].map(l => ({label: l, name: `calidad_cliente_${l.toLowerCase().replace(/ /g,'_')}`}))
+            }, data)}
+        </div>
+    `;
+
+    const finalPageHTML = `
+        <div class="ecr-page relative" id="page_final">
+            <div class="ecr-checklist-bar">APROBACIÓN FINAL DE ECR</div>
+            <div class="flex justify-center items-center gap-8 my-4">
+                ${createCheckbox('OK', 'final_ok')}
+                ${createCheckbox('NOK', 'final_nok')}
+            </div>
+            <div class="form-field"><label class="font-bold">CONSIDERACIONES DEL COORDINADOR:</label><textarea name="final_consideraciones" class="h-32"></textarea></div>
+            <div class="flex justify-end gap-4 mt-4">
+                ${createTextField('Coordinador:', 'final_coordinador')}
+                ${createTextField('Visto:', 'final_visto')}
+                ${createDateField('Fecha:', 'final_fecha')}
+            </div>
+        </div>
+    `;
+
+    let ecrData = null;
+    if (isEditing) {
+        const docRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            ecrData = docSnap.data();
+        } else {
+            showToast(`Error: No se encontró el ECR con ID ${ecrId}`, 'error');
+            switchView('ecr');
+            return;
+        }
+    }
+
+    formContainer.innerHTML = page1HTML + page2HTML(ecrData) + page3HTML(ecrData) + page4HTML(ecrData) + finalPageHTML;
+    lucide.createIcons();
+
+    // Start observing each page section for the progress bar
+    pages.forEach(page => {
+        const pageElement = document.getElementById(page.id);
+        if (pageElement) {
+            observer.observe(pageElement);
+        }
+    });
+
+    // --- Local Storage and Data Handling ---
+    const saveEcrFormToLocalStorage = () => {
+        const formData = new FormData(formContainer);
+        const data = Object.fromEntries(formData.entries());
+        formContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            data[cb.name] = cb.checked;
+        });
+        localStorage.setItem(ECR_FORM_STORAGE_KEY, JSON.stringify(data));
+    };
+
+    const loadEcrFormFromLocalStorage = () => {
+        const savedData = localStorage.getItem(ECR_FORM_STORAGE_KEY);
+        if (!savedData) return;
+        const data = JSON.parse(savedData);
+        populateEcrForm(formContainer, data);
+    };
+
+    const populateEcrForm = (form, data) => {
+        if (!data || !form) return;
+        // Populate standard fields
+        for (const key in data) {
+            if (key === 'approvals') continue; // Skip approvals map, handled below
+            const elements = form.querySelectorAll(`[name="${key}"]`);
+            elements.forEach(element => {
+                if (element.type === 'checkbox' || element.type === 'radio') {
+                     if(element.type === 'radio') {
+                        if(element.value === String(data[key])) element.checked = true;
+                    } else {
+                        element.checked = !!data[key];
+                    }
+                } else {
+                    element.value = data[key];
+                }
+            });
+        }
+
+        // Populate and disable approval sections
+        if (data.approvals) {
+            for (const deptId in data.approvals) {
+                const approval = data.approvals[deptId];
+                const section = form.querySelector(`.department-section:has([name="comments_${deptId}"])`);
+                if (!section) continue;
+
+                const commentArea = section.querySelector(`[name="comments_${deptId}"]`);
+                if (commentArea && approval.comment) {
+                    commentArea.value = approval.comment;
+                }
+
+                if (approval.status === 'approved' || approval.status === 'rejected') {
+                    section.querySelectorAll('input, textarea, button').forEach(el => {
+                         if (!el.closest('.department-footer')) { // Don't disable the footer itself
+                            el.disabled = true;
+                         }
+                    });
+                }
+            }
+        }
+    };
+
+
+    // --- Load Data and Attach Listeners ---
+    if (ecrData) {
+        populateEcrForm(formContainer, ecrData);
+    } else {
+        loadEcrFormFromLocalStorage();
+    }
+
+    formContainer.addEventListener('input', saveEcrFormToLocalStorage);
+
+    formContainer.addEventListener('click', async (e) => {
+        const button = e.target.closest('button[data-action="register-ecr-approval"]');
+        if (!button) return;
+
+        const decision = button.dataset.decision;
+        const departmentId = button.dataset.departmentId;
+        const ecrId = formContainer.querySelector('[name="ecr_no"]').value.trim();
+
+        if (!ecrId) {
+            showToast('Debe guardar el ECR con un N° antes de poder aprobar.', 'error');
+            return;
+        }
+
+        const commentEl = formContainer.querySelector(`[name="comments_${departmentId}"]`);
+        const comment = commentEl ? commentEl.value : '';
+
+        await registerEcrApproval(ecrId, departmentId, decision, comment);
+        // Refresh the form view to show the new state
+        switchView('ecr_form', { ecrId: ecrId });
+    });
+
+    // --- Button Event Listeners ---
+    document.getElementById('ecr-back-button').addEventListener('click', () => switchView('ecr'));
+    document.getElementById('ecr-clear-button').addEventListener('click', () => {
+        showConfirmationModal('Limpiar Formulario', '¿Está seguro? Se borrará todo el progreso no guardado.', () => {
+            formContainer.reset();
+            localStorage.removeItem(ECR_FORM_STORAGE_KEY);
+            showToast('Formulario limpiado.', 'info');
+        });
+    });
+
+    const saveEcrForm = async (status = 'in-progress') => {
+        const ecrInput = formContainer.querySelector('[name="ecr_no"]');
+        const ecrId = ecrInput.value.trim();
+        if (!ecrId) {
+            showToast('Por favor, ingrese un ECR N° para guardar.', 'error');
+            ecrInput.focus();
+            return;
+        }
+
+        const formData = new FormData(formContainer);
+        const dataToSave = Object.fromEntries(formData.entries());
+        formContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            dataToSave[cb.name] = cb.checked;
+        });
+
+        dataToSave.status = status;
+        dataToSave.id = ecrId;
+        dataToSave.lastModified = new Date();
+        dataToSave.modifiedBy = appState.currentUser.email;
+
+        showToast('Guardando formulario ECR...', 'info');
+        try {
+            const docRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
+            await setDoc(docRef, dataToSave, { merge: true });
+
+            localStorage.removeItem(ECR_FORM_STORAGE_KEY);
+            showToast(`ECR "${ecrId}" guardado con éxito.`, 'success');
+            switchView('ecr');
+
+        } catch(error) {
+            console.error("Error saving ECR form: ", error);
+            showToast('Error al guardar el formulario.', 'error');
+        }
+    };
+
+    const validateEcrForm = () => {
+        let isValid = true;
+        let firstErrorElement = null;
+
+        // Clear previous errors
+        formContainer.querySelectorAll('.validation-error').forEach(el => el.classList.remove('validation-error'));
+        formContainer.querySelectorAll('.validation-error-message').forEach(el => el.remove());
+
+        const requiredFields = [
+            { name: 'ecr_no', label: 'ECR N°' },
+            { name: 'proyecto', label: 'Proyecto' },
+            { name: 'cliente', label: 'Cliente' },
+            { name: 'fecha_emision', label: 'Fecha de Emisión' },
+            { name: 'denominacion_producto', label: 'Denominación del Producto' }
         ];
 
-        let progressBarHTML = '<ol class="flex items-center w-full">';
-        pages.forEach((page, index) => {
-            const isLast = index === pages.length - 1;
-            progressBarHTML += `
-                <li class="flex w-full items-center ${!isLast ? "text-blue-600 after:content-[''] after:w-full after:h-1 after:border-b after:border-gray-100 after:border-4 after:inline-block" : ""}">
-                    <button data-target="${page.id}" class="progress-step flex items-center justify-center w-10 h-10 bg-gray-100 rounded-full lg:h-12 lg:w-12 shrink-0">
-                        <span class="font-bold">${index + 1}</span>
-                    </button>
-                </li>
-            `;
-        });
-        progressBarHTML += '</ol>';
-        progressBarContainer.innerHTML = progressBarHTML;
-
-        progressBarContainer.addEventListener('click', (e) => {
-            const button = e.target.closest('.progress-step');
-            if (button) {
-                const targetId = button.dataset.target;
-                const targetElement = document.getElementById(targetId);
-                if (targetElement) {
-                    targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        requiredFields.forEach(field => {
+            const input = formContainer.querySelector(`[name="${field.name}"]`);
+            if (input && !input.value.trim()) {
+                isValid = false;
+                input.classList.add('validation-error');
+                const errorMsg = document.createElement('p');
+                errorMsg.className = 'validation-error-message';
+                errorMsg.textContent = `El campo "${field.label}" es obligatorio.`;
+                input.parentElement.appendChild(errorMsg);
+                if (!firstErrorElement) {
+                    firstErrorElement = input;
                 }
             }
         });
 
-        // --- Intersection Observer for Progress Bar ---
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                const pageId = entry.target.id;
-                const progressButton = progressBarContainer.querySelector(`[data-target="${pageId}"]`);
-                if (entry.isIntersecting) {
-                    progressButton.classList.remove('bg-gray-100');
-                    progressButton.classList.add('bg-blue-600', 'text-white');
-                } else {
-                    progressButton.classList.add('bg-gray-100');
-                    progressButton.classList.remove('bg-blue-600', 'text-white');
-                }
-            });
-        }, { threshold: 0.5 }); // 50% of the page must be visible
-
-        // --- Helper Functions ---
-        const createCheckbox = (label, name, value = '') => `<div class="flex items-center gap-2"><input type="checkbox" name="${name}" id="${name}" value="${value}" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"><label for="${name}" class="text-sm select-none">${label}</label></div>`;
-        const createTextField = (label, name, placeholder = '', isFullWidth = false) => `<div class="form-field ${isFullWidth ? 'col-span-full' : ''}"><label for="${name}" class="text-sm font-bold mb-1">${label}</label><input type="text" name="${name}" id="${name}" placeholder="${placeholder}" class="w-full"></div>`;
-        const createDateField = (label, name) => `<div class="form-field"><label for="${name}" class="text-sm font-bold mb-1">${label}</label><input type="date" name="${name}" id="${name}" class="w-full"></div>`;
-        const createTextarea = (name, placeholder = '') => `<textarea name="${name}" placeholder="${placeholder}" class="w-full h-full border-none resize-none p-1 bg-transparent focus:outline-none"></textarea>`;
-
-        const buildDepartmentSection = (config, ecrData) => {
-            const checklistHTML = config.checklist.map(item => `<div class="check-item">${createCheckbox(item.label, item.name)}</div>`).join('');
-            const customContent = config.customHTML || '';
-            const departmentId = config.id;
-            const approval = ecrData?.approvals?.[departmentId];
-            const isApprovedOrRejected = approval?.status === 'approved' || approval?.status === 'rejected';
-            const canApprove = appState.currentUser.role === 'admin' || appState.currentUser.sector === departmentId;
-
-            let approvalControlsHTML = '';
-            if (isApprovedOrRejected) {
-                const statusClass = approval.status === 'approved' ? 'text-green-600' : 'text-red-600';
-                const statusIcon = approval.status === 'approved' ? 'check-circle' : 'x-circle';
-                approvalControlsHTML = `
-                    <div class="flex items-center gap-2 font-bold ${statusClass}">
-                        <i data-lucide="${statusIcon}" class="w-5 h-5"></i>
-                        <span>${approval.status.charAt(0).toUpperCase() + approval.status.slice(1)} por ${approval.user} el ${approval.date}</span>
-                    </div>
-                `;
-            } else if (canApprove) {
-                approvalControlsHTML = `
-                    <button type="button" data-action="register-ecr-approval" data-decision="rejected" data-department-id="${departmentId}" class="bg-red-500 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-red-600">Rechazar</button>
-                    <button type="button" data-action="register-ecr-approval" data-decision="approved" data-department-id="${departmentId}" class="bg-green-500 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-green-600">Aprobar</button>
-                `;
-            } else {
-                 approvalControlsHTML = `<div class="text-xs text-slate-400 italic">Pendiente de aprobación por ${config.title}</div>`;
-            }
-
-
-            return `
-            <div class="department-section ${isApprovedOrRejected ? 'approved' : ''}" data-tutorial-id="department-section">
-                    <div class="department-header">
-                         <span class="flex items-center gap-3"><i data-lucide="${config.icon || 'help-circle'}" class="w-6 h-6 text-slate-500"></i>${config.title}</span>
-                        <div class="flex items-center gap-4">
-                            ${createCheckbox('No Afecta', `na_${config.id}`)}
-                            ${createCheckbox('Afecta', `afecta_${config.id}`)}
-                        </div>
-                    </div>
-                    <div class="department-content">
-                        <div class="department-checklist">${checklistHTML}${customContent}</div>
-                        <div class="department-comments">
-                            <label class="font-bold text-sm mb-1 block">Comentarios Generales y Justificativos:</label>
-                            <textarea name="comments_${config.id}" rows="6" class="form-field"></textarea>
-                        </div>
-                    </div>
-                <div class="department-footer" data-tutorial-id="department-footer">
-                        ${approvalControlsHTML}
-                    </div>
-                </div>
-            `;
-        };
-
-        // --- Form HTML structure ---
-        const page1HTML = `
-            <div class="ecr-page relative" id="page1">
-                <div class="watermark">Página 1</div>
-                <header class="ecr-header">
-                    <img src="/barack_logo.png" alt="Logo" class="h-12">
-                    <div class="title-block">
-                        <div class="flex items-center gap-2">
-                            <span class="ecr-main-title">ECR</span>
-                            ${createHelpTooltip('ECR (Engineering Change Request): Use este formulario para iniciar una solicitud formal de cambio en un producto o proceso. Complete todos los campos relevantes para su evaluación.')}
-                        </div>
-                        <div class="ecr-subtitle">DE PRODUCTO / PROCESO</div>
-                    </div>
-                    <div class="ecr-number-box">
-                        <span>ECR N°:</span>
-                    <input type="text" name="ecr_no" data-tutorial-id="ecr-number-input">
-                    </div>
-                </header>
-                <div class="ecr-checklist-bar">CHECK LIST ECR - ENGINEERING CHANGE REQUEST</div>
-
-                <section class="form-row">
-                    <div class="form-field" style="flex-grow: 2;">
-                        <label class="text-sm font-bold mb-1">ORIGEN DEL PEDIDO:</label>
-                        <div class="border p-2 rounded-lg flex flex-wrap gap-x-6 gap-y-2 mt-1">
-                            ${createCheckbox('Cliente', 'origen_cliente')}
-                            ${createCheckbox('Proveedor', 'origen_proveedor')}
-                            ${createCheckbox('Interno', 'origen_interno')}
-                            ${createCheckbox('Reglamentación', 'origen_reglamentacion')}
-                        </div>
-                    </div>
-                    ${createTextField('Proyecto:', 'proyecto')}
-                    ${createTextField('Cliente:', 'cliente')}
-                </section>
-
-                <section class="form-row">
-                    <div class="form-field" style="flex-grow: 2;">
-                        <label class="text-sm font-bold mb-1">FASE DE PROYECTO:</label>
-                        <div class="border p-2 rounded-lg flex flex-wrap gap-x-6 gap-y-2 mt-1">
-                            ${createCheckbox('Programa', 'fase_programa')}
-                            ${createCheckbox('Serie', 'fase_serie')}
-                        </div>
-                    </div>
-                    ${createDateField('Fecha de Emisión:', 'fecha_emision')}
-                    ${createDateField('Fecha de Cierre:', 'fecha_cierre')}
-                </section>
-
-                <section class="form-row">
-                    ${createTextField('Código(s) Barack:', 'codigo_barack', '...')}
-                    ${createTextField('Código(s) Cliente:', 'codigo_cliente', '...')}
-                </section>
-                <section class="form-row">
-                    ${createTextField('Denominación del Producto:', 'denominacion_producto', '...', true)}
-                </section>
-
-                <section class="form-row">
-                    <div class="form-field">
-                        <label for="componentes_obsoletos" class="text-sm font-bold mb-1">Componentes Obsoletos (Cantidad):</label>
-                        <input type="number" name="componentes_obsoletos" id="componentes_obsoletos" placeholder="0" class="w-full" min="0">
-                    </div>
-                </section>
-
-                <div class="ecr-flex-section">
-                    <div class="ecr-flex-header">OBJETIVO DE ECR</div>
-                    <div class="ecr-flex-content ecr-flex-columns-2">
-                        <div class="ecr-flex-column">
-                            ${['Productividad', 'Mejora de calidad', 'Estrategia del Cliente'].map(l => createCheckbox(l, `obj_${l.toLowerCase().replace(/ /g, '_')}`)).join('')}
-                        </div>
-                        <div class="ecr-flex-column">
-                            ${['Estrategia Barack', 'Nacionalización'].map(l => createCheckbox(l, `obj_${l.toLowerCase().replace(/ /g, '_')}`)).join('')}
-                        </div>
-                    </div>
-                </div>
-
-                <div class="ecr-flex-section">
-                    <div class="ecr-flex-header">TIPO DE ALTERACIÓN</div>
-                    <div class="ecr-flex-content ecr-flex-columns-2">
-                        <div class="ecr-flex-column">
-                            ${['Producto', 'Proceso'].map(l => createCheckbox(l, `tipo_${l.toLowerCase().replace(/ /g, '_')}`)).join('')}
-                        </div>
-                        <div class="ecr-flex-column">
-                            ${['Fuente de suministro', 'Embalaje'].map(l => createCheckbox(l, `tipo_${l.toLowerCase().replace(/ /g, '_')}`)).join('')}
-                            <div class="flex items-center gap-2 mt-1"><input type="checkbox" id="tipo_otro" name="tipo_otro"><label for="tipo_otro" class="text-sm">Otro:</label><input name="tipo_otro_text" type="text" class="border-b-2 bg-transparent flex-grow"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="ecr-flex-section">
-                    <div class="ecr-flex-header">VALIDACIÓN DEL CLIENTE</div>
-                    <div class="ecr-flex-content ecr-flex-columns-2">
-                        <div class="ecr-flex-column space-y-2">
-                            ${createCheckbox('Requiere Aprobación del Cliente', 'cliente_requiere_aprobacion')}
-                            ${createCheckbox('Requiere PPAP', 'cliente_requiere_ppap')}
-                        </div>
-                        <div class="ecr-flex-column space-y-2">
-                            <div class="form-field"><label for="cliente_aprobacion_estado" class="text-sm font-bold">Estado:</label><select name="cliente_aprobacion_estado" id="cliente_aprobacion_estado" class="w-full text-sm"><option value="na">No Aplica</option><option value="pendiente">Pendiente</option><option value="aprobado">Aprobado</option><option value="rechazado">Rechazado</option></select></div>
-                            <div class="form-field"><label for="cliente_aprobacion_fecha" class="text-sm font-bold">Fecha de Decisión:</label><input type="date" name="cliente_aprobacion_fecha" id="cliente_aprobacion_fecha" class="w-full text-sm"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="ecr-flex-section">
-                    <div class="ecr-flex-header">AFECTA S/R</div>
-                    <div class="ecr-flex-content">
-                        <div class="ecr-flex-column">
-                            ${['Relocalización de Planta', 'Modificación de Layout', 'Modificación de herramental'].map(l => createCheckbox(l, `afecta_${l.toLowerCase().replace(/ /g, '_')}`)).join('')}
-                        </div>
-                    </div>
-                </div>
-
-            <div class="two-column-layout mt-4" data-tutorial-id="situation-layout">
-                    <div class="column-box"><h3>SITUACIÓN EXISTENTE:</h3>${createTextarea('situacion_existente')}</div>
-                    <div class="column-box"><h3>SITUACIÓN PROPUESTA:</h3>${createTextarea('situacion_propuesta')}</div>
-                </div>
-
-                <table class="full-width-table risk-analysis-table">
-                    <thead><tr><th colspan="7">IMPACTO EN CASO DE FALLA</th></tr><tr><th>RESPONSABLE</th><th>ANÁLISIS DE RIESGO</th><th>Nivel</th><th>Observaciones</th><th>NOMBRE</th><th>FECHA</th><th>VISTO</th></tr></thead>
-                    <tbody>${['RETORNO DE GARANTÍA', 'RECLAMACIÓN ZERO KM', 'HSE', 'SATISFACCIÓN DEL CLIENTE', 'S/R (Seguridad y/o Regulamentación)'].map((r, i) => `<tr><td>Gerente de Calidad</td><td>${r}</td><td><input name="impacto_nivel_${i}"></td><td><input name="impacto_obs_${i}"></td><td><input name="impacto_nombre_${i}"></td><td><input type="date" name="impacto_fecha_${i}"></td><td><input name="impacto_visto_${i}"></td></tr>`).join('')}</tbody>
-                </table>
-
-                <table class="full-width-table risk-analysis-table mt-4">
-                    <thead><tr><th colspan="7">APROBACIÓN DE DIRECTORIO (CODIR)</th></tr><tr><th>Miembro de Directorio</th><th>Aprobado</th><th>Rechazado</th><th>Observaciones</th><th>NOMBRE</th><th>FECHA</th><th>VISTO</th></tr></thead>
-                    <tbody>${['Director Comercial', 'Director Industrial'].map((r, i) => `<tr><td>${r}</td><td>${createCheckbox('', `codir_aprobado_${i}`)}</td><td>${createCheckbox('', `codir_rechazado_${i}`)}</td><td><input name="codir_obs_${i}"></td><td><input name="codir_nombre_${i}"></td><td><input type="date" name="codir_fecha_${i}"></td><td><input name="codir_visto_${i}"></td></tr>`).join('')}
-                        <tr><td>Otro: <input name="codir_otro_rol_2" class="border-b-2 bg-transparent w-full"></td><td>${createCheckbox('', 'codir_aprobado_2')}</td><td>${createCheckbox('', 'codir_rechazado_2')}</td><td><input name="codir_obs_2"></td><td><input name="codir_nombre_2"></td><td><input type="date" name="codir_fecha_2"></td><td><input name="codir_visto_2"></td></tr>
-                    </tbody>
-                </table>
-
-                <table class="full-width-table mt-4">
-                     <thead><tr><th colspan="2">EQUIPO DE TRABAJO</th></tr></thead>
-                     <tbody>
-                        ${[['PILOTO ECR:', 'COMERCIAL:'], ['PILOTO:', 'PC&L/LOGÍSTICA:'], ['ING. PRODUCTO:', 'PRODUCCIÓN:'], ['ING. MANUFACTURA:', 'COSTOS:'], ['CALIDAD:', 'HSE:'], ['COMPRAS:', 'MANTENIMIENTO:'], ['SQA:', '']].map((row, i) => {
-                            const col1 = `<div class="flex items-center"><label class="w-1/3 font-semibold">${row[0]}</label><input name="equipo_c1_${i}" class="flex-grow ml-2 border-b-2 bg-transparent"></div>`;
-                            const col2 = row[1] ? `<div class="flex items-center"><label class="w-1/3 font-semibold">${row[1]}</label><input name="equipo_c2_${i}" class="flex-grow ml-2 border-b-2 bg-transparent"></div>` : '';
-                            return `<tr><td>${col1}</td><td>${col2}</td></tr>`;
-                        }).join('')}
-                     </tbody>
-                </table>
-            </div>
-        `;
-
-        // --- All other pages remain the same as they are already structured correctly.
-        // I will copy them here to ensure the full form is preserved.
-        const page2HTML = (data) => `
-            <div class="ecr-page relative" id="page2">
-                <div class="watermark">Página 2</div>
-                <div class="ecr-checklist-bar">EVALUACIÓN DE PROPUESTA POR LOS DEPARTAMENTOS</div>
-                ${buildDepartmentSection({
-                    title: 'INGENIERÍA PRODUCTO — DISEÑO', id: 'ing_producto', icon: 'drafting-compass',
-                    customHTML: `
-                        <table class="full-width-table text-xs my-2">
-                            <thead><tr><th>REF. ACTUAL / IND</th><th>REF. NUEVA / IND</th><th>QTD./CARRO</th></tr></thead>
-                            <tbody><tr><td><input name="prod_ref_actual"></td><td><input name="prod_ref_nueva"></td><td><input name="prod_qtd_carro"></td></tr></tbody>
-                        </table>
-                        <div class="grid grid-cols-2 gap-2 mt-2">
-                        ${['COSTO CLIENTE', 'COSTO BARACK', 'COSTO PROVEEDOR', 'AFECTA AL CLIENTE', 'AFECTA S&R'].map(l => createCheckbox(l, `prod_${l.toLowerCase().replace(/ /g,'_')}`)).join('')}
-                        </div>
-                    `,
-                    checklist: ['ESTRUCTURA DE PRODUCTO', 'PLANO DE VALIDACIÓN', 'LANZAMIENTO DE PROTOTIPOS', 'EVALUADO POR EL ESPECIALISTA DE PRODUCTO', 'ACTUALIZAR DISEÑO 3D', 'ACTUALIZAR DISEÑO 2D', 'ACTUALIZAR DFMEA', 'COPIA DE ESTA ECR PARA OTRO SITIO?', 'NECESITA PIEZA DE REPOSICIÓN'].map(l => ({label: l, name: `prod_check_${l.toLowerCase().replace(/ /g,'_')}`}))
-                }, data)}
-                ${buildDepartmentSection({
-                    title: 'INGENIERÍA MANUFACTURA Y PROCESO', id: 'ing_manufatura', icon: 'cpu',
-                    checklist: ['HACER RUN A RATE', 'ACTUALIZAR DISEÑO MANUFACTURA', 'LAY OUT', 'AFECTA EQUIPAMIENTO', 'ACTUALIZAR INSTRUCCIONES, FLUJOGRAMAS', 'ACTUALIZAR PFMEA', 'POKA YOKES', 'ACTUALIZAR TIEMPOS', 'CAPACIDAD DE PERSONAL', 'AFECTA A S&R / HSE'].map(l => ({label: l, name: `manuf_${l.toLowerCase().replace(/ /g,'_')}`}))
-                }, data)}
-                 ${buildDepartmentSection({
-                    title: 'HSE', id: 'hse', icon: 'siren',
-                    checklist: ['CHECK LIST DE LIB DE MÁQUINA', 'COMUNICAR ÓRGANO AMBIENTAL', 'COMUNICACIÓN MINISTERIO DE TRABAJO'].map(l => ({label: l, name: `hse_${l.toLowerCase().replace(/ /g,'_')}`}))
-                }, data)}
-                ${buildDepartmentSection({
-                    title: 'CALIDAD', id: 'calidad', icon: 'award',
-                    checklist: ['AFECTA DIMENSIONAL CLIENTE?', 'AFECTA FUNCIONAL Y MONTABILIDAD?', 'ACTUALIZAR PLANO DE CONTROLES/ INSTRUCCIONES', 'AFECTA ASPECTO/ACTUALIZAR BIBLIA DE DEFECTOS/PZA PATRÓN?', 'AFECTA CAPABILIDAD (AFECTA CAPACIDAD)', 'MODIFICAR DISPOSITIVO DE CONTROL Y SU MODO DE CONTROL', 'NUEVO ESTUDIO DE MSA / CALIBRACIÓN', 'NECESITA VALIDACIÓN (PLANO DEBE ESTAR EN ANEXO)', 'NECESARIO NUEVO PPAP/PSW CLIENTE', 'ANÁLISIS DE MATERIA PRIMA', 'IMPLEMENTAR MURO DE CALIDAD', 'NECESITA AUDITORÍA S&R', 'AFECTA POKA-YOKE?', 'AFECTA AUDITORÍA DE PRODUCTO?'].map(l => ({label: l, name: `calidad_${l.toLowerCase().replace(/ /g,'_')}`}))
-                }, data)}
-            </div>
-        `;
-
-        const page3HTML = (data) => `
-            <div class="ecr-page relative" id="page3">
-                <div class="watermark">Página 3</div>
-                <div class="ecr-checklist-bar">EVALUACIÓN DE PROPUESTA POR LOS DEPARTAMENTOS (Cont.)</div>
-                ${buildDepartmentSection({
-                    title: 'COMPRAS', id: 'compras', icon: 'shopping-cart',
-                    customHTML: `
-                        <div class="grid grid-cols-2 gap-4 text-xs">
-                            <div><strong>PIEZA Actual:</strong> ${createCheckbox('NACIONAL', 'compras_actual_nac')} ${createCheckbox('IMPORTADA', 'compras_actual_imp')} <input name="compras_proveedor_actual" placeholder="PROVEEDOR:" class="w-full mt-1"></div>
-                            <div><strong>PIEZA Propuesta:</strong> ${createCheckbox('NACIONAL', 'compras_prop_nac')} ${createCheckbox('IMPORTADA', 'compras_prop_imp')} <input name="compras_proveedor_prop" placeholder="PROVEEDOR:" class="w-full mt-1"></div>
-                        </div>
-                        <div class="flex gap-4 mt-2">${createCheckbox('Modificación reversible', 'compras_rev')} ${createCheckbox('Modificación irreversible', 'compras_irrev')}</div>
-                    `,
-                    checklist: ['COSTOS EVALUADOS', 'PEDIDO COMPRA PROTOTIPOS', 'PEDIDO COMPRA TOOLING', 'AFECTA HERRAMIENTA DE PROVEEDOR', 'NECESARIO ENVIAR DISEÑO P/ PROVEEDOR', 'IMPACTO POST VENTA ANALIZADO'].map(l => ({label: l, name: `compras_${l.toLowerCase().replace(/ /g,'_')}`}))
-                }, data)}
-                ${buildDepartmentSection({
-                    title: 'CALIDAD PROVEEDORES (SQA)', id: 'sqa', icon: 'gem',
-                    checklist: ['NECESITA NUEVO PSW PROVEEDOR - FECHA LÍMITE: __/__/____', 'AFECTA LAY OUT', 'AFECTA EMBALAJE', 'AFECTA DISPOSITIVO CONTROL PROVEEDOR', 'AFECTA SUBPROVEEDOR', 'NECESITA DE ASISTENTE'].map(l => ({label: l, name: `sqa_${l.toLowerCase().replace(/ /g,'_')}`}))
-                }, data)}
-                ${buildDepartmentSection({
-                    title: 'Tooling & Equipments (T&E)', id: 'tooling', icon: 'wrench',
-                    checklist: ['AFECTA HERRAMIENTA', 'ANÁLISIS TÉCNICO DE ALTERACIÓN', 'OTROS IMPACTOS CAUSADOS POR LA ALTERACIÓN NO HERRAMENTAL'].map(l => ({label: l, name: `tooling_${l.toLowerCase().replace(/ /g,'_')}`}))
-                }, data)}
-            </div>
-        `;
-
-        const page4HTML = (data) => `
-             <div class="ecr-page relative" id="page4">
-                <div class="watermark">Página 4</div>
-                <div class="ecr-checklist-bar">EVALUACIÓN DE PROPUESTA POR LOS DEPARTAMENTOS (Cont.)</div>
-                 ${buildDepartmentSection({
-                    title: 'LOGÍSTICA Y PC&L', id: 'logistica', icon: 'truck',
-                    checklist: ['Parámetros logísticos/items nuevos', 'Gestión de stock (pieza antigua/nueva)', 'Necesita stock de seguridad', 'Altera programa p/ proveedor', 'Nuevo protocolo logístico', 'Impacto post venta', 'Impacto MOI/MOD', 'Afecta embalaje'].map(l => ({label: l, name: `logistica_${l.toLowerCase().replace(/ /g,'_')}`}))
-                }, data)}
-                 ${buildDepartmentSection({
-                    title: 'FINANCIERO / COSTOS', id: 'financiero', icon: 'landmark',
-                    checklist: ['BUSINESS PLAN', 'BOA - BUSINESS OPPORTUNITY', 'MoB - ANALYSIS', 'PAYBACK / UPFRONT'].map(l => ({label: l, name: `financiero_${l.toLowerCase().replace(/ /g,'_')}`}))
-                }, data)}
-                ${buildDepartmentSection({
-                    title: 'COMERCIAL', id: 'comercial', icon: 'trending-up',
-                    checklist: ['NECESARIO RENEGOCIAR CON EL CLIENTE', 'IMPACTO POST VENTA ANALIZADO', 'NECESARIA NUEVA ORDEN DE VENTA AL CLIENTE', 'NEGOCIACIÓN DE OBSOLETOS'].map(l => ({label: l, name: `comercial_${l.toLowerCase().replace(/ /g,'_')}`}))
-                }, data)}
-                ${buildDepartmentSection({
-                    title: 'MANTENIMIENTO', id: 'mantenimiento', icon: 'shield-check',
-                    checklist: ['PROYECTO PRESENTA VIABILIDAD TÉCNICA / TECNOLÓGICA', 'NECESITA ADQUISICIÓN DE MATERIALES/EQUIPOS', 'NECESIDAD / DISPONIBILIDAD DE ENERGÍAS: ELÉCTRICA, NEUMÁTICA E HIDRÁULICA', 'CREACIÓN/ALTERACIÓN DE MANTENIMIENTO PREVENTIVO', 'NECESITA REGISTRO DE NUEVOS ITEMS EN ALMACÉN'].map(l => ({label: l, name: `mantenimiento_${l.toLowerCase().replace(/ /g,'_')}`}))
-                }, data)}
-                ${buildDepartmentSection({
-                    title: 'PRODUCCIÓN', id: 'produccion', icon: 'factory',
-                    checklist: ['AFECTA INSTRUCCIÓN DE TRABAJO (SW)', 'AFECTA LIBERACIÓN DE PROCESO (SET UP)', 'IMPACTO MOD / MOI', 'CAPACITACIÓN', 'AFECTA ALTERACIÓN DE PLANO DE CORTE'].map(l => ({label: l, name: `produccion_${l.toLowerCase().replace(/ /g,'_')}`}))
-                }, data)}
-                ${buildDepartmentSection({
-                    title: 'CALIDAD CLIENTE', id: 'calidad_cliente', icon: 'user-check',
-                    checklist: ['NECESITA APROBACIÓN CLIENTE EXTERNO', 'NECESARIO APROBACIÓN CLIENTE INTERNO', 'ECR SOBRE DESVÍO N°: ____', 'OTROS: ______'].map(l => ({label: l, name: `calidad_cliente_${l.toLowerCase().replace(/ /g,'_')}`}))
-                }, data)}
-            </div>
-        `;
-
-        const finalPageHTML = `
-            <div class="ecr-page relative" id="page_final">
-                <div class="ecr-checklist-bar">APROBACIÓN FINAL DE ECR</div>
-                <div class="flex justify-center items-center gap-8 my-4">
-                    ${createCheckbox('OK', 'final_ok')}
-                    ${createCheckbox('NOK', 'final_nok')}
-                </div>
-                <div class="form-field"><label class="font-bold">CONSIDERACIONES DEL COORDINADOR:</label><textarea name="final_consideraciones" class="h-32"></textarea></div>
-                <div class="flex justify-end gap-4 mt-4">
-                    ${createTextField('Coordinador:', 'final_coordinador')}
-                    ${createTextField('Visto:', 'final_visto')}
-                    ${createDateField('Fecha:', 'final_fecha')}
-                </div>
-            </div>
-        `;
-
-        let ecrData = null;
-        if (isEditing) {
-            const docRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                ecrData = docSnap.data();
-            } else {
-                showToast(`Error: No se encontró el ECR con ID ${ecrId}`, 'error');
-                switchView('ecr');
-                return;
+        if (!isValid) {
+            showToast('Por favor, corrija los errores en el formulario.', 'error');
+            if (firstErrorElement) {
+                firstErrorElement.focus();
+                firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         }
 
-        formContainer.innerHTML = page1HTML + page2HTML(ecrData) + page3HTML(ecrData) + page4HTML(ecrData) + finalPageHTML;
-        lucide.createIcons();
+        return isValid;
+    };
 
-        // Start observing each page section for the progress bar
-        pages.forEach(page => {
-            const pageElement = document.getElementById(page.id);
-            if (pageElement) {
-                observer.observe(pageElement);
-            }
-        });
-
-        // --- Local Storage and Data Handling ---
-        const saveEcrFormToLocalStorage = () => {
-            const formData = new FormData(formContainer);
-            const data = Object.fromEntries(formData.entries());
-            formContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-                data[cb.name] = cb.checked;
+    document.getElementById('ecr-save-button').addEventListener('click', () => saveEcrForm('in-progress'));
+    document.getElementById('ecr-approve-button').addEventListener('click', () => {
+        if (validateEcrForm()) {
+            showConfirmationModal('Aprobar ECR', '¿Está seguro de que desea aprobar y guardar este ECR?', () => {
+                saveEcrForm('approved');
             });
-            localStorage.setItem(ECR_FORM_STORAGE_KEY, JSON.stringify(data));
-        };
-
-        const loadEcrFormFromLocalStorage = () => {
-            const savedData = localStorage.getItem(ECR_FORM_STORAGE_KEY);
-            if (!savedData) return;
-            const data = JSON.parse(savedData);
-            populateEcrForm(formContainer, data);
-        };
-
-        const populateEcrForm = (form, data) => {
-            if (!data || !form) return;
-            // Populate standard fields
-            for (const key in data) {
-                if (key === 'approvals') continue; // Skip approvals map, handled below
-                const elements = form.querySelectorAll(`[name="${key}"]`);
-                elements.forEach(element => {
-                    if (element.type === 'checkbox' || element.type === 'radio') {
-                         if(element.type === 'radio') {
-                            if(element.value === String(data[key])) element.checked = true;
-                        } else {
-                            element.checked = !!data[key];
-                        }
-                    } else {
-                        element.value = data[key];
-                    }
-                });
-            }
-
-            // Populate and disable approval sections
-            if (data.approvals) {
-                for (const deptId in data.approvals) {
-                    const approval = data.approvals[deptId];
-                    const section = form.querySelector(`.department-section:has([name="comments_${deptId}"])`);
-                    if (!section) continue;
-
-                    const commentArea = section.querySelector(`[name="comments_${deptId}"]`);
-                    if (commentArea && approval.comment) {
-                        commentArea.value = approval.comment;
-                    }
-
-                    if (approval.status === 'approved' || approval.status === 'rejected') {
-                        section.querySelectorAll('input, textarea, button').forEach(el => {
-                             if (!el.closest('.department-footer')) { // Don't disable the footer itself
-                                el.disabled = true;
-                             }
-                        });
-                    }
-                }
-            }
-        };
-
-
-        // --- Load Data and Attach Listeners ---
-        if (ecrData) {
-            populateEcrForm(formContainer, ecrData);
-        } else {
-            loadEcrFormFromLocalStorage();
         }
-
-        formContainer.addEventListener('input', saveEcrFormToLocalStorage);
-
-        formContainer.addEventListener('click', async (e) => {
-            const button = e.target.closest('button[data-action="register-ecr-approval"]');
-            if (!button) return;
-
-            const decision = button.dataset.decision;
-            const departmentId = button.dataset.departmentId;
-            const ecrId = formContainer.querySelector('[name="ecr_no"]').value.trim();
-
-            if (!ecrId) {
-                showToast('Debe guardar el ECR con un N° antes de poder aprobar.', 'error');
-                return;
-            }
-
-            const commentEl = formContainer.querySelector(`[name="comments_${departmentId}"]`);
-            const comment = commentEl ? commentEl.value : '';
-
-            await registerEcrApproval(ecrId, departmentId, decision, comment);
-            // Refresh the form view to show the new state
-            switchView('ecr_form', { ecrId: ecrId });
-        });
-
-        // --- Button Event Listeners ---
-        document.getElementById('ecr-back-button').addEventListener('click', () => switchView('ecr'));
-        document.getElementById('ecr-clear-button').addEventListener('click', () => {
-            showConfirmationModal('Limpiar Formulario', '¿Está seguro? Se borrará todo el progreso no guardado.', () => {
-                formContainer.reset();
-                localStorage.removeItem(ECR_FORM_STORAGE_KEY);
-                showToast('Formulario limpiado.', 'info');
-            });
-        });
-
-        const saveEcrForm = async (status = 'in-progress') => {
-            const ecrInput = formContainer.querySelector('[name="ecr_no"]');
-            const ecrId = ecrInput.value.trim();
-            if (!ecrId) {
-                showToast('Por favor, ingrese un ECR N° para guardar.', 'error');
-                ecrInput.focus();
-                return;
-            }
-
-            const formData = new FormData(formContainer);
-            const dataToSave = Object.fromEntries(formData.entries());
-            formContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-                dataToSave[cb.name] = cb.checked;
-            });
-
-            dataToSave.status = status;
-            dataToSave.id = ecrId;
-            dataToSave.lastModified = new Date();
-            dataToSave.modifiedBy = appState.currentUser.email;
-
-            showToast('Guardando formulario ECR...', 'info');
-            try {
-                const docRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
-                await setDoc(docRef, dataToSave, { merge: true });
-
-                localStorage.removeItem(ECR_FORM_STORAGE_KEY);
-                showToast(`ECR "${ecrId}" guardado con éxito.`, 'success');
-                switchView('ecr');
-
-            } catch(error) {
-                console.error("Error saving ECR form: ", error);
-                showToast('Error al guardar el formulario.', 'error');
-            }
-        };
-
-        const validateEcrForm = () => {
-            let isValid = true;
-            let firstErrorElement = null;
-
-            // Clear previous errors
-            formContainer.querySelectorAll('.validation-error').forEach(el => el.classList.remove('validation-error'));
-            formContainer.querySelectorAll('.validation-error-message').forEach(el => el.remove());
-
-            const requiredFields = [
-                { name: 'ecr_no', label: 'ECR N°' },
-                { name: 'proyecto', label: 'Proyecto' },
-                { name: 'cliente', label: 'Cliente' },
-                { name: 'fecha_emision', label: 'Fecha de Emisión' },
-                { name: 'denominacion_producto', label: 'Denominación del Producto' }
-            ];
-
-            requiredFields.forEach(field => {
-                const input = formContainer.querySelector(`[name="${field.name}"]`);
-                if (input && !input.value.trim()) {
-                    isValid = false;
-                    input.classList.add('validation-error');
-                    const errorMsg = document.createElement('p');
-                    errorMsg.className = 'validation-error-message';
-                    errorMsg.textContent = `El campo "${field.label}" es obligatorio.`;
-                    input.parentElement.appendChild(errorMsg);
-                    if (!firstErrorElement) {
-                        firstErrorElement = input;
-                    }
-                }
-            });
-
-            if (!isValid) {
-                showToast('Por favor, corrija los errores en el formulario.', 'error');
-                if (firstErrorElement) {
-                    firstErrorElement.focus();
-                    firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            }
-
-            return isValid;
-        };
-
-        document.getElementById('ecr-save-button').addEventListener('click', () => saveEcrForm('in-progress'));
-        document.getElementById('ecr-approve-button').addEventListener('click', () => {
-            if (validateEcrForm()) {
-                showConfirmationModal('Aprobar ECR', '¿Está seguro de que desea aprobar y guardar este ECR?', () => {
-                    saveEcrForm('approved');
-                });
-            }
-        });
-
-        // --- Cleanup ---
-        appState.currentViewCleanup = () => {
-            formContainer.removeEventListener('input', saveEcrFormToLocalStorage);
-        };
-        resolve();
     });
+
+    // --- Cleanup ---
+    appState.currentViewCleanup = () => {
+        formContainer.removeEventListener('input', saveEcrFormToLocalStorage);
+    };
 }
 
 function handleViewContentActions(e) {
@@ -5106,7 +5087,7 @@ function handleGlobalClick(e) {
 
 async function runTableLogic(direction = 'first') {
     const config = viewConfig[appState.currentView];
-    if (!config || !config.dataKey) return Promise.resolve();
+    if (!config || !config.dataKey) return;
 
     const PAGE_SIZE = 10;
     const collectionRef = collection(db, config.dataKey);
@@ -5174,7 +5155,6 @@ async function runTableLogic(direction = 'first') {
         console.error("Error fetching paginated data:", error);
         showToast("Error al cargar los datos. Puede que necesite crear un índice en Firestore.", "error");
     }
-    return Promise.resolve();
 }
 
 function renderTable(data, config) {
@@ -5642,7 +5622,7 @@ function updateDashboard(collectionName) {
     }
 }
 
-async function runDashboardLogic() {
+function runDashboardLogic() {
     const currentUser = appState.currentUser;
 
     // 1. Create the main skeleton of the dashboard.
@@ -5709,7 +5689,6 @@ async function runDashboardLogic() {
     renderDashboardAdminPanel();
 
     lucide.createIcons();
-    return Promise.resolve();
 }
 
 // --- DASHBOARD COMPONENT RENDERERS ---
@@ -6048,8 +6027,8 @@ let taskState = {
     selectedUserId: null // For admin view
 };
 
-async function runTasksLogic() {
-    await runKanbanBoardLogic();
+function runTasksLogic() {
+    runKanbanBoardLogic();
 }
 
 function renderTaskDashboardView() {
@@ -8174,10 +8153,9 @@ if (window.location.protocol === 'file:') {
     window.runDashboardLogic = runDashboardLogic;
 }
 
-async function renderArbolesInitialView() {
+function renderArbolesInitialView() {
     dom.viewContent.innerHTML = `<div class="flex flex-col items-center justify-center h-full bg-white rounded-xl shadow-lg p-6 text-center animate-fade-in-up"><i data-lucide="git-merge" class="h-24 w-24 text-gray-300 mb-6"></i><h3 class="text-2xl font-bold">Gestor de Árboles de Producto</h3><p class="text-gray-500 mt-2 mb-8 max-w-lg">Busque y seleccione el producto principal para cargar o crear su estructura de componentes.</p><button data-action="open-product-search-modal" class="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 text-lg font-semibold shadow-lg transition-transform transform hover:scale-105"><i data-lucide="search" class="inline-block mr-2 -mt-1"></i>Seleccionar Producto</button></div>`;
     lucide.createIcons();
-    return Promise.resolve();
 }
 
 function renderArbolDetalle(highlightNodeId = null) {
@@ -8670,11 +8648,10 @@ async function handleSinopticoFormSubmit(e) {
     }
 }
 
-async function runSinopticoLogic() {
+function runSinopticoLogic() {
     dom.viewContent.innerHTML = `<div class="animate-fade-in-up">${renderSinopticoLayout()}</div>`;
     lucide.createIcons();
     initSinoptico();
-    return Promise.resolve();
 }
 
 const getFlattenedData = (product, levelFilters) => {
@@ -8773,7 +8750,7 @@ const getFlattenedData = (product, levelFilters) => {
     return flattenTree(filteredEstructura, 0, []);
 };
 
-async function runSinopticoTabularLogic() {
+function runSinopticoTabularLogic() {
     // Initialize state for the view
     if (!appState.sinopticoTabularState) {
         appState.sinopticoTabularState = {
@@ -9161,7 +9138,6 @@ async function runSinopticoTabularLogic() {
         dom.viewContent.removeEventListener('click', handleCaratulaClick);
         appState.sinopticoTabularState = null;
     };
-    return Promise.resolve();
 }
 
 async function exportSinopticoTabularToPdf() {
@@ -9463,14 +9439,13 @@ function handleCaratulaClick(e) {
 }
 
 
-async function runFlujogramaLogic() {
+function runFlujogramaLogic() {
     dom.viewContent.innerHTML = `<div class="bg-white p-6 rounded-xl shadow-lg animate-fade-in-up">
         <i data-lucide="git-branch-plus" class="h-24 w-24 text-gray-300 mb-6"></i>
         <h3 class="text-2xl font-bold">Flujograma de Procesos</h3>
         <p class="text-gray-500 mt-2 max-w-lg mx-auto">Próximamente: Esta sección mostrará un diagrama interactivo del flujo de producción. Podrás seleccionar un producto para ver, editar y reorganizar su secuencia de procesos desde la materia prima hasta el ensamblaje final.</p>
     </div>`;
     lucide.createIcons();
-    return Promise.resolve();
 }
 
 function renderSinopticoLayout() {
@@ -10368,7 +10343,7 @@ function showPromptModal(title, message) {
 // --- LÓGICA DE PERFIL DE USUARIO ---
 // =================================================================================
 
-async function runProfileLogic() {
+function runProfileLogic() {
     const user = appState.currentUser;
     if (!user) return;
 
@@ -10443,7 +10418,6 @@ async function runProfileLogic() {
         document.getElementById('profile-name').focus();
     });
     document.getElementById('change-avatar-btn').addEventListener('click', openAvatarSelectionModal);
-    return Promise.resolve();
 }
 
 async function handleProfileUpdate(e) {
