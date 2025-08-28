@@ -39,14 +39,71 @@ El proyecto ha evolucionado desde un prototipo hasta convertirse en una aplicaci
 - **Próximamente: Flujograma de Procesos:** Se está implementando una nueva vista dedicada que leerá la información de los árboles de producto para generar automáticamente un flujograma visual del proceso de fabricación completo.
 
 ### Gestión de Cambios de Ingeniería (ECR/ECO)
-Para digitalizar y controlar el proceso formal de modificaciones de la compañía (basado en el instructivo `I-IN-003`), el sistema incluye un módulo completo de ECR/ECO.
 
-- **Flujo de Trabajo Integrado:** El proceso comienza con la creación de una **Solicitud de Cambio de Ingeniería (ECR)**. Una vez que esta solicitud es aprobada internamente, el sistema permite **generar una Orden de Cambio de Ingeniería (ECO)** con un solo clic, automatizando el flujo y evitando la entrada manual de datos.
-- **Trazabilidad Completa:** El sistema asegura una trazabilidad de extremo a extremo:
-    - **Aprobación del Cliente:** El formulario de ECR incluye campos para registrar si se requiere aprobación del cliente y/o un proceso PPAP, así como el estado de dicha aprobación.
-    - **Actualización de Documentos:** El formulario de ECO contiene una sección de checklist para verificar y firmar la actualización de documentos críticos de calidad (AMFE, Planes de Control, etc.).
-- **Paneles de Control:** El módulo cuenta con dashboards y tablas de control que permiten un seguimiento detallado del estado de todos los ECRs y ECOs en curso, incluyendo los nuevos estados de aprobación del cliente.
-- **Ayuda Contextual:** A lo largo de los formularios, se han añadido íconos de ayuda (`?`) que ofrecen explicaciones breves para guiar al usuario en el llenado de la información compleja.
+Para digitalizar y controlar el proceso formal de modificaciones de la compañía, el sistema incluye un módulo avanzado de ECR/ECO con un flujo de trabajo, notificaciones y planes de acción integrados.
+
+#### 1. Flujo de Trabajo General: De ECR a ECO
+
+El ciclo de vida de un cambio de ingeniería sigue un flujo estructurado:
+
+1.  **Creación del ECR:** Un usuario (generalmente de `Ingeniería de Producto`) crea una **Solicitud de Cambio de Ingeniería (ECR)** para proponer una modificación. El ECR nace en estado `Draft` (borrador).
+2.  **Inicio del Circuito de Aprobación:** Una vez que el ECR está completo, el creador lo envía a aprobación, cambiando su estado a `pending-approval`.
+3.  **Aprobación Departamental:** El ECR circula por múltiples departamentos clave (`Calidad`, `Compras`, `Logística`, etc.) para su evaluación.
+4.  **Decisión Final:**
+    *   Si **todos** los departamentos requeridos aprueban el ECR, su estado cambia a `approved`.
+    *   Si **un solo** departamento rechaza el ECR, su estado cambia inmediatamente a `rejected`.
+5.  **Generación del ECO:** Un ECR aprobado puede ser convertido en una **Orden de Cambio de Ingeniería (ECO)**. Esta orden es el documento ejecutable que guía la implementación del cambio.
+6.  **Implementación y Cierre:** El ECO se gestiona a través de un **Plan de Acción** hasta que todas las tareas se completan y el cambio se cierra formalmente.
+
+#### 2. Lógica de Aprobación y Máquina de Estados
+
+El corazón del módulo es una máquina de estados que gestiona el `status` del ECR basado en las decisiones de los departamentos.
+
+-   **Modelo de Datos (`approvals`):** Cada documento ECR contiene un mapa (objeto) llamado `approvals`. Las claves de este mapa son los IDs de los departamentos (ej: `calidad`, `compras`), y cada valor es un objeto que registra la decisión:
+    ```js
+    {
+      status: 'pending' | 'approved' | 'rejected', // La decisión del depto.
+      user: 'Nombre del Aprobador', // Quién tomó la decisión.
+      date: 'YYYY-MM-DD',           // Cuándo se tomó.
+      comment: 'Comentario opcional...'
+    }
+    ```
+-   **Permisos de Aprobación:**
+    -   Un usuario solo puede aprobar/rechazar en nombre del departamento al que pertenece (según su `sector` en el perfil de usuario).
+    -   Los usuarios con rol de `admin` pueden aprobar/rechazar en nombre de cualquier departamento.
+    -   Una vez que un departamento ha emitido una decisión (`approved` o `rejected`), su sección en el formulario se bloquea y no puede ser modificada.
+-   **Función `registerEcrApproval(ecrId, departmentId, decision, comment)`:** Esta es la función central que actúa como motor de la máquina de estados. Al ser llamada:
+    1.  Valida que el usuario tenga permisos para actuar en nombre del `departmentId`.
+    2.  Actualiza el mapa `approvals` con la nueva `decision`.
+    3.  Evalúa el estado general del ECR:
+        -   Si `decision` es `'rejected'`, el `status` del ECR cambia a `'rejected'`.
+        -   Si `decision` es `'approved'`, verifica si todos los demás departamentos requeridos ya han aprobado. Si es así, el `status` del ECR cambia a `'approved'`.
+        -   En cualquier otro caso, el `status` del ECR permanece como `'pending-approval'`.
+    4.  Toda la operación se ejecuta dentro de una **transacción de Firestore** para garantizar la atomicidad y consistencia de los datos.
+
+#### 3. Módulo de Plan de Acción (ECO)
+
+Una vez que un ECO es generado, su propósito es la implementación. Para ello, el formulario de ECO incluye un módulo de "Plan de Acción".
+
+-   **Funcionalidad:** Permite a los responsables del ECO crear una lista de tareas de implementación.
+-   **Campos por Tarea:** Cada tarea del plan de acción incluye:
+    -   Descripción de la tarea.
+    -   **Responsable:** Un usuario asignado de la lista de usuarios del sistema.
+    -   **Fecha Límite:** Una fecha de vencimiento.
+    -   **Estado:** `pending` o `completed` (se gestiona con un checkbox).
+-   **Persistencia:** El plan de acción completo (un array de objetos de tarea) se guarda como el campo `action_plan` dentro del documento del ECO en Firestore.
+
+#### 4. Sistema de Notificaciones
+
+Para mantener a todos los involucrados informados, el sistema cuenta con un centro de notificaciones en tiempo real.
+
+-   **UI:** Un ícono de campana en la barra de navegación muestra el número de notificaciones no leídas y un panel con las últimas notificaciones.
+-   **Eventos que Generan Notificaciones:**
+    1.  **Asignación de Tarea en Plan de Acción:** Cuando se añade una tarea a un plan de acción y se le asigna un responsable, dicho usuario recibe una notificación.
+        -   *Ejemplo:* "Se te ha asignado una nueva tarea en el plan de acción para el ECO: ECO-2024-015."
+    2.  **Cambio de Estado de ECR:** Cuando un ECR cambia su estado final a `approved` o `rejected`, el usuario que creó el ECR recibe una notificación.
+        -   *Ejemplo:* "El estado del ECR "ECR-2024-021" ha cambiado a approved."
+-   **Navegación:** Hacer clic en una notificación marca la misma como leída y redirige al usuario directamente al formulario del ECR o ECO correspondiente.
 
 ## Panel de Administración del Dashboard
 
