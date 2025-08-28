@@ -48,8 +48,20 @@ const tutorial = (app) => {
 
         // Add event listeners
         document.getElementById('tutorial-skip-btn').addEventListener('click', skip);
-        document.getElementById('tutorial-prev-btn').addEventListener('click', previous);
-        document.getElementById('tutorial-next-btn').addEventListener('click', next);
+
+        const prevBtn = document.getElementById('tutorial-prev-btn');
+        prevBtn.addEventListener('click', async () => {
+            prevBtn.disabled = true;
+            await previous();
+            prevBtn.disabled = false;
+        });
+
+        const nextBtn = document.getElementById('tutorial-next-btn');
+        nextBtn.addEventListener('click', async () => {
+            nextBtn.disabled = true;
+            await next();
+            nextBtn.disabled = false;
+        });
     };
 
     /**
@@ -375,15 +387,15 @@ const tutorial = (app) => {
     /**
      * Moves to the next step.
      */
-    const next = () => {
-        showStep(currentStepIndex + 1);
+    const next = async () => {
+        await showStep(currentStepIndex + 1);
     };
 
     /**
      * Moves to the previous step.
      */
-    const previous = () => {
-        showStep(currentStepIndex - 1);
+    const previous = async () => {
+        await showStep(currentStepIndex - 1);
     };
 
     /**
