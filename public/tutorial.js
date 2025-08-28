@@ -103,26 +103,11 @@ const tutorial = (app) => {
         const targetRect = targetElement.getBoundingClientRect();
         const padding = 5;
 
-        // Position the dashed border highlight
+        // Position the highlight
         dom.highlight.style.width = `${targetRect.width + (padding * 2)}px`;
         dom.highlight.style.height = `${targetRect.height + (padding * 2)}px`;
         dom.highlight.style.top = `${targetRect.top - padding}px`;
         dom.highlight.style.left = `${targetRect.left - padding}px`;
-
-        // Create the "hole" in the overlay using clip-path
-        const top = targetRect.top - padding;
-        const left = targetRect.left - padding;
-        const bottom = targetRect.bottom + padding;
-        const right = targetRect.right + padding;
-
-        dom.overlay.style.clipPath = `polygon(
-            0% 0%, 0% 100%, 100% 100%, 100% 0%, 0% 0%,
-            ${left}px ${top}px,
-            ${left}px ${bottom}px,
-            ${right}px ${bottom}px,
-            ${right}px ${top}px,
-            ${left}px ${top}px
-        )`;
 
         positionTooltip(targetRect, step.position);
     };
