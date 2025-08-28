@@ -672,9 +672,9 @@ async function seedEcos(batch, users, generatedData) {
     for (let i = 1; i <= TOTAL_ECOS; i++) {
         const user1 = getRandomItem(users) || { email: 'test@example.com', name: 'Usuario de Prueba 1' };
         const user2 = getRandomItem(users) || { email: 'test2@example.com', name: 'Usuario de Prueba 2' };
-        const status = getRandomItem(['approved', 'in-progress', 'rejected']);
+        const status = getRandomItem(['implemented', 'closed']);
         const ecoId = `ECO-2024-${String(i).padStart(3, '0')}`;
-        const ecrId = `ECR-2024-${String(i + 14).padStart(3, '0')}`; // Offset to make it look different
+        const ecrId = `ECR-2024-${String(i + 14).padStart(3, '0')}`;
 
         const ecoData = {
             id: ecoId,
@@ -684,34 +684,49 @@ async function seedEcos(batch, users, generatedData) {
             modifiedBy: user1.email,
             checklists: {},
             comments: {},
-            signatures: {}
+            signatures: {},
+            action_plan: [] // New field for the action plan
         };
 
+        // Seed a sample action plan for some ECOs
+        if (Math.random() > 0.5) {
+            const taskCount = Math.floor(Math.random() * 5) + 1;
+            for(let j = 0; j < taskCount; j++) {
+                const assignee = getRandomItem(users);
+                ecoData.action_plan.push({
+                    id: `task_${Date.now()}_${j}`,
+                    description: `Tarea de implementación de ejemplo ${j+1}`,
+                    assignee: assignee ? assignee.name : 'Sin asignar',
+                    assigneeUid: assignee ? assignee.docId : null,
+                    dueDate: getRandomDate(new Date(), new Date(new Date().getTime() + 30 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
+                    status: Math.random() > 0.5 ? 'completed' : 'pending'
+                });
+            }
+        }
+
+
         formSectionsData.forEach(section => {
-            // Populate checklists
             if (section.checklist) {
                 ecoData.checklists[section.id] = section.checklist.map(() => {
                     const choice = Math.random();
-                    if (choice < 0.6) return { si: true, na: false }; // 60% chance of SI
-                    if (choice < 0.8) return { si: false, na: true }; // 20% chance of NA
-                    return { si: false, na: false }; // 20% chance of neither
+                    if (choice < 0.6) return { si: true, na: false };
+                    if (choice < 0.8) return { si: false, na: true };
+                    return { si: false, na: false };
                 });
             }
 
-            // Populate comments
-            if (Math.random() < 0.7) { // 70% chance of having a comment
+            if (Math.random() < 0.7) {
                 ecoData.comments[section.id] = getRandomItem(sampleComments);
             }
 
-            // Populate signatures
-            if (Math.random() < 0.8) { // 80% chance of being signed
+            if (Math.random() < 0.8) {
                 const approver = getRandomItem([user1, user2]);
                 const reviewDate = getRandomDate(new Date(2023, 6, 1), new Date());
                 let sectionStatus = 'ok';
                 if (status === 'rejected' && Math.random() < 0.5) {
                     sectionStatus = 'nok';
                 } else if (status === 'in-progress' && Math.random() < 0.3) {
-                    sectionStatus = null; // Not yet reviewed
+                    sectionStatus = null;
                 }
 
                 ecoData.signatures[section.id] = {
@@ -734,23 +749,32 @@ async function seedEcrs(batch, users, generatedData) {
     showToast('Generando 15 ECRs de prueba...', 'info');
     const ecrFormsRef = collection(db, COLLECTIONS.ECR_FORMS);
     const TOTAL_ECRS = 15;
-
+    const currentYear = new Date().getFullYear();
     const getRandomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
     const getRandomDate = (start, end) => new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime())).toISOString().split('T')[0];
-    const currentYear = new Date().getFullYear();
+
+    const ALL_DEPARTMENTS = [ 'ing_manufatura', 'hse', 'calidad', 'compras', 'sqa', 'tooling', 'logistica', 'financiero', 'comercial', 'mantenimiento', 'produccion', 'calidad_cliente', 'ing_producto' ];
+    const ECR_STATUSES = ['draft', 'pending-approval', 'stand-by', 'approved', 'rejected'];
 
     for (let i = 1; i <= TOTAL_ECRS; i++) {
         const user1 = getRandomItem(users);
         const product = getRandomItem(generatedData.productos || []);
         const client = getRandomItem(generatedData.clientes.filter(c => c.id === product.clienteId)) || getRandomItem(generatedData.clientes);
-
         const ecrId = `ECR-${currentYear}-${String(i).padStart(3, '0')}`;
+
+        // Initialize the approvals map
+        const approvals = {};
+        ALL_DEPARTMENTS.forEach(dept => {
+            approvals[dept] = { status: 'pending', user: null, date: null, comment: '' };
+        });
+
         const ecrData = {
             id: ecrId,
             ecr_no: ecrId,
-            status: getRandomItem(['in-progress', 'approved', 'rejected']),
+            status: getRandomItem(ECR_STATUSES),
             lastModified: new Date(),
             modifiedBy: user1.email,
+            approvals: approvals, // Add the new approvals map
 
             // Page 1 Data
             origen_cliente: Math.random() > 0.5,
@@ -766,17 +790,30 @@ async function seedEcrs(batch, users, generatedData) {
             componentes_obsoletos: Math.floor(Math.random() * 11),
         };
 
-        // Add random department statuses
-        const departamentos = [ 'ing_manufatura', 'hse', 'calidad', 'compras', 'sqa', 'tooling', 'logistica', 'financiero', 'comercial', 'mantenimiento', 'produccion', 'calidad_cliente', 'ing_producto' ];
-        departamentos.forEach(depto => {
-            const random = Math.random();
-            if (random < 0.3) { // 30% chance to be OK
-                ecrData[`ok_${depto}`] = true;
-            } else if (random < 0.5) { // 20% chance to be NOK
-                ecrData[`nok_${depto}`] = true;
+        // Simulate some approvals based on status
+        if (ecrData.status === 'approved' || ecrData.status === 'rejected') {
+            ALL_DEPARTMENTS.forEach(dept => {
+                if (Math.random() > 0.3) { // 70% chance to be approved
+                    ecrData.approvals[dept] = {
+                        status: 'approved',
+                        user: getRandomItem(users).name,
+                        date: getRandomDate(new Date(currentYear, 0, 1), new Date()),
+                        comment: 'Aprobado sin comentarios.'
+                    };
+                }
+            });
+            // If rejected, at least one must be rejected
+            if (ecrData.status === 'rejected') {
+                const randomDept = getRandomItem(ALL_DEPARTMENTS);
+                ecrData.approvals[randomDept] = {
+                    status: 'rejected',
+                    user: getRandomItem(users).name,
+                    date: getRandomDate(new Date(currentYear, 0, 1), new Date()),
+                    comment: 'Rechazado por falta de información de impacto.'
+                };
             }
-            // 50% chance to be undefined
-        });
+        }
+
 
         const docRef = doc(ecrFormsRef, ecrId);
         batch.set(docRef, ecrData);
@@ -7119,6 +7156,76 @@ async function openTaskFormModal(task = null, defaultStatus = 'todo', defaultAss
     });
 }
 
+// =================================================================================
+// --- 8. LÓGICA DE ECR/ECO (MÁQUINA DE ESTADOS Y NOTIFICACIONES) ---
+// =================================================================================
+
+/**
+ * Envía una notificación a un usuario.
+ * Por ahora, usa 'showToast', pero está diseñado para ser extendido (ej: email).
+ * @param {string} userId - El UID del usuario a notificar.
+ * @param {string} message - El mensaje de la notificación.
+ * @param {string} view - La vista a la que debe navegar el usuario al hacer clic.
+ */
+function sendNotification(userId, message, view) {
+    // Por ahora, solo mostramos un toast.
+    // En el futuro, esto podría crear un documento en una colección 'notifications'
+    // y/o enviar un email.
+    console.log(`Sending notification to ${userId}: ${message}`);
+    // A modo de ejemplo, si la notificación es para el usuario actual, la mostramos.
+    if (userId === appState.currentUser.uid) {
+        showToast(message, 'info', 10000);
+    }
+}
+
+/**
+ * Gestiona la lógica de transición de estados para un ECR.
+ * @param {string} ecrId - El ID del ECR a modificar.
+ * @param {string} newStatus - El nuevo estado al que se debe transicionar.
+ * @param {object} [extraData={}] - Datos adicionales para actualizar en el documento.
+ */
+async function handleEcrStateChange(ecrId, newStatus, extraData = {}) {
+    if (!ecrId || !newStatus) {
+        showToast('Error: Faltan datos para cambiar el estado del ECR.', 'error');
+        return;
+    }
+
+    const ecrRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
+
+    try {
+        const updateData = {
+            status: newStatus,
+            lastModified: new Date(),
+            modifiedBy: appState.currentUser.email,
+            ...extraData
+        };
+
+        await updateDoc(ecrRef, updateData);
+        showToast(`ECR actualizado al estado: ${newStatus}.`, 'success');
+
+        // Lógica de notificación post-cambio de estado
+        const ecrData = (await getDoc(ecrRef)).data();
+        switch (newStatus) {
+            case 'pending-approval':
+                // Notificar a todos los departamentos del circuito
+                const approversToNotify = Object.keys(ecrData.approvals);
+                // (Lógica futura para obtener los UIDs de los usuarios de cada sector)
+                console.log(`Notificando a los sectores: ${approversToNotify.join(', ')}`);
+                break;
+            case 'approved':
+                // Notificar al creador que su ECR fue aprobado
+                // (Lógica futura para obtener el UID del creador)
+                console.log(`Notificando al creador sobre la aprobación del ECR ${ecrId}`);
+                break;
+        }
+
+    } catch (error) {
+        console.error("Error cambiando el estado del ECR:", error);
+        showToast('Error al actualizar el estado del ECR.', 'error');
+    }
+}
+
+
 async function handleTaskFormSubmit(e) {
     e.preventDefault();
     const form = e.target;
@@ -7235,17 +7342,28 @@ async function seedDefaultSectors() {
     const snapshot = await getDocs(query(sectorsRef, limit(1)));
 
     if (!snapshot.empty) {
-        return; // Sectors already exist
+        // Simple check to see if the new sectors are already there.
+        // This is not foolproof but good enough for this seeding purpose.
+        const firstDoc = snapshot.docs[0].data();
+        if (firstDoc.id === 'calidad' && firstDoc.descripcion === 'Calidad') {
+             // It seems the new sectors are already seeded.
+            return;
+        }
     }
 
-    console.log("No sectors found. Seeding default sectors...");
-    showToast('Creando sectores por defecto...', 'info');
+    console.log("Seeding default sectors as per user request...");
+    showToast('Creando sectores de la planta por defecto...', 'info');
 
     const defaultSectors = [
         { id: 'calidad', descripcion: 'Calidad', icon: 'award' },
-        { id: 'produccion', descripcion: 'Producción', icon: 'factory' },
+        { id: 'comercial', descripcion: 'Comercial', icon: 'trending-up' },
+        { id: 'compras', descripcion: 'Compras', icon: 'shopping-cart' },
+        { id: 'planificacion', descripcion: 'Planificación de Producción', icon: 'calendar-clock' },
+        { id: 'rrhh', descripcion: 'Recursos Humanos', icon: 'users' },
         { id: 'ingenieria', descripcion: 'Ingeniería', icon: 'pencil-ruler' },
-        { id: 'seguridad-higiene', descripcion: 'Seguridad e Higiene', icon: 'shield-check' }
+        { id: 'produccion', descripcion: 'Producción', icon: 'factory' },
+        { id: 'medio-ambiente', descripcion: 'Medio Ambiente', icon: 'leaf' },
+        { id: 'logistica', descripcion: 'Logística', icon: 'truck' }
     ];
 
     const batch = writeBatch(db);
@@ -7256,8 +7374,8 @@ async function seedDefaultSectors() {
 
     try {
         await batch.commit();
-        showToast('Sectores por defecto creados con éxito.', 'success');
-        console.log('Default sectors created successfully.');
+        showToast('Sectores de la planta creados con éxito.', 'success');
+        console.log('Default plant sectors created successfully.');
     } catch (error) {
         console.error("Error seeding default sectors:", error);
         showToast('Error al crear los sectores por defecto.', 'error');
