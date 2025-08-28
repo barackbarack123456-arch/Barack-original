@@ -66,6 +66,7 @@ const viewConfig = {
         fields: []
     },
     control_ecrs: { title: 'Panel de Control', singular: 'Control ECR' },
+    ecr_seguimiento: { title: 'Seguimiento y Métricas de ECR', singular: 'Seguimiento ECR' },
     ecr_table_view: { title: 'Tabla de Control ECR', singular: 'Control ECR' },
     indicadores_ecm_view: { title: 'Indicadores ECM', singular: 'Indicador' },
     flujograma: { title: 'Flujograma de Procesos', singular: 'Flujograma' },
@@ -234,7 +235,7 @@ let appState = {
         [COLLECTIONS.SECTORES]: [], [COLLECTIONS.PROCESOS]: [],
         [COLLECTIONS.PROVEEDORES]: [], [COLLECTIONS.UNIDADES]: [],
         [COLLECTIONS.USUARIOS]: [], [COLLECTIONS.PROYECTOS]: [], [COLLECTIONS.ROLES]: [], [COLLECTIONS.TAREAS]: [],
-        [COLLECTIONS.ECR_FORMS]: [], [COLLECTIONS.ECO_FORMS]: []
+        [COLLECTIONS.ECR_FORMS]: [], [COLLECTIONS.ECO_FORMS]: [], [COLLECTIONS.REUNIONES_ECR]: []
     },
     collectionsById: {
         [COLLECTIONS.PRODUCTOS]: new Map(),
@@ -250,7 +251,8 @@ let appState = {
         [COLLECTIONS.ROLES]: new Map(),
         [COLLECTIONS.TAREAS]: new Map(),
         [COLLECTIONS.ECR_FORMS]: new Map(),
-        [COLLECTIONS.ECO_FORMS]: new Map()
+        [COLLECTIONS.ECO_FORMS]: new Map(),
+        [COLLECTIONS.REUNIONES_ECR]: new Map()
     },
     unsubscribeListeners: [],
     sinopticoState: null,
@@ -316,7 +318,8 @@ function startRealtimeListeners() {
             COLLECTIONS.TAREAS,
             COLLECTIONS.PROYECTOS,
             COLLECTIONS.ECR_FORMS,
-            COLLECTIONS.ECO_FORMS
+            COLLECTIONS.ECO_FORMS,
+            COLLECTIONS.REUNIONES_ECR
         ]);
 
         if (appState.unsubscribeListeners.length > 0) {
@@ -765,6 +768,42 @@ async function seedEcrs(batch, users, generatedData) {
     console.log(`${TOTAL_ECRS} ECRs de prueba añadidos al batch.`);
 }
 
+async function seedReunionesEcr(batch) {
+    showToast('Generando 5 reuniones ECR de prueba...', 'info');
+    const reunionesRef = collection(db, COLLECTIONS.REUNIONES_ECR);
+    const TOTAL_REUNIONES = 5;
+    const today = new Date();
+
+    const departamentos = [
+        'ing_manufatura', 'hse', 'calidad', 'compras', 'sqa', 'tooling',
+        'logistica', 'financiero', 'comercial', 'mantenimiento', 'produccion',
+        'calidad_cliente', 'ing_producto'
+    ];
+    const estados = ['P', 'A', 'O'];
+
+    for (let i = 0; i < TOTAL_REUNIONES; i++) {
+        const fecha = new Date(today);
+        fecha.setDate(today.getDate() - (i * 7)); // Una reunión por semana hacia atrás
+        const fechaStr = fecha.toISOString().split('T')[0];
+        const id = `reunion_${fechaStr}`;
+
+        const asistencia = {};
+        departamentos.forEach(depto => {
+            asistencia[depto] = estados[Math.floor(Math.random() * estados.length)];
+        });
+
+        const reunionData = {
+            id: id,
+            fecha: fechaStr,
+            asistencia: asistencia
+        };
+
+        const docRef = doc(reunionesRef, id);
+        batch.set(docRef, reunionData);
+    }
+    console.log(`${TOTAL_REUNIONES} reuniones ECR de prueba añadidas al batch.`);
+}
+
 
 async function seedDatabase() {
     await clearDataOnly();
@@ -970,6 +1009,7 @@ async function seedDatabase() {
     // --- GENERACIÓN DE ECOS DE PRUEBA ---
     await seedEcos(batch, users, generated);
     await seedEcrs(batch, users, generated);
+    await seedReunionesEcr(batch);
 
     // for (let i = 1; i <= TOTAL_TAREAS; i++) {
     //     const creator = getRandomItem(users);
@@ -1162,6 +1202,7 @@ function switchView(viewName, params = null) {
     else if (viewName === 'eco') runEcoLogic();
     else if (viewName === 'ecr') runEcrLogic();
     else if (viewName === 'control_ecrs') runControlEcrsLogic();
+    else if (viewName === 'ecr_seguimiento') runEcrSeguimientoLogic();
     else if (viewName === 'ecr_table_view') runEcrTableViewLogic();
     else if (viewName === 'indicadores_ecm_view') runIndicadoresEcmViewLogic();
     else if (viewName === 'eco_form') runEcoFormLogic(params);
@@ -2589,7 +2630,7 @@ async function runControlEcrsLogic() {
                 <h2 class="text-4xl font-extrabold text-slate-800">Panel de Control</h2>
                 <p class="text-lg text-slate-500 mt-2">Seleccione un módulo para visualizar.</p>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
                 <a href="#" data-view="ecr_table_view" class="nav-link dashboard-card bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer overflow-hidden transform hover:-translate-y-1">
                     <div class="p-6 bg-slate-700 text-white">
                         <div class="flex items-center gap-4">
@@ -2618,6 +2659,20 @@ async function runControlEcrsLogic() {
                         <p class="text-slate-600">Visualizar KPIs y gráficos sobre el estado y rendimiento de los ECRs y ECOs.</p>
                     </div>
                 </a>
+                <a href="#" data-view="ecr_seguimiento" class="nav-link dashboard-card bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer overflow-hidden transform hover:-translate-y-1">
+                    <div class="p-6 bg-emerald-600 text-white">
+                        <div class="flex items-center gap-4">
+                            <i data-lucide="clipboard-check" class="w-10 h-10"></i>
+                            <div>
+                                <h3 class="text-2xl font-bold">Seguimiento y Métricas</h3>
+                                <p class="opacity-90">Registro, asistencia y gráficos.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <p class="text-slate-600">Consolidado de seguimiento de ECR, matriz de asistencia a reuniones y KPIs de ausentismo.</p>
+                    </div>
+                </a>
             </div>
         </div>
     `;
@@ -2627,6 +2682,354 @@ async function runControlEcrsLogic() {
 
     // No specific cleanup needed for this simple view
     appState.currentViewCleanup = () => {};
+}
+
+async function runEcrSeguimientoLogic() {
+    dom.headerActions.style.display = 'none';
+    const viewHTML = `
+        <div class="animate-fade-in-up space-y-8">
+            <div>
+                <button data-view="control_ecrs" class="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-800 mb-2">
+                    <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                    Volver al Panel de Control
+                </button>
+                <h2 class="text-3xl font-bold text-slate-800">Seguimiento y Métricas de ECR</h2>
+            </div>
+
+            <!-- Sección 1: Registro de ECR -->
+            <section id="ecr-log-section" class="bg-white p-6 rounded-xl shadow-lg">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-slate-800">Registro de ECR</h3>
+                    <div class="flex items-center gap-2 text-sm">
+                        <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-green-200 border border-green-400"></div><span>OK</span></div>
+                        <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-red-200 border border-red-400"></div><span>NOK</span></div>
+                    </div>
+                </div>
+                <div id="ecr-log-container">
+                    <p class="text-slate-500">Cargando registro de ECR...</p>
+                </div>
+            </section>
+
+            <!-- Sección 2: Matriz de Asistencia -->
+            <section id="asistencia-matriz-section" class="bg-white p-6 rounded-xl shadow-lg">
+                <h3 class="text-xl font-bold text-slate-800 mb-4">Matriz de Asistencia a Reuniones</h3>
+                <div id="asistencia-matriz-container">
+                    <p class="text-slate-500">Cargando matriz de asistencia...</p>
+                </div>
+            </section>
+
+            <!-- Sección 3: Resumen y Gráficos -->
+            <section id="resumen-graficos-section" class="bg-white p-6 rounded-xl shadow-lg">
+                <h3 class="text-xl font-bold text-slate-800 mb-4">Resumen y Gráficos de Asistencia</h3>
+                <div id="resumen-graficos-container" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div id="resumen-container">
+                         <p class="text-slate-500">Cargando resumen...</p>
+                    </div>
+                    <div id="graficos-container" class="space-y-8">
+                        <div id="grafico-ausentismo-dias">
+                            <p class="text-slate-500">Cargando gráfico de días de ausentismo...</p>
+                        </div>
+                        <div id="grafico-ausentismo-porcentaje">
+                             <p class="text-slate-500">Cargando gráfico de % de ausentismo...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    `;
+    dom.viewContent.innerHTML = viewHTML;
+    lucide.createIcons();
+
+    const renderEcrLog = async () => {
+        const ecrLogContainer = document.getElementById('ecr-log-container');
+        if (!ecrLogContainer) return;
+
+        try {
+            const ecrDocs = appState.collections[COLLECTIONS.ECR_FORMS] || [];
+
+            if (ecrDocs.length === 0) {
+                ecrLogContainer.innerHTML = `<p class="text-slate-500">No se encontraron registros de ECR.</p>`;
+                return;
+            }
+
+            const departamentos = [
+                { id: 'ing_manufatura', label: 'Ing. Manufatura' }, { id: 'hse', label: 'HSE' },
+                { id: 'calidad', label: 'Calidad' }, { id: 'compras', label: 'Compras' },
+                { id: 'sqa', label: 'Calidad Prov.' }, { id: 'tooling', label: 'Herramental' },
+                { id: 'logistica', label: 'Logística PC&L' }, { id: 'financiero', label: 'Finanzas' },
+                { id: 'comercial', label: 'Comercial' }, { id: 'mantenimiento', label: 'Mantenimiento' },
+                { id: 'produccion', label: 'Producción' }, { id: 'calidad_cliente', label: 'Calidad Cliente' },
+                { id: 'ing_producto', label: 'Ing. Producto' }
+            ];
+
+            const calcularAtraso = (fechaAbertura, fechaCierre) => {
+                if (!fechaAbertura && !fechaCierre) return { dias: '', clase: '' };
+                const hoy = new Date();
+                hoy.setHours(0, 0, 0, 0);
+                const abertura = fechaAbertura ? new Date(fechaAbertura + 'T00:00:00') : null;
+                const cierre = fechaCierre ? new Date(fechaCierre + 'T00:00:00') : null;
+                let diffDays;
+                if (abertura && cierre) diffDays = (cierre.getTime() - abertura.getTime()) / (1000 * 3600 * 24);
+                else if (abertura && !cierre) diffDays = (hoy.getTime() - abertura.getTime()) / (1000 * 3600 * 24);
+                else if (!abertura && cierre) diffDays = (cierre.getTime() - hoy.getTime()) / (1000 * 3600 * 24);
+                else return { dias: '', clase: '' };
+
+                const dias = Math.floor(diffDays);
+                let clase = 'atraso-bajo';
+                if (dias > 30) clase = 'atraso-alto';
+                else if (dias > 7) clase = 'atraso-medio';
+                return { dias, clase };
+            };
+
+            let tableHTML = `
+                <div class="overflow-x-auto ecr-log-table-wrapper">
+                    <table class="w-full text-sm ecr-log-table">
+                        <thead>
+                            <tr class="bg-slate-800 text-white text-xs uppercase tracking-wider">
+                                <th colspan="5" class="p-3 text-center">ECR | FECHAS</th>
+                                <th class="bg-slate-400 w-2"></th>
+                                <th colspan="${departamentos.length}" class="p-3 text-center">PENDENCIAS</th>
+                            </tr>
+                            <tr class="bg-slate-100 text-xs uppercase">
+                                <th class="p-2 font-semibold">Nº</th>
+                                <th class="p-2 font-semibold">F. Abertura</th>
+                                <th class="p-2 font-semibold">F. Cierre</th>
+                                <th class="p-2 font-semibold">Fecha</th>
+                                <th class="p-2 font-semibold">Atraso (días)</th>
+                                <th class="bg-slate-400 w-2"></th>
+                                ${departamentos.map(d => `<th class="p-2 text-center align-middle font-semibold" style="writing-mode: vertical-rl; transform: rotate(180deg);">${d.label}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            ecrDocs.sort((a,b) => (a.id > b.id) ? 1 : -1).forEach(ecr => {
+                const atraso = calcularAtraso(ecr.fecha_emision, ecr.fecha_cierre);
+                tableHTML += `
+                    <tr>
+                        <td>${ecr.id || ''}</td>
+                        <td>${ecr.fecha_emision ? new Date(ecr.fecha_emision + 'T00:00:00').toLocaleDateString('es-AR') : ''}</td>
+                        <td>${ecr.fecha_cierre ? new Date(ecr.fecha_cierre + 'T00:00:00').toLocaleDateString('es-AR') : ''}</td>
+                        <td>${ecr.fecha_realizacion_ecr ? new Date(ecr.fecha_realizacion_ecr + 'T00:00:00').toLocaleDateString('es-AR') : ''}</td>
+                        <td class="text-center font-bold ${atraso.clase}">${atraso.dias}</td>
+                        <td class="bg-slate-400 w-2"></td>
+                        ${departamentos.map(depto => {
+                            let statusClass = '';
+                            let statusText = '';
+                            if (ecr[`ok_${depto.id}`]) { statusClass = 'status-ok'; statusText = 'OK'; }
+                            else if (ecr[`nok_${depto.id}`]) { statusClass = 'status-nok'; statusText = 'NOK'; }
+                            return `<td class="text-center font-bold ${statusClass}">${statusText}</td>`;
+                        }).join('')}
+                    </tr>
+                `;
+            });
+
+            tableHTML += `</tbody></table></div>`;
+            ecrLogContainer.innerHTML = tableHTML;
+
+        } catch (error) {
+            console.error("Error rendering ECR log:", error);
+            ecrLogContainer.innerHTML = `<p class="text-red-500">Error al cargar el registro de ECR.</p>`;
+        }
+    };
+
+    renderEcrLog();
+
+    const renderAsistenciaMatriz = async () => {
+        const container = document.getElementById('asistencia-matriz-container');
+        if (!container) return;
+
+        try {
+            const reuniones = appState.collections[COLLECTIONS.REUNIONES_ECR] || [];
+            if (reuniones.length === 0) {
+                container.innerHTML = `<p class="text-slate-500">No se encontraron reuniones.</p>`;
+                return;
+            }
+
+            // Re-usar la misma lista de departamentos que el log de ECR
+            const departamentos = [
+                { id: 'ing_manufatura', label: 'Ing. Manufatura' }, { id: 'hse', label: 'HSE' },
+                { id: 'calidad', label: 'Calidad' }, { id: 'compras', label: 'Compras' },
+                { id: 'sqa', label: 'Calidad Prov.' }, { id: 'tooling', label: 'Herramental' },
+                { id: 'logistica', label: 'Logística PC&L' }, { id: 'financiero', label: 'Finanzas' },
+                { id: 'comercial', label: 'Comercial' }, { id: 'mantenimiento', label: 'Mantenimiento' },
+                { id: 'produccion', label: 'Producción' }, { id: 'calidad_cliente', label: 'Calidad Cliente' },
+                { id: 'ing_producto', label: 'Ing. Producto' }
+            ];
+
+            reuniones.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+            let tableHTML = `
+                <div class="overflow-x-auto asistencia-matriz-wrapper">
+                    <table class="w-full text-sm asistencia-matriz-table">
+                        <thead>
+                            <tr class="bg-slate-100 text-xs uppercase">
+                                <th class="p-2 font-semibold sticky left-0 bg-slate-100 z-10">Frecuencia</th>
+                                ${reuniones.map(r => `<th class="p-2 font-semibold">${new Date(r.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            departamentos.forEach(depto => {
+                tableHTML += `
+                    <tr>
+                        <td class="font-semibold sticky left-0 bg-white z-10">${depto.label}</td>
+                        ${reuniones.map(reunion => {
+                            const status = reunion.asistencia[depto.id] || '';
+                            const statusClass = {
+                                'P': 'status-p', 'A': 'status-a', 'O': 'status-o'
+                            }[status] || '';
+                            return `<td class="text-center font-bold ${statusClass}">${status}</td>`;
+                        }).join('')}
+                    </tr>
+                `;
+            });
+
+            tableHTML += `</tbody></table></div>`;
+            container.innerHTML = tableHTML;
+
+        } catch (error) {
+            console.error("Error rendering Asistencia Matriz:", error);
+            container.innerHTML = `<p class="text-red-500">Error al cargar la matriz de asistencia.</p>`;
+        }
+    };
+
+    renderAsistenciaMatriz();
+
+    const renderResumenYGraficos = async () => {
+        const resumenContainer = document.getElementById('resumen-container');
+        const graficoDiasContainer = document.getElementById('grafico-ausentismo-dias');
+        const graficoPorcContainer = document.getElementById('grafico-ausentismo-porcentaje');
+
+        if (!resumenContainer || !graficoDiasContainer || !graficoPorcContainer) return;
+
+        try {
+            const reuniones = appState.collections[COLLECTIONS.REUNIONES_ECR] || [];
+            if (reuniones.length === 0) {
+                resumenContainer.innerHTML = `<p class="text-slate-500">No hay datos de reuniones para generar el resumen.</p>`;
+                graficoDiasContainer.innerHTML = '';
+                graficoPorcContainer.innerHTML = '';
+                return;
+            }
+
+            const departamentos = [
+                { id: 'ing_manufatura', label: 'Ing. Manufatura' }, { id: 'hse', label: 'HSE' },
+                { id: 'calidad', label: 'Calidad' }, { id: 'compras', label: 'Compras' },
+                { id: 'sqa', label: 'Calidad Prov.' }, { id: 'tooling', label: 'Herramental' },
+                { id: 'logistica', label: 'Logística PC&L' }, { id: 'financiero', label: 'Finanzas' },
+                { id: 'comercial', label: 'Comercial' }, { id: 'mantenimiento', label: 'Mantenimiento' },
+                { id: 'produccion', label: 'Producción' }, { id: 'calidad_cliente', label: 'Calidad Cliente' },
+                { id: 'ing_producto', label: 'Ing. Producto' }
+            ];
+
+            const resumenData = departamentos.map(depto => {
+                let p = 0, a = 0, o = 0;
+                reuniones.forEach(reunion => {
+                    const status = reunion.asistencia[depto.id];
+                    if (status === 'P') p++;
+                    else if (status === 'A') a++;
+                    else if (status === 'O') o++;
+                });
+                const total = p + a + o;
+                const porcAusentismo = total > 0 ? (a / total) : 0;
+                return { label: depto.label, p, a, o, porcAusentismo };
+            });
+
+            // Render Resumen Table
+            let resumenHTML = `
+                <h4 class="text-lg font-bold text-slate-700 mb-2">Resumen de Asistencia</h4>
+                <div class="overflow-x-auto resumen-table-wrapper">
+                    <table class="w-full text-sm resumen-table">
+                        <thead class="bg-slate-50">
+                            <tr class="text-xs uppercase">
+                                <th>Departamento</th>
+                                <th>Presente</th>
+                                <th>Ausente</th>
+                                <th>Opcional</th>
+                                <th>Días Ausent.</th>
+                                <th>% Ausent.</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            resumenData.forEach(data => {
+                resumenHTML += `
+                    <tr>
+                        <td class="font-semibold">${data.label}</td>
+                        <td>${data.p}</td>
+                        <td>${data.a}</td>
+                        <td>${data.o}</td>
+                        <td class="font-bold">${data.a}</td>
+                        <td>${(data.porcAusentismo * 100).toFixed(1)}%</td>
+                    </tr>
+                `;
+            });
+            resumenHTML += `</tbody></table></div>`;
+            resumenContainer.innerHTML = resumenHTML;
+
+            // Render Charts
+            const labels = resumenData.map(d => d.label);
+            const diasAusentismoData = resumenData.map(d => d.a);
+            const porcAusentismoData = resumenData.map(d => d.porcAusentismo);
+
+            graficoDiasContainer.innerHTML = '<canvas id="chart-dias-ausentismo"></canvas>';
+            new Chart(document.getElementById('chart-dias-ausentismo').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Días de Ausentismo',
+                        data: diasAusentismoData,
+                        backgroundColor: '#f87171'
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: true, text: 'DIAS DE AUSENTISMO A LAS REUNIONES DE ECR', font: { weight: 'bold', size: 14 } },
+                        legend: { display: false }
+                    },
+                    scales: { x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } }, y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                }
+            });
+
+            graficoPorcContainer.innerHTML = '<canvas id="chart-porc-ausentismo"></canvas>';
+            new Chart(document.getElementById('chart-porc-ausentismo').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '% Total de Ausentismo',
+                        data: porcAusentismoData,
+                        backgroundColor: '#fbbf24'
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: true, text: '%. TOTAL DE AUSENTISMO A LAS REUNIONES DE ECR', font: { weight: 'bold', size: 14 } },
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } },
+                        y: { beginAtZero: true, max: 1, ticks: { callback: value => (value * 100).toFixed(0) + '%' } }
+                    }
+                }
+            });
+
+        } catch (error) {
+            console.error("Error rendering Resumen y Gráficos:", error);
+            resumenContainer.innerHTML = `<p class="text-red-500">Error al cargar el resumen.</p>`;
+        }
+    };
+
+    renderResumenYGraficos();
+
+    appState.currentViewCleanup = () => {
+        // Future cleanup logic
+    };
 }
 
 async function runEcrFormLogic(params = null) {
