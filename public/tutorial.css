@@ -9,25 +9,17 @@
     left: 0;
     width: 100vw;
     height: 100vh;
-    background-color: rgba(0, 0, 0, 0.5);
     z-index: 10000;
     display: none;
+    pointer-events: none; /* Allow clicks to pass through the overlay */
 }
 
 /* Element to highlight the focused part of the UI */
-#tutorial-overlay {
-    /* ... existing styles ... */
-    /* This will be controlled by JS now */
-    clip-path: polygon(0% 0%, 0% 100%, 100% 100%, 100% 0%);
-    transition: clip-path 0.3s ease-in-out;
-}
-
 #tutorial-highlight {
     position: absolute;
-    border: 2px dashed rgba(255, 255, 255, 0.7);
     border-radius: 8px;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
     transition: all 0.3s ease-in-out;
-    pointer-events: none;
 }
 
 /* Tooltip container */
@@ -43,6 +35,7 @@
     font-family: 'Inter', sans-serif;
     display: flex;
     flex-direction: column;
+    pointer-events: auto; /* But allow interaction with the tooltip */
 }
 
 /* Main content area of the tooltip */
