@@ -3822,8 +3822,8 @@ async function runEcrFormLogic(params = null) {
 
 
         return `
-            <div class="department-section ${isApprovedOrRejected ? 'approved' : ''}" ${sectionTutorialId}>
-                <div class="department-header">
+            <div class="department-section ${isApprovedOrRejected ? 'approved' : ''}">
+                <div class="department-header" ${sectionTutorialId}>
                      <span class="flex items-center gap-3"><i data-lucide="${config.icon || 'help-circle'}" class="w-6 h-6 text-slate-500"></i>${config.title}</span>
                     <div class="flex items-center gap-4">
                         ${createCheckbox('No Afecta', `na_${config.id}`)}

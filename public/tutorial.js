@@ -290,6 +290,11 @@ const tutorial = (app) => {
                 postAction: async () => {
                     // Direct navigation instead of simulated click
                     await app.switchView('ecr');
+                    // Close the dropdown menu after navigating away
+                    const menu = document.querySelector('[data-tutorial-id="eco-ecr-menu"]');
+                    if (menu) {
+                        menu.classList.remove('open');
+                    }
                 }
             },
             {
@@ -342,7 +347,7 @@ const tutorial = (app) => {
                 position: 'top'
             },
             {
-                element: '#ecr-save-button',
+                element: '#action-buttons-container',
                 title: 'Guardar o Enviar a Aprobación',
                 content: 'Puedes guardar el ECR como borrador ("Guardar Progreso") o, una vez completo, enviarlo al circuito de aprobación para que los departamentos lo evalúen.',
                 position: 'top'
@@ -357,7 +362,7 @@ const tutorial = (app) => {
                 }
             },
             {
-                element: '#ecr-table-body thead',
+                element: '.bg-white table thead',
                 title: 'Generar ECO',
                 content: 'Cuando un ECR es aprobado, aparece un botón para "Generar ECO". Esto convierte la solicitud en una Orden de Cambio, que es el documento para ejecutar la modificación.',
                 position: 'bottom'
@@ -369,6 +374,7 @@ const tutorial = (app) => {
                 position: 'top',
                  preAction: async () => {
                     await app.switchView('eco_form');
+                    await new Promise(resolve => setTimeout(resolve, 250));
                 }
             },
             {
