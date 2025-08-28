@@ -384,8 +384,9 @@ function startRealtimeListeners() {
                 }
 
             }, (error) => {
-                console.error(`Error listening to ${name} collection:`, error);
-                showToast(`Error al cargar datos de ${name}.`, 'error');
+                const collectionIdentifier = (typeof name === 'string' && name) ? `collection '${name}'` : 'an undefined collection';
+                console.error(`Error listening to ${collectionIdentifier}:`, error);
+                showToast(`Error al cargar datos desde ${collectionIdentifier}.`, 'error');
                 // Reject the promise if a critical listener fails
                 reject(error);
             });
