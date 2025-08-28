@@ -66,6 +66,7 @@ const viewConfig = {
         fields: []
     },
     control_ecrs: { title: 'Panel de Control', singular: 'Control ECR' },
+    seguimiento_ecr_eco: { title: 'Seguimiento ECR/ECO', singular: 'Ficha de Seguimiento' },
     ecr_seguimiento: { title: 'Seguimiento y Métricas de ECR', singular: 'Seguimiento ECR' },
     ecr_table_view: { title: 'Tabla de Control ECR', singular: 'Control ECR' },
     indicadores_ecm_view: { title: 'Indicadores ECM', singular: 'Indicador' },
@@ -1217,6 +1218,7 @@ function switchView(viewName, params = null) {
     else if (viewName === 'eco') runEcoLogic();
     else if (viewName === 'ecr') runEcrLogic();
     else if (viewName === 'control_ecrs') runControlEcrsLogic();
+    else if (viewName === 'seguimiento_ecr_eco') runSeguimientoEcrEcoLogic();
     else if (viewName === 'ecr_seguimiento') runEcrSeguimientoLogic();
     else if (viewName === 'ecr_table_view') runEcrTableViewLogic();
     else if (viewName === 'indicadores_ecm_view') runIndicadoresEcmViewLogic();
@@ -2697,6 +2699,346 @@ async function runControlEcrsLogic() {
 
     // No specific cleanup needed for this simple view
     appState.currentViewCleanup = () => {};
+}
+
+async function runSeguimientoEcrEcoLogic() {
+    dom.headerActions.style.display = 'none';
+    const SEGUIMIENTO_COLLECTION = 'seguimiento_ecr_eco';
+    let unsubscribe;
+
+    const DEPARTAMENTOS = [
+        'ENG. PRODUCTO', 'ENG. PROCESSO PLTL', 'HSE', 'QUALIDADE / CALIDAD', 'COMPRAS',
+        'QUALIDADE COMPRAS', 'TOOLING & EQUIPAMENTS', 'LOGISTICA E PC&L', 'FINANCEIRO / COSTING',
+        'COMERCIAL', 'MANUTENÇÃO / MANTENIMIENTO', 'PRODUÇÃO / PRODUCCIÓN', 'QUALIDADE CLIENTE'
+    ];
+
+    const ESTADOS_FICHA = ['CERRADA', 'ABIERTA', 'RECHAZADO', 'PENDIENTE', 'SIN NOTAS', 'FALTA FIRMAR'];
+    const STATUS_COLORS = {
+        CERRADA: 'status-cerrada',
+        ABIERTA: 'status-abierta',
+        RECHAZADO: 'status-rechazado',
+        PENDIENTE: 'status-pendiente',
+        SIN_NOTAS: 'status-sin-notas',
+        FALTA_FIRMAR: 'status-falta-firmar'
+    };
+
+    const renderFichaForm = (fichaData = null) => {
+        const isEditing = fichaData !== null;
+        const ecrEcoId = isEditing ? fichaData.id : `ECR-ECO-${Date.now()}`;
+
+        let departamentosHTML = '';
+        DEPARTAMENTOS.forEach(depto => {
+            const deptoKey = depto.replace(/[\s/&]/g, '_');
+            const ecrComentario = isEditing ? (fichaData.departamentos?.[deptoKey]?.ecrComentario || '') : '';
+            const ecrFirmada = isEditing ? (fichaData.departamentos?.[deptoKey]?.ecrFirmada || 'NO') : 'NO';
+            const ecoComentario = isEditing ? (fichaData.departamentos?.[deptoKey]?.ecoComentario || '') : '';
+            const ecoFirmada = isEditing ? (fichaData.departamentos?.[deptoKey]?.ecoFirmada || 'NO') : 'NO';
+
+            departamentosHTML += `
+                <tr>
+                    <td class="col-departamento">${depto}</td>
+                    <td class="col-comentarios"><textarea name="ecr_comentario_${deptoKey}">${ecrComentario}</textarea></td>
+                    <td class="col-firma">
+                        <select name="ecr_firmada_${deptoKey}">
+                            <option value="SI" ${ecrFirmada === 'SI' ? 'selected' : ''}>SI</option>
+                            <option value="NO" ${ecrFirmada === 'NO' ? 'selected' : ''}>NO</option>
+                        </select>
+                    </td>
+                    <td class="col-comentarios"><textarea name="eco_comentario_${deptoKey}">${ecoComentario}</textarea></td>
+                    <td class="col-firma">
+                        <select name="eco_firmada_${deptoKey}">
+                            <option value="SI" ${ecoFirmada === 'SI' ? 'selected' : ''}>SI</option>
+                            <option value="NO" ${ecoFirmada === 'NO' ? 'selected' : ''}>NO</option>
+                        </select>
+                    </td>
+                </tr>
+            `;
+        });
+
+        const estadoOptionsHTML = ESTADOS_FICHA.map(estado => {
+            const selected = isEditing && fichaData.estadoGeneral === estado ? 'selected' : '';
+            return `<option value="${estado}" ${selected}>${estado}</option>`;
+        }).join('');
+
+        const leyendaHTML = ESTADOS_FICHA.map(estado => `
+            <div class="leyenda-item">
+                <div class="leyenda-color-box ${STATUS_COLORS[estado.replace(' ', '_')]}"></div>
+                <span>${estado}</span>
+            </div>
+        `).join('');
+
+        const viewHTML = `
+            <div class="ficha-seguimiento animate-fade-in-up">
+                <form id="ficha-form" data-id="${ecrEcoId}">
+                    <header class="ficha-header">
+                        <div class="ficha-grid-meta">
+                            <div class="meta-item">
+                                <label for="n_eco_ecr">N° de Eco/Ecr</label>
+                                <input type="text" id="n_eco_ecr" name="n_eco_ecr" value="${isEditing ? fichaData.n_eco_ecr : ''}" required>
+                            </div>
+                            <div class="meta-item">
+                                <label for="cliente">Cliente</label>
+                                <input type="text" id="cliente" name="cliente" value="${isEditing ? fichaData.cliente : ''}">
+                            </div>
+                            <div class="meta-item">
+                                <label for="pedido">Pedido</label>
+                                <input type="text" id="pedido" name="pedido" value="${isEditing ? fichaData.pedido : ''}">
+                            </div>
+                             <div class="meta-item" style="grid-column: 1 / -1;">
+                                <label for="descripcion">Descripcion</label>
+                                <textarea id="descripcion" name="descripcion" rows="2">${isEditing ? fichaData.descripcion : ''}</textarea>
+                            </div>
+                        </div>
+                    </header>
+                    <div class="ficha-body">
+                        <table class="departamentos-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-departamento">Departamento</th>
+                                    <th class="col-comentarios">Comentarios según ECR</th>
+                                    <th class="col-firma">Firmada (ECR)</th>
+                                    <th class="col-comentarios">Comentarios según ECO</th>
+                                    <th class="col-firma">Firmada (ECO)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${departamentosHTML}
+                            </tbody>
+                        </table>
+                    </div>
+                    <footer class="ficha-footer">
+                        <div class="estado-general-container">
+                            <label for="estado-general">Estado General:</label>
+                            <select id="estado-general" name="estadoGeneral" class="estado-general-select ${STATUS_COLORS[(isEditing ? fichaData.estadoGeneral : 'ABIERTA').replace(' ', '_')]}">
+                                ${estadoOptionsHTML}
+                            </select>
+                        </div>
+                         <div class="leyenda-colores">
+                            ${leyendaHTML}
+                        </div>
+                        <div class="ficha-actions">
+                            <button type="button" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600" id="back-to-list-btn">Volver a la Lista</button>
+                            <button type="submit" class="btn-save">${isEditing ? 'Actualizar Ficha' : 'Guardar Ficha'}</button>
+                            ${isEditing ? `<button type="button" class="btn-delete" id="delete-ficha-btn">Eliminar Ficha</button>` : ''}
+                        </div>
+                    </footer>
+                </form>
+            </div>
+        `;
+        dom.viewContent.innerHTML = viewHTML;
+
+        const form = document.getElementById('ficha-form');
+        form.addEventListener('submit', handleSaveFicha);
+
+        document.getElementById('back-to-list-btn').addEventListener('click', renderMainView);
+
+        if (isEditing) {
+            document.getElementById('delete-ficha-btn').addEventListener('click', () => handleDeleteFicha(ecrEcoId));
+        }
+
+        const estadoSelect = document.getElementById('estado-general');
+        estadoSelect.addEventListener('change', (e) => {
+            estadoSelect.className = 'estado-general-select'; // Reset classes
+            const selectedStatusClass = STATUS_COLORS[e.target.value.replace(' ', '_')];
+            if(selectedStatusClass) {
+                estadoSelect.classList.add(selectedStatusClass);
+            }
+        });
+    };
+
+    const handleSaveFicha = async (e) => {
+        e.preventDefault();
+        const form = e.target;
+        const id = form.dataset.id;
+        const n_eco_ecr = form.querySelector('[name="n_eco_ecr"]').value;
+
+        if (!n_eco_ecr) {
+            showToast('El campo "N° de Eco/Ecr" es obligatorio.', 'error');
+            return;
+        }
+
+        const fichaData = {
+            id: id,
+            n_eco_ecr: n_eco_ecr,
+            cliente: form.querySelector('[name="cliente"]').value,
+            pedido: form.querySelector('[name="pedido"]').value,
+            descripcion: form.querySelector('[name="descripcion"]').value,
+            estadoGeneral: form.querySelector('[name="estadoGeneral"]').value,
+            departamentos: {},
+            lastModified: new Date()
+        };
+
+        DEPARTAMENTOS.forEach(depto => {
+            const deptoKey = depto.replace(/[\s/&]/g, '_');
+            fichaData.departamentos[deptoKey] = {
+                ecrComentario: form.querySelector(`[name="ecr_comentario_${deptoKey}"]`).value,
+                ecrFirmada: form.querySelector(`[name="ecr_firmada_${deptoKey}"]`).value,
+                ecoComentario: form.querySelector(`[name="eco_comentario_${deptoKey}"]`).value,
+                ecoFirmada: form.querySelector(`[name="eco_firmada_${deptoKey}"]`).value,
+            };
+        });
+
+        try {
+            const docRef = doc(db, SEGUIMIENTO_COLLECTION, id);
+            await setDoc(docRef, fichaData, { merge: true });
+            showToast('Ficha guardada con éxito.', 'success');
+            renderMainView();
+        } catch (error) {
+            console.error("Error guardando la ficha: ", error);
+            showToast('Error al guardar la ficha.', 'error');
+        }
+    };
+
+    const handleDeleteFicha = (id) => {
+        showConfirmationModal('Eliminar Ficha', '¿Está seguro de que desea eliminar esta ficha? Esta acción no se puede deshacer.', async () => {
+            try {
+                await deleteDoc(doc(db, SEGUIMIENTO_COLLECTION, id));
+                showToast('Ficha eliminada.', 'success');
+                renderMainView();
+            } catch (error) {
+                console.error("Error deleting ficha: ", error);
+                showToast('Error al eliminar la ficha.', 'error');
+            }
+        });
+    };
+
+    const seedSeguimientoData = async () => {
+        const snapshot = await getDocs(query(collection(db, SEGUIMIENTO_COLLECTION), limit(1)));
+        if (!snapshot.empty) {
+            console.log('La colección de seguimiento ya tiene datos. No se necesita seeding.');
+            return;
+        }
+
+        showToast('Creando datos de prueba para seguimiento...', 'info');
+        const batch = writeBatch(db);
+        const sampleFicha1 = {
+            id: 'ECR-ECO-SAMPLE-1',
+            n_eco_ecr: 'ECR-2024-001',
+            cliente: 'Cliente de Prueba A',
+            pedido: 'PED-001',
+            descripcion: 'Modificación inicial del componente X para mejorar la durabilidad.',
+            estadoGeneral: 'ABIERTA',
+            departamentos: {
+                'ENG_PRODUCTO': { ecrComentario: 'Revisar planos y especificaciones.', ecrFirmada: 'SI', ecoComentario: '', ecoFirmada: 'NO' },
+                'COMPRAS': { ecrComentario: 'Evaluar impacto en proveedores.', ecrFirmada: 'NO', ecoComentario: '', ecoFirmada: 'NO' }
+            },
+            lastModified: new Date()
+        };
+        const sampleFicha2 = {
+            id: 'ECR-ECO-SAMPLE-2',
+            n_eco_ecr: 'ECO-2024-002',
+            cliente: 'Cliente de Prueba B',
+            pedido: 'PED-002',
+            descripcion: 'Implementación del cambio de material para el ensamblaje Y.',
+            estadoGeneral: 'PENDIENTE',
+            departamentos: {
+                'ENG_PRODUCTO': { ecrComentario: 'Planos actualizados.', ecrFirmada: 'SI', ecoComentario: 'Cambio implementado.', ecoFirmada: 'SI' },
+                'QUALIDADE_CALIDAD': { ecrComentario: 'Plan de control requerido.', ecrFirmada: 'SI', ecoComentario: 'Plan de control actualizado y validado.', ecoFirmada: 'NO' }
+            },
+            lastModified: new Date()
+        };
+
+        batch.set(doc(db, SEGUIMIENTO_COLLECTION, sampleFicha1.id), sampleFicha1);
+        batch.set(doc(db, SEGUIMIENTO_COLLECTION, sampleFicha2.id), sampleFicha2);
+
+        try {
+            await batch.commit();
+            showToast('Datos de prueba creados.', 'success');
+        } catch(error) {
+            console.error('Error al crear datos de prueba de seguimiento:', error);
+            showToast('Error al crear datos de prueba.', 'error');
+        }
+    };
+
+    const renderMainView = () => {
+        seedSeguimientoData();
+        const viewHTML = `
+            <div class="animate-fade-in-up">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-slate-800">Listado de Fichas de Seguimiento</h2>
+                    <button id="create-new-ficha-btn" class="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 flex items-center shadow-md">
+                        <i data-lucide="plus" class="mr-2 h-5 w-5"></i>Crear Nueva Ficha
+                    </button>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <div class="overflow-x-auto list-container">
+                        <table class="w-full text-sm text-left text-gray-600">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3">N° Eco/Ecr</th>
+                                    <th scope="col" class="px-6 py-3">Descripción</th>
+                                    <th scope="col" class="px-6 py-3">Cliente</th>
+                                    <th scope="col" class="px-6 py-3">Estado</th>
+                                    <th scope="col" class="px-6 py-3">Última Modificación</th>
+                                    <th scope="col" class="px-6 py-3 text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fichas-list">
+                                <tr><td colspan="6" class="text-center py-16"><i data-lucide="loader" class="animate-spin h-8 w-8 mx-auto"></i></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+        dom.viewContent.innerHTML = viewHTML;
+        lucide.createIcons();
+
+        document.getElementById('create-new-ficha-btn').addEventListener('click', () => renderFichaForm());
+
+        const fichasCollection = collection(db, SEGUIMIENTO_COLLECTION);
+        const q = query(fichasCollection, orderBy('lastModified', 'desc'));
+
+        unsubscribe = onSnapshot(q, (snapshot) => {
+            const listBody = document.getElementById('fichas-list');
+            if (!listBody) return;
+
+            if (snapshot.empty) {
+                listBody.innerHTML = `<tr><td colspan="6" class="text-center py-16 text-gray-500">No hay fichas de seguimiento. Puede crear una nueva.</td></tr>`;
+                return;
+            }
+
+            listBody.innerHTML = snapshot.docs.map(doc => {
+                const ficha = doc.data();
+                const statusClass = STATUS_COLORS[ficha.estadoGeneral?.replace(' ', '_')] || 'bg-gray-100 text-gray-800';
+                return `
+                    <tr class="bg-white border-b hover:bg-gray-50">
+                        <td class="px-6 py-4 font-medium text-gray-900">${ficha.n_eco_ecr}</td>
+                        <td class="px-6 py-4">${ficha.descripcion}</td>
+                        <td class="px-6 py-4">${ficha.cliente}</td>
+                        <td class="px-6 py-4"><span class="px-2 py-1 font-semibold leading-tight rounded-full text-xs ${statusClass}">${ficha.estadoGeneral}</span></td>
+                        <td class="px-6 py-4">${ficha.lastModified.toDate().toLocaleString()}</td>
+                        <td class="px-6 py-4 text-right">
+                            <button data-id="${ficha.id}" class="edit-ficha-btn text-blue-600 hover:text-blue-800">Editar</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.querySelectorAll('.edit-ficha-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const docRef = doc(db, SEGUIMIENTO_COLLECTION, btn.dataset.id);
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        renderFichaForm(docSnap.data());
+                    } else {
+                        showToast('Error: No se encontró la ficha.', 'error');
+                    }
+                });
+            });
+        }, (error) => {
+            console.error("Error fetching fichas: ", error);
+            showToast('Error al cargar las fichas de seguimiento.', 'error');
+        });
+    };
+
+    renderMainView();
+
+    appState.currentViewCleanup = () => {
+        if (unsubscribe) {
+            unsubscribe();
+        }
+    };
 }
 
 async function runEcrSeguimientoLogic() {
