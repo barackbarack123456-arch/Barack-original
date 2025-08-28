@@ -2722,7 +2722,10 @@ async function runSeguimientoEcrEcoLogic() {
         FALTA_FIRMAR: 'status-falta-firmar'
     };
 
-    const renderFichaForm = (fichaData = null) => {
+    const renderFichaForm = (fichaData = null, isReadOnly = false) => {
+        if (!checkUserPermission('edit')) {
+            isReadOnly = true;
+        }
         const isEditing = fichaData !== null;
         const ecrEcoId = isEditing ? fichaData.id : `ECR-ECO-${Date.now()}`;
 
@@ -2828,11 +2831,63 @@ async function runSeguimientoEcrEcoLogic() {
         dom.viewContent.innerHTML = viewHTML;
 
         const form = document.getElementById('ficha-form');
+
+        if (isReadOnly) {
+            form.querySelectorAll('input, textarea, select').forEach(el => {
+                el.disabled = true;
+            });
+            const saveBtn = form.querySelector('.btn-save');
+            if (saveBtn) saveBtn.style.display = 'none';
+            const deleteBtn = form.querySelector('.btn-delete');
+            if (deleteBtn) deleteBtn.style.display = 'none';
+
+            const actionsContainer = form.querySelector('.ficha-actions');
+            if (actionsContainer) {
+                const n_eco_ecr = fichaData.n_eco_ecr || '';
+                let associatedButtonHTML = '';
+                if (n_eco_ecr) {
+                    const type = n_eco_ecr.startsWith('ECR') ? 'ecr' : (n_eco_ecr.startsWith('ECO') ? 'eco' : null);
+                    if (type) {
+                        associatedButtonHTML = `
+                            <button type="button" data-action="view-associated-${type}" data-id="${n_eco_ecr}" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 font-semibold">
+                                Ver ${type.toUpperCase()}
+                            </button>`;
+                    }
+                }
+
+                const newButtonsHTML = `
+                    <button type="button" data-action="generate-ficha-pdf" data-id="${fichaData.id}" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 font-semibold">
+                        Generar PDF
+                    </button>
+                    ${associatedButtonHTML}
+                `;
+                actionsContainer.insertAdjacentHTML('beforeend', newButtonsHTML);
+            }
+        }
+
+        form.addEventListener('click', async (e) => {
+            const button = e.target.closest('button[data-action]');
+            if (!button || button.type === 'submit') return;
+
+            e.preventDefault();
+
+            const action = button.dataset.action;
+            const id = button.dataset.id;
+
+            if (action === 'generate-ficha-pdf') {
+                await generateFichaPdf(id);
+            } else if (action === 'view-associated-ecr') {
+                switchView('ecr_form', { ecrId: id });
+            } else if (action === 'view-associated-eco') {
+                switchView('eco_form', { ecoId: id });
+            }
+        });
+
         form.addEventListener('submit', handleSaveFicha);
 
         document.getElementById('back-to-list-btn').addEventListener('click', renderMainView);
 
-        if (isEditing) {
+        if (isEditing && !isReadOnly) {
             document.getElementById('delete-ficha-btn').addEventListener('click', () => handleDeleteFicha(ecrEcoId));
         }
 
@@ -2952,13 +3007,18 @@ async function runSeguimientoEcrEcoLogic() {
 
     const renderMainView = () => {
         seedSeguimientoData();
+
+        const canCreate = checkUserPermission('edit');
+        const createButtonHTML = canCreate ? `
+            <button id="create-new-ficha-btn" class="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 flex items-center shadow-md">
+                <i data-lucide="plus" class="mr-2 h-5 w-5"></i>Crear Nueva Ficha
+            </button>` : '';
+
         const viewHTML = `
             <div class="animate-fade-in-up">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-2xl font-bold text-slate-800">Listado de Fichas de Seguimiento</h2>
-                    <button id="create-new-ficha-btn" class="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 flex items-center shadow-md">
-                        <i data-lucide="plus" class="mr-2 h-5 w-5"></i>Crear Nueva Ficha
-                    </button>
+                    ${createButtonHTML}
                 </div>
                 <div class="bg-white p-6 rounded-xl shadow-lg">
                     <div class="overflow-x-auto list-container">
@@ -2984,7 +3044,29 @@ async function runSeguimientoEcrEcoLogic() {
         dom.viewContent.innerHTML = viewHTML;
         lucide.createIcons();
 
-        document.getElementById('create-new-ficha-btn').addEventListener('click', () => renderFichaForm());
+        if (canCreate) {
+            document.getElementById('create-new-ficha-btn').addEventListener('click', () => renderFichaForm());
+        }
+
+        const listBody = document.getElementById('fichas-list');
+        listBody.addEventListener('click', async (e) => {
+            const button = e.target.closest('button[data-action]');
+            if (!button) return;
+
+            const fichaId = button.dataset.id;
+            const action = button.dataset.action;
+
+            if (action === 'view-ficha' || action === 'edit-ficha') {
+                const docRef = doc(db, SEGUIMIENTO_COLLECTION, fichaId);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const isReadOnly = action === 'view-ficha';
+                    renderFichaForm(docSnap.data(), isReadOnly);
+                } else {
+                    showToast('Error: No se encontró la ficha.', 'error');
+                }
+            }
+        });
 
         const fichasCollection = collection(db, SEGUIMIENTO_COLLECTION);
         const q = query(fichasCollection, orderBy('lastModified', 'desc'));
@@ -3001,31 +3083,44 @@ async function runSeguimientoEcrEcoLogic() {
             listBody.innerHTML = snapshot.docs.map(doc => {
                 const ficha = doc.data();
                 const statusClass = STATUS_COLORS[ficha.estadoGeneral?.replace(' ', '_')] || 'bg-gray-100 text-gray-800';
+
+                const n_eco_ecr = ficha.n_eco_ecr || '';
+                let rejectedIndicatorHTML = '';
+                if (n_eco_ecr) {
+                    let associatedDoc;
+                    const ecrCollection = appState.collectionsById[COLLECTIONS.ECR_FORMS];
+                    const ecoCollection = appState.collectionsById[COLLECTIONS.ECO_FORMS];
+
+                    if (n_eco_ecr.startsWith('ECR') && ecrCollection) {
+                        associatedDoc = ecrCollection.get(n_eco_ecr);
+                    } else if (n_eco_ecr.startsWith('ECO') && ecoCollection) {
+                        associatedDoc = ecoCollection.get(n_eco_ecr);
+                    }
+
+                    if (associatedDoc && associatedDoc.status === 'rejected') {
+                        rejectedIndicatorHTML = `<span class="ml-2" title="El ECR/ECO asociado fue rechazado"><i data-lucide="alert-circle" class="h-5 w-5 text-red-500"></i></span>`;
+                    }
+                }
+
+                const editButtonHTML = checkUserPermission('edit') ?
+                    `<button data-id="${ficha.id}" data-action="edit-ficha" class="text-gray-500 hover:text-green-600 p-1" title="Editar Ficha"><i data-lucide="edit" class="h-5 w-5 pointer-events-none"></i></button>` :
+                    '';
+
                 return `
                     <tr class="bg-white border-b hover:bg-gray-50">
-                        <td class="px-6 py-4 font-medium text-gray-900">${ficha.n_eco_ecr}</td>
+                        <td class="px-6 py-4 font-medium text-gray-900 flex items-center">${ficha.n_eco_ecr}${rejectedIndicatorHTML}</td>
                         <td class="px-6 py-4">${ficha.descripcion}</td>
                         <td class="px-6 py-4">${ficha.cliente}</td>
                         <td class="px-6 py-4"><span class="px-2 py-1 font-semibold leading-tight rounded-full text-xs ${statusClass}">${ficha.estadoGeneral}</span></td>
                         <td class="px-6 py-4">${ficha.lastModified.toDate().toLocaleString()}</td>
-                        <td class="px-6 py-4 text-right">
-                            <button data-id="${ficha.id}" class="edit-ficha-btn text-blue-600 hover:text-blue-800">Editar</button>
+                        <td class="px-6 py-4 text-right space-x-2">
+                            <button data-id="${ficha.id}" data-action="view-ficha" class="text-gray-500 hover:text-blue-600 p-1" title="Ver Ficha"><i data-lucide="eye" class="h-5 w-5 pointer-events-none"></i></button>
+                            ${editButtonHTML}
                         </td>
                     </tr>
                 `;
             }).join('');
-
-            document.querySelectorAll('.edit-ficha-btn').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const docRef = doc(db, SEGUIMIENTO_COLLECTION, btn.dataset.id);
-                    const docSnap = await getDoc(docRef);
-                    if (docSnap.exists()) {
-                        renderFichaForm(docSnap.data());
-                    } else {
-                        showToast('Error: No se encontró la ficha.', 'error');
-                    }
-                });
-            });
+            lucide.createIcons();
         }, (error) => {
             console.error("Error fetching fichas: ", error);
             showToast('Error al cargar las fichas de seguimiento.', 'error');
@@ -4330,6 +4425,88 @@ async function exportEcoToPdf(ecoId) {
         dom.loadingOverlay.style.display = 'none';
     }
 }
+
+async function generateFichaPdf(fichaId) {
+    if (!fichaId) return;
+
+    showToast('Generando PDF de la ficha...', 'info');
+    const fichaDocRef = doc(db, 'seguimiento_ecr_eco', fichaId);
+    const fichaDocSnap = await getDoc(fichaDocRef);
+
+    if (!fichaDocSnap.exists()) {
+        showToast('Error: No se encontró la ficha.', 'error');
+        return;
+    }
+
+    const fichaData = fichaDocSnap.data();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const logoBase64 = await getLogoBase64();
+
+    // --- Header ---
+    if (logoBase64) {
+        doc.addImage(logoBase64, 'PNG', 14, 15, 30, 12);
+    }
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Ficha de Seguimiento: ${fichaData.n_eco_ecr}`, doc.internal.pageSize.getWidth() - 14, 22, { align: 'right' });
+    doc.setLineWidth(0.5);
+    doc.line(14, 30, doc.internal.pageSize.getWidth() - 14, 30);
+
+
+    // --- Main data ---
+    let yPos = 40;
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Cliente: ${fichaData.cliente || 'N/A'}`, 14, yPos);
+    doc.text(`Pedido: ${fichaData.pedido || 'N/A'}`, 14, yPos + 6);
+    doc.text(`Descripción:`, 14, yPos + 12);
+    const descLines = doc.splitTextToSize(fichaData.descripcion || 'N/A', 180);
+    doc.text(descLines, 14, yPos + 18);
+    yPos += 18 + (descLines.length * 6) + 5;
+
+
+    // --- Table ---
+    const head = [['Departamento', 'Comentario ECR', 'Firma', 'Comentario ECO', 'Firma']];
+    const body = [];
+    const DEPARTAMENTOS = [
+        'ENG. PRODUCTO', 'ENG. PROCESSO PLTL', 'HSE', 'QUALIDADE / CALIDAD', 'COMPRAS',
+        'QUALIDADE COMPRAS', 'TOOLING & EQUIPAMENTS', 'LOGISTICA E PC&L', 'FINANCEIRO / COSTING',
+        'COMERCIAL', 'MANUTENÇÃO / MANTENIMIENTO', 'PRODUÇÃO / PRODUCCIÓN', 'QUALIDADE CLIENTE'
+    ];
+
+    DEPARTAMENTOS.forEach(depto => {
+        const deptoKey = depto.replace(/[\s/&]/g, '_');
+        const deptoData = fichaData.departamentos?.[deptoKey] || {};
+        body.push([
+            depto,
+            deptoData.ecrComentario || '-',
+            deptoData.ecrFirmada || 'NO',
+            deptoData.ecoComentario || '-',
+            deptoData.ecoFirmada || 'NO'
+        ]);
+    });
+
+    doc.autoTable({
+        startY: yPos,
+        head: head,
+        body: body,
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [41, 104, 217], fontStyle: 'bold' },
+        columnStyles: {
+            0: { cellWidth: 35, fontStyle: 'bold' },
+            1: { cellWidth: 'auto' },
+            2: { cellWidth: 12, halign: 'center' },
+            3: { cellWidth: 'auto' },
+            4: { cellWidth: 12, halign: 'center' }
+        }
+    });
+
+    doc.save(`Ficha_${fichaData.n_eco_ecr}.pdf`);
+    showToast('PDF generado.', 'success');
+}
+
 
 async function exportEcrToPdf(ecrId) {
     if (!ecrId) {
