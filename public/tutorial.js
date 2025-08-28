@@ -187,36 +187,29 @@ const tutorial = (app) => {
                 element: 'body',
                 title: 'Bienvenido al Tutorial de Gestión PRO',
                 content: 'Este tutorial te guiará a través del flujo de trabajo de <strong>ECR (Solicitud de Cambio de Ingeniería)</strong> y <strong>ECO (Orden de Cambio de Ingeniería)</strong>. Presiona "Siguiente" para comenzar.',
-                position: 'center' // Special position for a centered modal
+                position: 'center'
             },
             {
                 element: '[data-tutorial-id="eco-ecr-menu"]',
                 title: 'Módulo ECO/ECR',
                 content: 'Toda la gestión de cambios de ingeniería se encuentra en este menú. Vamos a explorarlo.',
-                position: 'bottom',
-                postAction: async () => {
-                    const menu = await waitForElement('[data-tutorial-id="eco-ecr-menu"]');
-                    if (menu) {
-                        menu.classList.add('open');
-                    }
-                }
+                position: 'bottom'
             },
             {
                 element: 'a[data-view="ecr"]',
                 title: 'Gestión de ECR',
                 content: 'Aquí es donde se inician las solicitudes de cambio. Haremos clic aquí para ir a la pantalla de gestión de ECR.',
                 position: 'right',
-                click: true // Add click effect
+                click: true
             },
             {
-                element: 'body', // The view will be switched before this step
+                element: '#view-title',
                 title: 'Pantalla de Gestión de ECR',
                 content: 'Esta tabla muestra todos los ECRs existentes. Para proponer un nuevo cambio, debemos crear un nuevo ECR.',
-                position: 'center',
-                 preAction: async () => {
-                    // This action happens *after* the click on the previous step
+                position: 'bottom',
+                preAction: async () => {
                     document.querySelector('a[data-view="ecr"]').click();
-                    await new Promise(resolve => setTimeout(resolve, 100)); // Brief pause for navigation
+                    await new Promise(resolve => setTimeout(resolve, 500));
                 }
             },
             {
@@ -227,13 +220,13 @@ const tutorial = (app) => {
                 click: true
             },
             {
-                element: '#ecr-form',
+                element: '.ecr-header',
                 title: 'Formulario de ECR',
                 content: 'Este es el formulario de Solicitud de Cambio de Ingeniería. Aquí se documenta toda la información necesaria para que el cambio sea evaluado.',
-                position: 'top',
+                position: 'bottom',
                 preAction: async () => {
                     document.querySelector('button[data-action="create-new-ecr"]').click();
-                    await new Promise(resolve => setTimeout(resolve, 100)); // Brief pause for navigation
+                    await new Promise(resolve => setTimeout(resolve, 500));
                 }
             },
             {
@@ -243,19 +236,19 @@ const tutorial = (app) => {
                 position: 'bottom'
             },
             {
-                element: '.two-column-layout',
+                element: '[data-tutorial-id="situacion-layout"]',
                 title: 'Situación Actual vs. Propuesta',
                 content: 'Estos son los campos más importantes. Aquí se describe qué problema existe (Situación Existente) y cómo se propone solucionarlo (Situación Propuesta).',
                 position: 'top'
             },
             {
-                element: '#page2 .department-section:first-child',
+                element: '[data-tutorial-id="evaluacion-departamento"]',
                 title: 'Evaluación por Departamentos',
                 content: 'Cada departamento afectado debe evaluar el impacto del cambio. Marcan si les afecta o no y añaden comentarios.',
                 position: 'right'
             },
             {
-                element: '.department-footer',
+                element: '[data-tutorial-id="aprobacion-departamental"]',
                 title: 'Aprobación Departamental',
                 content: 'Una vez evaluado, el responsable del departamento (o un admin) puede aprobar o rechazar la propuesta desde aquí. La decisión queda registrada con su nombre y fecha.',
                 position: 'top'
@@ -267,24 +260,19 @@ const tutorial = (app) => {
                 position: 'top'
             },
             {
-                element: 'body',
+                element: '#view-title',
                 title: 'Circuito de Aprobación',
                 content: 'Una vez enviado, el ECR cambia a estado "pending-approval". Si un solo departamento lo rechaza, el ECR se marca como "rejected". Si todos los requeridos lo aprueban, pasa a "approved".',
                 position: 'center',
                 preAction: async () => {
-                    await app.switchView('ecr'); // Go back to the list
+                    await app.switchView('ecr');
                 }
             },
             {
-                element: 'tr:first-child button[data-action="generate-eco-from-ecr"]',
+                element: '#ecr-table-body thead',
                 title: 'Generar ECO',
-                content: 'Cuando un ECR es aprobado, aparece este botón. Permite convertir la solicitud en una Orden de Cambio de Ingeniería (ECO), que es el documento para ejecutar el cambio.',
-                position: 'left',
-                preAction: async () => {
-                    // We need to make sure there is an approved ECR to show this button
-                    // For the tutorial, we can just explain it without showing a real one if it's too complex.
-                    // This step assumes an approved ECR is visible.
-                }
+                content: 'Cuando un ECR es aprobado, aparece un botón de "Generar ECO" en la fila correspondiente. Permite convertir la solicitud en una Orden de Cambio, que es el documento para ejecutar el cambio.',
+                position: 'bottom'
             },
              {
                 element: '#action-plan-section',
@@ -292,8 +280,6 @@ const tutorial = (app) => {
                 content: 'La ECO se enfoca en la implementación. Esta sección permite crear una lista de tareas, asignar responsables y fechas límite para asegurar que el cambio se realice correctamente.',
                 position: 'top',
                  preAction: async () => {
-                    // We need an ECR to generate the ECO from.
-                    // For simplicity, we'll just switch to a blank ECO form.
                     await app.switchView('eco_form');
                 }
             },

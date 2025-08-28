@@ -3788,6 +3788,11 @@ async function runEcrFormLogic(params = null) {
         const isApprovedOrRejected = approval?.status === 'approved' || approval?.status === 'rejected';
         const canApprove = appState.currentUser.role === 'admin' || appState.currentUser.sector === departmentId;
 
+        const isFirstTutorialSection = config.id === 'ing_producto';
+        const sectionTutorialId = isFirstTutorialSection ? 'data-tutorial-id="evaluacion-departamento"' : '';
+        const footerTutorialId = isFirstTutorialSection ? 'data-tutorial-id="aprobacion-departamental"' : '';
+
+
         let approvalControlsHTML = '';
         if (isApprovedOrRejected) {
             const statusClass = approval.status === 'approved' ? 'text-green-600' : 'text-red-600';
@@ -3809,7 +3814,7 @@ async function runEcrFormLogic(params = null) {
 
 
         return `
-            <div class="department-section ${isApprovedOrRejected ? 'approved' : ''}">
+            <div class="department-section ${isApprovedOrRejected ? 'approved' : ''}" ${sectionTutorialId}>
                 <div class="department-header">
                      <span class="flex items-center gap-3"><i data-lucide="${config.icon || 'help-circle'}" class="w-6 h-6 text-slate-500"></i>${config.title}</span>
                     <div class="flex items-center gap-4">
@@ -3824,7 +3829,7 @@ async function runEcrFormLogic(params = null) {
                         <textarea name="comments_${config.id}" rows="6" class="form-field"></textarea>
                     </div>
                 </div>
-                <div class="department-footer">
+                <div class="department-footer" ${footerTutorialId}>
                     ${approvalControlsHTML}
                 </div>
             </div>
@@ -3940,7 +3945,7 @@ async function runEcrFormLogic(params = null) {
                 </div>
             </div>
 
-            <div class="two-column-layout mt-4">
+            <div class="two-column-layout mt-4" data-tutorial-id="situacion-layout">
                 <div class="column-box"><h3>SITUACIÓN EXISTENTE:</h3>${createTextarea('situacion_existente')}</div>
                 <div class="column-box"><h3>SITUACIÓN PROPUESTA:</h3>${createTextarea('situacion_propuesta')}</div>
             </div>
