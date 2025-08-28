@@ -236,7 +236,7 @@ let appState = {
         [COLLECTIONS.SECTORES]: [], [COLLECTIONS.PROCESOS]: [],
         [COLLECTIONS.PROVEEDORES]: [], [COLLECTIONS.UNIDADES]: [],
         [COLLECTIONS.USUARIOS]: [], [COLLECTIONS.PROYECTOS]: [], [COLLECTIONS.ROLES]: [], [COLLECTIONS.TAREAS]: [],
-        [COLLECTIONS.ECR_FORMS]: [], [COLLECTIONS.ECO_FORMS]: [], [COLLECTIONS.REUNIONES_ECR]: []
+        [COLLECTIONS.ECR_FORMS]: [], [COLLECTIONS.ECO_FORMS]: [], [COLLECTIONS.REUNIONES_ECR]: [], [COLLECTIONS.NOTIFICATIONS]: []
     },
     collectionsById: {
         [COLLECTIONS.PRODUCTOS]: new Map(),
@@ -320,7 +320,8 @@ function startRealtimeListeners() {
             COLLECTIONS.PROYECTOS,
             COLLECTIONS.ECR_FORMS,
             COLLECTIONS.ECO_FORMS,
-            COLLECTIONS.REUNIONES_ECR
+            COLLECTIONS.REUNIONES_ECR,
+            COLLECTIONS.NOTIFICATIONS
         ]);
 
         if (appState.unsubscribeListeners.length > 0) {
@@ -332,8 +333,9 @@ function startRealtimeListeners() {
 
         collectionNames.forEach(name => {
             let q;
-            // For tasks, non-admins can only query tasks relevant to them, matching security rules.
-            if (name === COLLECTIONS.TAREAS && appState.currentUser.role !== 'admin') {
+            if (name === COLLECTIONS.NOTIFICATIONS) {
+                q = query(collection(db, name), where('userId', '==', appState.currentUser.uid), orderBy('createdAt', 'desc'), limit(20));
+            } else if (name === COLLECTIONS.TAREAS && appState.currentUser.role !== 'admin') {
                 q = query(collection(db, name), or(
                     where('isPublic', '==', true),
                     where('assigneeUid', '==', appState.currentUser.uid),
@@ -370,6 +372,7 @@ function startRealtimeListeners() {
                 // After initial load, these can run on subsequent updates
                 if (appState.isAppInitialized) {
                     if (name === COLLECTIONS.USUARIOS) populateTaskAssigneeDropdown();
+                    if (name === COLLECTIONS.NOTIFICATIONS) renderNotificationCenter();
                     if (appState.currentView === 'dashboard') updateDashboard(name);
                     if (appState.currentView === 'sinoptico' && appState.sinopticoState) initSinoptico();
                     if (viewConfig[appState.currentView]?.dataKey === name) {
@@ -1402,6 +1405,32 @@ async function runEcoFormLogic(params = null) {
                     </div>
                 </label>
             </div>
+
+            <!-- Action Plan Section -->
+            <section id="action-plan-section" class="mt-8">
+                <div class="ecr-checklist-bar">PLAN DE ACCIÓN</div>
+                <div class="p-4 border border-t-0 rounded-b-lg">
+                    <div id="action-plan-list" class="space-y-2">
+                        <!-- Action items will be rendered here -->
+                    </div>
+                    <div id="add-action-item-form" class="mt-4 flex items-end gap-3 p-3 bg-slate-50 rounded-lg border">
+                        <div class="flex-grow">
+                            <label for="new-action-description" class="text-xs font-bold text-slate-600">Nueva Acción</label>
+                            <input type="text" id="new-action-description" placeholder="Descripción de la tarea..." class="w-full mt-1 p-2 border rounded-md">
+                        </div>
+                        <div class="w-48">
+                            <label for="new-action-assignee" class="text-xs font-bold text-slate-600">Responsable</label>
+                            <select id="new-action-assignee" class="w-full mt-1 p-2 border rounded-md"></select>
+                        </div>
+                        <div class="w-40">
+                            <label for="new-action-duedate" class="text-xs font-bold text-slate-600">Fecha Límite</label>
+                            <input type="date" id="new-action-duedate" class="w-full mt-1 p-2 border rounded-md">
+                        </div>
+                        <button type="button" id="add-action-item-btn" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 font-semibold h-10">Agregar</button>
+                    </div>
+                </div>
+            </section>
+
             <div id="action-buttons-container" class="mt-8 flex justify-end space-x-4">
                 <button type="button" id="eco-save-button" class="bg-gray-500 text-white px-6 py-2 rounded-md hover:bg-gray-600">Guardar Progreso</button>
                 <button type="button" id="eco-clear-button" class="bg-yellow-500 text-white px-6 py-2 rounded-md hover:bg-yellow-600">Limpiar Formulario</button>
@@ -1604,6 +1633,97 @@ async function runEcoFormLogic(params = null) {
         const clearButton = formElement.querySelector('#eco-clear-button');
         const ecrInput = formElement.querySelector('#ecr_no');
 
+        let actionPlan = [];
+
+        const renderActionPlan = () => {
+            const listEl = document.getElementById('action-plan-list');
+            if (!listEl) return;
+            if (actionPlan.length === 0) {
+                listEl.innerHTML = '<p class="text-center text-sm text-slate-500 py-4">No hay acciones en el plan.</p>';
+                return;
+            }
+            listEl.innerHTML = actionPlan.map((item, index) => `
+                <div class="action-item grid grid-cols-[1fr,120px,100px,50px] gap-3 items-center p-2 rounded-md ${item.status === 'completed' ? 'bg-green-50' : 'bg-white'} border">
+                    <p class="font-medium text-slate-700">${item.description}</p>
+                    <p class="text-sm text-slate-600">${item.assignee || 'N/A'}</p>
+                    <p class="text-sm text-slate-500">${item.dueDate || 'N/A'}</p>
+                    <div class="flex justify-center gap-2">
+                         <input type="checkbox" data-action="toggle-action-status" data-index="${index}" class="h-4 w-4" ${item.status === 'completed' ? 'checked' : ''}>
+                         <button type="button" data-action="delete-action-item" data-index="${index}" class="text-red-500 hover:text-red-700"><i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i></button>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        };
+
+        const setupActionPlanListeners = () => {
+            document.getElementById('add-action-item-btn')?.addEventListener('click', () => {
+                const descriptionInput = document.getElementById('new-action-description');
+                const assigneeSelect = document.getElementById('new-action-assignee');
+                const dueDateInput = document.getElementById('new-action-duedate');
+
+                const description = descriptionInput.value.trim();
+                if (!description) {
+                    showToast('La descripción de la acción no puede estar vacía.', 'error');
+                    return;
+                }
+
+                const selectedOption = assigneeSelect.options[assigneeSelect.selectedIndex];
+                const assigneeUid = assigneeSelect.value;
+                const assigneeName = selectedOption.text;
+                const ecoId = ecrInput.value.trim();
+
+                const newAction = {
+                    id: `task_${Date.now()}`,
+                    description,
+                    assignee: assigneeName,
+                    assigneeUid: assigneeUid,
+                    dueDate: dueDateInput.value,
+                    status: 'pending'
+                };
+                actionPlan.push(newAction);
+
+                if (assigneeUid) {
+                    sendNotification(
+                        assigneeUid,
+                        `Se te ha asignado una nueva tarea en el plan de acción para el ECO: ${ecoId}.`,
+                        'eco_form',
+                        { ecoId: ecoId }
+                    );
+                }
+
+                descriptionInput.value = '';
+                dueDateInput.value = '';
+                assigneeSelect.selectedIndex = 0;
+                renderActionPlan();
+                saveEcoFormToLocalStorage(); // Save progress after adding
+            });
+
+            document.getElementById('action-plan-list')?.addEventListener('click', (e) => {
+                const target = e.target;
+                const action = target.dataset.action;
+                const index = parseInt(target.dataset.index, 10);
+
+                if (action === 'toggle-action-status') {
+                    actionPlan[index].status = target.checked ? 'completed' : 'pending';
+                    renderActionPlan();
+                    saveEcoFormToLocalStorage();
+                } else if (action === 'delete-action-item') {
+                    actionPlan.splice(index, 1);
+                    renderActionPlan();
+                    saveEcoFormToLocalStorage();
+                }
+            });
+        };
+
+        const populateAssigneeDropdown = () => {
+             const assigneeSelect = document.getElementById('new-action-assignee');
+             if (!assigneeSelect) return;
+             const users = appState.collections.usuarios.filter(u => !u.disabled);
+             assigneeSelect.innerHTML = '<option value="">Sin Asignar</option>' + users.map(u => `<option value="${u.docId}">${u.name}</option>`).join('');
+        };
+
+
         // Always add a "Back" button
         const backButtonHTML = `<button type="button" id="eco-back-button" class="bg-gray-200 text-gray-800 px-6 py-2 rounded-md hover:bg-gray-300">Volver a la Lista</button>`;
         saveButton.insertAdjacentHTML('beforebegin', backButtonHTML);
@@ -1619,7 +1739,9 @@ async function runEcoFormLogic(params = null) {
             const docRef = doc(db, COLLECTIONS.ECO_FORMS, ecoId);
             const docSnap = await getDoc(docRef);
             if (docSnap.exists()) {
-                populateEcoForm(formElement, docSnap.data());
+                const data = docSnap.data();
+                populateEcoForm(formElement, data);
+                actionPlan = data.action_plan || [];
             } else {
                 showToast(`Error: No se encontró el ECO con ID ${ecoId}`, 'error');
                 switchView('eco');
@@ -1651,6 +1773,11 @@ async function runEcoFormLogic(params = null) {
             loadEcoFormFromLocalStorage();
         }
 
+        // Initialize Action Plan
+        populateAssigneeDropdown();
+        renderActionPlan();
+        setupActionPlanListeners();
+
         // Add event listener to save on any input
         formElement.addEventListener('input', saveEcoFormToLocalStorage);
 
@@ -1659,7 +1786,8 @@ async function runEcoFormLogic(params = null) {
             const data = {
                 checklists: {},
                 comments: {},
-                signatures: {}
+                signatures: {},
+                action_plan: actionPlan // Include the action plan array
             };
 
             for (let [key, value] of formData.entries()) {
@@ -3645,11 +3773,36 @@ async function runEcrFormLogic(params = null) {
     const createDateField = (label, name) => `<div class="form-field"><label for="${name}" class="text-sm font-bold mb-1">${label}</label><input type="date" name="${name}" id="${name}" class="w-full"></div>`;
     const createTextarea = (name, placeholder = '') => `<textarea name="${name}" placeholder="${placeholder}" class="w-full h-full border-none resize-none p-1 bg-transparent focus:outline-none"></textarea>`;
 
-    const buildDepartmentSection = (config) => {
+    const buildDepartmentSection = (config, ecrData) => {
         const checklistHTML = config.checklist.map(item => `<div class="check-item">${createCheckbox(item.label, item.name)}</div>`).join('');
         const customContent = config.customHTML || '';
+        const departmentId = config.id;
+        const approval = ecrData?.approvals?.[departmentId];
+        const isApprovedOrRejected = approval?.status === 'approved' || approval?.status === 'rejected';
+        const canApprove = appState.currentUser.role === 'admin' || appState.currentUser.sector === departmentId;
+
+        let approvalControlsHTML = '';
+        if (isApprovedOrRejected) {
+            const statusClass = approval.status === 'approved' ? 'text-green-600' : 'text-red-600';
+            const statusIcon = approval.status === 'approved' ? 'check-circle' : 'x-circle';
+            approvalControlsHTML = `
+                <div class="flex items-center gap-2 font-bold ${statusClass}">
+                    <i data-lucide="${statusIcon}" class="w-5 h-5"></i>
+                    <span>${approval.status.charAt(0).toUpperCase() + approval.status.slice(1)} por ${approval.user} el ${approval.date}</span>
+                </div>
+            `;
+        } else if (canApprove) {
+            approvalControlsHTML = `
+                <button type="button" data-action="register-ecr-approval" data-decision="rejected" data-department-id="${departmentId}" class="bg-red-500 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-red-600">Rechazar</button>
+                <button type="button" data-action="register-ecr-approval" data-decision="approved" data-department-id="${departmentId}" class="bg-green-500 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-green-600">Aprobar</button>
+            `;
+        } else {
+             approvalControlsHTML = `<div class="text-xs text-slate-400 italic">Pendiente de aprobación por ${config.title}</div>`;
+        }
+
+
         return `
-            <div class="department-section">
+            <div class="department-section ${isApprovedOrRejected ? 'approved' : ''}">
                 <div class="department-header">
                     <span>${config.title}</span>
                     <div class="flex items-center gap-4">
@@ -3665,10 +3818,7 @@ async function runEcrFormLogic(params = null) {
                     </div>
                 </div>
                 <div class="department-footer">
-                    <div class="flex items-center gap-2">${createCheckbox('OK', `ok_${config.id}`)} ${createCheckbox('NOK', `nok_${config.id}`)}</div>
-                    ${createDateField('Fecha:', `date_${config.id}`)}
-                    ${createTextField('Nombre:', `name_${config.id}`, 'Nombre...')}
-                    ${createTextField('Visto:', `visto_${config.id}`, 'Visto...')}
+                    ${approvalControlsHTML}
                 </div>
             </div>
         `;
@@ -3815,7 +3965,7 @@ async function runEcrFormLogic(params = null) {
 
     // --- All other pages remain the same as they are already structured correctly.
     // I will copy them here to ensure the full form is preserved.
-    const page2HTML = `
+    const page2HTML = (data) => `
         <div class="ecr-page relative" id="page2">
             <div class="watermark">Página 2</div>
             <div class="ecr-checklist-bar">EVALUACIÓN DE PROPUESTA POR LOS DEPARTAMENTOS</div>
@@ -3831,23 +3981,23 @@ async function runEcrFormLogic(params = null) {
                     </div>
                 `,
                 checklist: ['ESTRUCTURA DE PRODUCTO', 'PLANO DE VALIDACIÓN', 'LANZAMIENTO DE PROTOTIPOS', 'EVALUADO POR EL ESPECIALISTA DE PRODUCTO', 'ACTUALIZAR DISEÑO 3D', 'ACTUALIZAR DISEÑO 2D', 'ACTUALIZAR DFMEA', 'COPIA DE ESTA ECR PARA OTRO SITIO?', 'NECESITA PIEZA DE REPOSICIÓN'].map(l => ({label: l, name: `prod_check_${l.toLowerCase().replace(/ /g,'_')}`}))
-            })}
+            }, data)}
             ${buildDepartmentSection({
                 title: 'INGENIERÍA MANUFACTURA Y PROCESO', id: 'ing_manufatura',
                 checklist: ['HACER RUN A RATE', 'ACTUALIZAR DISEÑO MANUFACTURA', 'LAY OUT', 'AFECTA EQUIPAMIENTO', 'ACTUALIZAR INSTRUCCIONES, FLUJOGRAMAS', 'ACTUALIZAR PFMEA', 'POKA YOKES', 'ACTUALIZAR TIEMPOS', 'CAPACIDAD DE PERSONAL', 'AFECTA A S&R / HSE'].map(l => ({label: l, name: `manuf_${l.toLowerCase().replace(/ /g,'_')}`}))
-            })}
+            }, data)}
              ${buildDepartmentSection({
                 title: 'HSE', id: 'hse',
                 checklist: ['CHECK LIST DE LIB DE MÁQUINA', 'COMUNICAR ÓRGANO AMBIENTAL', 'COMUNICACIÓN MINISTERIO DE TRABAJO'].map(l => ({label: l, name: `hse_${l.toLowerCase().replace(/ /g,'_')}`}))
-            })}
+            }, data)}
             ${buildDepartmentSection({
                 title: 'CALIDAD', id: 'calidad',
                 checklist: ['AFECTA DIMENSIONAL CLIENTE?', 'AFECTA FUNCIONAL Y MONTABILIDAD?', 'ACTUALIZAR PLANO DE CONTROLES/ INSTRUCCIONES', 'AFECTA ASPECTO/ACTUALIZAR BIBLIA DE DEFECTOS/PZA PATRÓN?', 'AFECTA CAPABILIDAD (AFECTA CAPACIDAD)', 'MODIFICAR DISPOSITIVO DE CONTROL Y SU MODO DE CONTROL', 'NUEVO ESTUDIO DE MSA / CALIBRACIÓN', 'NECESITA VALIDACIÓN (PLANO DEBE ESTAR EN ANEXO)', 'NECESARIO NUEVO PPAP/PSW CLIENTE', 'ANÁLISIS DE MATERIA PRIMA', 'IMPLEMENTAR MURO DE CALIDAD', 'NECESITA AUDITORÍA S&R', 'AFECTA POKA-YOKE?', 'AFECTA AUDITORÍA DE PRODUCTO?'].map(l => ({label: l, name: `calidad_${l.toLowerCase().replace(/ /g,'_')}`}))
-            })}
+            }, data)}
         </div>
     `;
 
-    const page3HTML = `
+    const page3HTML = (data) => `
         <div class="ecr-page relative" id="page3">
             <div class="watermark">Página 3</div>
             <div class="ecr-checklist-bar">EVALUACIÓN DE PROPUESTA POR LOS DEPARTAMENTOS (Cont.)</div>
@@ -3861,46 +4011,46 @@ async function runEcrFormLogic(params = null) {
                     <div class="flex gap-4 mt-2">${createCheckbox('Modificación reversible', 'compras_rev')} ${createCheckbox('Modificación irreversible', 'compras_irrev')}</div>
                 `,
                 checklist: ['COSTOS EVALUADOS', 'PEDIDO COMPRA PROTOTIPOS', 'PEDIDO COMPRA TOOLING', 'AFECTA HERRAMIENTA DE PROVEEDOR', 'NECESARIO ENVIAR DISEÑO P/ PROVEEDOR', 'IMPACTO POST VENTA ANALIZADO'].map(l => ({label: l, name: `compras_${l.toLowerCase().replace(/ /g,'_')}`}))
-            })}
+            }, data)}
             ${buildDepartmentSection({
                 title: 'CALIDAD PROVEEDORES (SQA)', id: 'sqa',
                 checklist: ['NECESITA NUEVO PSW PROVEEDOR - FECHA LÍMITE: __/__/____', 'AFECTA LAY OUT', 'AFECTA EMBALAJE', 'AFECTA DISPOSITIVO CONTROL PROVEEDOR', 'AFECTA SUBPROVEEDOR', 'NECESITA DE ASISTENTE'].map(l => ({label: l, name: `sqa_${l.toLowerCase().replace(/ /g,'_')}`}))
-            })}
+            }, data)}
             ${buildDepartmentSection({
                 title: 'Tooling & Equipments (T&E)', id: 'tooling',
                 checklist: ['AFECTA HERRAMIENTA', 'ANÁLISIS TÉCNICO DE ALTERACIÓN', 'OTROS IMPACTOS CAUSADOS POR LA ALTERACIÓN NO HERRAMENTAL'].map(l => ({label: l, name: `tooling_${l.toLowerCase().replace(/ /g,'_')}`}))
-            })}
+            }, data)}
         </div>
     `;
 
-    const page4HTML = `
+    const page4HTML = (data) => `
          <div class="ecr-page relative" id="page4">
             <div class="watermark">Página 4</div>
             <div class="ecr-checklist-bar">EVALUACIÓN DE PROPUESTA POR LOS DEPARTAMENTOS (Cont.)</div>
              ${buildDepartmentSection({
                 title: 'LOGÍSTICA Y PC&L', id: 'logistica',
                 checklist: ['Parámetros logísticos/items nuevos', 'Gestión de stock (pieza antigua/nueva)', 'Necesita stock de seguridad', 'Altera programa p/ proveedor', 'Nuevo protocolo logístico', 'Impacto post venta', 'Impacto MOI/MOD', 'Afecta embalaje'].map(l => ({label: l, name: `logistica_${l.toLowerCase().replace(/ /g,'_')}`}))
-            })}
+            }, data)}
              ${buildDepartmentSection({
                 title: 'FINANCIERO / COSTOS', id: 'financiero',
                 checklist: ['BUSINESS PLAN', 'BOA - BUSINESS OPPORTUNITY', 'MoB - ANALYSIS', 'PAYBACK / UPFRONT'].map(l => ({label: l, name: `financiero_${l.toLowerCase().replace(/ /g,'_')}`}))
-            })}
+            }, data)}
             ${buildDepartmentSection({
                 title: 'COMERCIAL', id: 'comercial',
                 checklist: ['NECESARIO RENEGOCIAR CON EL CLIENTE', 'IMPACTO POST VENTA ANALIZADO', 'NECESARIA NUEVA ORDEN DE VENTA AL CLIENTE', 'NEGOCIACIÓN DE OBSOLETOS'].map(l => ({label: l, name: `comercial_${l.toLowerCase().replace(/ /g,'_')}`}))
-            })}
+            }, data)}
             ${buildDepartmentSection({
                 title: 'MANTENIMIENTO', id: 'mantenimiento',
                 checklist: ['PROYECTO PRESENTA VIABILIDAD TÉCNICA / TECNOLÓGICA', 'NECESITA ADQUISICIÓN DE MATERIALES/EQUIPOS', 'NECESIDAD / DISPONIBILIDAD DE ENERGÍAS: ELÉCTRICA, NEUMÁTICA E HIDRÁULICA', 'CREACIÓN/ALTERACIÓN DE MANTENIMIENTO PREVENTIVO', 'NECESITA REGISTRO DE NUEVOS ITEMS EN ALMACÉN'].map(l => ({label: l, name: `mantenimiento_${l.toLowerCase().replace(/ /g,'_')}`}))
-            })}
+            }, data)}
             ${buildDepartmentSection({
                 title: 'PRODUCCIÓN', id: 'produccion',
                 checklist: ['AFECTA INSTRUCCIÓN DE TRABAJO (SW)', 'AFECTA LIBERACIÓN DE PROCESO (SET UP)', 'IMPACTO MOD / MOI', 'CAPACITACIÓN', 'AFECTA ALTERACIÓN DE PLANO DE CORTE'].map(l => ({label: l, name: `produccion_${l.toLowerCase().replace(/ /g,'_')}`}))
-            })}
+            }, data)}
             ${buildDepartmentSection({
                 title: 'CALIDAD CLIENTE', id: 'calidad_cliente',
                 checklist: ['NECESITA APROBACIÓN CLIENTE EXTERNO', 'NECESARIO APROBACIÓN CLIENTE INTERNO', 'ECR SOBRE DESVÍO N°: ____', 'OTROS: ______'].map(l => ({label: l, name: `calidad_cliente_${l.toLowerCase().replace(/ /g,'_')}`}))
-            })}
+            }, data)}
         </div>
     `;
 
@@ -3920,7 +4070,22 @@ async function runEcrFormLogic(params = null) {
         </div>
     `;
 
-    formContainer.innerHTML = page1HTML + page2HTML + page3HTML + page4HTML + finalPageHTML;
+    let ecrData = null;
+    if (isEditing) {
+        const docRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            ecrData = docSnap.data();
+        } else {
+            showToast(`Error: No se encontró el ECR con ID ${ecrId}`, 'error');
+            switchView('ecr');
+            return;
+        }
+    }
+
+    formContainer.innerHTML = page1HTML + page2HTML(ecrData) + page3HTML(ecrData) + page4HTML(ecrData) + finalPageHTML;
+    lucide.createIcons();
+
 
     // --- Local Storage and Data Handling ---
     const saveEcrFormToLocalStorage = () => {
@@ -3941,11 +4106,13 @@ async function runEcrFormLogic(params = null) {
 
     const populateEcrForm = (form, data) => {
         if (!data || !form) return;
+        // Populate standard fields
         for (const key in data) {
+            if (key === 'approvals') continue; // Skip approvals map, handled below
             const elements = form.querySelectorAll(`[name="${key}"]`);
             elements.forEach(element => {
                 if (element.type === 'checkbox' || element.type === 'radio') {
-                    if(element.type === 'radio') {
+                     if(element.type === 'radio') {
                         if(element.value === String(data[key])) element.checked = true;
                     } else {
                         element.checked = !!data[key];
@@ -3955,25 +4122,60 @@ async function runEcrFormLogic(params = null) {
                 }
             });
         }
+
+        // Populate and disable approval sections
+        if (data.approvals) {
+            for (const deptId in data.approvals) {
+                const approval = data.approvals[deptId];
+                const section = form.querySelector(`.department-section:has([name="comments_${deptId}"])`);
+                if (!section) continue;
+
+                const commentArea = section.querySelector(`[name="comments_${deptId}"]`);
+                if (commentArea && approval.comment) {
+                    commentArea.value = approval.comment;
+                }
+
+                if (approval.status === 'approved' || approval.status === 'rejected') {
+                    section.querySelectorAll('input, textarea, button').forEach(el => {
+                         if (!el.closest('.department-footer')) { // Don't disable the footer itself
+                            el.disabled = true;
+                         }
+                    });
+                }
+            }
+        }
     };
 
 
     // --- Load Data and Attach Listeners ---
-    if (isEditing) {
-        const docRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-            populateEcrForm(formContainer, docSnap.data());
-        } else {
-            showToast(`Error: No se encontró el ECR con ID ${ecrId}`, 'error');
-            switchView('ecr');
-            return;
-        }
+    if (ecrData) {
+        populateEcrForm(formContainer, ecrData);
     } else {
         loadEcrFormFromLocalStorage();
     }
 
     formContainer.addEventListener('input', saveEcrFormToLocalStorage);
+
+    formContainer.addEventListener('click', async (e) => {
+        const button = e.target.closest('button[data-action="register-ecr-approval"]');
+        if (!button) return;
+
+        const decision = button.dataset.decision;
+        const departmentId = button.dataset.departmentId;
+        const ecrId = formContainer.querySelector('[name="ecr_no"]').value.trim();
+
+        if (!ecrId) {
+            showToast('Debe guardar el ECR con un N° antes de poder aprobar.', 'error');
+            return;
+        }
+
+        const commentEl = formContainer.querySelector(`[name="comments_${departmentId}"]`);
+        const comment = commentEl ? commentEl.value : '';
+
+        await registerEcrApproval(ecrId, departmentId, decision, comment);
+        // Refresh the form view to show the new state
+        switchView('ecr_form', { ecrId: ecrId });
+    });
 
     // --- Button Event Listeners ---
     document.getElementById('ecr-back-button').addEventListener('click', () => switchView('ecr'));
@@ -4181,6 +4383,48 @@ function showToast(message, type = 'success', duration = 3000) {
         toast.classList.remove('show');
         toast.addEventListener('transitionend', () => toast.remove());
     }, duration);
+}
+
+function renderNotificationCenter() {
+    const container = document.getElementById('notification-center-container');
+    if (!container) return;
+
+    const notifications = appState.collections.notifications || [];
+    const unreadCount = notifications.filter(n => !n.isRead).length;
+
+    let notificationItemsHTML = '';
+    if (notifications.length === 0) {
+        notificationItemsHTML = '<p class="text-center text-sm text-slate-500 py-8">No tienes notificaciones.</p>';
+    } else {
+        notificationItemsHTML = notifications.slice(0, 10).map(n => `
+            <a href="#" data-action="notification-click" data-view='${n.view}' data-params='${JSON.stringify(n.params)}' data-id="${n.docId}"
+               class="block p-3 hover:bg-slate-100 transition-colors duration-150 ${n.isRead ? 'opacity-60' : 'font-semibold'}">
+                <p class="text-sm">${n.message}</p>
+                <p class="text-xs text-slate-400 mt-1">${formatTimeAgo(n.createdAt.seconds * 1000)}</p>
+            </a>
+        `).join('');
+    }
+
+    container.innerHTML = `
+        <button id="notification-bell" class="relative p-2 rounded-full hover:bg-slate-100">
+            <i data-lucide="bell" class="w-6 h-6 text-slate-600"></i>
+            ${unreadCount > 0 ? `<span class="absolute top-0 right-0 block h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center border-2 border-white">${unreadCount}</span>` : ''}
+        </button>
+        <div id="notification-dropdown" class="absolute z-20 right-0 mt-2 w-80 bg-white border rounded-lg shadow-xl hidden dropdown-menu">
+            <div class="flex justify-between items-center p-3 border-b">
+                <h4 class="font-bold">Notificaciones</h4>
+                ${unreadCount > 0 ? '<button data-action="mark-all-read" class="text-xs text-blue-600 hover:underline">Marcar todas como leídas</button>' : ''}
+            </div>
+            <div id="notification-list" class="max-h-96 overflow-y-auto">
+                ${notificationItemsHTML}
+            </div>
+        </div>
+    `;
+    lucide.createIcons();
+
+    document.getElementById('notification-bell')?.addEventListener('click', () => {
+        document.getElementById('notification-dropdown')?.classList.toggle('hidden');
+    });
 }
 
 function showConfirmationModal(title, message, onConfirm) {
@@ -4738,6 +4982,34 @@ function handleGlobalClick(e) {
         document.getElementById('user-dropdown')?.classList.add('hidden');
         return;
     }
+
+    const notificationLink = target.closest('[data-action="notification-click"]');
+    if (notificationLink) {
+        e.preventDefault();
+        const { view, params, id } = notificationLink.dataset;
+
+        // Mark as read
+        const notifRef = doc(db, COLLECTIONS.NOTIFICATIONS, id);
+        updateDoc(notifRef, { isRead: true });
+
+        // Navigate
+        document.getElementById('notification-dropdown')?.classList.add('hidden');
+        switchView(view, JSON.parse(params));
+        return;
+    }
+
+    const markAllReadBtn = target.closest('[data-action="mark-all-read"]');
+    if(markAllReadBtn) {
+        const batch = writeBatch(db);
+        const unreadNotifs = appState.collections.notifications.filter(n => !n.isRead);
+        unreadNotifs.forEach(n => {
+            const notifRef = doc(db, COLLECTIONS.NOTIFICATIONS, n.docId);
+            batch.update(notifRef, { isRead: true });
+        });
+        batch.commit().then(() => showToast('Notificaciones marcadas como leídas.', 'success'));
+        return;
+    }
+
 
     // Close user menu
     const userMenuButton = document.getElementById('user-menu-button');
@@ -7167,61 +7439,138 @@ async function openTaskFormModal(task = null, defaultStatus = 'todo', defaultAss
  * @param {string} message - El mensaje de la notificación.
  * @param {string} view - La vista a la que debe navegar el usuario al hacer clic.
  */
-function sendNotification(userId, message, view) {
-    // Por ahora, solo mostramos un toast.
-    // En el futuro, esto podría crear un documento en una colección 'notifications'
-    // y/o enviar un email.
-    console.log(`Sending notification to ${userId}: ${message}`);
-    // A modo de ejemplo, si la notificación es para el usuario actual, la mostramos.
-    if (userId === appState.currentUser.uid) {
-        showToast(message, 'info', 10000);
+async function sendNotification(userId, message, view, params = {}) {
+    if (!userId || !message || !view) {
+        console.error('sendNotification called with invalid parameters:', { userId, message, view });
+        return;
+    }
+
+    try {
+        await addDoc(collection(db, COLLECTIONS.NOTIFICATIONS), {
+            userId,
+            message,
+            view,
+            params,
+            createdAt: new Date(),
+            isRead: false,
+        });
+    } catch (error) {
+        console.error("Error sending notification:", error);
     }
 }
 
 /**
- * Gestiona la lógica de transición de estados para un ECR.
+ * Registra la decisión de un departamento sobre un ECR y evalúa si el estado general del ECR debe cambiar.
  * @param {string} ecrId - El ID del ECR a modificar.
- * @param {string} newStatus - El nuevo estado al que se debe transicionar.
- * @param {object} [extraData={}] - Datos adicionales para actualizar en el documento.
+ * @param {string} departmentId - El ID del departamento que emite la decisión (ej: 'calidad').
+ * @param {string} decision - La decisión tomada ('approved', 'rejected', 'stand-by').
+ * @param {string} comment - Un comentario opcional sobre la decisión.
  */
-async function handleEcrStateChange(ecrId, newStatus, extraData = {}) {
-    if (!ecrId || !newStatus) {
-        showToast('Error: Faltan datos para cambiar el estado del ECR.', 'error');
+async function registerEcrApproval(ecrId, departmentId, decision, comment) {
+    const user = appState.currentUser;
+    if (!user) {
+        showToast('Debe iniciar sesión para aprobar.', 'error');
+        return;
+    }
+
+    // Basic validation
+    if (!ecrId || !departmentId || !decision) {
+        showToast('Error: Faltan datos para registrar la aprobación.', 'error');
         return;
     }
 
     const ecrRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
 
     try {
-        const updateData = {
-            status: newStatus,
-            lastModified: new Date(),
-            modifiedBy: appState.currentUser.email,
-            ...extraData
-        };
+        await runTransaction(db, async (transaction) => {
+            const ecrDoc = await transaction.get(ecrRef);
+            if (!ecrDoc.exists()) {
+                throw new Error("El ECR no existe.");
+            }
 
-        await updateDoc(ecrRef, updateData);
-        showToast(`ECR actualizado al estado: ${newStatus}.`, 'success');
+            let ecrData = ecrDoc.data();
+            const currentUserSector = appState.currentUser.sector;
 
-        // Lógica de notificación post-cambio de estado
-        const ecrData = (await getDoc(ecrRef)).data();
-        switch (newStatus) {
-            case 'pending-approval':
-                // Notificar a todos los departamentos del circuito
-                const approversToNotify = Object.keys(ecrData.approvals);
-                // (Lógica futura para obtener los UIDs de los usuarios de cada sector)
-                console.log(`Notificando a los sectores: ${approversToNotify.join(', ')}`);
-                break;
-            case 'approved':
-                // Notificar al creador que su ECR fue aprobado
-                // (Lógica futura para obtener el UID del creador)
-                console.log(`Notificando al creador sobre la aprobación del ECR ${ecrId}`);
-                break;
+            // Security Check: Ensure the user belongs to the department they are approving for.
+            if (currentUserSector !== departmentId && appState.currentUser.role !== 'admin') {
+                 throw new Error(`No tienes permiso para aprobar por el departamento de ${departmentId}.`);
+            }
+
+            // Update the specific department's approval status
+            const approvalPath = `approvals.${departmentId}`;
+            const approvalUpdate = {
+                status: decision,
+                user: user.name,
+                date: new Date().toISOString().split('T')[0],
+                comment: comment || ''
+            };
+
+            // This creates the object to be used with updateDoc
+            const updateData = { [approvalPath]: approvalUpdate };
+
+            // Apply the update to our local copy to evaluate the new state
+            ecrData.approvals[departmentId] = approvalUpdate;
+
+            // --- State Machine Logic ---
+            let newOverallStatus = ecrData.status; // Start with the current status
+
+            if (ecrData.status === 'pending-approval') {
+                const requiredApprovals = ['ing_manufatura', 'calidad', 'compras', 'logistica', 'financiero', 'comercial'];
+                const approvalStates = ecrData.approvals;
+
+                // 1. Check for any rejection
+                if (decision === 'rejected') {
+                    newOverallStatus = 'rejected';
+                } else {
+                    // 2. Check if all required departments have approved
+                    const allApproved = requiredApprovals.every(dept => approvalStates[dept]?.status === 'approved');
+
+                    if (allApproved) {
+                        newOverallStatus = 'approved';
+                    }
+                    // If not all approved and no rejections, it remains 'pending-approval'
+                }
+            }
+
+            // If the overall status has changed, add it to the update object
+            if (newOverallStatus !== ecrData.status) {
+                updateData.status = newOverallStatus;
+            }
+
+            // Add metadata
+            updateData.lastModified = new Date();
+            updateData.modifiedBy = user.email;
+
+            // Perform the transactional write
+            transaction.update(ecrRef, updateData);
+
+            // Return the new status for notification logic outside the transaction
+            return newOverallStatus;
+        });
+
+        // --- Post-Transaction Logic ---
+        const finalEcrDoc = await getDoc(ecrRef);
+        const finalEcrData = finalEcrDoc.data();
+        const finalStatus = finalEcrData.status;
+
+        showToast(`Decisión del departamento de ${departmentId} registrada.`, 'success');
+
+        // Send notifications if the status changed
+        if (finalStatus !== ecrData.status) {
+            showToast(`El estado del ECR ha cambiado a: ${finalStatus}`, 'info');
+            if (finalEcrData.creatorUid) {
+                 sendNotification(
+                    finalEcrData.creatorUid,
+                    `El estado del ECR "${ecrId}" ha cambiado a ${finalStatus}.`,
+                    'ecr_form',
+                    { ecrId: ecrId }
+                );
+            }
         }
 
     } catch (error) {
-        console.error("Error cambiando el estado del ECR:", error);
-        showToast('Error al actualizar el estado del ECR.', 'error');
+        console.error("Error al registrar la aprobación del ECR:", error);
+        showToast(error.message || 'No se pudo registrar la aprobación.', 'error');
     }
 }
 
@@ -7493,6 +7842,7 @@ onAuthStateChanged(auth, async (user) => {
             dom.appView.classList.remove('hidden');
             updateNavForRole();
             renderUserMenu();
+            renderNotificationCenter(); // Initial render
 
             // Wait for essential data to load
             await startRealtimeListeners();
