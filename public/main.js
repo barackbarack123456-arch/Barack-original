@@ -2889,13 +2889,13 @@ async function runEcrSeguimientoLogic() {
             const data = docSnap.data();
             const updateData = {};
 
-            if (data[okKey]) { // Current state is OK
+            if (data[okKey]) { // Current state is OK -> change to NOK
                 updateData[okKey] = false;
                 updateData[nokKey] = true;
-            } else if (data[nokKey]) { // Current state is NOK
-                updateData[okKey] = false;
+            } else if (data[nokKey]) { // Current state is NOK -> change to OK
+                updateData[okKey] = true;
                 updateData[nokKey] = false;
-            } else { // Current state is empty
+            } else { // Current state is empty -> change to OK
                 updateData[okKey] = true;
                 updateData[nokKey] = false;
             }
@@ -2971,7 +2971,7 @@ async function runEcrSeguimientoLogic() {
 
             if (!reunionId || !deptoId) return;
 
-            const statusCycle = { '': 'P', 'P': 'A', 'A': 'O', 'O': '' };
+            const statusCycle = { '': 'P', 'P': 'A', 'A': 'O', 'O': 'P' };
             const currentStatus = button.textContent;
             const nextStatus = statusCycle[currentStatus];
 
