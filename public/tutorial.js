@@ -276,9 +276,8 @@ const tutorial = (app) => {
                 position: 'right',
                 click: true,
                 postAction: async () => {
-                    document.querySelector('a[data-view="ecr"]').click();
-                    // Wait for a key element in the ECR view to be visible
-                    await waitForVisibleElement('button[data-action="create-new-ecr"]');
+                    // Direct navigation instead of simulated click
+                    await app.switchView('ecr');
                 }
             },
             {
@@ -295,9 +294,8 @@ const tutorial = (app) => {
                 position: 'bottom',
                 click: true,
                 postAction: async () => {
-                    document.querySelector('button[data-action="create-new-ecr"]').click();
-                    // Wait for a key element in the ECR form to be visible
-                    await waitForVisibleElement('.ecr-header');
+                    // Direct navigation instead of simulated click
+                    await app.switchView('ecr_form');
                 }
             },
             {
@@ -344,7 +342,6 @@ const tutorial = (app) => {
                 position: 'center',
                 preAction: async () => {
                     await app.switchView('ecr');
-                    await waitForVisibleElement('#ecr-table-body');
                 }
             },
             {
@@ -353,11 +350,14 @@ const tutorial = (app) => {
                 content: 'Cuando un ECR es aprobado, aparece un botón para "Generar ECO". Esto convierte la solicitud en una Orden de Cambio, que es el documento para ejecutar la modificación.',
                 position: 'bottom'
             },
-            {
-                element: 'body',
+             {
+                element: '#action-plan-section',
                 title: 'Plan de Acción del ECO',
-                content: 'La ECO generada contendrá una sección de "Plan de Acción". Esta sección permite crear una lista de tareas, asignar responsables y fechas límite para asegurar que el cambio se realice correctamente.',
-                position: 'center'
+                content: 'La ECO se enfoca en la implementación. Esta sección permite crear una lista de tareas, asignar responsables y fechas límite para asegurar que el cambio se realice correctamente.',
+                position: 'top',
+                 preAction: async () => {
+                    await app.switchView('eco_form');
+                }
             },
             {
                 element: 'body',
