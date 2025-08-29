@@ -261,6 +261,29 @@ const tutorial = (app) => {
         `;
         dom.overlay.appendChild(dom.tooltip);
 
+        // Create arrow container for off-screen guidance
+        const arrowContainer = document.createElement('div');
+        arrowContainer.id = 'tutorial-arrow-container';
+
+        const directions = ['up', 'down', 'left', 'right'];
+        directions.forEach(dir => {
+            const arrowEl = document.createElement('div');
+            arrowEl.id = `tutorial-arrow-${dir}`;
+            arrowEl.classList.add('tutorial-arrow');
+
+            const iconEl = document.createElement('i');
+            iconEl.setAttribute('data-lucide', `arrow-${dir}`);
+            arrowEl.appendChild(iconEl);
+
+            arrowContainer.appendChild(arrowEl);
+        });
+        dom.overlay.appendChild(arrowContainer);
+
+        // Tell lucide to create the newly added icons
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons();
+        }
+
         document.body.appendChild(dom.overlay);
 
         // Add event listeners
@@ -357,7 +380,7 @@ const tutorial = (app) => {
     };
 
     let resizeObserver = null;
-    let scrollHandler = null;
+    let intersectionObserver = null;
 
     const updateHighlight = (targetElement, step) => {
         if (!targetElement || !dom.highlight) return;
@@ -375,15 +398,49 @@ const tutorial = (app) => {
         positionTooltip(targetRect, step.position);
     };
 
+    /**
+     * Shows or hides the correct directional arrow if the target element is off-screen.
+     * @param {Element} targetElement - The DOM element for the current step.
+     * @param {boolean} isOffScreen - Whether the element is off-screen or not.
+     */
+    const updateArrowVisibility = (targetElement, isOffScreen) => {
+        const arrows = {
+            up: document.getElementById('tutorial-arrow-up'),
+            down: document.getElementById('tutorial-arrow-down'),
+            left: document.getElementById('tutorial-arrow-left'),
+            right: document.getElementById('tutorial-arrow-right')
+        };
+
+        // Hide all arrows first
+        for (const dir in arrows) {
+            arrows[dir]?.classList.remove('visible');
+        }
+
+        if (!isOffScreen) return;
+
+        const targetRect = targetElement.getBoundingClientRect();
+
+        // Determine which direction the element is in and show the corresponding arrow
+        if (targetRect.bottom < 0) {
+            arrows.up?.classList.add('visible');
+        } else if (targetRect.top > window.innerHeight) {
+            arrows.down?.classList.add('visible');
+        } else if (targetRect.right < 0) {
+            arrows.left?.classList.add('visible');
+        } else if (targetRect.left > window.innerWidth) {
+            arrows.right?.classList.add('visible');
+        }
+    };
+
     const showStep = async (index) => {
         // Clear any existing observers or listeners to prevent leaks
         if (resizeObserver) {
             resizeObserver.disconnect();
             resizeObserver = null;
         }
-        if (scrollHandler) {
-            window.removeEventListener('scroll', scrollHandler, true);
-            scrollHandler = null;
+        if (intersectionObserver) {
+            intersectionObserver.disconnect();
+            intersectionObserver = null;
         }
 
         if (index < 0 || index >= steps.length) {
@@ -393,6 +450,9 @@ const tutorial = (app) => {
 
         currentStepIndex = index;
         const step = steps[index];
+
+        // Hide all arrows initially when a new step is shown
+        document.querySelectorAll('.tutorial-arrow').forEach(a => a.classList.remove('visible'));
 
         if (dom.tooltip) {
             dom.tooltip.classList.remove('is-waiting');
@@ -416,7 +476,7 @@ const tutorial = (app) => {
                 if(titleEl) titleEl.textContent = 'Elemento no encontrado';
                 if(textEl) textEl.innerHTML = `No se pudo encontrar el elemento: <code class="text-xs bg-red-100 p-1 rounded">${step.element}</code>. Omitiendo este paso.`;
                 dom.tooltip.classList.add('is-waiting');
-                await new Promise(resolve => setTimeout(resolve, 1500)); // Shorter wait time
+                await new Promise(resolve => setTimeout(resolve, 1500));
             }
             next();
             return;
@@ -426,6 +486,7 @@ const tutorial = (app) => {
 
         smartScroll(targetElement);
 
+        // Defer updates to the next paint cycle to ensure layout is stable
         setTimeout(() => {
             if (step.click) {
                 targetElement.classList.add('tutorial-click-effect');
@@ -442,16 +503,22 @@ const tutorial = (app) => {
 
             updateHighlight(targetElement, step);
 
+            // Observer for resizing the element or page
             resizeObserver = new ResizeObserver(() => {
                 updateHighlight(targetElement, step);
             });
             resizeObserver.observe(targetElement);
             resizeObserver.observe(document.body);
 
-            // Also listen for scroll events to keep the highlight in sync
-            scrollHandler = () => updateHighlight(targetElement, step);
-            window.addEventListener('scroll', scrollHandler, true);
-        }, 0); // Defer to next paint cycle
+            // Observer for visibility, to show guide arrows
+            intersectionObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    updateArrowVisibility(targetElement, !entry.isIntersecting);
+                });
+            }, { root: null, threshold: 0 }); // A threshold of 0 triggers as soon as the element is partially out of view.
+
+            intersectionObserver.observe(targetElement);
+        }, 0);
     };
 
     /**
@@ -587,9 +654,9 @@ const tutorial = (app) => {
             resizeObserver.disconnect();
             resizeObserver = null;
         }
-        if (scrollHandler) {
-            window.removeEventListener('scroll', scrollHandler, true);
-            scrollHandler = null;
+        if (intersectionObserver) {
+            intersectionObserver.disconnect();
+            intersectionObserver = null;
         }
         if (dom.overlay) {
             dom.overlay.remove();
