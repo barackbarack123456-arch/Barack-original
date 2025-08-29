@@ -153,3 +153,22 @@
     animation: tutorial-click-animation 1s ease-out;
     border-radius: 6px; /* Match highlight radius */
 }
+
+/* Style for when the tutorial is waiting for an element */
+#tutorial-tooltip.is-waiting {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+#tutorial-tooltip.is-waiting #tutorial-tooltip-nav,
+#tutorial-tooltip.is-waiting #tutorial-tooltip-progress {
+    visibility: hidden;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .8;
+  }
+}
