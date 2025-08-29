@@ -122,16 +122,12 @@ const tutorial = (app) => {
             content: 'Para este ECR aprobado de ejemplo, el botón "Generar ECO" está activo. Al hacer clic, se crea la Orden de Cambio de Ingeniería (ECO) y nos lleva a su formulario.',
             position: 'left',
             preAction: async () => {
-                // Ensure the view is correct before running the action.
-                await app.switchView('ecr');
-
-                // This helper function, exposed from main.js, now contains all the logic
-                // to create a sample approved ECR if one doesn't exist. This fixes the
-                // previous bug caused by incorrect Firestore v9 syntax here.
+                // The user is already on the 'ecr' view. Calling the helper directly
+                // is more stable and avoids potential race conditions with view re-initialization.
                 await app.createTutorialEcr();
 
-                // Small delay to ensure the UI updates if a new ECR was created by the helper.
-                await new Promise(resolve => setTimeout(resolve, 500));
+                // A slightly longer, more robust wait for the onSnapshot listener to fire and the UI to re-render.
+                await new Promise(resolve => setTimeout(resolve, 750));
             },
             click: true,
             postAction: async () => {
