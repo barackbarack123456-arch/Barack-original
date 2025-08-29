@@ -52,7 +52,10 @@ const tutorial = (app) => {
             element: '#view-title',
             title: 'Panel de Control de ECRs',
             content: 'Esta tabla muestra todos los ECRs con su estado actual. Para proponer un nuevo cambio, crearemos un nuevo ECR.',
-            position: 'bottom'
+            position: 'bottom',
+            preAction: async () => {
+                await app.switchView('ecr');
+            }
         },
         {
             element: '[data-tutorial-id="create-new-button"]',
