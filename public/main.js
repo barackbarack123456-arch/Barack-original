@@ -3806,11 +3806,6 @@ async function runEcrFormLogic(params = null) {
         const isApprovedOrRejected = approval?.status === 'approved' || approval?.status === 'rejected';
         const canApprove = appState.currentUser.role === 'admin' || appState.currentUser.sector === departmentId;
 
-        const isFirstTutorialSection = config.id === 'ing_producto';
-        const sectionTutorialId = isFirstTutorialSection ? 'data-tutorial-id="evaluacion-departamento"' : '';
-        const footerTutorialId = isFirstTutorialSection ? 'data-tutorial-id="aprobacion-departamental"' : '';
-
-
         let approvalControlsHTML = '';
         if (isApprovedOrRejected) {
             const statusClass = approval.status === 'approved' ? 'text-green-600' : 'text-red-600';
@@ -3833,7 +3828,7 @@ async function runEcrFormLogic(params = null) {
 
         return `
             <div class="department-section ${isApprovedOrRejected ? 'approved' : ''}">
-                <div class="department-header" ${sectionTutorialId}>
+                <div class="department-header">
                      <span class="flex items-center gap-3"><i data-lucide="${config.icon || 'help-circle'}" class="w-6 h-6 text-slate-500"></i>${config.title}</span>
                     <div class="flex items-center gap-4">
                         ${createCheckbox('No Afecta', `na_${config.id}`)}
@@ -3847,7 +3842,7 @@ async function runEcrFormLogic(params = null) {
                         <textarea name="comments_${config.id}" rows="6" class="form-field"></textarea>
                     </div>
                 </div>
-                <div class="department-footer" ${footerTutorialId}>
+                <div class="department-footer">
                     ${approvalControlsHTML}
                 </div>
             </div>
@@ -3999,6 +3994,7 @@ async function runEcrFormLogic(params = null) {
         <div class="ecr-page relative" id="page2">
             <div class="watermark">Página 2</div>
             <div class="ecr-checklist-bar">EVALUACIÓN DE PROPUESTA POR LOS DEPARTAMENTOS</div>
+            <div data-tutorial-id="evaluacion-departamento">
             ${buildDepartmentSection({
                 title: 'INGENIERÍA PRODUCTO — DISEÑO', id: 'ing_producto', icon: 'drafting-compass',
                 customHTML: `
@@ -4024,6 +4020,7 @@ async function runEcrFormLogic(params = null) {
                 title: 'CALIDAD', id: 'calidad', icon: 'award',
                 checklist: ['AFECTA DIMENSIONAL CLIENTE?', 'AFECTA FUNCIONAL Y MONTABILIDAD?', 'ACTUALIZAR PLANO DE CONTROLES/ INSTRUCCIONES', 'AFECTA ASPECTO/ACTUALIZAR BIBLIA DE DEFECTOS/PZA PATRÓN?', 'AFECTA CAPABILIDAD (AFECTA CAPACIDAD)', 'MODIFICAR DISPOSITIVO DE CONTROL Y SU MODO DE CONTROL', 'NUEVO ESTUDIO DE MSA / CALIBRACIÓN', 'NECESITA VALIDACIÓN (PLANO DEBE ESTAR EN ANEXO)', 'NECESARIO NUEVO PPAP/PSW CLIENTE', 'ANÁLISIS DE MATERIA PRIMA', 'IMPLEMENTAR MURO DE CALIDAD', 'NECESITA AUDITORÍA S&R', 'AFECTA POKA-YOKE?', 'AFECTA AUDITORÍA DE PRODUCTO?'].map(l => ({label: l, name: `calidad_${l.toLowerCase().replace(/ /g,'_')}`}))
             }, data)}
+            </div>
         </div>
     `;
 
@@ -4031,6 +4028,7 @@ async function runEcrFormLogic(params = null) {
         <div class="ecr-page relative" id="page3">
             <div class="watermark">Página 3</div>
             <div class="ecr-checklist-bar">EVALUACIÓN DE PROPUESTA POR LOS DEPARTAMENTOS (Cont.)</div>
+            <div data-tutorial-id="evaluacion-departamento">
             ${buildDepartmentSection({
                 title: 'COMPRAS', id: 'compras', icon: 'shopping-cart',
                 customHTML: `
@@ -4050,6 +4048,7 @@ async function runEcrFormLogic(params = null) {
                 title: 'Tooling & Equipments (T&E)', id: 'tooling', icon: 'wrench',
                 checklist: ['AFECTA HERRAMIENTA', 'ANÁLISIS TÉCNICO DE ALTERACIÓN', 'OTROS IMPACTOS CAUSADOS POR LA ALTERACIÓN NO HERRAMENTAL'].map(l => ({label: l, name: `tooling_${l.toLowerCase().replace(/ /g,'_')}`}))
             }, data)}
+            </div>
         </div>
     `;
 
@@ -4057,6 +4056,7 @@ async function runEcrFormLogic(params = null) {
          <div class="ecr-page relative" id="page4">
             <div class="watermark">Página 4</div>
             <div class="ecr-checklist-bar">EVALUACIÓN DE PROPUESTA POR LOS DEPARTAMENTOS (Cont.)</div>
+            <div data-tutorial-id="evaluacion-departamento">
              ${buildDepartmentSection({
                 title: 'LOGÍSTICA Y PC&L', id: 'logistica', icon: 'truck',
                 checklist: ['Parámetros logísticos/items nuevos', 'Gestión de stock (pieza antigua/nueva)', 'Necesita stock de seguridad', 'Altera programa p/ proveedor', 'Nuevo protocolo logístico', 'Impacto post venta', 'Impacto MOI/MOD', 'Afecta embalaje'].map(l => ({label: l, name: `logistica_${l.toLowerCase().replace(/ /g,'_')}`}))
@@ -4081,6 +4081,7 @@ async function runEcrFormLogic(params = null) {
                 title: 'CALIDAD CLIENTE', id: 'calidad_cliente', icon: 'user-check',
                 checklist: ['NECESITA APROBACIÓN CLIENTE EXTERNO', 'NECESARIO APROBACIÓN CLIENTE INTERNO', 'ECR SOBRE DESVÍO N°: ____', 'OTROS: ______'].map(l => ({label: l, name: `calidad_cliente_${l.toLowerCase().replace(/ /g,'_')}`}))
             }, data)}
+            </div>
         </div>
     `;
 

@@ -83,10 +83,10 @@ const tutorial = (app) => {
             element: '[data-tutorial-id="evaluacion-departamento"]',
             title: 'Evaluación de Impacto',
             content: 'Cada departamento afectado debe evaluar cómo le impacta el cambio. Esto asegura una visión 360° antes de aprobar nada.',
-            position: 'right'
+            position: 'top'
         },
         {
-            element: '[data-tutorial-id="aprobacion-departamental"]',
+            element: '[data-tutorial-id="evaluacion-departamento"]',
             title: 'Circuito de Aprobación',
             content: 'Una vez evaluado, los responsables de cada área emiten su aprobación o rechazo. La decisión, el usuario y la fecha quedan registrados aquí.',
             position: 'top'
@@ -353,7 +353,7 @@ const tutorial = (app) => {
         );
 
         if (!isVisible) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            element.scrollIntoView({ behavior: 'instant', block: 'nearest' });
         }
     };
 
