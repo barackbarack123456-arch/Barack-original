@@ -1,5 +1,6 @@
 /**
  * Styles for the Interactive Tutorial Module
+ * A modern, clean theme for the tutorial UI.
  */
 
 /* Overlay for dimming the background */
@@ -11,48 +12,60 @@
     height: 100vh;
     z-index: 10000;
     display: none;
-    pointer-events: none; /* Allow clicks to pass through the overlay */
+    pointer-events: none;
 }
 
 /* Element to highlight the focused part of the UI */
 #tutorial-highlight {
     position: absolute;
     border-radius: 8px;
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.2);
-    transition: all 0.3s ease-in-out;
+    /* A slightly stronger dimming effect and a subtle blue glow */
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4), 0 0 15px rgba(59, 130, 246, 0.5);
+    border: 2px solid rgba(59, 130, 246, 0.8); /* blue-500 */
+    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Tooltip container */
+/* Tooltip container with improved styling */
 #tutorial-tooltip {
     position: absolute;
     background-color: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    width: 320px;
+    border-radius: 12px; /* Slightly larger radius */
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e2e8f0; /* slate-200 */
+    width: 340px;
     max-width: 90vw;
     z-index: 10001;
-    transition: all 0.3s ease-in-out;
     font-family: 'Inter', sans-serif;
     display: flex;
     flex-direction: column;
-    pointer-events: auto; /* But allow interaction with the tooltip */
+    pointer-events: auto;
+    /* Fade-in and scale-up transition */
+    opacity: 0;
+    transform: scale(0.95);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Show animation */
+#tutorial-overlay:not([style*="display: none;"]) #tutorial-tooltip {
+    opacity: 1;
+    transform: scale(1);
 }
 
 /* Main content area of the tooltip */
 #tutorial-tooltip-content {
-    padding: 16px;
+    padding: 20px;
 }
 
 #tutorial-tooltip-title {
-    font-size: 1.1rem;
+    font-size: 1.2rem;
     font-weight: 700;
     color: #1e293b; /* slate-800 */
-    margin-bottom: 8px;
+    margin-bottom: 12px;
 }
 
 #tutorial-tooltip-text {
-    font-size: 0.9rem;
-    line-height: 1.5;
+    font-size: 0.95rem;
+    line-height: 1.6;
     color: #475569; /* slate-600 */
 }
 
@@ -61,25 +74,32 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 16px;
+    padding: 12px 20px;
     border-top: 1px solid #e2e8f0; /* slate-200 */
     background-color: #f8fafc; /* slate-50 */
-    border-bottom-left-radius: 8px;
-    border-bottom-right-radius: 8px;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+}
+
+#tutorial-nav-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 #tutorial-tooltip-nav button {
     border: none;
     cursor: pointer;
     font-weight: 600;
-    padding: 6px 12px;
-    border-radius: 6px;
-    transition: background-color 0.2s;
+    padding: 8px 14px;
+    border-radius: 8px;
+    transition: all 0.2s;
 }
 
 #tutorial-skip-btn {
     background: none;
     color: #64748b; /* slate-500 */
+    margin-right: auto;
 }
 
 #tutorial-skip-btn:hover {
@@ -93,12 +113,13 @@
 
 #tutorial-prev-btn {
     color: #475569; /* slate-600 */
-    background-color: #f1f5f9; /* slate-100 */
-    border: 1px solid #e2e8f0; /* slate-200 */
+    background-color: white;
+    border: 1px solid #cbd5e1; /* slate-300 */
 }
 
 #tutorial-prev-btn:hover {
-    background-color: #e2e8f0; /* slate-200 */
+    background-color: #f8fafc; /* slate-50 */
+    border-color: #94a3b8; /* slate-400 */
 }
 
 #tutorial-next-btn {
@@ -108,7 +129,10 @@
 
 #tutorial-next-btn:hover {
     background-color: #1d4ed8; /* blue-700 */
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(37, 99, 235, 0.2);
 }
+
 
 @keyframes tutorial-click-animation {
     0% {
