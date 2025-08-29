@@ -188,29 +188,51 @@ const tutorial = (app) => {
      * Shows a specific step of the tutorial.
      * @param {number} index - The index of the step to show.
      */
-    const waitForVisibleElement = (selector, timeout = 3000) => {
+    const waitForVisibleElement = (selector, timeout = 7000) => {
         return new Promise(resolve => {
-            // Special case for the 'body' selector, as its offsetParent is null.
-            if (selector === 'body') {
-                if (document.body) {
-                    resolve(document.body);
-                    return;
-                }
+            if (selector === 'body' && document.body) {
+                resolve(document.body);
+                return;
             }
 
             const interval = 100;
             let elapsedTime = 0;
 
+            const originalTitle = document.getElementById('tutorial-tooltip-title').textContent;
+            const originalText = document.getElementById('tutorial-tooltip-text').innerHTML;
+
+            const showWaitingMessage = () => {
+                const titleEl = document.getElementById('tutorial-tooltip-title');
+                const textEl = document.getElementById('tutorial-tooltip-text');
+                titleEl.textContent = 'Buscando Elemento...';
+                textEl.innerHTML = `Esperando que aparezca el siguiente elemento: <code class="text-xs bg-slate-200 p-1 rounded">${selector}</code>`;
+                dom.tooltip.classList.add('is-waiting');
+            };
+
+            const hideWaitingMessage = () => {
+                const titleEl = document.getElementById('tutorial-tooltip-title');
+                const textEl = document.getElementById('tutorial-tooltip-text');
+                titleEl.textContent = originalTitle;
+                textEl.innerHTML = originalText;
+                dom.tooltip.classList.remove('is-waiting');
+            };
+
+            // Show waiting message after a brief delay to avoid flickering for fast-loading elements
+            const waitingTimeout = setTimeout(showWaitingMessage, 500);
+
             const timer = setInterval(() => {
                 const element = document.querySelector(selector);
-                // Check if the element exists and is visible (not display:none and has dimensions)
                 if (element && element.offsetParent !== null) {
+                    clearTimeout(waitingTimeout);
                     clearInterval(timer);
+                    hideWaitingMessage();
                     resolve(element);
                 } else {
                     elapsedTime += interval;
                     if (elapsedTime >= timeout) {
+                        clearTimeout(waitingTimeout);
                         clearInterval(timer);
+                        hideWaitingMessage();
                         resolve(null);
                     }
                 }
@@ -248,18 +270,32 @@ const tutorial = (app) => {
         currentStepIndex = index;
         const step = steps[index];
 
+        // Restore tooltip content and visibility in case it was showing a message
+        dom.tooltip.classList.remove('is-waiting');
+        document.getElementById('tutorial-tooltip-content').style.visibility = 'visible';
+        document.getElementById('tutorial-tooltip-nav').style.visibility = 'visible';
+
+
         if (step.preAction) {
             await step.preAction();
             await new Promise(resolve => setTimeout(resolve, 200));
         }
 
-        const targetElement = await waitForVisibleElement(step.element);
+        const targetElement = await waitForVisibleElement(step.element, 7000); // Increased timeout
 
         if (!targetElement) {
-            console.warn(`Tutorial element not found: ${step.element}. Skipping to next step.`);
+            // Show "not found" message, then proceed.
+            const titleEl = document.getElementById('tutorial-tooltip-title');
+            const textEl = document.getElementById('tutorial-tooltip-text');
+            titleEl.textContent = 'Elemento no encontrado';
+            textEl.innerHTML = `No se pudo encontrar el elemento: <code class="text-xs bg-red-100 p-1 rounded">${step.element}</code>. Omitiendo este paso.`;
+            dom.tooltip.classList.add('is-waiting'); // Re-use style for emphasis
+            await new Promise(resolve => setTimeout(resolve, 2500)); // Show message for 2.5s
             next();
             return;
         }
+
+        dom.tooltip.classList.remove('is-waiting');
 
         smartScroll(targetElement);
 
