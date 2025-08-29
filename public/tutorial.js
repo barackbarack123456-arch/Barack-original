@@ -198,31 +198,44 @@ const tutorial = (app) => {
             const interval = 100;
             let elapsedTime = 0;
 
-            const originalTitle = document.getElementById('tutorial-tooltip-title').textContent;
-            const originalText = document.getElementById('tutorial-tooltip-text').innerHTML;
+            let originalTitle, originalText;
+            if (dom.tooltip) {
+                originalTitle = document.getElementById('tutorial-tooltip-title')?.textContent;
+                originalText = document.getElementById('tutorial-tooltip-text')?.innerHTML;
+            }
 
             const showWaitingMessage = () => {
+                if (!dom.tooltip) return;
                 const titleEl = document.getElementById('tutorial-tooltip-title');
                 const textEl = document.getElementById('tutorial-tooltip-text');
-                titleEl.textContent = 'Buscando Elemento...';
-                textEl.innerHTML = `Esperando que aparezca el siguiente elemento: <code class="text-xs bg-slate-200 p-1 rounded">${selector}</code>`;
+                if (titleEl) titleEl.textContent = 'Buscando Elemento...';
+                if (textEl) textEl.innerHTML = `Esperando que aparezca el siguiente elemento: <code class="text-xs bg-slate-200 p-1 rounded">${selector}</code>`;
                 dom.tooltip.classList.add('is-waiting');
             };
 
             const hideWaitingMessage = () => {
+                if (!dom.tooltip) return;
                 const titleEl = document.getElementById('tutorial-tooltip-title');
                 const textEl = document.getElementById('tutorial-tooltip-text');
-                titleEl.textContent = originalTitle;
-                textEl.innerHTML = originalText;
+                if (titleEl) titleEl.textContent = originalTitle;
+                if (textEl) textEl.innerHTML = originalText;
                 dom.tooltip.classList.remove('is-waiting');
             };
 
-            // Show waiting message after a brief delay to avoid flickering for fast-loading elements
-            const waitingTimeout = setTimeout(showWaitingMessage, 500);
+            const isElementVisible = (el) => {
+                if (!el) return false;
+                // The offsetParent check is a good baseline.
+                if (el.offsetParent === null) return false;
+                // Additionally, check if the element has actual dimensions.
+                const rect = el.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0;
+            }
+
+            const waitingTimeout = setTimeout(showWaitingMessage, 250);
 
             const timer = setInterval(() => {
                 const element = document.querySelector(selector);
-                if (element && element.offsetParent !== null) {
+                if (isElementVisible(element)) {
                     clearTimeout(waitingTimeout);
                     clearInterval(timer);
                     hideWaitingMessage();
@@ -270,56 +283,60 @@ const tutorial = (app) => {
         currentStepIndex = index;
         const step = steps[index];
 
-        // Restore tooltip content and visibility in case it was showing a message
-        dom.tooltip.classList.remove('is-waiting');
-        document.getElementById('tutorial-tooltip-content').style.visibility = 'visible';
-        document.getElementById('tutorial-tooltip-nav').style.visibility = 'visible';
-
+        if (dom.tooltip) {
+            dom.tooltip.classList.remove('is-waiting');
+            const content = dom.tooltip.querySelector('#tutorial-tooltip-content');
+            const nav = dom.tooltip.querySelector('#tutorial-tooltip-nav');
+            if (content) content.style.visibility = 'visible';
+            if (nav) nav.style.visibility = 'visible';
+        }
 
         if (step.preAction) {
             await step.preAction();
             await new Promise(resolve => setTimeout(resolve, 200));
         }
 
-        const targetElement = await waitForVisibleElement(step.element, 7000); // Increased timeout
+        const targetElement = await waitForVisibleElement(step.element, 7000);
 
         if (!targetElement) {
-            // Show "not found" message, then proceed.
-            const titleEl = document.getElementById('tutorial-tooltip-title');
-            const textEl = document.getElementById('tutorial-tooltip-text');
-            titleEl.textContent = 'Elemento no encontrado';
-            textEl.innerHTML = `No se pudo encontrar el elemento: <code class="text-xs bg-red-100 p-1 rounded">${step.element}</code>. Omitiendo este paso.`;
-            dom.tooltip.classList.add('is-waiting'); // Re-use style for emphasis
-            await new Promise(resolve => setTimeout(resolve, 2500)); // Show message for 2.5s
+            if (dom.tooltip) {
+                const titleEl = document.getElementById('tutorial-tooltip-title');
+                const textEl = document.getElementById('tutorial-tooltip-text');
+                if(titleEl) titleEl.textContent = 'Elemento no encontrado';
+                if(textEl) textEl.innerHTML = `No se pudo encontrar el elemento: <code class="text-xs bg-red-100 p-1 rounded">${step.element}</code>. Omitiendo este paso.`;
+                dom.tooltip.classList.add('is-waiting');
+                await new Promise(resolve => setTimeout(resolve, 1500)); // Shorter wait time
+            }
             next();
             return;
         }
 
-        dom.tooltip.classList.remove('is-waiting');
+        if (dom.tooltip) dom.tooltip.classList.remove('is-waiting');
 
         smartScroll(targetElement);
 
-        if (step.click) {
-            targetElement.classList.add('tutorial-click-effect');
-            setTimeout(() => {
-                 targetElement.classList.remove('tutorial-click-effect');
-            }, 1000);
-        }
+        setTimeout(() => {
+            if (step.click) {
+                targetElement.classList.add('tutorial-click-effect');
+                setTimeout(() => {
+                     targetElement.classList.remove('tutorial-click-effect');
+                }, 1000);
+            }
 
-        document.getElementById('tutorial-tooltip-title').textContent = step.title;
-        document.getElementById('tutorial-tooltip-text').innerHTML = step.content;
-        document.getElementById('tutorial-prev-btn').style.display = index === 0 ? 'none' : 'inline-block';
-        document.getElementById('tutorial-next-btn').textContent = index === steps.length - 1 ? 'Finalizar' : 'Siguiente';
-        document.getElementById('tutorial-tooltip-progress').textContent = `Paso ${index + 1} de ${steps.length}`;
+            document.getElementById('tutorial-tooltip-title').textContent = step.title;
+            document.getElementById('tutorial-tooltip-text').innerHTML = step.content;
+            document.getElementById('tutorial-prev-btn').style.display = index === 0 ? 'none' : 'inline-block';
+            document.getElementById('tutorial-next-btn').textContent = index === steps.length - 1 ? 'Finalizar' : 'Siguiente';
+            document.getElementById('tutorial-tooltip-progress').textContent = `Paso ${index + 1} de ${steps.length}`;
 
-        updateHighlight(targetElement, step);
-
-        // --- Reactive Highlighting ---
-        resizeObserver = new ResizeObserver(() => {
             updateHighlight(targetElement, step);
-        });
-        resizeObserver.observe(targetElement);
-        resizeObserver.observe(document.body);
+
+            resizeObserver = new ResizeObserver(() => {
+                updateHighlight(targetElement, step);
+            });
+            resizeObserver.observe(targetElement);
+            resizeObserver.observe(document.body);
+        }, 0); // Defer to next paint cycle
     };
 
     /**
