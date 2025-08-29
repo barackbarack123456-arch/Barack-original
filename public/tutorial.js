@@ -122,23 +122,16 @@ const tutorial = (app) => {
             content: 'Para este ECR aprobado de ejemplo, el botón "Generar ECO" está activo. Al hacer clic, se crea la Orden de Cambio de Ingeniería (ECO) y nos lleva a su formulario.',
             position: 'left',
             preAction: async () => {
+                // Ensure the view is correct before running the action.
                 await app.switchView('ecr');
-                // Ensure there's an approved ECR for the tutorial.
-                // This might involve creating a dummy one if none exist.
-                const approvedEcrRow = document.querySelector('tr:has(button[data-action="generate-eco-from-ecr"])');
-                if (!approvedEcrRow) {
-                    app.showToast("Creando ECR aprobado de ejemplo para el tutorial...", "info");
-                    const ecrId = `ECR-TUTORIAL-${Date.now()}`;
-                    const ecrData = {
-                        id: ecrId,
-                        status: 'approved',
-                        lastModified: new Date(),
-                        modifiedBy: 'Tutorial',
-                        descripcion: 'ECR de ejemplo para el tutorial'
-                    };
-                    await app.db.collection('ecr_forms').doc(ecrId).set(ecrData);
-                    // The view will update automatically via the listener.
-                }
+
+                // This helper function, exposed from main.js, now contains all the logic
+                // to create a sample approved ECR if one doesn't exist. This fixes the
+                // previous bug caused by incorrect Firestore v9 syntax here.
+                await app.createTutorialEcr();
+
+                // Small delay to ensure the UI updates if a new ECR was created by the helper.
+                await new Promise(resolve => setTimeout(resolve, 500));
             },
             click: true,
             postAction: async () => {

@@ -1177,6 +1177,58 @@ function checkUserPermission(action, item = null) {
 // --- 4. LÓGICA PRINCIPAL DE LA APLICACIÓN (CORE) ---
 // =================================================================================
 
+/**
+ * Creates a sample ECR with 'approved' status for the interactive tutorial.
+ * This ensures the tutorial can always proceed to the ECO generation step.
+ * It uses a fixed ID to be idempotent.
+ * @returns {Promise<string|null>} The ID of the created/verified ECR, or null on error.
+ */
+async function createTutorialEcr() {
+    const ecrId = 'TUTORIAL-ECR-001';
+    const ecrRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
+
+    // First, check if it already exists to avoid unnecessary writes
+    const docSnap = await getDoc(ecrRef);
+    if (docSnap.exists() && docSnap.data().status === 'approved') {
+        console.log('Tutorial ECR already exists and is approved.');
+        return ecrId; // It's already there, just return the ID
+    }
+
+    showToast('Preparando ECR de demostración para el tutorial...', 'info');
+
+    const tutorialEcrData = {
+        id: ecrId,
+        ecr_no: ecrId,
+        status: 'approved', // CRITICAL for the tutorial to work
+        lastModified: new Date(),
+        modifiedBy: 'tutorial_system@barack.com',
+        origen_interno: true,
+        proyecto: 'Proyecto Tutorial Interactivo',
+        cliente: 'Cliente de Demostración',
+        fecha_emision: new Date().toISOString().split('T')[0],
+        codigo_barack: 'PROD-TUTORIAL',
+        denominacion_producto: 'Componente de Tutorial',
+        situacion_propuesta: 'Esta es la situación propuesta para el ECR del tutorial, que permite la generación de un ECO.',
+        // This field is checked by the ECO form logic
+        cliente_requiere_ppap: true,
+        // Add a basic approvals structure so it looks realistic
+        approvals: {
+            ing_producto: { status: 'approved', user: 'Sistema', date: new Date().toISOString().split('T')[0], comment: 'Aprobado para tutorial' },
+            calidad: { status: 'approved', user: 'Sistema', date: new Date().toISOString().split('T')[0], comment: 'Aprobado para tutorial' }
+        }
+    };
+
+    try {
+        await setDoc(ecrRef, tutorialEcrData);
+        console.log(`Successfully created or updated tutorial ECR: ${ecrId}`);
+        return ecrId;
+    } catch (error) {
+        console.error("Error creating tutorial ECR:", error);
+        showToast('Error al preparar el ECR del tutorial.', 'error');
+        return null;
+    }
+}
+
 function initializeAppListeners() {
     setupGlobalEventListeners();
 }
@@ -1198,7 +1250,8 @@ function setupGlobalEventListeners() {
             openFormModal,
             appState,
             db,
-            onTutorialEnd
+            onTutorialEnd,
+            createTutorialEcr // Expose the new helper function to the tutorial
         };
         tutorial(app).start();
     });
