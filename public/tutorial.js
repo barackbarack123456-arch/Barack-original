@@ -131,8 +131,12 @@ const tutorial = (app) => {
             },
             click: true,
             postAction: async () => {
-                // The click action in main.js handles the view switch.
-                // We just need to wait for the form to be visible.
+                // Find the button and click it to trigger the view switch.
+                const button = document.querySelector('button[data-action="generate-eco-from-ecr"]');
+                if (button) {
+                    button.click();
+                }
+                // Now, wait for the form to be visible as a result of the click.
                 await waitForVisibleElement('#eco-form');
             }
         },
