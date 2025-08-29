@@ -19,6 +19,11 @@ This file contains guidelines and lessons learned for AI agents working on this 
         1.  Ensure the first user to log in has the UID designated as the Super Admin in the rules.
         2.  On first login, the application will create the user's document and correctly seed the initial data.
         3.  The Super Admin must then navigate to User Management and formally assign their own user the 'admin' role to ensure all admin features are available in the UI.
+10. **Fixing Tutorial Highlighting on Dynamic Views:** When building interactive tutorials that highlight elements, two common issues can arise on dynamic, multi-page, or heavily-scripted forms:
+    *   **Race Conditions with Scrolling:** Automated testing scripts (like Playwright) or fast user navigation can cause the tutorial to calculate an element's position *before* a smooth scroll animation has finished. This results in the highlight appearing in the wrong place.
+        *   **Solution:** In the tutorial's scrolling logic (e.g., a function that calls `element.scrollIntoView()`), set the `behavior` option to `'instant'`. This eliminates the animation, ensuring the element is in its final position immediately.
+    *   **Unstable Selectors:** If a tutorial step needs to highlight a concept represented by a group of dynamically generated elements (e.g., a list of department sections), applying a `data-tutorial-id` to only the *first* element is fragile. The tutorial may fail if that specific element is not visible or if the user navigates in a way that doesn't render it first.
+        *   **Solution:** Instead of targeting a single dynamic item, wrap the entire group of related elements in a stable container `div`. Apply a single, consistent `data-tutorial-id` to this wrapper. Then, point all relevant tutorial steps (e.g., "Review Departments", "Approve Departments") to this single, stable wrapper. This makes the tutorial far more robust.
 
 ## Important Technical Details
 

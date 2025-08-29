@@ -63,6 +63,9 @@ const tutorial = (app) => {
             content: 'Este botón abre el formulario para detallar una nueva solicitud de cambio. Le daremos un identificador único y describiremos la propuesta.',
             position: 'bottom',
             click: true,
+            preAction: async () => {
+                await app.switchView('ecr');
+            },
             postAction: async () => {
                 await app.switchView('ecr_form');
             }
@@ -71,7 +74,8 @@ const tutorial = (app) => {
             element: '.ecr-header',
             title: 'Formulario de Solicitud de Cambio',
             content: 'En este formulario se documenta el <strong>qué</strong> y el <strong>porqué</strong> del cambio. Es crucial para que todos los departamentos puedan evaluarlo.',
-            position: 'bottom'
+            position: 'bottom',
+            offset: { top: -15 }
         },
         {
             element: '[data-tutorial-id="situacion-layout"]',
@@ -172,15 +176,21 @@ const tutorial = (app) => {
         const prevBtn = document.getElementById('tutorial-prev-btn');
         prevBtn.addEventListener('click', async () => {
             prevBtn.disabled = true;
-            await previous();
-            prevBtn.disabled = false;
+            try {
+                await previous();
+            } finally {
+                prevBtn.disabled = false;
+            }
         });
 
         const nextBtn = document.getElementById('tutorial-next-btn');
         nextBtn.addEventListener('click', async () => {
             nextBtn.disabled = true;
-            await next();
-            nextBtn.disabled = false;
+            try {
+                await next();
+            } finally {
+                nextBtn.disabled = false;
+            }
         });
     };
 
@@ -259,12 +269,14 @@ const tutorial = (app) => {
         if (!targetElement || !dom.highlight) return;
 
         const targetRect = targetElement.getBoundingClientRect();
+        console.log(`Highlighting step "${step.title}" on element:`, targetElement, 'Rect:', targetRect);
         const padding = 5;
+        const offset = step.offset || { top: 0, left: 0 };
 
         dom.highlight.style.width = `${targetRect.width + (padding * 2)}px`;
         dom.highlight.style.height = `${targetRect.height + (padding * 2)}px`;
-        dom.highlight.style.top = `${targetRect.top - padding}px`;
-        dom.highlight.style.left = `${targetRect.left - padding}px`;
+        dom.highlight.style.top = `${targetRect.top - padding + (offset.top || 0)}px`;
+        dom.highlight.style.left = `${targetRect.left - padding + (offset.left || 0)}px`;
 
         positionTooltip(targetRect, step.position);
     };
