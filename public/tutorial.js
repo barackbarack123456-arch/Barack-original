@@ -200,6 +200,10 @@ const tutorial = (app) => {
             position: 'left',
             click: true,
             postAction: async () => {
+                const button = document.querySelector('[data-tutorial-id="add-action-item-btn"]');
+                if (button) {
+                    button.click();
+                }
                 await waitForVisibleElement('.action-item');
             }
         },
