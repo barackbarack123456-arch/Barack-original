@@ -57,8 +57,8 @@ import assert from 'assert';
 
         console.log('Navigating to step 4...');
         await page.click('#tutorial-next-btn');
-        // Wait for the view title to be for the ECR page
-        await page.waitForFunction(() => document.getElementById('view-title')?.textContent === 'Gestión de ECR', { timeout: 5000 });
+        // Wait for the tutorial to advance to the correct step
+        await page.waitForFunction(() => document.getElementById('tutorial-tooltip-progress')?.textContent === 'Paso 4 de 14', { timeout: 5000 });
         const finalProgressText = await page.textContent('#tutorial-tooltip-progress');
         assert.strictEqual(finalProgressText, 'Paso 4 de 14', `Expected 'Paso 4 de 14' but got '${finalProgressText}'`);
         console.log('Successfully navigated a few steps.');

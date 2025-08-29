@@ -71,6 +71,7 @@ const viewConfig = {
     ecr_seguimiento: { title: 'Seguimiento y Métricas de ECR', singular: 'Seguimiento ECR' },
     ecr_table_view: { title: 'Tabla de Control ECR', singular: 'Control ECR' },
     indicadores_ecm_view: { title: 'Indicadores ECM', singular: 'Indicador' },
+    eco_form_mock_for_tutorial: { title: 'Plan de Acción (Ejemplo)', singular: 'Plan de Acción' },
     flujograma: { title: 'Flujograma de Procesos', singular: 'Flujograma' },
     arboles: { title: 'Editor de Árboles', singular: 'Árbol' },
     profile: { title: 'Mi Perfil', singular: 'Mi Perfil' },
@@ -2072,7 +2073,7 @@ async function runEcrLogic() {
                         <p class="text-sm text-slate-500">Aquí puede ver, gestionar y crear un nuevo ECR.</p>
                     </div>
                     <div class="flex items-center gap-4">
-                        <button data-action="create-new-ecr" class="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 flex items-center shadow-md transition-transform transform hover:scale-105">
+                        <button data-action="create-new-ecr" data-tutorial-id="create-new-button" class="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 flex items-center shadow-md transition-transform transform hover:scale-105">
                             <i data-lucide="file-plus-2" class="mr-2 h-5 w-5"></i>Crear Nuevo ECR
                         </button>
                     </div>
