@@ -26,7 +26,7 @@ const tutorial = (app) => {
             title: 'Módulo ECR/ECO',
             content: 'Toda la gestión de cambios de ingeniería empieza aquí. Este menú contiene las herramientas para solicitar, seguir y ejecutar cambios.',
             position: 'bottom',
-            preAction: async () => {
+            postAction: async () => {
                 const menu = document.querySelector('[data-tutorial-id="eco-ecr-menu"]');
                 if (menu) {
                     menu.classList.add('open');
@@ -261,13 +261,23 @@ const tutorial = (app) => {
         `;
         dom.overlay.appendChild(dom.tooltip);
 
-        // Create a single arrow for off-screen guidance
-        dom.arrow = document.createElement('div');
-        dom.arrow.id = 'tutorial-arrow';
-        const iconEl = document.createElement('i');
-        iconEl.setAttribute('data-lucide', 'arrow-up'); // We will rotate this
-        dom.arrow.appendChild(iconEl);
-        dom.overlay.appendChild(dom.arrow);
+        // Create arrow container for off-screen guidance
+        const arrowContainer = document.createElement('div');
+        arrowContainer.id = 'tutorial-arrow-container';
+
+        const directions = ['up', 'down', 'left', 'right'];
+        directions.forEach(dir => {
+            const arrowEl = document.createElement('div');
+            arrowEl.id = `tutorial-arrow-${dir}`;
+            arrowEl.classList.add('tutorial-arrow');
+
+            const iconEl = document.createElement('i');
+            iconEl.setAttribute('data-lucide', `arrow-${dir}`);
+            arrowEl.appendChild(iconEl);
+
+            arrowContainer.appendChild(arrowEl);
+        });
+        dom.overlay.appendChild(arrowContainer);
 
         // Tell lucide to create the newly added icons
         if (window.lucide && typeof window.lucide.createIcons === 'function') {
@@ -370,60 +380,7 @@ const tutorial = (app) => {
     };
 
     let resizeObserver = null;
-    let currentTargetElement = null;
-    let scrollListener = null;
-
-    const throttle = (func, limit) => {
-        let inThrottle;
-        return function() {
-            const args = arguments;
-            const context = this;
-            if (!inThrottle) {
-                func.apply(context, args);
-                inThrottle = true;
-                setTimeout(() => inThrottle = false, limit);
-            }
-        }
-    };
-
-    const updateArrow = () => {
-        if (!currentTargetElement || !dom.arrow) return;
-
-        const targetRect = currentTargetElement.getBoundingClientRect();
-        const viewport = {
-            width: window.innerWidth,
-            height: window.innerHeight
-        };
-
-        const isVisible = (
-            targetRect.bottom > 0 &&
-            targetRect.top < viewport.height &&
-            targetRect.right > 0 &&
-            targetRect.left < viewport.width
-        );
-
-        if (isVisible) {
-            dom.arrow.style.opacity = '0';
-            dom.arrow.style.pointerEvents = 'none';
-            return;
-        }
-
-        dom.arrow.style.opacity = '1';
-        dom.arrow.style.pointerEvents = 'auto';
-
-        const PADDING = 20; // Distance from the edge of the screen
-
-        // Clamp arrow position to be within the viewport
-        const arrowX = Math.max(PADDING, Math.min(targetRect.left + targetRect.width / 2, viewport.width - PADDING));
-        const arrowY = Math.max(PADDING, Math.min(targetRect.top + targetRect.height / 2, viewport.height - PADDING));
-
-        const dX = (targetRect.left + targetRect.width / 2) - arrowX;
-        const dY = (targetRect.top + targetRect.height / 2) - arrowY;
-        const angle = Math.atan2(dY, dX) * 180 / Math.PI + 90;
-
-        dom.arrow.style.transform = `translate(${arrowX - 22}px, ${arrowY - 22}px) rotate(${angle}deg)`;
-    };
-
+    let intersectionObserver = null;
 
     const updateHighlight = (targetElement, step) => {
         if (!targetElement || !dom.highlight) return;
@@ -441,16 +398,49 @@ const tutorial = (app) => {
         positionTooltip(targetRect, step.position);
     };
 
+    /**
+     * Shows or hides the correct directional arrow if the target element is off-screen.
+     * @param {Element} targetElement - The DOM element for the current step.
+     * @param {boolean} isOffScreen - Whether the element is off-screen or not.
+     */
+    const updateArrowVisibility = (targetElement, isOffScreen) => {
+        const arrows = {
+            up: document.getElementById('tutorial-arrow-up'),
+            down: document.getElementById('tutorial-arrow-down'),
+            left: document.getElementById('tutorial-arrow-left'),
+            right: document.getElementById('tutorial-arrow-right')
+        };
+
+        // Hide all arrows first
+        for (const dir in arrows) {
+            arrows[dir]?.classList.remove('visible');
+        }
+
+        if (!isOffScreen) return;
+
+        const targetRect = targetElement.getBoundingClientRect();
+
+        // Determine which direction the element is in and show the corresponding arrow
+        if (targetRect.bottom < 0) {
+            arrows.up?.classList.add('visible');
+        } else if (targetRect.top > window.innerHeight) {
+            arrows.down?.classList.add('visible');
+        } else if (targetRect.right < 0) {
+            arrows.left?.classList.add('visible');
+        } else if (targetRect.left > window.innerWidth) {
+            arrows.right?.classList.add('visible');
+        }
+    };
+
     const showStep = async (index) => {
         // Clear any existing observers or listeners to prevent leaks
         if (resizeObserver) {
             resizeObserver.disconnect();
             resizeObserver = null;
         }
-        if (scrollListener) {
-            window.removeEventListener('scroll', scrollListener);
-            window.removeEventListener('resize', scrollListener);
-            scrollListener = null;
+        if (intersectionObserver) {
+            intersectionObserver.disconnect();
+            intersectionObserver = null;
         }
 
         if (index < 0 || index >= steps.length) {
@@ -460,6 +450,9 @@ const tutorial = (app) => {
 
         currentStepIndex = index;
         const step = steps[index];
+
+        // Hide all arrows initially when a new step is shown
+        document.querySelectorAll('.tutorial-arrow').forEach(a => a.classList.remove('visible'));
 
         if (dom.tooltip) {
             dom.tooltip.classList.remove('is-waiting');
@@ -475,7 +468,6 @@ const tutorial = (app) => {
         }
 
         const targetElement = await waitForVisibleElement(step.element, 7000);
-        currentTargetElement = targetElement;
 
         if (!targetElement) {
             if (dom.tooltip) {
@@ -511,22 +503,21 @@ const tutorial = (app) => {
 
             updateHighlight(targetElement, step);
 
-            // Initial arrow update
-            updateArrow();
-
-            // Set up new listeners
-            scrollListener = throttle(updateArrow, 50); // Throttle to 20fps max
-            window.addEventListener('scroll', scrollListener, { passive: true });
-            window.addEventListener('resize', scrollListener, { passive: true });
-
-
             // Observer for resizing the element or page
             resizeObserver = new ResizeObserver(() => {
                 updateHighlight(targetElement, step);
-                updateArrow(); // Also update arrow on resize
             });
             resizeObserver.observe(targetElement);
             resizeObserver.observe(document.body);
+
+            // Observer for visibility, to show guide arrows
+            intersectionObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    updateArrowVisibility(targetElement, !entry.isIntersecting);
+                });
+            }, { root: null, threshold: 0 }); // A threshold of 0 triggers as soon as the element is partially out of view.
+
+            intersectionObserver.observe(targetElement);
         }, 0);
     };
 
@@ -663,10 +654,9 @@ const tutorial = (app) => {
             resizeObserver.disconnect();
             resizeObserver = null;
         }
-        if (scrollListener) {
-            window.removeEventListener('scroll', scrollListener);
-            window.removeEventListener('resize', scrollListener);
-            scrollListener = null;
+        if (intersectionObserver) {
+            intersectionObserver.disconnect();
+            intersectionObserver = null;
         }
         if (dom.overlay) {
             dom.overlay.remove();
