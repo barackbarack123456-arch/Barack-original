@@ -13,6 +13,120 @@ const tutorial = (app) => {
         highlight: null,
     };
 
+    // All tutorial steps are defined here for clarity and easier maintenance.
+    const TUTORIAL_STEPS = [
+        {
+            element: 'body',
+            title: 'Bienvenido al Tutorial Interactivo',
+            content: 'Este tour te guiará por el proceso de <strong>Gestión de Cambios de Ingeniería</strong>, desde la solicitud (ECR) hasta la orden de cambio (ECO). ¡Vamos a empezar!',
+            position: 'center'
+        },
+        {
+            element: '[data-tutorial-id="eco-ecr-menu"]',
+            title: 'Módulo ECR/ECO',
+            content: 'Toda la gestión de cambios de ingeniería empieza aquí. Este menú contiene las herramientas para solicitar, seguir y ejecutar cambios.',
+            position: 'bottom',
+            postAction: async () => {
+                const menu = document.querySelector('[data-tutorial-id="eco-ecr-menu"]');
+                if (menu) {
+                    menu.classList.add('open');
+                    await waitForVisibleElement('a[data-view="ecr"]');
+                }
+            }
+        },
+        {
+            element: 'a[data-view="ecr"]',
+            title: 'Gestión de Solicitudes (ECR)',
+            content: 'Aquí es donde se crean y gestionan las <strong>Solicitudes de Cambio (ECR)</strong>. Un ECR es el primer paso para proponer una modificación.',
+            position: 'right',
+            click: true,
+            postAction: async () => {
+                await app.switchView('ecr');
+                const menu = document.querySelector('[data-tutorial-id="eco-ecr-menu"]');
+                if (menu) {
+                    menu.classList.remove('open');
+                }
+            }
+        },
+        {
+            element: '#view-title',
+            title: 'Panel de Control de ECRs',
+            content: 'Esta tabla muestra todos los ECRs con su estado actual. Para proponer un nuevo cambio, crearemos un nuevo ECR.',
+            position: 'bottom'
+        },
+        {
+            element: '[data-tutorial-id="create-new-button"]',
+            title: 'Crear un Nuevo ECR',
+            content: 'Este botón abre el formulario para detallar una nueva solicitud de cambio. Le daremos un identificador único y describiremos la propuesta.',
+            position: 'bottom',
+            click: true,
+            postAction: async () => {
+                await app.switchView('ecr_form');
+            }
+        },
+        {
+            element: '.ecr-header',
+            title: 'Formulario de Solicitud de Cambio',
+            content: 'En este formulario se documenta el <strong>qué</strong> y el <strong>porqué</strong> del cambio. Es crucial para que todos los departamentos puedan evaluarlo.',
+            position: 'bottom'
+        },
+        {
+            element: '[data-tutorial-id="situacion-layout"]',
+            title: 'Situación Actual vs. Propuesta',
+            content: 'Aquí se describe el problema o la situación actual y cómo se propone solucionarlo. Es el corazón de la solicitud.',
+            position: 'top'
+        },
+        {
+            element: '[data-tutorial-id="evaluacion-departamento"]',
+            title: 'Evaluación de Impacto',
+            content: 'Cada departamento afectado debe evaluar cómo le impacta el cambio. Esto asegura una visión 360° antes de aprobar nada.',
+            position: 'right'
+        },
+        {
+            element: '[data-tutorial-id="aprobacion-departamental"]',
+            title: 'Circuito de Aprobación',
+            content: 'Una vez evaluado, los responsables de cada área emiten su aprobación o rechazo. La decisión, el usuario y la fecha quedan registrados aquí.',
+            position: 'top'
+        },
+        {
+            element: '#action-buttons-container',
+            title: 'Guardar o Enviar',
+            content: 'Puedes guardar el ECR como borrador para continuarlo más tarde. Cuando esté listo, lo envías al circuito de aprobación para que sea evaluado.',
+            position: 'top'
+        },
+        {
+            element: '#view-title',
+            title: 'Máquina de Estados del ECR',
+            content: 'Una vez enviado, el estado del ECR cambia a <strong>"pending-approval"</strong>. Si todos aprueban, pasa a <strong>"approved"</strong>. Si uno solo rechaza, se marca como <strong>"rejected"</strong>.',
+            position: 'center',
+            preAction: async () => {
+                await app.switchView('ecr');
+            }
+        },
+        {
+            element: '[data-tutorial-id="ecr-table-body"]',
+            title: 'De Solicitud a Orden (ECO)',
+            content: 'Cuando un ECR es aprobado, se habilita la opción de "Generar ECO". Esto convierte la solicitud en una <strong>Orden de Cambio (ECO)</strong>, que es el documento para ejecutar la modificación.',
+            position: 'bottom'
+        },
+         {
+            element: '#action-plan-section',
+            title: 'Plan de Acción del ECO',
+            content: 'El ECO se enfoca en la implementación. Aquí se crea una lista de tareas, se asignan responsables y fechas límite para asegurar que el cambio se realice de forma controlada.',
+            position: 'top',
+             preAction: async () => {
+                // We need a mock ECO form view for the tutorial to show this
+                await app.switchView('eco_form_mock_for_tutorial');
+            }
+        },
+        {
+            element: 'body',
+            title: '¡Fin del Tutorial!',
+            content: '¡Excelente! Ahora conoces el flujo completo de ECR/ECO. Este proceso asegura que los cambios de ingeniería se realizan de forma controlada y documentada.',
+            position: 'center'
+        }
+    ];
+
     /**
      * Creates the main DOM elements for the tutorial (overlay, highlight, tooltip).
      */
@@ -35,10 +149,13 @@ const tutorial = (app) => {
                 <p id="tutorial-tooltip-text"></p>
             </div>
             <div id="tutorial-tooltip-nav">
-                <button id="tutorial-skip-btn">Omitir</button>
-                <div id="tutorial-nav-right">
-                    <button id="tutorial-prev-btn">Anterior</button>
-                    <button id="tutorial-next-btn">Siguiente</button>
+                <div id="tutorial-tooltip-progress" class="text-sm text-slate-500"></div>
+                <div id="tutorial-nav-buttons">
+                    <button id="tutorial-skip-btn">Omitir</button>
+                    <div id="tutorial-nav-right">
+                        <button id="tutorial-prev-btn">Anterior</button>
+                        <button id="tutorial-next-btn">Siguiente</button>
+                    </div>
                 </div>
             </div>
         `;
@@ -154,6 +271,7 @@ const tutorial = (app) => {
         document.getElementById('tutorial-tooltip-text').innerHTML = step.content;
         document.getElementById('tutorial-prev-btn').style.display = index === 0 ? 'none' : 'inline-block';
         document.getElementById('tutorial-next-btn').textContent = index === steps.length - 1 ? 'Finalizar' : 'Siguiente';
+        document.getElementById('tutorial-tooltip-progress').textContent = `Paso ${index + 1} de ${steps.length}`;
 
         updateHighlight(targetElement, step);
 
@@ -259,131 +377,7 @@ const tutorial = (app) => {
     const start = () => {
         if (dom.overlay) return; // Already running
 
-        // Define all steps here
-        steps = [
-            {
-                element: 'body',
-                title: 'Bienvenido al Tutorial de Gestión PRO',
-                content: 'Este tutorial te guiará a través del flujo de trabajo de <strong>ECR (Solicitud de Cambio de Ingeniería)</strong> y <strong>ECO (Orden de Cambio de Ingeniería)</strong>. Presiona "Siguiente" para comenzar.',
-                position: 'center'
-            },
-            {
-                element: '[data-tutorial-id="eco-ecr-menu"]',
-                title: 'Módulo ECO/ECR',
-                content: 'Toda la gestión de cambios de ingeniería se encuentra en este menú. Vamos a explorarlo.',
-                position: 'bottom',
-                postAction: async () => {
-                    const menu = document.querySelector('[data-tutorial-id="eco-ecr-menu"]');
-                    if (menu) {
-                        // Direct class manipulation is more reliable than a programmatic click.
-                        menu.classList.add('open');
-                        await waitForVisibleElement('a[data-view="ecr"]');
-                    }
-                }
-            },
-            {
-                element: 'a[data-view="ecr"]',
-                title: 'Gestión de ECR',
-                content: 'Aquí es donde se inician las solicitudes de cambio. Haremos clic aquí para ir a la pantalla de gestión de ECR.',
-                position: 'right',
-                click: true,
-                postAction: async () => {
-                    // Direct navigation instead of simulated click
-                    await app.switchView('ecr');
-                    // Close the dropdown menu after navigating away
-                    const menu = document.querySelector('[data-tutorial-id="eco-ecr-menu"]');
-                    if (menu) {
-                        menu.classList.remove('open');
-                    }
-                }
-            },
-            {
-                element: '#view-title',
-                title: 'Pantalla de Gestión de ECR',
-                content: 'Esta tabla muestra todos los ECRs existentes. Para proponer un nuevo cambio, debemos crear un nuevo ECR.',
-                position: 'bottom'
-                // No preAction needed, handled by previous step's postAction
-            },
-            {
-                element: 'button[data-action="create-new-ecr"]',
-                title: 'Crear un Nuevo ECR',
-                content: 'Este botón nos llevará al formulario para detallar nuestra solicitud de cambio.',
-                position: 'bottom',
-                click: true,
-                postAction: async () => {
-                    // Direct navigation instead of simulated click
-                    await app.switchView('ecr_form');
-                }
-            },
-            {
-                element: '.ecr-header',
-                title: 'Formulario de ECR',
-                content: 'Este es el formulario de Solicitud de Cambio de Ingeniería. Aquí se documenta toda la información necesaria para que el cambio sea evaluado.',
-                position: 'bottom'
-                 // No preAction needed, handled by previous step's postAction
-            },
-            {
-                element: 'input[name="ecr_no"]',
-                title: 'Número de ECR',
-                content: 'Cada ECR debe tener un número único que lo identifique durante todo su ciclo de vida.',
-                position: 'bottom'
-            },
-            {
-                element: '[data-tutorial-id="situacion-layout"]',
-                title: 'Situación Actual vs. Propuesta',
-                content: 'Estos son los campos más importantes. Aquí se describe qué problema existe (Situación Existente) y cómo se propone solucionarlo (Situación Propuesta).',
-                position: 'top'
-            },
-            {
-                element: '[data-tutorial-id="evaluacion-departamento"]',
-                title: 'Evaluación por Departamentos',
-                content: 'Cada departamento afectado debe evaluar el impacto del cambio. Marcan si les afecta o no y añaden comentarios.',
-                position: 'right'
-            },
-            {
-                element: '[data-tutorial-id="aprobacion-departamental"]',
-                title: 'Aprobación Departamental',
-                content: 'Una vez evaluado, el responsable del departamento (o un admin) puede aprobar o rechazar la propuesta desde aquí. La decisión queda registrada con su nombre y fecha.',
-                position: 'top'
-            },
-            {
-                element: '#action-buttons-container',
-                title: 'Guardar o Enviar a Aprobación',
-                content: 'Puedes guardar el ECR como borrador ("Guardar Progreso") o, una vez completo, enviarlo al circuito de aprobación para que los departamentos lo evalúen.',
-                position: 'top'
-            },
-            {
-                element: '#view-title',
-                title: 'Circuito de Aprobación',
-                content: 'Una vez enviado, el ECR cambia a estado "pending-approval". Si un solo departamento lo rechaza, el ECR se marca como "rejected". Si todos los requeridos lo aprueban, pasa a "approved".',
-                position: 'center',
-                preAction: async () => {
-                    await app.switchView('ecr');
-                }
-            },
-            {
-                element: '.bg-white table thead',
-                title: 'Generar ECO',
-                content: 'Cuando un ECR es aprobado, aparece un botón para "Generar ECO". Esto convierte la solicitud en una Orden de Cambio, que es el documento para ejecutar la modificación.',
-                position: 'bottom'
-            },
-             {
-                element: '#action-plan-section',
-                title: 'Plan de Acción del ECO',
-                content: 'La ECO se enfoca en la implementación. Esta sección permite crear una lista de tareas, asignar responsables y fechas límite para asegurar que el cambio se realice correctamente.',
-                position: 'top',
-                 preAction: async () => {
-                    await app.switchView('eco_form');
-                    await new Promise(resolve => setTimeout(resolve, 250));
-                }
-            },
-            {
-                element: 'body',
-                title: '¡Fin del Tutorial!',
-                content: '¡Excelente! Ahora conoces el flujo básico de ECR y ECO. Explora la aplicación para descubrir más funcionalidades.',
-                position: 'center'
-            }
-        ];
+        steps = TUTORIAL_STEPS;
 
         createTutorialUI();
         dom.overlay.style.display = 'block';

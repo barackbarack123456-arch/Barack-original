@@ -1287,12 +1287,21 @@ async function switchView(viewName, params = null) {
     else if (viewName === 'indicadores_ecm_view') await runIndicadoresEcmViewLogic();
     else if (viewName === 'eco_form') await runEcoFormLogic(params);
     else if (viewName === 'ecr_form') await runEcrFormLogic(params);
+    else if (viewName === 'eco_form_mock_for_tutorial') {
+        dom.viewContent.innerHTML = `<div id="action-plan-section" class="p-8 bg-white rounded-lg shadow-lg">Este es un plan de acción de ejemplo para el tutorial.</div>`;
+    }
     else if (config?.dataKey) {
         dom.headerActions.style.display = 'flex';
         dom.searchInput.style.display = 'block';
         if (checkUserPermission('create')) {
             dom.addNewButton.style.display = 'flex';
             dom.addButtonText.textContent = `Agregar ${config.singular}`;
+            // Add tutorial ID for ECR view
+            if (viewName === 'ecr') {
+                dom.addNewButton.dataset.tutorialId = 'create-new-button';
+            } else {
+                delete dom.addNewButton.dataset.tutorialId;
+            }
         } else {
             dom.addNewButton.style.display = 'none';
         }
@@ -2080,7 +2089,7 @@ async function runEcrLogic() {
                                     <th scope="col" class="px-6 py-3 text-right">Acciones</th>
                                 </tr>
                             </thead>
-                            <tbody id="ecr-table-body">
+                            <tbody id="ecr-table-body" data-tutorial-id="ecr-table-body">
                                 <tr>
                                     <td colspan="5" class="text-center py-16 text-gray-500">
                                         <div class="flex flex-col items-center gap-3">
