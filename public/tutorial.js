@@ -116,15 +116,111 @@ const tutorial = (app) => {
             content: 'Cuando un ECR es aprobado, se habilita la opción de "Generar ECO". Esto convierte la solicitud en una <strong>Orden de Cambio (ECO)</strong>, que es el documento para ejecutar la modificación.',
             position: 'bottom'
         },
-         {
-            element: '#action-plan-section',
-            title: 'Plan de Acción del ECO',
-            content: 'El ECO se enfoca en la implementación. Aquí se crea una lista de tareas, se asignan responsables y fechas límite para asegurar que el cambio se realice de forma controlada.',
-            position: 'top',
-             preAction: async () => {
-                // We need a mock ECO form view for the tutorial to show this
-                await app.switchView('eco_form_mock_for_tutorial');
+        {
+            element: 'button[data-action="generate-eco-from-ecr"]',
+            title: 'Generación del ECO',
+            content: 'Para este ECR aprobado de ejemplo, el botón "Generar ECO" está activo. Al hacer clic, se crea la Orden de Cambio de Ingeniería (ECO) y nos lleva a su formulario.',
+            position: 'left',
+            preAction: async () => {
+                await app.switchView('ecr');
+                // Ensure there's an approved ECR for the tutorial.
+                // This might involve creating a dummy one if none exist.
+                const approvedEcrRow = document.querySelector('tr:has(button[data-action="generate-eco-from-ecr"])');
+                if (!approvedEcrRow) {
+                    app.showToast("Creando ECR aprobado de ejemplo para el tutorial...", "info");
+                    const ecrId = `ECR-TUTORIAL-${Date.now()}`;
+                    const ecrData = {
+                        id: ecrId,
+                        status: 'approved',
+                        lastModified: new Date(),
+                        modifiedBy: 'Tutorial',
+                        descripcion: 'ECR de ejemplo para el tutorial'
+                    };
+                    await app.db.collection('ecr_forms').doc(ecrId).set(ecrData);
+                    // The view will update automatically via the listener.
+                }
+            },
+            click: true,
+            postAction: async () => {
+                // The click action in main.js handles the view switch.
+                // We just need to wait for the form to be visible.
+                await waitForVisibleElement('#eco-form');
             }
+        },
+        {
+            element: '#eco-form',
+            title: 'Formulario de la Orden de Cambio (ECO)',
+            content: 'Este es el formulario del ECO. A diferencia del ECR (la solicitud), el ECO se centra en la <strong>ejecución y el seguimiento</strong> del cambio. Su objetivo es documentar el "cómo" se implementará.',
+            position: 'top'
+        },
+        {
+            element: '#action-plan-section',
+            title: 'Plan de Acción: El Corazón del ECO',
+            content: 'Esta es la sección más importante. Aquí se definen las tareas concretas para implementar el cambio. Vamos a añadir una tarea.',
+            position: 'top',
+        },
+        {
+            element: '[data-tutorial-id="new-action-description"]',
+            title: 'Añadir una Tarea',
+            content: 'Primero, describimos la tarea a realizar. Por ejemplo, "Actualizar el plano del componente X".',
+            position: 'top',
+            postAction: async () => {
+                const input = document.querySelector('[data-tutorial-id="new-action-description"]');
+                if (input) {
+                    input.value = 'Actualizar el plano del componente X';
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            }
+        },
+        {
+            element: '[data-tutorial-id="new-action-assignee"]',
+            title: 'Asignar un Responsable',
+            content: 'Luego, asignamos la tarea a un miembro del equipo. Esto asegura que haya un dueño claro para cada acción.',
+            position: 'top',
+            postAction: async () => {
+                const select = document.querySelector('[data-tutorial-id="new-action-assignee"]');
+                if (select && select.options.length > 1) {
+                    select.selectedIndex = 1;
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            }
+        },
+        {
+            element: '[data-tutorial-id="new-action-duedate"]',
+            title: 'Establecer una Fecha Límite',
+            content: 'Finalmente, establecemos una fecha límite para mantener el plan en marcha y asegurar que el cambio se implemente a tiempo.',
+            position: 'top',
+            postAction: async () => {
+                const input = document.querySelector('[data-tutorial-id="new-action-duedate"]');
+                if (input) {
+                    const today = new Date();
+                    const futureDate = new Date(today.setDate(today.getDate() + 7));
+                    input.value = futureDate.toISOString().split('T')[0];
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            }
+        },
+        {
+            element: '[data-tutorial-id="add-action-item-btn"]',
+            title: 'Agregar al Plan',
+            content: 'Ahora, agregamos la tarea al plan de acción. Verás que aparece en la lista de arriba.',
+            position: 'left',
+            click: true,
+            postAction: async () => {
+                await waitForVisibleElement('.action-item');
+            }
+        },
+        {
+            element: '#action-plan-list',
+            title: 'Seguimiento del Plan',
+            content: 'El plan de acción se va llenando con todas las tareas necesarias. Cada tarea puede ser marcada como completada, lo que permite un seguimiento claro del progreso.',
+            position: 'top'
+        },
+        {
+            element: '#eco-approve-button',
+            title: 'Cierre del ECO',
+            content: 'Una vez que todas las tareas del plan de acción están completas y las secciones del formulario han sido aprobadas, el ECO puede ser cerrado. Esto finaliza formalmente el proceso de cambio.',
+            position: 'top'
         },
         {
             element: 'body',
