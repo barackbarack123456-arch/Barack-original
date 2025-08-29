@@ -7889,7 +7889,7 @@ async function seedDefaultRoles() {
 
 onAuthStateChanged(auth, async (user) => {
     if (user) {
-        if (user.emailVerified || user.email === 'chofita@barackmercosul.com') {
+        if (user.emailVerified) {
             const wasAlreadyLoggedIn = !!appState.currentUser;
 
             // Show loading overlay with appropriate message
