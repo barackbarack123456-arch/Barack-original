@@ -1449,17 +1449,17 @@ async function runEcoFormLogic(params = null) {
                     <div id="add-action-item-form" class="mt-4 flex items-end gap-3 p-3 bg-slate-50 rounded-lg border">
                         <div class="flex-grow">
                             <label for="new-action-description" class="text-xs font-bold text-slate-600">Nueva Acción</label>
-                            <input type="text" id="new-action-description" placeholder="Descripción de la tarea..." class="w-full mt-1 p-2 border rounded-md">
+                            <input type="text" id="new-action-description" data-tutorial-id="new-action-description" placeholder="Descripción de la tarea..." class="w-full mt-1 p-2 border rounded-md">
                         </div>
                         <div class="w-48">
                             <label for="new-action-assignee" class="text-xs font-bold text-slate-600">Responsable</label>
-                            <select id="new-action-assignee" class="w-full mt-1 p-2 border rounded-md"></select>
+                            <select id="new-action-assignee" data-tutorial-id="new-action-assignee" class="w-full mt-1 p-2 border rounded-md"></select>
                         </div>
                         <div class="w-40">
                             <label for="new-action-duedate" class="text-xs font-bold text-slate-600">Fecha Límite</label>
-                            <input type="date" id="new-action-duedate" class="w-full mt-1 p-2 border rounded-md">
+                            <input type="date" id="new-action-duedate" data-tutorial-id="new-action-duedate" class="w-full mt-1 p-2 border rounded-md">
                         </div>
-                        <button type="button" id="add-action-item-btn" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 font-semibold h-10">Agregar</button>
+                        <button type="button" id="add-action-item-btn" data-tutorial-id="add-action-item-btn" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 font-semibold h-10">Agregar</button>
                     </div>
                 </div>
             </section>
