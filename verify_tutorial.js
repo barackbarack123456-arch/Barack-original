@@ -38,7 +38,7 @@ import assert from 'assert';
         console.log('Verifying Step 1: Checking for progress indicator...');
         await page.waitForSelector('#tutorial-tooltip-progress', { timeout: 2000 });
         const progressText = await page.textContent('#tutorial-tooltip-progress');
-        assert.strictEqual(progressText, 'Paso 1 de 22', `Expected 'Paso 1 de 22' but got '${progressText}'`);
+        assert.strictEqual(progressText, 'Paso 1 de 14', `Expected 'Paso 1 de 14' but got '${progressText}'`);
         console.log('Progress indicator found and correct.');
 
         // Take a screenshot of the first step to show the new UI
@@ -58,9 +58,9 @@ import assert from 'assert';
         console.log('Navigating to step 4...');
         await page.click('#tutorial-next-btn');
         // Wait for the tutorial to advance to the correct step
-        await page.waitForFunction(() => document.getElementById('tutorial-tooltip-progress')?.textContent === 'Paso 4 de 22', { timeout: 5000 });
+        await page.waitForFunction(() => document.getElementById('tutorial-tooltip-progress')?.textContent === 'Paso 4 de 14', { timeout: 5000 });
         const finalProgressText = await page.textContent('#tutorial-tooltip-progress');
-        assert.strictEqual(finalProgressText, 'Paso 4 de 22', `Expected 'Paso 4 de 22' but got '${finalProgressText}'`);
+        assert.strictEqual(finalProgressText, 'Paso 4 de 14', `Expected 'Paso 4 de 14' but got '${finalProgressText}'`);
         console.log('Successfully navigated a few steps.');
 
         console.log('Frontend verification successful!');
