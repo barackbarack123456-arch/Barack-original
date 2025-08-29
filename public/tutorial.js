@@ -357,6 +357,7 @@ const tutorial = (app) => {
     };
 
     let resizeObserver = null;
+    let scrollHandler = null;
 
     const updateHighlight = (targetElement, step) => {
         if (!targetElement || !dom.highlight) return;
@@ -375,9 +376,14 @@ const tutorial = (app) => {
     };
 
     const showStep = async (index) => {
+        // Clear any existing observers or listeners to prevent leaks
         if (resizeObserver) {
             resizeObserver.disconnect();
             resizeObserver = null;
+        }
+        if (scrollHandler) {
+            window.removeEventListener('scroll', scrollHandler, true);
+            scrollHandler = null;
         }
 
         if (index < 0 || index >= steps.length) {
@@ -441,6 +447,10 @@ const tutorial = (app) => {
             });
             resizeObserver.observe(targetElement);
             resizeObserver.observe(document.body);
+
+            // Also listen for scroll events to keep the highlight in sync
+            scrollHandler = () => updateHighlight(targetElement, step);
+            window.addEventListener('scroll', scrollHandler, true);
         }, 0); // Defer to next paint cycle
     };
 
@@ -538,6 +548,12 @@ const tutorial = (app) => {
     const start = () => {
         if (dom.overlay) return; // Already running
 
+        // Ensure the ECR/ECO menu is closed before the tutorial starts for a clean view.
+        const menu = document.querySelector('[data-tutorial-id="eco-ecr-menu"]');
+        if (menu) {
+            menu.classList.remove('open');
+        }
+
         steps = TUTORIAL_STEPS;
 
         createTutorialUI();
@@ -570,6 +586,10 @@ const tutorial = (app) => {
         if (resizeObserver) {
             resizeObserver.disconnect();
             resizeObserver = null;
+        }
+        if (scrollHandler) {
+            window.removeEventListener('scroll', scrollHandler, true);
+            scrollHandler = null;
         }
         if (dom.overlay) {
             dom.overlay.remove();
