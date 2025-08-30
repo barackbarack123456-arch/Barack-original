@@ -1230,6 +1230,87 @@ async function createTutorialEcr() {
     }
 }
 
+/**
+ * Seeds the database with the minimum required data for the Control Panel tutorial to function correctly.
+ * This function is idempotent and will not create duplicate data.
+ * @returns {Promise<void>}
+ */
+async function seedControlPanelTutorialData() {
+    const ecrId = 'TUTORIAL-ECR-001';
+    const ecoId = 'TUTORIAL-ECO-001';
+    const reunionId = `reunion_${new Date().toISOString().split('T')[0]}`;
+
+    const ecrRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
+    const ecoRef = doc(db, COLLECTIONS.ECO_FORMS, ecoId);
+    const reunionRef = doc(db, COLLECTIONS.REUNIONES_ECR, reunionId);
+
+    const [ecrSnap, ecoSnap, reunionSnap] = await Promise.all([
+        getDoc(ecrRef),
+        getDoc(ecoRef),
+        getDoc(reunionRef)
+    ]);
+
+    if (ecrSnap.exists() && ecoSnap.exists() && reunionSnap.exists()) {
+        console.log('Control Panel tutorial data already seeded.');
+        return; // All data exists, no need to seed.
+    }
+
+    showToast('Preparando datos de demostración para el tutorial del panel de control...', 'info');
+    const batch = writeBatch(db);
+
+    // Seed ECR if it doesn't exist
+    if (!ecrSnap.exists()) {
+        const tutorialEcrData = {
+            id: ecrId,
+            ecr_no: ecrId,
+            status: 'approved',
+            lastModified: new Date(),
+            modifiedBy: 'tutorial_system@barack.com',
+            fecha_emision: new Date().toISOString().split('T')[0],
+            denominacion_producto: 'Componente de Tutorial de Panel de Control',
+            approvals: {
+                ing_producto: { status: 'approved', user: 'Sistema' },
+                calidad: { status: 'pending', user: null },
+            }
+        };
+        batch.set(ecrRef, tutorialEcrData);
+    }
+
+    // Seed ECO if it doesn't exist
+    if (!ecoSnap.exists()) {
+        const tutorialEcoData = {
+            id: ecoId,
+            status: 'in-progress',
+            lastModified: new Date(),
+            modifiedBy: 'tutorial_system@barack.com',
+        };
+        batch.set(ecoRef, tutorialEcoData);
+    }
+
+    // Seed Reunion if it doesn't exist for today
+    if (!reunionSnap.exists()) {
+        const tutorialReunionData = {
+            id: reunionId,
+            fecha: new Date().toISOString().split('T')[0],
+            asistencia: {
+                ing_manufatura: 'P',
+                calidad: 'A',
+                compras: 'P',
+            }
+        };
+        batch.set(reunionRef, tutorialReunionData);
+    }
+
+    try {
+        await batch.commit();
+        console.log('Successfully seeded data for Control Panel tutorial.');
+    } catch (error) {
+        console.error('Error seeding control panel tutorial data:', error);
+        showToast('Error al preparar los datos del tutorial.', 'error');
+    }
+}
+
+
 function initializeAppListeners() {
     setupGlobalEventListeners();
 }
@@ -2902,7 +2983,9 @@ async function runControlEcrsLogic() {
             showToast,
             onTutorialEnd: () => {
                 appState.isTutorialActive = false;
-            }
+            },
+            // Expose the new seeding function to the tutorial module
+            seedControlPanelTutorialData,
         };
         controlPanelTutorial(app).start();
     });
@@ -3927,7 +4010,7 @@ async function runEcrFormLogic(params = null) {
 
 
         return `
-            <div class="department-section ${isApprovedOrRejected ? 'approved' : ''}">
+            <div class="department-section ${isApprovedOrRejected ? 'approved' : ''}" data-department-id="${config.id}">
                 <div class="department-header">
                      <span class="flex items-center gap-3"><i data-lucide="${config.icon || 'help-circle'}" class="w-6 h-6 text-slate-500"></i>${config.title}</span>
                     <div class="flex items-center gap-4">
@@ -4265,7 +4348,7 @@ async function runEcrFormLogic(params = null) {
         if (data.approvals) {
             for (const deptId in data.approvals) {
                 const approval = data.approvals[deptId];
-                const section = form.querySelector(`.department-section:has([name="comments_${deptId}"])`);
+                const section = form.querySelector(`.department-section[data-department-id="${deptId}"]`);
                 if (!section) continue;
 
                 const commentArea = section.querySelector(`[name="comments_${deptId}"]`);
@@ -7650,6 +7733,7 @@ async function registerEcrApproval(ecrId, departmentId, decision, comment) {
     }
 
     const ecrRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
+    let ecrData = null; // Declare ecrData here to be accessible in the outer scope
 
     try {
         await runTransaction(db, async (transaction) => {
@@ -7658,7 +7742,7 @@ async function registerEcrApproval(ecrId, departmentId, decision, comment) {
                 throw new Error("El ECR no existe.");
             }
 
-            let ecrData = ecrDoc.data();
+            ecrData = ecrDoc.data(); // Assign to the outer scope variable
 
             // FIX: Ensure approvals map exists to prevent crash on new ECRs
             if (!ecrData.approvals) {
