@@ -2361,7 +2361,7 @@ async function runEcrTableViewLogic() {
         if (!tableBody) return;
 
         if (ecrsToRender.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="20" class="text-center py-16 text-gray-500">No se encontraron ECRs que coincidan con la búsqueda.</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="23" class="text-center py-16 text-gray-500">No se encontraron ECRs que coincidan con la búsqueda.</td></tr>`;
             return;
         }
 
@@ -2370,11 +2370,14 @@ async function runEcrTableViewLogic() {
             const statusMap = {
                 'approved': { text: 'Aprobado', class: 'status-green' },
                 'in-progress': { text: 'En Progreso', class: 'status-yellow' },
-            'rejected': { text: 'Rechazado', class: 'status-red' },
-            'aprobado': { text: 'Aprobado', class: 'status-green' }, // For client status
-            'pendiente': { text: 'Pendiente', class: 'status-blue' },
-            'rechazado': { text: 'Rechazado', class: 'status-red' },
-            'na': { text: 'No Aplica', class: 'status-gray' }
+                'rejected': { text: 'Rechazado', class: 'status-red' },
+                'pending-approval': { text: 'Pend. Aprobación', class: 'status-blue' },
+                'draft': { text: 'Borrador', class: 'status-gray' },
+                'stand-by': { text: 'Stand-By', class: 'status-orange' },
+                'aprobado': { text: 'Aprobado', class: 'status-green' }, // For client status
+                'pendiente': { text: 'Pendiente', class: 'status-blue' },
+                'rechazado': { text: 'Rechazado', class: 'status-red' },
+                'na': { text: 'No Aplica', class: 'status-gray' }
             };
             const s = statusMap[status] || { text: status, class: 'status-gray' };
             return `<span class="status-pill ${s.class}">${s.text}</span>`;
@@ -2428,6 +2431,7 @@ async function runEcrTableViewLogic() {
         const searchTerm = dom.viewContent.querySelector('#ecr-control-search').value.toLowerCase();
         const clientFilter = dom.viewContent.querySelector('#ecr-client-filter').value;
         const statusFilter = dom.viewContent.querySelector('#ecr-status-filter').value;
+        const typeFilter = dom.viewContent.querySelector('#ecr-type-filter').value;
 
         let filtered = allEcrs;
 
@@ -2436,6 +2440,14 @@ async function runEcrTableViewLogic() {
         }
         if (statusFilter !== 'all') {
             filtered = filtered.filter(ecr => ecr.status === statusFilter);
+        }
+        if (typeFilter !== 'all') {
+            filtered = filtered.filter(ecr => {
+                if (typeFilter === 'producto') return ecr.tipo_producto;
+                if (typeFilter === 'proceso') return ecr.tipo_proceso;
+                if (typeFilter === 'otro') return ecr.tipo_otro;
+                return false;
+            });
         }
         if (searchTerm) {
             filtered = filtered.filter(ecr =>
@@ -2465,18 +2477,33 @@ async function runEcrTableViewLogic() {
             </div>
         </header>
 
-        <div class="flex flex-col md:flex-row gap-4 mb-4">
-            <div class="relative flex-grow">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 bg-slate-50 rounded-lg border">
+            <div class="relative flex-grow md:col-span-2">
                 <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
-                <input type="text" id="ecr-control-search" placeholder="Buscar en todos los campos..." class="w-full pl-10 pr-4 py-2 border rounded-full bg-slate-50 focus:bg-white">
+                <input type="text" id="ecr-control-search" placeholder="Buscar en todos los campos..." class="w-full pl-10 pr-4 py-2 border rounded-full bg-white shadow-sm">
             </div>
-            <div class="flex items-center gap-4 flex-wrap">
-                 <select id="ecr-client-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white"><option value="all">Todos los Clientes</option></select>
-                 <select id="ecr-status-filter" class="pl-4 pr-8 py-2 border rounded-full bg-slate-50 appearance-none focus:bg-white">
-                    <option value="all">Todos los Estados</option>
+            <div>
+                <label for="ecr-client-filter" class="text-xs font-bold text-slate-600">Cliente</label>
+                <select id="ecr-client-filter" class="w-full mt-1 pl-4 pr-8 py-2 border rounded-full bg-white shadow-sm appearance-none"><option value="all">Todos</option></select>
+            </div>
+            <div>
+                <label for="ecr-status-filter" class="text-xs font-bold text-slate-600">Estado ECR</label>
+                <select id="ecr-status-filter" class="w-full mt-1 pl-4 pr-8 py-2 border rounded-full bg-white shadow-sm appearance-none">
+                    <option value="all">Todos</option>
+                    <option value="draft">Borrador</option>
+                    <option value="pending-approval">Pend. Aprobación</option>
                     <option value="approved">Aprobado</option>
-                    <option value="in-progress">En Progreso</option>
                     <option value="rejected">Rechazado</option>
+                    <option value="stand-by">Stand-By</option>
+                </select>
+            </div>
+            <div>
+                <label for="ecr-type-filter" class="text-xs font-bold text-slate-600">Tipo de ECR</label>
+                <select id="ecr-type-filter" class="w-full mt-1 pl-4 pr-8 py-2 border rounded-full bg-white shadow-sm appearance-none">
+                    <option value="all">Todos</option>
+                    <option value="producto">Producto</option>
+                    <option value="proceso">Proceso</option>
+                    <option value="otro">Otro</option>
                 </select>
             </div>
         </div>
@@ -2515,7 +2542,7 @@ async function runEcrTableViewLogic() {
                     </tr>
                 </thead>
                 <tbody id="ecr-control-table-body">
-                    <tr><td colspan="20" class="text-center py-16 text-gray-500"><i data-lucide="loader" class="animate-spin h-8 w-8 mx-auto"></i><p class="mt-2">Cargando datos...</p></td></tr>
+                    <tr><td colspan="23" class="text-center py-16 text-gray-500"><i data-lucide="loader" class="animate-spin h-8 w-8 mx-auto"></i><p class="mt-2">Cargando datos...</p></td></tr>
                 </tbody>
             </table>
         </div>
@@ -2527,6 +2554,7 @@ async function runEcrTableViewLogic() {
     dom.viewContent.querySelector('#ecr-control-search').addEventListener('input', filterAndRender);
     dom.viewContent.querySelector('#ecr-client-filter').addEventListener('change', filterAndRender);
     dom.viewContent.querySelector('#ecr-status-filter').addEventListener('change', filterAndRender);
+    dom.viewContent.querySelector('#ecr-type-filter').addEventListener('change', filterAndRender);
 
     // --- Drag-to-scroll logic ---
     const slider = dom.viewContent.querySelector('.ecr-control-table-container');
@@ -2582,7 +2610,7 @@ async function runEcrTableViewLogic() {
         showToast('Error al cargar los datos de ECR.', 'error');
         const tableBody = dom.viewContent.querySelector('#ecr-control-table-body');
         if (tableBody) {
-            tableBody.innerHTML = `<tr><td colspan="20" class="text-center py-16 text-red-500"><i data-lucide="alert-triangle" class="mx-auto h-8 w-8"></i><p class="mt-2">Error al cargar los datos.</p></td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="23" class="text-center py-16 text-red-500"><i data-lucide="alert-triangle" class="mx-auto h-8 w-8"></i><p class="mt-2">Error al cargar los datos.</p></td></tr>`;
             lucide.createIcons();
         }
     });

@@ -254,9 +254,9 @@ const controlPanelTutorial = (app) => {
         );
 
         if (!isVisible) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            // Wait for smooth scroll to finish. This is a trade-off for better UX.
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // As per AGENTS.md lesson #10, use 'instant' to avoid race conditions
+            // with the tutorial highlight positioning.
+            element.scrollIntoView({ behavior: 'instant', block: 'center' });
         }
     };
 
