@@ -7,7 +7,7 @@ import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateD
 import { COLLECTIONS, getUniqueKeyForCollection, createHelpTooltip } from './utils.js';
 import { deleteProductAndOrphanedSubProducts } from './data_logic.js';
 import tutorial from './tutorial.js';
-import controlPanelTutorial from './control-panel-tutorial.js';
+import newControlPanelTutorial from './new-control-panel-tutorial.js';
 
 // NOTA DE SEGURIDAD: La configuración de Firebase no debe estar hardcodeada en el código fuente.
 // En un entorno de producción, estos valores deben cargarse de forma segura,
@@ -3157,7 +3157,7 @@ async function runControlEcrsLogic() {
             // Expose the new seeding function to the tutorial module
             seedControlPanelTutorialData,
         };
-        controlPanelTutorial(app).start();
+        newControlPanelTutorial(app).start();
     });
 
     // No specific cleanup needed for this simple view
