@@ -1,0 +1,320 @@
+/**
+ * Interactive Tutorial Module for the ECR/ECO Control Panel
+ *
+ * This module creates a guided tour for users to understand the control panel's features.
+ */
+const controlPanelTutorial = (app) => {
+    let currentStepIndex = 0;
+    let steps = [];
+
+    const dom = {
+        overlay: null,
+        tooltip: null,
+        highlight: null,
+    };
+
+    // All tutorial steps are defined here for clarity and easier maintenance.
+    const TUTORIAL_STEPS = [
+        {
+            element: 'body',
+            title: 'Bienvenido al Tutorial del Panel de Control',
+            content: 'Este tour te guiará por las diferentes secciones y funcionalidades del <strong>Panel de Control de ECR/ECO</strong>. ¡Empecemos!',
+            position: 'center'
+        },
+        {
+            element: '[data-view="ecr_table_view"]',
+            title: 'Tabla de Control ECR',
+            content: 'Aquí encontrarás una vista detallada de todos los ECRs. Es ideal para hacer un seguimiento exhaustivo y ver toda la información en un solo lugar.',
+            position: 'top'
+        },
+        {
+            element: '[data-view="indicadores_ecm_view"]',
+            title: 'Indicadores ECM',
+            content: 'Este es el dashboard de indicadores clave de rendimiento (KPIs) para ECRs y ECOs. Te permite visualizar el rendimiento del proceso de gestión de cambios.',
+            position: 'top'
+        },
+        {
+            element: '[data-view="ecr_seguimiento"]',
+            title: 'Seguimiento y Métricas',
+            content: 'En esta sección, puedes registrar y consultar la asistencia a las reuniones de ECR, así como ver gráficos de ausentismo y otros indicadores de seguimiento.',
+            position: 'top'
+        },
+        {
+            element: 'body',
+            title: '¡Fin del Tutorial!',
+            content: 'Ahora conoces las principales herramientas del Panel de Control. Úsalas para tener una visión completa y gestionar eficientemente los cambios de ingeniería.',
+            position: 'center'
+        }
+    ];
+
+    /**
+     * Creates the main DOM elements for the tutorial (overlay, highlight, tooltip).
+     */
+    const createTutorialUI = () => {
+        // Create overlay
+        dom.overlay = document.createElement('div');
+        dom.overlay.id = 'tutorial-overlay';
+
+        // Create highlight element
+        dom.highlight = document.createElement('div');
+        dom.highlight.id = 'tutorial-highlight';
+        dom.overlay.appendChild(dom.highlight);
+
+        // Create tooltip
+        dom.tooltip = document.createElement('div');
+        dom.tooltip.id = 'tutorial-tooltip';
+        dom.tooltip.innerHTML = `
+            <div id="tutorial-tooltip-content">
+                <h3 id="tutorial-tooltip-title"></h3>
+                <p id="tutorial-tooltip-text"></p>
+            </div>
+            <div id="tutorial-tooltip-nav">
+                <div id="tutorial-tooltip-progress" class="text-sm text-slate-500"></div>
+                <div id="tutorial-nav-buttons">
+                    <button id="tutorial-skip-btn">Omitir</button>
+                    <div id="tutorial-nav-right">
+                        <button id="tutorial-prev-btn">Anterior</button>
+                        <button id="tutorial-next-btn">Siguiente</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        dom.overlay.appendChild(dom.tooltip);
+
+        document.body.appendChild(dom.overlay);
+
+        // Add event listeners
+        document.getElementById('tutorial-skip-btn').addEventListener('click', skip);
+
+        const prevBtn = document.getElementById('tutorial-prev-btn');
+        prevBtn.addEventListener('click', async () => {
+            prevBtn.disabled = true;
+            try {
+                await previous();
+            } finally {
+                prevBtn.disabled = false;
+            }
+        });
+
+        const nextBtn = document.getElementById('tutorial-next-btn');
+        nextBtn.addEventListener('click', async () => {
+            nextBtn.disabled = true;
+            try {
+                await next();
+            } finally {
+                nextBtn.disabled = false;
+            }
+        });
+    };
+
+    /**
+     * Shows a specific step of the tutorial.
+     * @param {number} index - The index of the step to show.
+     */
+    const waitForVisibleElement = (selector, timeout = 5000) => {
+        return new Promise(resolve => {
+            if (selector === 'body' && document.body) {
+                resolve(document.body);
+                return;
+            }
+
+            const interval = 100;
+            let elapsedTime = 0;
+
+            const timer = setInterval(() => {
+                const element = document.querySelector(selector);
+                if (element && element.offsetParent !== null) {
+                    clearInterval(timer);
+                    resolve(element);
+                } else {
+                    elapsedTime += interval;
+                    if (elapsedTime >= timeout) {
+                        clearInterval(timer);
+                        resolve(null);
+                    }
+                }
+            }, interval);
+        });
+    };
+
+    let resizeObserver = null;
+    let scrollHandler = null;
+
+    const updateHighlight = (targetElement, step) => {
+        if (!targetElement || !dom.highlight) return;
+
+        const targetRect = targetElement.getBoundingClientRect();
+        const padding = 5;
+        const offset = step.offset || { top: 0, left: 0 };
+
+        dom.highlight.style.width = `${targetRect.width + (padding * 2)}px`;
+        dom.highlight.style.height = `${targetRect.height + (padding * 2)}px`;
+        dom.highlight.style.top = `${targetRect.top - padding + (offset.top || 0)}px`;
+        dom.highlight.style.left = `${targetRect.left - padding + (offset.left || 0)}px`;
+
+        positionTooltip(targetRect, step.position);
+    };
+
+    const showStep = async (index) => {
+        if (resizeObserver) {
+            resizeObserver.disconnect();
+            resizeObserver = null;
+        }
+        if (scrollHandler) {
+            window.removeEventListener('scroll', scrollHandler, true);
+            scrollHandler = null;
+        }
+
+        if (index < 0 || index >= steps.length) {
+            skip();
+            return;
+        }
+
+        currentStepIndex = index;
+        const step = steps[index];
+
+        if (step.preAction) {
+            await step.preAction();
+        }
+
+        const targetElement = await waitForVisibleElement(step.element);
+
+        if (!targetElement) {
+            console.warn(`Tutorial element not found: ${step.element}`);
+            next(); // Skip to the next step
+            return;
+        }
+
+        smartScroll(targetElement);
+
+        document.getElementById('tutorial-tooltip-title').textContent = step.title;
+        document.getElementById('tutorial-tooltip-text').innerHTML = step.content;
+        document.getElementById('tutorial-prev-btn').style.display = index === 0 ? 'none' : 'inline-block';
+        document.getElementById('tutorial-next-btn').textContent = index === steps.length - 1 ? 'Finalizar' : 'Siguiente';
+        document.getElementById('tutorial-tooltip-progress').textContent = `Paso ${index + 1} de ${steps.length}`;
+
+        updateHighlight(targetElement, step);
+
+        resizeObserver = new ResizeObserver(() => {
+            updateHighlight(targetElement, step);
+        });
+        resizeObserver.observe(targetElement);
+        resizeObserver.observe(document.body);
+
+        scrollHandler = () => updateHighlight(targetElement, step);
+        window.addEventListener('scroll', scrollHandler, true);
+
+        if (step.click && index < steps.length - 1) {
+            const nextButton = document.getElementById('tutorial-next-btn');
+            const originalNextText = nextButton.textContent;
+            nextButton.textContent = 'Continuar';
+            targetElement.classList.add('tutorial-click-effect');
+
+            const clickHandler = async () => {
+                targetElement.removeEventListener('click', clickHandler);
+                targetElement.classList.remove('tutorial-click-effect');
+                nextButton.textContent = originalNextText;
+                if (step.postAction) {
+                    await step.postAction();
+                }
+                await next();
+            };
+            targetElement.addEventListener('click', clickHandler);
+        }
+    };
+
+    const smartScroll = (element) => {
+        const rect = element.getBoundingClientRect();
+        const isVisible = (
+            rect.top >= 0 &&
+            rect.left >= 0 &&
+            rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+            rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+        );
+
+        if (!isVisible) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    };
+
+    const positionTooltip = (targetRect, position = 'bottom') => {
+        const tooltipRect = dom.tooltip.getBoundingClientRect();
+        const spacing = 10;
+        let top, left;
+
+        switch (position) {
+            case 'top':
+                top = targetRect.top - tooltipRect.height - spacing;
+                left = targetRect.left + (targetRect.width / 2) - (tooltipRect.width / 2);
+                break;
+            case 'right':
+                top = targetRect.top + (targetRect.height / 2) - (tooltipRect.height / 2);
+                left = targetRect.right + spacing;
+                break;
+            case 'left':
+                top = targetRect.top + (targetRect.height / 2) - (tooltipRect.height / 2);
+                left = targetRect.left - tooltipRect.width - spacing;
+                break;
+            case 'bottom':
+            default:
+                top = targetRect.bottom + spacing;
+                left = targetRect.left + (targetRect.width / 2) - (tooltipRect.width / 2);
+                break;
+        }
+
+        if (left < spacing) left = spacing;
+        if (top < spacing) top = spacing;
+        if (left + tooltipRect.width > window.innerWidth - spacing) left = window.innerWidth - tooltipRect.width - spacing;
+        if (top + tooltipRect.height > window.innerHeight - spacing) top = window.innerHeight - tooltipRect.height - spacing;
+
+        dom.tooltip.style.top = `${top}px`;
+        dom.tooltip.style.left = `${left}px`;
+    };
+
+    const start = () => {
+        if (dom.overlay) return;
+        steps = TUTORIAL_STEPS;
+        createTutorialUI();
+        dom.overlay.style.display = 'block';
+        showStep(0);
+    };
+
+    const next = async () => {
+        const step = steps[currentStepIndex];
+        if (step && step.postAction && !step.click) {
+            await step.postAction();
+        }
+        await showStep(currentStepIndex + 1);
+    };
+
+    const previous = async () => {
+        await showStep(currentStepIndex - 1);
+    };
+
+    const skip = () => {
+        if (resizeObserver) {
+            resizeObserver.disconnect();
+            resizeObserver = null;
+        }
+        if (scrollHandler) {
+            window.removeEventListener('scroll', scrollHandler, true);
+            scrollHandler = null;
+        }
+        if (dom.overlay) {
+            dom.overlay.remove();
+            dom.overlay = null;
+            dom.tooltip = null;
+            dom.highlight = null;
+        }
+        if (app && typeof app.onTutorialEnd === 'function') {
+            app.onTutorialEnd();
+        }
+    };
+
+    return {
+        start,
+        skip,
+    };
+};
+
+export default controlPanelTutorial;
