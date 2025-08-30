@@ -224,7 +224,7 @@ const controlPanelTutorial = (app) => {
 
         if (dom.tooltip) dom.tooltip.classList.remove('is-waiting');
 
-        smartScroll(targetElement);
+        await smartScroll(targetElement);
 
         setTimeout(() => {
             document.getElementById('tutorial-tooltip-title').textContent = step.title;
@@ -244,7 +244,7 @@ const controlPanelTutorial = (app) => {
         }, 0);
     };
 
-    const smartScroll = (element) => {
+    const smartScroll = async (element) => {
         const rect = element.getBoundingClientRect();
         const isVisible = (
             rect.top >= 0 &&
@@ -254,7 +254,9 @@ const controlPanelTutorial = (app) => {
         );
 
         if (!isVisible) {
-            element.scrollIntoView({ behavior: 'instant', block: 'center' });
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Wait for smooth scroll to finish. This is a trade-off for better UX.
+            await new Promise(resolve => setTimeout(resolve, 500));
         }
     };
 
