@@ -78,9 +78,21 @@ const tutorial = (app) => {
             offset: { top: -15 }
         },
         {
+            element: '.form-row',
+            title: 'ECR: Origen y Metadatos',
+            content: 'Se comienza identificando el origen del cambio (cliente, interno, etc.) y asociándolo a un proyecto y cliente. Estas fechas son clave para el seguimiento.',
+            position: 'bottom'
+        },
+        {
             element: '[data-tutorial-id="situacion-layout"]',
             title: 'Situación Actual vs. Propuesta',
             content: 'Aquí se describe el problema o la situación actual y cómo se propone solucionarlo. Es el corazón de la solicitud.',
+            position: 'top'
+        },
+        {
+            element: '.risk-analysis-table',
+            title: 'ECR: Análisis de Impacto y Riesgo',
+            content: 'Antes de la evaluación departamental, se realiza un análisis de riesgo inicial para entender las posibles consecuencias de una falla.',
             position: 'top'
         },
         {
@@ -145,6 +157,12 @@ const tutorial = (app) => {
             title: 'Formulario de la Orden de Cambio (ECO)',
             content: 'Este es el formulario del ECO. A diferencia del ECR (la solicitud), el ECO se centra en la <strong>ejecución y el seguimiento</strong> del cambio. Su objetivo es documentar el "cómo" se implementará.',
             position: 'top'
+        },
+        {
+            element: '.section-block:first-of-type',
+            title: 'ECO: Checklists Departamentales',
+            content: 'Cada departamento utiliza estas listas de verificación para confirmar que todas las acciones necesarias (actualizar planos, planes de control, etc.) se han completado antes del cierre del ECO.',
+            position: 'right'
         },
         {
             element: '#action-plan-section',
