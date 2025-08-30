@@ -6,7 +6,7 @@ import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWith
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, writeBatch, runTransaction, orderBy, limit, startAfter, or, getCountFromServer } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { COLLECTIONS, getUniqueKeyForCollection, createHelpTooltip } from './utils.js';
 import { deleteProductAndOrphanedSubProducts } from './data_logic.js';
-import tutorial from './tutorial.js';
+import tutorialControlPanel from './tutorialControlPanel.js';
 
 // NOTA DE SEGURIDAD: La configuración de Firebase no debe estar hardcodeada en el código fuente.
 // En un entorno de producción, estos valores deben cargarse de forma segura,
@@ -47,6 +47,16 @@ const PREDEFINED_AVATARS = [
     'https://api.dicebear.com/8.x/identicon/svg?seed=Katherine%20Johnson'
 ];
 
+const DEPARTAMENTOS = [
+    { id: 'ing_manufatura', label: 'Ing. Manufatura' }, { id: 'hse', label: 'HSE' },
+    { id: 'calidad', label: 'Calidad' }, { id: 'compras', label: 'Compras' },
+    { id: 'sqa', label: 'Calidad Prov.' }, { id: 'tooling', label: 'Herramental' },
+    { id: 'logistica', label: 'Logística PC&L' }, { id: 'financiero', label: 'Finanzas' },
+    { id: 'comercial', label: 'Comercial' }, { id: 'mantenimiento', label: 'Mantenimiento' },
+    { id: 'produccion', label: 'Producción' }, { id: 'calidad_cliente', label: 'Calidad Cliente' },
+    { id: 'ing_producto', label: 'Ing. Producto' }
+];
+
 // =================================================================================
 // --- 2. ESTADO GLOBAL Y CONFIGURACIÓN DE LA APP ---
 // =================================================================================
@@ -67,10 +77,7 @@ const viewConfig = {
         fields: []
     },
     control_ecrs: { title: 'Panel de Control', singular: 'Control ECR' },
-    seguimiento_ecr_eco: { title: 'Seguimiento ECR/ECO', singular: 'Ficha de Seguimiento' },
-    ecr_seguimiento: { title: 'Seguimiento y Métricas de ECR', singular: 'Seguimiento ECR' },
     ecr_table_view: { title: 'Tabla de Control ECR', singular: 'Control ECR' },
-    indicadores_ecm_view: { title: 'Indicadores ECM', singular: 'Indicador' },
     eco_form_mock_for_tutorial: { title: 'Plan de Acción (Ejemplo)', singular: 'Plan de Acción' },
     flujograma: { title: 'Flujograma de Procesos', singular: 'Flujograma' },
     arboles: { title: 'Editor de Árboles', singular: 'Árbol' },
@@ -1242,18 +1249,21 @@ function setupGlobalEventListeners() {
         console.log("Tutorial finished, global clicks re-enabled.");
     };
 
-    document.getElementById('start-tutorial-btn')?.addEventListener('click', () => {
-        appState.isTutorialActive = true;
-        const app = {
-            switchView,
-            showToast,
-            openFormModal,
-            appState,
-            db,
-            onTutorialEnd,
-            createTutorialEcr // Expose the new helper function to the tutorial
-        };
-        tutorial(app).start();
+    dom.viewContent.addEventListener('click', (e) => {
+        const tutorialButton = e.target.closest('#start-tutorial-btn');
+        if (tutorialButton) {
+            appState.isTutorialActive = true;
+            const app = {
+                switchView,
+                showToast,
+                openFormModal,
+                appState,
+                db,
+                onTutorialEnd,
+                createTutorialEcr
+            };
+            tutorialControlPanel(app).start();
+        }
     });
 
     document.getElementById('main-nav').addEventListener('click', (e) => {
@@ -1335,10 +1345,7 @@ async function switchView(viewName, params = null) {
     else if (viewName === 'eco') await runEcoLogic();
     else if (viewName === 'ecr') await runEcrLogic();
     else if (viewName === 'control_ecrs') await runControlEcrsLogic();
-    else if (viewName === 'seguimiento_ecr_eco') await runSeguimientoEcrEcoLogic();
-    else if (viewName === 'ecr_seguimiento') await runEcrSeguimientoLogic();
     else if (viewName === 'ecr_table_view') await runEcrTableViewLogic();
-    else if (viewName === 'indicadores_ecm_view') await runIndicadoresEcmViewLogic();
     else if (viewName === 'eco_form') await runEcoFormLogic(params);
     else if (viewName === 'ecr_form') await runEcrFormLogic(params);
     else if (viewName === 'eco_form_mock_for_tutorial') {
@@ -2222,54 +2229,6 @@ async function runEcrLogic() {
     });
 }
 
-// Helper to create individual KPI cards
-const createKpiCard = (label, value, icon, colorClass) => {
-    return `
-        <div class="bg-white p-4 rounded-xl shadow-md border flex items-center gap-4">
-            <div class="p-3 rounded-full bg-${colorClass}-100 text-${colorClass}-600">
-                <i data-lucide="${icon}" class="w-8 h-8"></i>
-            </div>
-            <div>
-                <p class="text-3xl font-bold text-slate-800">${value}</p>
-                <p class="text-sm font-semibold text-gray-600">${label}</p>
-            </div>
-        </div>
-    `;
-};
-
-// Modified helper for pie/doughnut charts
-const createDashboardChartConfig = (type, labels, data, title) => ({
-    type: type,
-    data: {
-        labels: labels,
-        datasets: [{
-            data: data,
-            backgroundColor: ['#3b82f6', '#ef4444', '#16a34a', '#f59e0b', '#6366f1', '#ec4899'],
-            borderColor: '#ffffff',
-            borderWidth: 4,
-            hoverOffset: 8
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                position: 'bottom',
-                labels: { padding: 20, boxWidth: 12 }
-            },
-            title: {
-                display: true,
-                text: title,
-                font: { size: 18, weight: 'bold' },
-                padding: { bottom: 15 }
-            }
-        },
-        cutout: type === 'doughnut' ? '60%' : '0%'
-    }
-});
-
-
 async function runEcrTableViewLogic() {
     dom.headerActions.style.display = 'none';
     let allEcrs = []; // To store all ECRs for client-side filtering
@@ -2510,861 +2469,47 @@ async function runEcrTableViewLogic() {
     };
 }
 
-async function runIndicadoresEcmViewLogic() {
-    dom.headerActions.style.display = 'none';
-    let activeDashboardUnsub = null;
-    let ecrChart = null;
-    let ecoChart = null;
-    let obsoletosChart = null;
-    let actionPlanUnsub = null;
-
-    const cleanup = () => {
-        if (ecrChart) ecrChart.destroy();
-        if (ecoChart) ecoChart.destroy();
-        if (obsoletosChart) obsoletosChart.destroy();
-        ecrChart = null;
-        ecoChart = null;
-        obsoletosChart = null;
-        if (activeDashboardUnsub) {
-            activeDashboardUnsub();
-            activeDashboardUnsub = null;
-        }
-        if (actionPlanUnsub) {
-            actionPlanUnsub();
-            actionPlanUnsub = null;
-        }
-    };
-
-    const renderIndicadorEcmView = () => {
-        cleanup();
-        const currentYear = new Date().getFullYear();
-        let yearOptions = '';
-        for (let i = 0; i < 5; i++) {
-            const year = currentYear - i;
-            yearOptions += `<option value="${year}" ${i === 0 ? 'selected' : ''}>${year}</option>`;
-        }
-
-        const viewHTML = `
-            <div class="animate-fade-in space-y-8">
-                <div class="flex flex-col md:flex-row justify-between items-center gap-4">
-                     <div>
-                        <button data-view="control_ecrs" class="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-800 mb-2">
-                            <i data-lucide="arrow-left" class="w-4 h-4"></i>
-                            Volver al Panel de Control
-                        </button>
-                        <h2 class="text-3xl font-bold text-slate-800">Indicadores ECM</h2>
-                    </div>
-                    <div class="flex items-center gap-4">
-                        <div>
-                            <label for="ecm-status-filter" class="text-sm font-medium">Estado:</label>
-                            <select id="ecm-status-filter" class="border-gray-300 rounded-md shadow-sm">
-                                <option value="all">Todos</option>
-                                <option value="approved">Aprobado</option>
-                                <option value="in-progress">En Progreso</option>
-                                <option value="rejected">Rechazado</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="ecm-year-filter" class="text-sm font-medium">Período:</label>
-                            <select id="ecm-year-filter" class="border-gray-300 rounded-md shadow-sm">${yearOptions}</select>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ECR Section -->
-                <section class="bg-white p-6 rounded-xl shadow-lg">
-                    <h3 class="text-xl font-bold text-slate-800 mb-4">Análisis de ECR</h3>
-                    <div id="ecr-kpi-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"></div>
-                    <div class="h-80 relative"><canvas id="ecr-doughnut-chart"></canvas></div>
-                </section>
-
-                <!-- ECO Section -->
-                <section class="bg-white p-6 rounded-xl shadow-lg">
-                    <h3 class="text-xl font-bold text-slate-800 mb-4">Análisis de ECO</h3>
-                    <div id="eco-kpi-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6"></div>
-                    <div class="h-80 relative"><canvas id="eco-pie-chart"></canvas></div>
-                </section>
-
-                <!-- Obsoletos Section -->
-                <section class="bg-white p-6 rounded-xl shadow-lg">
-                    <h3 class="text-xl font-bold text-slate-800 mb-4">Análisis de Obsoletos Anual</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div>
-                            <table class="w-full text-sm">
-                                <thead class="text-xs text-gray-700 uppercase bg-gray-100">
-                                    <tr><th class="px-4 py-3 text-left">Indicador</th><th class="px-4 py-3 text-right">Valor</th></tr>
-                                </thead>
-                                <tbody>
-                                    <tr class="border-b"><td class="px-4 py-3 font-semibold">CANTIDAD ANUAL</td><td id="obsoletos-anual" class="px-4 py-3 text-right font-mono font-bold">0</td></tr>
-                                    <tr class="border-b"><td class="px-4 py-3">CANTIDAD SEMESTRE 1</td><td id="obsoletos-s1" class="px-4 py-3 text-right font-mono">0</td></tr>
-                                    <tr class="border-b"><td class="px-4 py-3">CANTIDAD SEMESTRE 2</td><td id="obsoletos-s2" class="px-4 py-3 text-right font-mono">0</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="h-64 relative"><canvas id="obsoletos-bar-chart"></canvas></div>
-                    </div>
-                </section>
-
-                <!-- Plan de Acción Section -->
-                <section class="bg-white p-6 rounded-xl shadow-lg">
-                    <h3 class="text-xl font-bold text-slate-800 mb-4">Plan de Acción</h3>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead class="text-xs text-gray-700 uppercase bg-gray-100">
-                                <tr>
-                                    <th class="px-4 py-3 text-left">Acción</th>
-                                    <th class="px-4 py-3 text-left">Responsable</th>
-                                    <th class="px-4 py-3 text-left">Plazo</th>
-                                    <th class="px-4 py-3 text-center">Realizado</th>
-                                    <th class="px-4 py-3 text-right"></th>
-                                </tr>
-                            </thead>
-                            <tbody id="action-plan-tbody">
-                                <!-- Rows will be rendered here dynamically -->
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="mt-4 text-right">
-                        <button id="add-action-plan-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm font-semibold">
-                            <i data-lucide="plus" class="inline-block w-4 h-4 mr-1.5 -mt-0.5"></i>Agregar Acción
-                        </button>
-                    </div>
-                </section>
-            </div>
-        `;
-        dom.viewContent.innerHTML = viewHTML;
-        lucide.createIcons();
-
-        const updateEcmDashboard = () => {
-            const yearFilter = document.getElementById('ecm-year-filter');
-            const statusFilter = document.getElementById('ecm-status-filter');
-            if (!yearFilter || !statusFilter || !appState.isAppInitialized) return;
-            const selectedYear = parseInt(yearFilter.value, 10);
-            const selectedStatus = statusFilter.value;
-
-            // ECR Data
-            let ecrDocs = appState.collections[COLLECTIONS.ECR_FORMS] || [];
-            if (selectedStatus !== 'all') {
-                ecrDocs = ecrDocs.filter(ecr => ecr.status === selectedStatus);
-            }
-            const filteredEcrs = ecrDocs.filter(ecr => ecr.fecha_emision && new Date(ecr.fecha_emision + "T00:00:00").getFullYear() === selectedYear);
-            let ecrAbierta = 0, ecrCancelada = 0, ecrCerradaPlazo = 0, ecrCerradaFueraPlazo = 0;
-            filteredEcrs.forEach(ecr => {
-                if (ecr.status === 'in-progress') ecrAbierta++;
-                else if (ecr.status === 'rejected') ecrCancelada++;
-                else if (ecr.status === 'approved') {
-                    if (ecr.fecha_emision && ecr.lastModified?.toDate) {
-                        const fechaEmision = new Date(ecr.fecha_emision + "T00:00:00");
-                        const fechaCierre = ecr.lastModified.toDate();
-                        const diffDays = (fechaCierre - fechaEmision) / (1000 * 60 * 60 * 24);
-                        diffDays <= 30 ? ecrCerradaPlazo++ : ecrCerradaFueraPlazo++;
-                    }
-                }
-            });
-            document.getElementById('ecr-kpi-cards').innerHTML =
-                createKpiCard("ECR Abierta", ecrAbierta, 'file-clock', 'blue') +
-                createKpiCard("ECR Cancelada", ecrCancelada, 'file-x', 'red') +
-                createKpiCard("Cerrada en Plazo", ecrCerradaPlazo, 'file-check', 'green') +
-                createKpiCard("Cerrada Fuera de Plazo", ecrCerradaFueraPlazo, 'file-warning', 'yellow');
-
-            const ecrChartCtx = document.getElementById('ecr-doughnut-chart')?.getContext('2d');
-            if (ecrChartCtx) {
-                if (ecrChart) ecrChart.destroy();
-                ecrChart = new Chart(ecrChartCtx, createDashboardChartConfig('doughnut', ["Abiertas", "Canceladas", "En Plazo", "Fuera de Plazo"], [ecrAbierta, ecrCancelada, ecrCerradaPlazo, ecrCerradaFueraPlazo], "Distribución de ECRs"));
-            }
-
-            // ECO Data
-            let ecoDocs = appState.collections[COLLECTIONS.ECO_FORMS] || [];
-            if (selectedStatus !== 'all') {
-                ecoDocs = ecoDocs.filter(eco => eco.status === selectedStatus);
-            }
-            const filteredEcos = ecoDocs.filter(eco => eco.lastModified?.toDate && eco.lastModified.toDate().getFullYear() === selectedYear);
-            const ecoPendiente = filteredEcos.filter(eco => eco.status === 'in-progress').length;
-            const ecoApertura = filteredEcos.filter(eco => eco.status === 'approved').length;
-            const ecoRechazada = filteredEcos.filter(eco => eco.status === 'rejected').length;
-            document.getElementById('eco-kpi-cards').innerHTML =
-                createKpiCard("ECO Pendiente", ecoPendiente, 'hourglass', 'yellow') +
-                createKpiCard("ECO Apertura", ecoApertura, 'folder-check', 'green') +
-                createKpiCard("ECO Rechazada", ecoRechazada, 'folder-x', 'red');
-
-            const ecoChartCtx = document.getElementById('eco-pie-chart')?.getContext('2d');
-            if (ecoChartCtx) {
-                if (ecoChart) ecoChart.destroy();
-                ecoChart = new Chart(ecoChartCtx, createDashboardChartConfig('pie', ["Pendiente", "Apertura", "Rechazada"], [ecoPendiente, ecoApertura, ecoRechazada], "Distribución de ECOs"));
-            }
-
-            // Obsoletos Data (Calculated from ECRs)
-            let s1 = 0;
-            let s2 = 0;
-            if (filteredEcrs && filteredEcrs.length > 0) {
-                filteredEcrs.forEach(ecr => {
-                    const obsoletosValue = parseInt(ecr.componentes_obsoletos, 10);
-                    if (!isNaN(obsoletosValue)) {
-                        const ecrDate = new Date(ecr.fecha_emision + "T00:00:00");
-                        const month = ecrDate.getMonth();
-                        if (month < 6) s1 += obsoletosValue;
-                        else s2 += obsoletosValue;
-                    }
-                });
-            }
-            document.getElementById('obsoletos-anual').textContent = s1 + s2;
-            document.getElementById('obsoletos-s1').textContent = s1;
-            document.getElementById('obsoletos-s2').textContent = s2;
-            const obsoletosChartCtx = document.getElementById('obsoletos-bar-chart')?.getContext('2d');
-            if (obsoletosChartCtx) {
-                 if (obsoletosChart) obsoletosChart.destroy();
-                 obsoletosChart = new Chart(obsoletosChartCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: ['Semestre 1', 'Semestre 2'],
-                        datasets: [{ label: 'Cantidad de Obsoletos', data: [s1, s2], backgroundColor: ['#60a5fa', '#3b82f6'], borderRadius: 4, maxBarThickness: 50 }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } } }
-                 });
-            }
-            lucide.createIcons();
-
-            // Setup Action Plan listener
-            if (actionPlanUnsub) actionPlanUnsub();
-            const actionPlanCollection = collection(db, 'action_plans');
-            // Remove the where() clause to avoid needing a specific index.
-            // Filtering will be done on the client side.
-            const q = query(actionPlanCollection);
-            actionPlanUnsub = onSnapshot(q, (snapshot) => {
-                const currentSelectedYear = parseInt(document.getElementById('ecm-year-filter').value, 10);
-                const plans = snapshot.docs
-                    .map(doc => ({ ...doc.data(), docId: doc.id }))
-                    .filter(plan => plan.year === currentSelectedYear); // Filter by year on the client
-                renderActionPlan(plans);
-            }, (error) => {
-                console.error("Error listening to action plans:", error);
-                showToast("Error al cargar el plan de acción.", "error");
-            });
-        };
-
-        const renderActionPlan = (plans) => {
-            const tbody = document.getElementById('action-plan-tbody');
-            if (!tbody) return;
-            tbody.innerHTML = plans.map(plan => `
-                <tr class="border-b group" data-id="${plan.docId}">
-                    <td class="px-4 py-3" contenteditable="true" data-field="action">${plan.action}</td>
-                    <td class="px-4 py-3" contenteditable="true" data-field="responsible">${plan.responsible}</td>
-                    <td class="px-4 py-3" contenteditable="true" data-field="deadline">${plan.deadline}</td>
-                    <td class="px-4 py-3 text-center">
-                        <input type="checkbox" class="action-plan-status h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300" ${plan.status === 'done' ? 'checked' : ''}>
-                    </td>
-                    <td class="px-4 py-3 text-right">
-                        <button class="delete-action-plan-btn text-slate-400 hover:text-red-600 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i></button>
-                    </td>
-                </tr>
-            `).join('');
-            lucide.createIcons();
-        };
-
-        const setupActionPlanListeners = () => {
-            const tbody = document.getElementById('action-plan-tbody');
-            const addBtn = document.getElementById('add-action-plan-btn');
-            if (!tbody || !addBtn) return;
-
-            addBtn.addEventListener('click', async () => {
-                const selectedYear = parseInt(document.getElementById('ecm-year-filter').value, 10);
-                const newPlan = { action: 'Nueva acción...', responsible: 'Responsable...', deadline: 'dd/mm/aaaa', status: 'pending', year: selectedYear };
-                try {
-                    await addDoc(collection(db, 'action_plans'), newPlan);
-                    showToast('Nueva acción agregada.', 'success');
-                } catch (error) {
-                    showToast('Error al agregar la acción.', 'error');
-                }
-            });
-
-            tbody.addEventListener('focusout', async (e) => {
-                if (e.target.tagName === 'TD' && e.target.isContentEditable) {
-                    const docId = e.target.parentElement.dataset.id;
-                    const field = e.target.dataset.field;
-                    const value = e.target.textContent;
-                    const docRef = doc(db, 'action_plans', docId);
-                    try {
-                        await updateDoc(docRef, { [field]: value });
-                        showToast('Plan de acción actualizado.', 'success');
-                    } catch (error) { showToast('Error al actualizar.', 'error'); }
-                }
-            });
-
-            tbody.addEventListener('change', async (e) => {
-                if (e.target.matches('.action-plan-status')) {
-                    const docId = e.target.closest('tr').dataset.id;
-                    const status = e.target.checked ? 'done' : 'pending';
-                    const docRef = doc(db, 'action_plans', docId);
-                    try {
-                        await updateDoc(docRef, { status: status });
-                        showToast('Estado actualizado.', 'success');
-                    } catch (error) { showToast('Error al actualizar estado.', 'error'); }
-                }
-            });
-
-            tbody.addEventListener('click', async (e) => {
-                const deleteBtn = e.target.closest('.delete-action-plan-btn');
-                if (deleteBtn) {
-                    const docId = deleteBtn.closest('tr').dataset.id;
-                    showConfirmationModal('Eliminar Acción', '¿Está seguro?', async () => {
-                        try {
-                            await deleteDoc(doc(db, 'action_plans', docId));
-                            showToast('Acción eliminada.', 'success');
-                        } catch (error) { showToast('Error al eliminar la acción.', 'error'); }
-                    });
-                }
-            });
-        };
-
-        setupActionPlanListeners();
-        document.getElementById('ecm-year-filter').addEventListener('change', updateEcmDashboard);
-        document.getElementById('ecm-status-filter').addEventListener('change', updateEcmDashboard);
-        const unsub1 = onSnapshot(collection(db, COLLECTIONS.ECR_FORMS), updateEcmDashboard);
-        const unsub2 = onSnapshot(collection(db, COLLECTIONS.ECO_FORMS), updateEcmDashboard);
-        activeDashboardUnsub = () => { unsub1(); unsub2(); };
-        updateEcmDashboard();
-    };
-
-    renderIndicadorEcmView();
-    appState.currentViewCleanup = cleanup;
-}
-
 async function runControlEcrsLogic() {
     dom.headerActions.style.display = 'none';
 
-    const viewHTML = `
-        <div class="animate-fade-in-up">
-            <div class="text-center mb-12">
-                <h2 class="text-4xl font-extrabold text-slate-800">Panel de Control</h2>
-                <p class="text-lg text-slate-500 mt-2">Seleccione un módulo para visualizar.</p>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-                <a href="#" data-view="ecr_table_view" class="nav-link dashboard-card bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer overflow-hidden transform hover:-translate-y-1">
-                    <div class="p-6 bg-slate-700 text-white">
-                        <div class="flex items-center gap-4">
-                            <i data-lucide="table-properties" class="w-10 h-10"></i>
-                            <div>
-                                <h3 class="text-2xl font-bold">Tabla de Control ECR</h3>
-                                <p class="opacity-90">Hoja de seguimiento de proyectos.</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="p-6">
-                        <p class="text-slate-600">Ver y gestionar la tabla maestra de todos los Engineering Change Requests (ECR).</p>
-                    </div>
-                </a>
-                <a href="#" data-view="indicadores_ecm_view" class="nav-link dashboard-card bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer overflow-hidden transform hover:-translate-y-1">
-                    <div class="p-6 bg-blue-600 text-white">
-                        <div class="flex items-center gap-4">
-                            <i data-lucide="bar-chart-3" class="w-10 h-10"></i>
-                            <div>
-                                <h3 class="text-2xl font-bold">Indicadores ECM</h3>
-                                <p class="opacity-90">Dashboard de ECR / ECO.</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="p-6">
-                        <p class="text-slate-600">Visualizar KPIs y gráficos sobre el estado y rendimiento de los ECRs y ECOs.</p>
-                    </div>
-                </a>
-                <a href="#" data-view="ecr_seguimiento" class="nav-link dashboard-card bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer overflow-hidden transform hover:-translate-y-1">
-                    <div class="p-6 bg-emerald-600 text-white">
-                        <div class="flex items-center gap-4">
-                            <i data-lucide="clipboard-check" class="w-10 h-10"></i>
-                            <div>
-                                <h3 class="text-2xl font-bold">Seguimiento y Métricas</h3>
-                                <p class="opacity-90">Registro, asistencia y gráficos.</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="p-6">
-                        <p class="text-slate-600">Consolidado de seguimiento de ECR, matriz de asistencia a reuniones y KPIs de ausentismo.</p>
-                    </div>
-                </a>
-            </div>
-        </div>
-    `;
-
-    dom.viewContent.innerHTML = viewHTML;
-    lucide.createIcons();
-
-    // No specific cleanup needed for this simple view
-    appState.currentViewCleanup = () => {};
-}
-
-async function runSeguimientoEcrEcoLogic() {
-    dom.headerActions.style.display = 'none';
-    const SEGUIMIENTO_COLLECTION = 'seguimiento_ecr_eco';
-    let unsubscribe;
-
-    const DEPARTAMENTOS = [
-        'ENG. PRODUCTO', 'ENG. PROCESSO PLTL', 'HSE', 'QUALIDADE / CALIDAD', 'COMPRAS',
-        'QUALIDADE COMPRAS', 'TOOLING & EQUIPAMENTS', 'LOGISTICA E PC&L', 'FINANCEIRO / COSTING',
-        'COMERCIAL', 'MANUTENÇÃO / MANTENIMIENTO', 'PRODUÇÃO / PRODUCCIÓN', 'QUALIDADE CLIENTE'
-    ];
-
-    const ESTADOS_FICHA = ['CERRADA', 'ABIERTA', 'RECHAZADO', 'PENDIENTE', 'SIN NOTAS', 'FALTA FIRMAR'];
-    const STATUS_COLORS = {
-        CERRADA: 'status-cerrada',
-        ABIERTA: 'status-abierta',
-        RECHAZADO: 'status-rechazado',
-        PENDIENTE: 'status-pendiente',
-        SIN_NOTAS: 'status-sin-notas',
-        FALTA_FIRMAR: 'status-falta-firmar'
-    };
-
-    const renderFichaForm = (fichaData = null, isReadOnly = false) => {
-        if (!checkUserPermission('edit')) {
-            isReadOnly = true;
-        }
-        const isEditing = fichaData !== null;
-        const ecrEcoId = isEditing ? fichaData.id : `ECR-ECO-${Date.now()}`;
-
-        let departamentosHTML = '';
-        DEPARTAMENTOS.forEach(depto => {
-            const deptoKey = depto.replace(/[\s/&]/g, '_');
-            const ecrComentario = isEditing ? (fichaData.departamentos?.[deptoKey]?.ecrComentario || '') : '';
-            const ecrFirmada = isEditing ? (fichaData.departamentos?.[deptoKey]?.ecrFirmada || 'NO') : 'NO';
-            const ecoComentario = isEditing ? (fichaData.departamentos?.[deptoKey]?.ecoComentario || '') : '';
-            const ecoFirmada = isEditing ? (fichaData.departamentos?.[deptoKey]?.ecoFirmada || 'NO') : 'NO';
-
-            departamentosHTML += `
-                <tr>
-                    <td class="col-departamento">${depto}</td>
-                    <td class="col-comentarios"><textarea name="ecr_comentario_${deptoKey}">${ecrComentario}</textarea></td>
-                    <td class="col-firma">
-                        <select name="ecr_firmada_${deptoKey}">
-                            <option value="SI" ${ecrFirmada === 'SI' ? 'selected' : ''}>SI</option>
-                            <option value="NO" ${ecrFirmada === 'NO' ? 'selected' : ''}>NO</option>
-                        </select>
-                    </td>
-                    <td class="col-comentarios"><textarea name="eco_comentario_${deptoKey}">${ecoComentario}</textarea></td>
-                    <td class="col-firma">
-                        <select name="eco_firmada_${deptoKey}">
-                            <option value="SI" ${ecoFirmada === 'SI' ? 'selected' : ''}>SI</option>
-                            <option value="NO" ${ecoFirmada === 'NO' ? 'selected' : ''}>NO</option>
-                        </select>
-                    </td>
-                </tr>
-            `;
-        });
-
-        const estadoOptionsHTML = ESTADOS_FICHA.map(estado => {
-            const selected = isEditing && fichaData.estadoGeneral === estado ? 'selected' : '';
-            return `<option value="${estado}" ${selected}>${estado}</option>`;
-        }).join('');
-
-        const leyendaHTML = ESTADOS_FICHA.map(estado => `
-            <div class="leyenda-item">
-                <div class="leyenda-color-box ${STATUS_COLORS[estado.replace(' ', '_')]}"></div>
-                <span>${estado}</span>
-            </div>
-        `).join('');
-
-        const viewHTML = `
-            <div class="ficha-seguimiento animate-fade-in-up">
-                <form id="ficha-form" data-id="${ecrEcoId}">
-                    <header class="ficha-header">
-                        <div class="ficha-grid-meta">
-                            <div class="meta-item">
-                                <label for="n_eco_ecr">N° de Eco/Ecr</label>
-                                <input type="text" id="n_eco_ecr" name="n_eco_ecr" value="${isEditing ? fichaData.n_eco_ecr : ''}" required>
-                            </div>
-                            <div class="meta-item">
-                                <label for="cliente">Cliente</label>
-                                <input type="text" id="cliente" name="cliente" value="${isEditing ? fichaData.cliente : ''}">
-                            </div>
-                            <div class="meta-item">
-                                <label for="pedido">Pedido</label>
-                                <input type="text" id="pedido" name="pedido" value="${isEditing ? fichaData.pedido : ''}">
-                            </div>
-                             <div class="meta-item" style="grid-column: 1 / -1;">
-                                <label for="descripcion">Descripcion</label>
-                                <textarea id="descripcion" name="descripcion" rows="2">${isEditing ? fichaData.descripcion : ''}</textarea>
-                            </div>
-                        </div>
-                    </header>
-                    <div class="ficha-body">
-                        <table class="departamentos-table">
-                            <thead>
-                                <tr>
-                                    <th class="col-departamento">Departamento</th>
-                                    <th class="col-comentarios">Comentarios según ECR</th>
-                                    <th class="col-firma">Firmada (ECR)</th>
-                                    <th class="col-comentarios">Comentarios según ECO</th>
-                                    <th class="col-firma">Firmada (ECO)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${departamentosHTML}
-                            </tbody>
-                        </table>
-                    </div>
-                    <footer class="ficha-footer">
-                        <div class="estado-general-container">
-                            <label for="estado-general">Estado General:</label>
-                            <select id="estado-general" name="estadoGeneral" class="estado-general-select ${STATUS_COLORS[(isEditing ? fichaData.estadoGeneral : 'ABIERTA').replace(' ', '_')]}">
-                                ${estadoOptionsHTML}
-                            </select>
-                        </div>
-                         <div class="leyenda-colores">
-                            ${leyendaHTML}
-                        </div>
-                        <div class="ficha-actions">
-                            <button type="button" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600" id="back-to-list-btn">Volver a la Lista</button>
-                            <button type="submit" class="btn-save">${isEditing ? 'Actualizar Ficha' : 'Guardar Ficha'}</button>
-                            ${isEditing ? `<button type="button" class="btn-delete" id="delete-ficha-btn">Eliminar Ficha</button>` : ''}
-                        </div>
-                    </footer>
-                </form>
-            </div>
-        `;
-        dom.viewContent.innerHTML = viewHTML;
-
-        const form = document.getElementById('ficha-form');
-
-        if (isReadOnly) {
-            form.querySelectorAll('input, textarea, select').forEach(el => {
-                el.disabled = true;
-            });
-            const saveBtn = form.querySelector('.btn-save');
-            if (saveBtn) saveBtn.style.display = 'none';
-            const deleteBtn = form.querySelector('.btn-delete');
-            if (deleteBtn) deleteBtn.style.display = 'none';
-
-            const actionsContainer = form.querySelector('.ficha-actions');
-            if (actionsContainer) {
-                const n_eco_ecr = fichaData.n_eco_ecr || '';
-                let associatedButtonHTML = '';
-                if (n_eco_ecr) {
-                    const type = n_eco_ecr.startsWith('ECR') ? 'ecr' : (n_eco_ecr.startsWith('ECO') ? 'eco' : null);
-                    if (type) {
-                        associatedButtonHTML = `
-                            <button type="button" data-action="view-associated-${type}" data-id="${n_eco_ecr}" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 font-semibold">
-                                Ver ${type.toUpperCase()}
-                            </button>`;
-                    }
-                }
-
-                const newButtonsHTML = `
-                    <button type="button" data-action="generate-ficha-pdf" data-id="${fichaData.id}" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 font-semibold">
-                        Generar PDF
-                    </button>
-                    ${associatedButtonHTML}
-                `;
-                actionsContainer.insertAdjacentHTML('beforeend', newButtonsHTML);
-            }
-        }
-
-        form.addEventListener('click', async (e) => {
-            const button = e.target.closest('button[data-action]');
-            if (!button || button.type === 'submit') return;
-
-            e.preventDefault();
-
-            const action = button.dataset.action;
-            const id = button.dataset.id;
-
-            if (action === 'generate-ficha-pdf') {
-                await generateFichaPdf(id);
-            } else if (action === 'view-associated-ecr') {
-                switchView('ecr_form', { ecrId: id });
-            } else if (action === 'view-associated-eco') {
-                switchView('eco_form', { ecoId: id });
-            }
-        });
-
-        form.addEventListener('submit', handleSaveFicha);
-
-        document.getElementById('back-to-list-btn').addEventListener('click', renderMainView);
-
-        if (isEditing && !isReadOnly) {
-            document.getElementById('delete-ficha-btn').addEventListener('click', () => handleDeleteFicha(ecrEcoId));
-        }
-
-        const estadoSelect = document.getElementById('estado-general');
-        estadoSelect.addEventListener('change', (e) => {
-            estadoSelect.className = 'estado-general-select'; // Reset classes
-            const selectedStatusClass = STATUS_COLORS[e.target.value.replace(' ', '_')];
-            if(selectedStatusClass) {
-                estadoSelect.classList.add(selectedStatusClass);
-            }
-        });
-    };
-
-    const handleSaveFicha = async (e) => {
-        e.preventDefault();
-        const form = e.target;
-        const id = form.dataset.id;
-        const n_eco_ecr = form.querySelector('[name="n_eco_ecr"]').value;
-
-        if (!n_eco_ecr) {
-            showToast('El campo "N° de Eco/Ecr" es obligatorio.', 'error');
-            return;
-        }
-
-        const fichaData = {
-            id: id,
-            n_eco_ecr: n_eco_ecr,
-            cliente: form.querySelector('[name="cliente"]').value,
-            pedido: form.querySelector('[name="pedido"]').value,
-            descripcion: form.querySelector('[name="descripcion"]').value,
-            estadoGeneral: form.querySelector('[name="estadoGeneral"]').value,
-            departamentos: {},
-            lastModified: new Date()
-        };
-
-        DEPARTAMENTOS.forEach(depto => {
-            const deptoKey = depto.replace(/[\s/&]/g, '_');
-            fichaData.departamentos[deptoKey] = {
-                ecrComentario: form.querySelector(`[name="ecr_comentario_${deptoKey}"]`).value,
-                ecrFirmada: form.querySelector(`[name="ecr_firmada_${deptoKey}"]`).value,
-                ecoComentario: form.querySelector(`[name="eco_comentario_${deptoKey}"]`).value,
-                ecoFirmada: form.querySelector(`[name="eco_firmada_${deptoKey}"]`).value,
-            };
-        });
-
-        try {
-            const docRef = doc(db, SEGUIMIENTO_COLLECTION, id);
-            await setDoc(docRef, fichaData, { merge: true });
-            showToast('Ficha guardada con éxito.', 'success');
-            renderMainView();
-        } catch (error) {
-            console.error("Error guardando la ficha: ", error);
-            showToast('Error al guardar la ficha.', 'error');
-        }
-    };
-
-    const handleDeleteFicha = (id) => {
-        showConfirmationModal('Eliminar Ficha', '¿Está seguro de que desea eliminar esta ficha? Esta acción no se puede deshacer.', async () => {
-            try {
-                await deleteDoc(doc(db, SEGUIMIENTO_COLLECTION, id));
-                showToast('Ficha eliminada.', 'success');
-                renderMainView();
-            } catch (error) {
-                console.error("Error deleting ficha: ", error);
-                showToast('Error al eliminar la ficha.', 'error');
-            }
-        });
-    };
-
-    const seedSeguimientoData = async () => {
-        const snapshot = await getDocs(query(collection(db, SEGUIMIENTO_COLLECTION), limit(1)));
-        if (!snapshot.empty) {
-            console.log('La colección de seguimiento ya tiene datos. No se necesita seeding.');
-            return;
-        }
-
-        showToast('Creando datos de prueba para seguimiento...', 'info');
-        const batch = writeBatch(db);
-        const sampleFicha1 = {
-            id: 'ECR-ECO-SAMPLE-1',
-            n_eco_ecr: 'ECR-2024-001',
-            cliente: 'Cliente de Prueba A',
-            pedido: 'PED-001',
-            descripcion: 'Modificación inicial del componente X para mejorar la durabilidad.',
-            estadoGeneral: 'ABIERTA',
-            departamentos: {
-                'ENG_PRODUCTO': { ecrComentario: 'Revisar planos y especificaciones.', ecrFirmada: 'SI', ecoComentario: '', ecoFirmada: 'NO' },
-                'COMPRAS': { ecrComentario: 'Evaluar impacto en proveedores.', ecrFirmada: 'NO', ecoComentario: '', ecoFirmada: 'NO' }
-            },
-            lastModified: new Date()
-        };
-        const sampleFicha2 = {
-            id: 'ECR-ECO-SAMPLE-2',
-            n_eco_ecr: 'ECO-2024-002',
-            cliente: 'Cliente de Prueba B',
-            pedido: 'PED-002',
-            descripcion: 'Implementación del cambio de material para el ensamblaje Y.',
-            estadoGeneral: 'PENDIENTE',
-            departamentos: {
-                'ENG_PRODUCTO': { ecrComentario: 'Planos actualizados.', ecrFirmada: 'SI', ecoComentario: 'Cambio implementado.', ecoFirmada: 'SI' },
-                'QUALIDADE_CALIDAD': { ecrComentario: 'Plan de control requerido.', ecrFirmada: 'SI', ecoComentario: 'Plan de control actualizado y validado.', ecoFirmada: 'NO' }
-            },
-            lastModified: new Date()
-        };
-
-        batch.set(doc(db, SEGUIMIENTO_COLLECTION, sampleFicha1.id), sampleFicha1);
-        batch.set(doc(db, SEGUIMIENTO_COLLECTION, sampleFicha2.id), sampleFicha2);
-
-        try {
-            await batch.commit();
-            showToast('Datos de prueba creados.', 'success');
-        } catch(error) {
-            console.error('Error al crear datos de prueba de seguimiento:', error);
-            showToast('Error al crear datos de prueba.', 'error');
-        }
-    };
-
-    const renderMainView = () => {
-        seedSeguimientoData();
-
-        const canCreate = checkUserPermission('edit');
-        const createButtonHTML = canCreate ? `
-            <button id="create-new-ficha-btn" class="bg-blue-600 text-white px-5 py-2.5 rounded-full hover:bg-blue-700 flex items-center shadow-md">
-                <i data-lucide="plus" class="mr-2 h-5 w-5"></i>Crear Nueva Ficha
-            </button>` : '';
-
-        const viewHTML = `
-            <div class="animate-fade-in-up">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold text-slate-800">Listado de Fichas de Seguimiento</h2>
-                    ${createButtonHTML}
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-lg">
-                    <div class="overflow-x-auto list-container">
-                        <table class="w-full text-sm text-left text-gray-600">
-                            <thead class="text-xs text-gray-700 uppercase bg-gray-100">
-                                <tr>
-                                    <th scope="col" class="px-6 py-3">N° Eco/Ecr</th>
-                                    <th scope="col" class="px-6 py-3">Descripción</th>
-                                    <th scope="col" class="px-6 py-3">Cliente</th>
-                                    <th scope="col" class="px-6 py-3">Estado</th>
-                                    <th scope="col" class="px-6 py-3">Última Modificación</th>
-                                    <th scope="col" class="px-6 py-3 text-right">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody id="fichas-list">
-                                <tr><td colspan="6" class="text-center py-16"><i data-lucide="loader" class="animate-spin h-8 w-8 mx-auto"></i></td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        `;
-        dom.viewContent.innerHTML = viewHTML;
-        lucide.createIcons();
-
-        if (canCreate) {
-            document.getElementById('create-new-ficha-btn').addEventListener('click', () => renderFichaForm());
-        }
-
-        const listBody = document.getElementById('fichas-list');
-        listBody.addEventListener('click', async (e) => {
-            const button = e.target.closest('button[data-action]');
-            if (!button) return;
-
-            const fichaId = button.dataset.id;
-            const action = button.dataset.action;
-
-            if (action === 'view-ficha' || action === 'edit-ficha') {
-                const docRef = doc(db, SEGUIMIENTO_COLLECTION, fichaId);
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    const isReadOnly = action === 'view-ficha';
-                    renderFichaForm(docSnap.data(), isReadOnly);
-                } else {
-                    showToast('Error: No se encontró la ficha.', 'error');
-                }
-            }
-        });
-
-        const fichasCollection = collection(db, SEGUIMIENTO_COLLECTION);
-        const q = query(fichasCollection, orderBy('lastModified', 'desc'));
-
-        unsubscribe = onSnapshot(q, (snapshot) => {
-            const listBody = document.getElementById('fichas-list');
-            if (!listBody) return;
-
-            if (snapshot.empty) {
-                listBody.innerHTML = `<tr><td colspan="6" class="text-center py-16 text-gray-500">No hay fichas de seguimiento. Puede crear una nueva.</td></tr>`;
-                return;
-            }
-
-            listBody.innerHTML = snapshot.docs.map(doc => {
-                const ficha = doc.data();
-                const statusClass = STATUS_COLORS[ficha.estadoGeneral?.replace(' ', '_')] || 'bg-gray-100 text-gray-800';
-
-                const n_eco_ecr = ficha.n_eco_ecr || '';
-                let rejectedIndicatorHTML = '';
-                if (n_eco_ecr) {
-                    let associatedDoc;
-                    const ecrCollection = appState.collectionsById[COLLECTIONS.ECR_FORMS];
-                    const ecoCollection = appState.collectionsById[COLLECTIONS.ECO_FORMS];
-
-                    if (n_eco_ecr.startsWith('ECR') && ecrCollection) {
-                        associatedDoc = ecrCollection.get(n_eco_ecr);
-                    } else if (n_eco_ecr.startsWith('ECO') && ecoCollection) {
-                        associatedDoc = ecoCollection.get(n_eco_ecr);
-                    }
-
-                    if (associatedDoc && associatedDoc.status === 'rejected') {
-                        rejectedIndicatorHTML = `<span class="ml-2" title="El ECR/ECO asociado fue rechazado"><i data-lucide="alert-circle" class="h-5 w-5 text-red-500"></i></span>`;
-                    }
-                }
-
-                const editButtonHTML = checkUserPermission('edit') ?
-                    `<button data-id="${ficha.id}" data-action="edit-ficha" class="text-gray-500 hover:text-green-600 p-1" title="Editar Ficha"><i data-lucide="edit" class="h-5 w-5 pointer-events-none"></i></button>` :
-                    '';
-
-                return `
-                    <tr class="bg-white border-b hover:bg-gray-50">
-                        <td class="px-6 py-4 font-medium text-gray-900 flex items-center">${ficha.n_eco_ecr}${rejectedIndicatorHTML}</td>
-                        <td class="px-6 py-4">${ficha.descripcion}</td>
-                        <td class="px-6 py-4">${ficha.cliente}</td>
-                        <td class="px-6 py-4"><span class="px-2 py-1 font-semibold leading-tight rounded-full text-xs ${statusClass}">${ficha.estadoGeneral}</span></td>
-                        <td class="px-6 py-4">${ficha.lastModified.toDate().toLocaleString()}</td>
-                        <td class="px-6 py-4 text-right space-x-2">
-                            <button data-id="${ficha.id}" data-action="view-ficha" class="text-gray-500 hover:text-blue-600 p-1" title="Ver Ficha"><i data-lucide="eye" class="h-5 w-5 pointer-events-none"></i></button>
-                            ${editButtonHTML}
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-            lucide.createIcons();
-        }, (error) => {
-            console.error("Error fetching fichas: ", error);
-            showToast('Error al cargar las fichas de seguimiento.', 'error');
-        });
-    };
-
-    renderMainView();
-
-    appState.currentViewCleanup = () => {
-        if (unsubscribe) {
-            unsubscribe();
-        }
-    };
-}
-
-async function runEcrSeguimientoLogic() {
-    dom.headerActions.style.display = 'none';
-
-    // Centralized list of departments
-    const DEPARTAMENTOS = [
-        { id: 'ing_manufatura', label: 'Ing. Manufatura' }, { id: 'hse', label: 'HSE' },
-        { id: 'calidad', label: 'Calidad' }, { id: 'compras', label: 'Compras' },
-        { id: 'sqa', label: 'Calidad Prov.' }, { id: 'tooling', label: 'Herramental' },
-        { id: 'logistica', label: 'Logística PC&L' }, { id: 'financiero', label: 'Finanzas' },
-        { id: 'comercial', label: 'Comercial' }, { id: 'mantenimiento', label: 'Mantenimiento' },
-        { id: 'produccion', label: 'Producción' }, { id: 'calidad_cliente', label: 'Calidad Cliente' },
-        { id: 'ing_producto', label: 'Ing. Producto' }
-    ];
-
+    // --- 1. Combined HTML Structure ---
     const viewHTML = `
         <div class="animate-fade-in-up space-y-8">
-            <div>
-                <button data-view="control_ecrs" class="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-800 mb-2">
-                    <i data-lucide="arrow-left" class="w-4 h-4"></i>
-                    Volver al Panel de Control
+
+            <div class="flex justify-between items-center">
+                <h2 class="text-3xl font-bold text-slate-800">Panel de Control</h2>
+                <button id="start-tutorial-btn" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 text-sm font-semibold flex items-center gap-2">
+                    <i data-lucide="play-circle"></i> Iniciar Tour Guiado
                 </button>
             </div>
 
-            <!-- Sección 1: Registro de ECR -->
+            <!-- Section 1: KPI Cards from Indicadores ECM -->
+            <section id="kpi-section">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="indicadores-kpi-container">
+                    <p class="text-slate-500 col-span-full">Cargando KPIs...</p>
+                </div>
+            </section>
+
+            <!-- Section 2: Charts from Indicadores ECM -->
+            <section id="charts-section" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-white p-6 rounded-xl shadow-lg min-h-[400px]" id="ecr-status-chart-container"></div>
+                <div class="bg-white p-6 rounded-xl shadow-lg min-h-[400px]" id="eco-status-chart-container"></div>
+            </section>
+
+            <!-- Section 3: ECR Log from Seguimiento -->
             <section id="ecr-log-section" class="bg-white p-6 rounded-xl shadow-lg">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-xl font-bold text-slate-800">Registro de ECR</h3>
-                    <div class="flex items-center gap-2 text-sm">
-                        <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-green-200 border border-green-400"></div><span>OK</span></div>
-                        <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-red-200 border border-red-400"></div><span>NOK</span></div>
-                    </div>
+                     <a href="#" data-view="ecr_table_view" class="bg-slate-700 text-white px-4 py-2 rounded-md hover:bg-slate-800 text-sm font-semibold flex items-center gap-2">
+                        <i data-lucide="table-properties"></i> Ver Tabla de Control Completa
+                    </a>
                 </div>
                 <div id="ecr-log-container">
                     <p class="text-slate-500">Cargando registro de ECR...</p>
                 </div>
             </section>
 
-            <!-- Sección 2: Matriz de Asistencia -->
+            <!-- Section 4: Asistencia Matriz from Seguimiento -->
             <section id="asistencia-matriz-section" class="bg-white p-6 rounded-xl shadow-lg">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-xl font-bold text-slate-800">Matriz de Asistencia a Reuniones</h3>
@@ -3377,7 +2522,7 @@ async function runEcrSeguimientoLogic() {
                 </div>
             </section>
 
-            <!-- Sección 3: Resumen y Gráficos -->
+            <!-- Section 5: Resumen y Gráficos de Asistencia from Seguimiento -->
             <section id="resumen-graficos-section" class="bg-white p-6 rounded-xl shadow-lg">
                 <h3 class="text-xl font-bold text-slate-800 mb-4">Resumen y Gráficos de Asistencia</h3>
                 <div id="resumen-graficos-container" class="space-y-8">
@@ -3385,12 +2530,8 @@ async function runEcrSeguimientoLogic() {
                          <p class="text-slate-500">Cargando resumen...</p>
                     </div>
                     <div id="graficos-container" class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div id="grafico-ausentismo-dias" class="min-h-[300px]">
-                            <p class="text-slate-500">Cargando gráfico de días de ausentismo...</p>
-                        </div>
-                        <div id="grafico-ausentismo-porcentaje" class="min-h-[300px]">
-                             <p class="text-slate-500">Cargando gráfico de % de ausentismo...</p>
-                        </div>
+                        <div id="grafico-ausentismo-dias" class="min-h-[300px]"></div>
+                        <div id="grafico-ausentismo-porcentaje" class="min-h-[300px]"></div>
                     </div>
                 </div>
             </section>
@@ -3400,379 +2541,243 @@ async function runEcrSeguimientoLogic() {
     dom.viewContent.innerHTML = viewHTML;
     lucide.createIcons();
 
-    const renderEcrLog = async (departamentos) => {
-        const ecrLogContainer = document.getElementById('ecr-log-container');
-        if (!ecrLogContainer) return;
+    // --- 2. Combined Logic ---
 
-        try {
-            const ecrDocs = appState.collections[COLLECTIONS.ECR_FORMS] || [];
+    // --- Logic from runIndicadoresEcmViewLogic ---
+    const renderKpiCards = () => {
+        const container = document.getElementById('indicadores-kpi-container');
+        if (!container) return;
+        const ecrs = appState.collections[COLLECTIONS.ECR_FORMS] || [];
+        const ecos = appState.collections[COLLECTIONS.ECO_FORMS] || [];
+        const kpis = [
+            { label: 'ECR Abiertos', value: ecrs.filter(e => e.status !== 'approved' && e.status !== 'rejected').length, icon: 'file-text', color: 'blue' },
+            { label: 'ECR Aprobados', value: ecrs.filter(e => e.status === 'approved').length, icon: 'file-check-2', color: 'green' },
+            { label: 'ECO en Progreso', value: ecos.filter(e => e.status === 'in-progress').length, icon: 'recycle', color: 'yellow' },
+            { label: 'ECO Implementados', value: ecos.filter(e => e.status === 'approved').length, icon: 'check-circle', color: 'emerald' },
+        ];
+        container.innerHTML = kpis.map(kpi => createKpiCard(kpi.label, kpi.value, kpi.icon, kpi.color)).join('');
+        lucide.createIcons();
+    };
 
-            if (ecrDocs.length === 0) {
-                ecrLogContainer.innerHTML = `<p class="text-slate-500">No se encontraron registros de ECR.</p>`;
-                return;
-            }
+    const renderStatusCharts = () => {
+        const ecrs = appState.collections[COLLECTIONS.ECR_FORMS] || [];
+        const ecos = appState.collections[COLLECTIONS.ECO_FORMS] || [];
 
-            const calcularAtraso = (fechaAbertura, fechaCierre) => {
-                if (!fechaAbertura && !fechaCierre) return { dias: '', clase: '' };
-                const hoy = new Date();
-                hoy.setHours(0, 0, 0, 0);
-                const abertura = fechaAbertura ? new Date(fechaAbertura + 'T00:00:00') : null;
-                const cierre = fechaCierre ? new Date(fechaCierre + 'T00:00:00') : null;
-                let diffDays;
-                if (abertura && cierre) diffDays = (cierre.getTime() - abertura.getTime()) / (1000 * 3600 * 24);
-                else if (abertura && !cierre) diffDays = (hoy.getTime() - abertura.getTime()) / (1000 * 3600 * 24);
-                else if (!abertura && cierre) diffDays = (cierre.getTime() - hoy.getTime()) / (1000 * 3600 * 24);
-                else return { dias: '', clase: '' };
+        const ecrStatusCounts = ecrs.reduce((acc, ecr) => {
+            const status = ecr.status || 'desconocido';
+            acc[status] = (acc[status] || 0) + 1;
+            return acc;
+        }, {});
 
-                const dias = Math.floor(diffDays);
-                let clase = 'atraso-bajo';
-                if (dias > 30) clase = 'atraso-alto';
-                else if (dias > 7) clase = 'atraso-medio';
-                return { dias, clase };
-            };
+        const ecoStatusCounts = ecos.reduce((acc, eco) => {
+            const status = eco.status || 'desconocido';
+            acc[status] = (acc[status] || 0) + 1;
+            return acc;
+        }, {});
 
-            let tableHTML = `
-                <div class="overflow-x-auto ecr-log-table-wrapper">
-                    <table class="w-full text-sm ecr-log-table">
-                        <thead>
-                            <tr class="bg-slate-800 text-white text-xs uppercase tracking-wider">
-                                <th colspan="5" class="p-3 text-center">ECR | FECHAS</th>
-                                <th class="bg-slate-400 w-2"></th>
-                                <th colspan="${departamentos.length}" class="p-3 text-center">PENDENCIAS</th>
-                            </tr>
-                            <tr class="bg-slate-100 text-xs uppercase">
-                                <th class="p-2 font-semibold">Nº</th>
-                                <th class="p-2 font-semibold">F. Abertura</th>
-                                <th class="p-2 font-semibold">F. Cierre</th>
-                                <th class="p-2 font-semibold">Fecha</th>
-                                <th class="p-2 font-semibold">Atraso (días)</th>
-                                <th class="bg-slate-400 w-2"></th>
-                                ${departamentos.map(d => `<th class="p-2 text-center align-middle font-semibold" style="writing-mode: vertical-rl; transform: rotate(180deg);">${d.label}</th>`).join('')}
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
+        const ecrChartContainer = document.getElementById('ecr-status-chart-container');
+        if (ecrChartContainer) {
+            ecrChartContainer.innerHTML = '<canvas id="ecr-status-chart"></canvas>';
+            new Chart(document.getElementById('ecr-status-chart'), createDashboardChartConfig('doughnut', Object.keys(ecrStatusCounts), Object.values(ecrStatusCounts), 'Distribución de Estado de ECRs'));
+        }
 
-            ecrDocs.sort((a,b) => (a.id > b.id) ? 1 : -1).forEach(ecr => {
-                const atraso = calcularAtraso(ecr.fecha_emision, ecr.fecha_cierre);
-                tableHTML += `
-                    <tr>
-                        <td>${ecr.id || ''}</td>
-                        <td>${ecr.fecha_emision ? new Date(ecr.fecha_emision + 'T00:00:00').toLocaleDateString('es-AR') : ''}</td>
-                        <td>${ecr.fecha_cierre ? new Date(ecr.fecha_cierre + 'T00:00:00').toLocaleDateString('es-AR') : ''}</td>
-                        <td>${ecr.fecha_realizacion_ecr ? new Date(ecr.fecha_realizacion_ecr + 'T00:00:00').toLocaleDateString('es-AR') : ''}</td>
-                        <td class="text-center font-bold ${atraso.clase}">${atraso.dias}</td>
-                        <td class="bg-slate-400 w-2"></td>
-                        ${departamentos.map(depto => {
-                            const okKey = `ok_${depto.id}`;
-                            const nokKey = `nok_${depto.id}`;
-                            let status = '';
-                            let statusClass = 'status-empty';
-                            if (ecr[okKey]) {
-                                status = 'OK';
-                                statusClass = 'status-ok';
-                            } else if (ecr[nokKey]) {
-                                status = 'NOK';
-                                statusClass = 'status-nok';
-                            }
-                            return `<td><button data-action="toggle-ecr-status" data-ecr-id="${ecr.id}" data-depto-id="${depto.id}" class="w-full h-full text-center font-bold ${statusClass}">${status}</button></td>`;
-                        }).join('')}
-                    </tr>
-                `;
-            });
-
-            tableHTML += `</tbody></table></div>`;
-            ecrLogContainer.innerHTML = tableHTML;
-
-        } catch (error) {
-            console.error("Error rendering ECR log:", error);
-            ecrLogContainer.innerHTML = `<p class="text-red-500">Error al cargar el registro de ECR.</p>`;
+        const ecoChartContainer = document.getElementById('eco-status-chart-container');
+        if (ecoChartContainer) {
+            ecoChartContainer.innerHTML = '<canvas id="eco-status-chart"></canvas>';
+            new Chart(document.getElementById('eco-status-chart'), createDashboardChartConfig('pie', Object.keys(ecoStatusCounts), Object.values(ecoStatusCounts), 'Distribución de Estado de ECOs'));
         }
     };
 
-    renderEcrLog(DEPARTAMENTOS);
+    // --- Logic from runEcrSeguimientoLogic ---
+    const renderEcrLog = async () => {
+        const ecrLogContainer = document.getElementById('ecr-log-container');
+        if (!ecrLogContainer) return;
+        const ecrDocs = appState.collections[COLLECTIONS.ECR_FORMS] || [];
+        if (ecrDocs.length === 0) {
+            ecrLogContainer.innerHTML = `<p class="text-slate-500">No se encontraron registros de ECR.</p>`;
+            return;
+        }
+        const calcularAtraso = (fechaAbertura, fechaCierre) => {
+            if (!fechaAbertura) return { dias: '', clase: '' };
+            const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
+            const abertura = new Date(fechaAbertura + 'T00:00:00');
+            const cierre = fechaCierre ? new Date(fechaCierre + 'T00:00:00') : hoy;
+            const diffDays = Math.floor((cierre.getTime() - abertura.getTime()) / (1000 * 3600 * 24));
+            let clase = 'atraso-bajo';
+            if (diffDays > 30) clase = 'atraso-alto';
+            else if (diffDays > 7) clase = 'atraso-medio';
+            return { dias: diffDays, clase };
+        };
+        let tableHTML = `<div class="overflow-x-auto ecr-log-table-wrapper"><table class="w-full text-sm ecr-log-table"><thead>...</thead><tbody>`; // Simplified for brevity
+        ecrDocs.sort((a, b) => (a.id > b.id) ? 1 : -1).forEach(ecr => {
+             const atraso = calcularAtraso(ecr.fecha_emision, ecr.fecha_cierre);
+             const approvals = ecr.approvals || {};
+             tableHTML += `<tr>
+                <td>${ecr.id || ''}</td>
+                <td>${ecr.fecha_emision ? new Date(ecr.fecha_emision + 'T00:00:00').toLocaleDateString('es-AR') : ''}</td>
+                <td class="text-center font-bold ${atraso.clase}">${atraso.dias}</td>
+                ${DEPARTAMENTOS.map(depto => {
+                    const statusInfo = approvals[depto.id];
+                    let statusClass = 'status-empty';
+                    if (statusInfo?.status === 'approved') statusClass = 'status-ok';
+                    if (statusInfo?.status === 'rejected') statusClass = 'status-nok';
+                    return `<td><button data-action="toggle-ecr-status" data-ecr-id="${ecr.id}" data-depto-id="${depto.id}" class="w-full h-full text-center font-bold ${statusClass}">${statusInfo?.status ? statusInfo.status.substring(0,2).toUpperCase() : ''}</button></td>`;
+                }).join('')}
+             </tr>`;
+        });
+        tableHTML += `</tbody></table></div>`;
+        ecrLogContainer.innerHTML = tableHTML.replace('<thead>...</thead>', `
+            <thead class="bg-slate-800 text-white text-xs uppercase tracking-wider">
+                <tr>
+                    <th rowspan="2" class="p-3 text-left">ECR Nº</th>
+                    <th rowspan="2" class="p-3 text-left">Apertura</th>
+                    <th rowspan="2" class="p-3 text-center">Días Abierto</th>
+                    <th colspan="${DEPARTAMENTOS.length}" class="p-3 text-center">Firmas Departamentos</th>
+                </tr>
+                <tr class="bg-slate-600">
+                    ${DEPARTAMENTOS.map(d => `<th class="p-1 text-center align-middle font-semibold" style="writing-mode: vertical-rl; transform: rotate(180deg); font-size: 10px; padding: 8px 2px;">${d.label}</th>`).join('')}
+                </tr>
+            </thead>
+        `);
+    };
 
+    const renderAsistenciaMatriz = async () => {
+        const container = document.getElementById('asistencia-matriz-container');
+        if (!container) return;
+        const reuniones = appState.collections[COLLECTIONS.REUNIONES_ECR] || [];
+        if (reuniones.length === 0) {
+            container.innerHTML = `<p class="text-slate-500">No se encontraron reuniones.</p>`;
+            return;
+        }
+        reuniones.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)); // Most recent first
+        let tableHTML = `<div class="overflow-x-auto asistencia-matriz-wrapper"><table class="w-full text-sm asistencia-matriz-table"><thead>...</thead><tbody>`;
+        DEPARTAMENTOS.forEach(depto => {
+            tableHTML += `<tr><td class="font-semibold sticky left-0 bg-white z-10">${depto.label}</td>`;
+            reuniones.forEach(reunion => {
+                const status = reunion.asistencia[depto.id] || '';
+                const statusClass = { 'P': 'status-p', 'A': 'status-a', 'O': 'status-o' }[status] || 'status-empty';
+                tableHTML += `<td><button data-action="toggle-asistencia-status" data-reunion-id="${reunion.id}" data-depto-id="${depto.id}" class="w-full h-full text-center font-bold ${statusClass}">${status}</button></td>`;
+            });
+            tableHTML += `</tr>`;
+        });
+        tableHTML += `</tbody></table></div>`;
+        container.innerHTML = tableHTML.replace('<thead>...</thead>', `
+            <thead class="bg-slate-100 text-xs uppercase">
+                <tr>
+                    <th class="p-2 font-semibold sticky left-0 bg-slate-100 z-10">Departamento</th>
+                    ${reuniones.map(r => `<th class="p-2 font-semibold">${new Date(r.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</th>`).join('')}
+                </tr>
+            </thead>
+        `);
+    };
+
+    const renderResumenYGraficos = async () => {
+        const resumenContainer = document.getElementById('resumen-container');
+        const graficoDiasContainer = document.getElementById('grafico-ausentismo-dias');
+        const graficoPorcContainer = document.getElementById('grafico-ausentismo-porcentaje');
+        if (!resumenContainer || !graficoDiasContainer || !graficoPorcContainer) return;
+
+        const reuniones = appState.collections[COLLECTIONS.REUNIONES_ECR] || [];
+        if (reuniones.length === 0) {
+            resumenContainer.innerHTML = `<p class="text-slate-500">No hay datos de reuniones para generar el resumen.</p>`;
+            return;
+        }
+        const resumenData = DEPARTAMENTOS.map(depto => {
+            let p = 0, a = 0, o = 0;
+            reuniones.forEach(reunion => {
+                const status = reunion.asistencia[depto.id];
+                if (status === 'P') p++; else if (status === 'A') a++; else if (status === 'O') o++;
+            });
+            const total = p + a + o;
+            const porcAusentismo = total > 0 ? (a / total) : 0;
+            return { label: depto.label, p, a, o, porcAusentismo };
+        });
+
+        let resumenHTML = `<div class="overflow-x-auto resumen-table-wrapper"><table class="w-full text-sm resumen-table"><thead>...</thead><tbody>`;
+        resumenData.forEach(data => {
+            resumenHTML += `<tr><td class="font-semibold">${data.label}</td><td>${data.p}</td><td>${data.a}</td><td>${data.o}</td><td class="font-bold">${data.a}</td><td>${(data.porcAusentismo * 100).toFixed(1)}%</td></tr>`;
+        });
+        resumenHTML += `</tbody></table></div>`;
+        resumenContainer.innerHTML = resumenHTML.replace('<thead>...</thead>', `
+            <thead class="bg-slate-50">
+                <tr class="text-xs uppercase">
+                    <th>Departamento</th><th>Presente</th><th>Ausente</th><th>Opcional</th><th>Días Ausent.</th><th>% Ausent.</th>
+                </tr>
+            </thead>
+        `);
+
+        const labels = resumenData.map(d => d.label);
+        graficoDiasContainer.innerHTML = '<canvas id="chart-dias-ausentismo"></canvas>';
+        new Chart(document.getElementById('chart-dias-ausentismo').getContext('2d'), {
+            type: 'bar', data: { labels, datasets: [{ label: 'Días de Ausentismo', data: resumenData.map(d => d.a), backgroundColor: '#f87171' }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: 'DIAS DE AUSENTISMO', font: { weight: 'bold' } }, legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+        });
+        graficoPorcContainer.innerHTML = '<canvas id="chart-porc-ausentismo"></canvas>';
+        new Chart(document.getElementById('chart-porc-ausentismo').getContext('2d'), {
+            type: 'bar', data: { labels, datasets: [{ label: '% Total de Ausentismo', data: resumenData.map(d => d.porcAusentismo), backgroundColor: '#fbbf24' }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: '%. TOTAL DE AUSENTISMO', font: { weight: 'bold' } }, legend: { display: false } }, scales: { y: { beginAtZero: true, max: 1, ticks: { callback: value => (value * 100).toFixed(0) + '%' } } } }
+        });
+    };
+
+    // --- 3. Event Listeners ---
     const ecrLogContainer = document.getElementById('ecr-log-container');
     if (ecrLogContainer) {
         ecrLogContainer.addEventListener('click', async (e) => {
             const button = e.target.closest('button[data-action="toggle-ecr-status"]');
             if (!button) return;
-
             const ecrId = button.dataset.ecrId;
             const deptoId = button.dataset.deptoId;
-
-            if (!ecrId || !deptoId) return;
-
-            const okKey = `ok_${deptoId}`;
-            const nokKey = `nok_${deptoId}`;
-
-            const docRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
-            const docSnap = await getDoc(docRef);
-
-            if (!docSnap.exists()) {
-                showToast('Error: No se encontró el ECR.', 'error');
-                return;
-            }
-
-            const data = docSnap.data();
-            const updateData = {};
-
-            if (data[okKey]) { // Current state is OK -> change to NOK
-                updateData[okKey] = false;
-                updateData[nokKey] = true;
-            } else if (data[nokKey]) { // Current state is NOK -> change to OK
-                updateData[okKey] = true;
-                updateData[nokKey] = false;
-            } else { // Current state is empty -> change to OK
-                updateData[okKey] = true;
-                updateData[nokKey] = false;
-            }
-
-            try {
-                await updateDoc(docRef, updateData);
-                showToast('Estado de ECR actualizado.', 'success');
-                // The onSnapshot listener for ECR_FORMS will automatically re-render the table.
-            } catch (error) {
-                console.error("Error updating ECR status:", error);
-                showToast('Error al actualizar el estado.', 'error');
-            }
+            const comment = await showPromptModal('Comentario de Aprobación (Opcional)', `Está registrando una decisión para ${deptoId} en el ECR ${ecrId}.`);
+            // This now calls the centralized state machine logic
+            registerEcrApproval(ecrId, deptoId, 'approved', comment); // Simplified: assumes approval, could be more complex
         });
     }
-
-    const renderAsistenciaMatriz = async (departamentos) => {
-        const container = document.getElementById('asistencia-matriz-container');
-        if (!container) return;
-
-        try {
-            const reuniones = appState.collections[COLLECTIONS.REUNIONES_ECR] || [];
-            if (reuniones.length === 0) {
-                container.innerHTML = `<p class="text-slate-500">No se encontraron reuniones.</p>`;
-                return;
-            }
-
-            reuniones.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-
-            let tableHTML = `
-                <div class="overflow-x-auto asistencia-matriz-wrapper">
-                    <table class="w-full text-sm asistencia-matriz-table">
-                        <thead>
-                            <tr class="bg-slate-100 text-xs uppercase">
-                                <th class="p-2 font-semibold sticky left-0 bg-slate-100 z-10">Frecuencia</th>
-                                ${reuniones.map(r => `<th class="p-2 font-semibold">${new Date(r.fecha + 'T00:00:00').toLocaleDateString('es-AR')}</th>`).join('')}
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
-
-            departamentos.forEach(depto => {
-                tableHTML += `
-                    <tr>
-                        <td class="font-semibold sticky left-0 bg-white z-10">${depto.label}</td>
-                        ${reuniones.map(reunion => {
-                            const status = reunion.asistencia[depto.id] || '';
-                            const statusClass = { 'P': 'status-p', 'A': 'status-a', 'O': 'status-o' }[status] || 'status-empty';
-                            return `<td><button data-action="toggle-asistencia-status" data-reunion-id="${reunion.id}" data-depto-id="${depto.id}" class="w-full h-full text-center font-bold ${statusClass}">${status}</button></td>`;
-                        }).join('')}
-                    </tr>
-                `;
-            });
-
-            tableHTML += `</tbody></table></div>`;
-            container.innerHTML = tableHTML;
-
-        } catch (error) {
-            console.error("Error rendering Asistencia Matriz:", error);
-            container.innerHTML = `<p class="text-red-500">Error al cargar la matriz de asistencia.</p>`;
-        }
-    };
-
-    renderAsistenciaMatriz(DEPARTAMENTOS);
 
     const asistenciaMatrizContainer = document.getElementById('asistencia-matriz-container');
     if (asistenciaMatrizContainer) {
         asistenciaMatrizContainer.addEventListener('click', async (e) => {
             const button = e.target.closest('button[data-action="toggle-asistencia-status"]');
             if (!button) return;
-
             const reunionId = button.dataset.reunionId;
             const deptoId = button.dataset.deptoId;
-
-            if (!reunionId || !deptoId) return;
-
-            const statusCycle = { '': 'P', 'P': 'A', 'A': 'O', 'O': 'P' };
-            const currentStatus = button.textContent;
-            const nextStatus = statusCycle[currentStatus];
-
+            const statusCycle = { '': 'P', 'P': 'A', 'A': 'O', 'O': '' };
+            const nextStatus = statusCycle[button.textContent];
             const docRef = doc(db, COLLECTIONS.REUNIONES_ECR, reunionId);
-            const update = { [`asistencia.${deptoId}`]: nextStatus };
-
-            try {
-                await updateDoc(docRef, update);
-                showToast('Asistencia actualizada.', 'success');
-            } catch (error) {
-                console.error('Error updating asistencia:', error);
-                showToast('Error al actualizar la asistencia.', 'error');
-            }
+            await updateDoc(docRef, { [`asistencia.${deptoId}`]: nextStatus });
+            showToast('Asistencia actualizada.', 'success');
         });
     }
 
     const addReunionBtn = document.getElementById('add-reunion-btn');
     if (addReunionBtn) {
         addReunionBtn.addEventListener('click', async () => {
-            const newDate = await showDatePromptModal('Agregar Reunión', 'Seleccione la fecha para la nueva reunión:');
-            if (!newDate) return; // User cancelled
-
+            const newDate = await showDatePromptModal('Agregar Reunión', 'Seleccione la fecha:');
+            if (!newDate) return;
             const reunionId = `reunion_${newDate}`;
             const docRef = doc(db, COLLECTIONS.REUNIONES_ECR, reunionId);
-            const docSnap = await getDoc(docRef);
-
-            if (docSnap.exists()) {
+            if ((await getDoc(docRef)).exists()) {
                 showToast('Ya existe una reunión para esta fecha.', 'error');
                 return;
             }
-
-            const newReunionData = {
-                id: reunionId,
-                fecha: newDate,
-                asistencia: DEPARTAMENTOS.reduce((acc, depto) => {
-                    acc[depto.id] = ''; // Initialize all as empty
-                    return acc;
-                }, {})
-            };
-
-            try {
-                await setDoc(docRef, newReunionData);
-                showToast('Nueva reunión agregada con éxito.', 'success');
-            } catch (error) {
-                console.error('Error adding new reunion:', error);
-                showToast('Error al agregar la nueva reunión.', 'error');
-            }
+            const newReunionData = { id: reunionId, fecha: newDate, asistencia: DEPARTAMENTOS.reduce((acc, depto) => ({...acc, [depto.id]: '' }), {}) };
+            await setDoc(docRef, newReunionData);
+            showToast('Nueva reunión agregada.', 'success');
         });
     }
 
-    const renderResumenYGraficos = async (departamentos) => {
-        const resumenContainer = document.getElementById('resumen-container');
-        const graficoDiasContainer = document.getElementById('grafico-ausentismo-dias');
-        const graficoPorcContainer = document.getElementById('grafico-ausentismo-porcentaje');
-
-        if (!resumenContainer || !graficoDiasContainer || !graficoPorcContainer) return;
-
-        try {
-            const reuniones = appState.collections[COLLECTIONS.REUNIONES_ECR] || [];
-            if (reuniones.length === 0) {
-                resumenContainer.innerHTML = `<p class="text-slate-500">No hay datos de reuniones para generar el resumen.</p>`;
-                graficoDiasContainer.innerHTML = '';
-                graficoPorcContainer.innerHTML = '';
-                return;
-            }
-
-            const resumenData = departamentos.map(depto => {
-                let p = 0, a = 0, o = 0;
-                reuniones.forEach(reunion => {
-                    const status = reunion.asistencia[depto.id];
-                    if (status === 'P') p++;
-                    else if (status === 'A') a++;
-                    else if (status === 'O') o++;
-                });
-                const total = p + a + o;
-                const porcAusentismo = total > 0 ? (a / total) : 0;
-                return { label: depto.label, p, a, o, porcAusentismo };
-            });
-
-            // Render Resumen Table
-            let resumenHTML = `
-                <h4 class="text-lg font-bold text-slate-700 mb-2">Resumen de Asistencia</h4>
-                <div class="overflow-x-auto resumen-table-wrapper">
-                    <table class="w-full text-sm resumen-table">
-                        <thead class="bg-slate-50">
-                            <tr class="text-xs uppercase">
-                                <th>Departamento</th>
-                                <th>Presente</th>
-                                <th>Ausente</th>
-                                <th>Opcional</th>
-                                <th>Días Ausent.</th>
-                                <th>% Ausent.</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
-            resumenData.forEach(data => {
-                resumenHTML += `
-                    <tr>
-                        <td class="font-semibold">${data.label}</td>
-                        <td>${data.p}</td>
-                        <td>${data.a}</td>
-                        <td>${data.o}</td>
-                        <td class="font-bold">${data.a}</td>
-                        <td>${(data.porcAusentismo * 100).toFixed(1)}%</td>
-                    </tr>
-                `;
-            });
-            resumenHTML += `</tbody></table></div>`;
-            resumenContainer.innerHTML = resumenHTML;
-
-            // Render Charts
-            const labels = resumenData.map(d => d.label);
-            const diasAusentismoData = resumenData.map(d => d.a);
-            const porcAusentismoData = resumenData.map(d => d.porcAusentismo);
-
-            graficoDiasContainer.innerHTML = '<canvas id="chart-dias-ausentismo"></canvas>';
-            new Chart(document.getElementById('chart-dias-ausentismo').getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Días de Ausentismo',
-                        data: diasAusentismoData,
-                        backgroundColor: '#f87171'
-                    }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: {
-                        title: { display: true, text: 'DIAS DE AUSENTISMO A LAS REUNIONES DE ECR', font: { weight: 'bold', size: 14 } },
-                        legend: { display: false }
-                    },
-                    scales: { x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } }, y: { beginAtZero: true, ticks: { stepSize: 1 } } }
-                }
-            });
-
-            graficoPorcContainer.innerHTML = '<canvas id="chart-porc-ausentismo"></canvas>';
-            new Chart(document.getElementById('chart-porc-ausentismo').getContext('2d'), {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: '% Total de Ausentismo',
-                        data: porcAusentismoData,
-                        backgroundColor: '#fbbf24'
-                    }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: {
-                        title: { display: true, text: '%. TOTAL DE AUSENTISMO A LAS REUNIONES DE ECR', font: { weight: 'bold', size: 14 } },
-                        legend: { display: false }
-                    },
-                    scales: {
-                        x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } },
-                        y: { beginAtZero: true, max: 1, ticks: { callback: value => (value * 100).toFixed(0) + '%' } }
-                    }
-                }
-            });
-
-        } catch (error) {
-            console.error("Error rendering Resumen y Gráficos:", error);
-            resumenContainer.innerHTML = `<p class="text-red-500">Error al cargar el resumen.</p>`;
-        }
-    };
-
-    renderResumenYGraficos(DEPARTAMENTOS);
+    // --- 4. Initial Render and Cleanup ---
+    renderKpiCards();
+    renderStatusCharts();
+    renderEcrLog();
+    renderAsistenciaMatriz();
+    renderResumenYGraficos();
 
     appState.currentViewCleanup = () => {
-        // Future cleanup logic
+        // Cleanup logic for charts, listeners, etc.
     };
 }
+
 
 async function runEcrFormLogic(params = null) {
     const ecrId = params ? params.ecrId : null;
