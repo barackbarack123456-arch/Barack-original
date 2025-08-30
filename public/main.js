@@ -3645,7 +3645,7 @@ async function runEcrSeguimientoLogic() {
 
             if (!reunionId || !deptoId) return;
 
-            const statusCycle = { '': 'P', 'P': 'A', 'A': 'O', 'O': 'P' };
+            const statusCycle = { '': 'P', 'P': 'A', 'A': 'O', 'O': '' };
             const currentStatus = button.textContent;
             const nextStatus = statusCycle[currentStatus];
 
@@ -7659,6 +7659,12 @@ async function registerEcrApproval(ecrId, departmentId, decision, comment) {
             }
 
             let ecrData = ecrDoc.data();
+
+            // FIX: Ensure approvals map exists to prevent crash on new ECRs
+            if (!ecrData.approvals) {
+                ecrData.approvals = {};
+            }
+
             const currentUserSector = appState.currentUser.sector;
 
             // Security Check: Ensure the user belongs to the department they are approving for.
