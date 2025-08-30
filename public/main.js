@@ -7,6 +7,7 @@ import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateD
 import { COLLECTIONS, getUniqueKeyForCollection, createHelpTooltip } from './utils.js';
 import { deleteProductAndOrphanedSubProducts } from './data_logic.js';
 import tutorial from './tutorial.js';
+import controlPanelTutorial from './control-panel-tutorial.js';
 
 // NOTA DE SEGURIDAD: La configuración de Firebase no debe estar hardcodeada en el código fuente.
 // En un entorno de producción, estos valores deben cargarse de forma segura,
@@ -2835,7 +2836,13 @@ async function runControlEcrsLogic() {
     const viewHTML = `
         <div class="animate-fade-in-up">
             <div class="text-center mb-12">
-                <h2 class="text-4xl font-extrabold text-slate-800">Panel de Control</h2>
+                <div class="flex justify-center items-center gap-4">
+                    <h2 class="text-4xl font-extrabold text-slate-800">Panel de Control</h2>
+                    <button id="start-control-panel-tutorial-btn" class="bg-blue-600 text-white px-4 py-2 rounded-full hover:bg-blue-700 flex items-center shadow-md text-sm font-semibold">
+                        <i data-lucide="graduation-cap" class="mr-2 h-5 w-5"></i>
+                        Tutorial
+                    </button>
+                </div>
                 <p class="text-lg text-slate-500 mt-2">Seleccione un módulo para visualizar.</p>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
@@ -2887,6 +2894,18 @@ async function runControlEcrsLogic() {
 
     dom.viewContent.innerHTML = viewHTML;
     lucide.createIcons();
+
+    document.getElementById('start-control-panel-tutorial-btn')?.addEventListener('click', () => {
+        appState.isTutorialActive = true;
+        const app = {
+            switchView,
+            showToast,
+            onTutorialEnd: () => {
+                appState.isTutorialActive = false;
+            }
+        };
+        controlPanelTutorial(app).start();
+    });
 
     // No specific cleanup needed for this simple view
     appState.currentViewCleanup = () => {};
