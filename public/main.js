@@ -2459,7 +2459,101 @@ async function runEcrTableViewLogic() {
         renderTableRows(filtered);
     };
 
+    const createFilterGroup = (title, content) => {
+        return `
+            <div class="filter-group">
+                <h4 class="filter-group-title">${title}</h4>
+                <div class="filter-group-content">
+                    ${content}
+                </div>
+            </div>
+        `;
+    };
+
     const viewHTML = `
+    <style>
+        .filters-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            padding: 1.5rem;
+            background-color: #f8fafc;
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 1.5rem;
+        }
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .filter-group-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 0.25rem;
+            margin-bottom: 0.5rem;
+        }
+        .filter-control {
+            display: flex;
+            flex-direction: column;
+        }
+        .filter-control label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 0.25rem;
+        }
+        .filter-control input, .filter-control select {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.375rem;
+            background-color: #ffffff;
+            box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            transition: border-color 0.2s;
+        }
+        .filter-control input:focus, .filter-control select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px #bfdbfe;
+        }
+        .search-filter-group {
+            grid-column: 1 / -1; /* Make search span full width */
+        }
+        .search-container {
+            position: relative;
+        }
+        .search-container .search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            pointer-events: none;
+        }
+        .search-container input {
+            padding-left: 2.75rem;
+        }
+        .filter-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+        #active-filters-indicator {
+            font-size: 0.875rem;
+            color: #475569;
+            font-weight: 500;
+        }
+        #active-filters-indicator .count {
+            font-weight: 700;
+            color: #1e293b;
+        }
+    </style>
     <div class="ecr-control-table-container animate-fade-in-up" data-tutorial-id="ecr-table-view-container">
         <header class="flex justify-between items-center mb-6">
             <div class="flex items-center gap-4">
@@ -2477,35 +2571,49 @@ async function runEcrTableViewLogic() {
             </div>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 p-4 bg-slate-50 rounded-lg border">
-            <div class="relative flex-grow md:col-span-2">
-                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400"></i>
-                <input type="text" id="ecr-control-search" placeholder="Buscar en todos los campos..." class="w-full pl-10 pr-4 py-2 border rounded-full bg-white shadow-sm">
-            </div>
-            <div>
-                <label for="ecr-client-filter" class="text-xs font-bold text-slate-600">Cliente</label>
-                <select id="ecr-client-filter" class="w-full mt-1 pl-4 pr-8 py-2 border rounded-full bg-white shadow-sm appearance-none"><option value="all">Todos</option></select>
-            </div>
-            <div>
-                <label for="ecr-status-filter" class="text-xs font-bold text-slate-600">Estado ECR</label>
-                <select id="ecr-status-filter" class="w-full mt-1 pl-4 pr-8 py-2 border rounded-full bg-white shadow-sm appearance-none">
-                    <option value="all">Todos</option>
-                    <option value="draft">Borrador</option>
-                    <option value="pending-approval">Pend. Aprobación</option>
-                    <option value="approved">Aprobado</option>
-                    <option value="rejected">Rechazado</option>
-                    <option value="stand-by">Stand-By</option>
-                </select>
-            </div>
-            <div>
-                <label for="ecr-type-filter" class="text-xs font-bold text-slate-600">Tipo de ECR</label>
-                <select id="ecr-type-filter" class="w-full mt-1 pl-4 pr-8 py-2 border rounded-full bg-white shadow-sm appearance-none">
-                    <option value="all">Todos</option>
-                    <option value="producto">Producto</option>
-                    <option value="proceso">Proceso</option>
-                    <option value="otro">Otro</option>
-                </select>
-            </div>
+        <div class="filters-container">
+            ${createFilterGroup('Búsqueda General', `
+                <div class="filter-control search-container">
+                    <label for="ecr-control-search">Buscar en todos los campos</label>
+                    <i data-lucide="search" class="search-icon"></i>
+                    <input type="text" id="ecr-control-search" placeholder="Escriba para buscar...">
+                </div>
+            `)}
+
+            ${createFilterGroup('Filtros Específicos', `
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="filter-control">
+                        <label for="ecr-client-filter">Cliente</label>
+                        <select id="ecr-client-filter"><option value="all">Todos</option></select>
+                    </div>
+                    <div class="filter-control">
+                        <label for="ecr-status-filter">Estado ECR</label>
+                        <select id="ecr-status-filter">
+                            <option value="all">Todos</option>
+                            <option value="draft">Borrador</option>
+                            <option value="pending-approval">Pend. Aprobación</option>
+                            <option value="approved">Aprobado</option>
+                            <option value="rejected">Rechazado</option>
+                            <option value="stand-by">Stand-By</option>
+                        </select>
+                    </div>
+                    <div class="filter-control">
+                        <label for="ecr-type-filter">Tipo de ECR</label>
+                        <select id="ecr-type-filter">
+                            <option value="all">Todos</option>
+                            <option value="producto">Producto</option>
+                            <option value="proceso">Proceso</option>
+                            <option value="otro">Otro</option>
+                        </select>
+                    </div>
+                </div>
+            `)}
+             ${createFilterGroup('Acciones', `
+                <div class="filter-actions">
+                    <span id="active-filters-indicator"></span>
+                    <button id="clear-filters-btn" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-semibold text-sm">Limpiar Filtros</button>
+                </div>
+            `)}
         </div>
 
         <div class="p-2 bg-slate-100 border border-slate-200 rounded-md text-center text-sm text-slate-600 mb-4">
@@ -2551,10 +2659,44 @@ async function runEcrTableViewLogic() {
     dom.viewContent.innerHTML = viewHTML;
     lucide.createIcons();
 
-    dom.viewContent.querySelector('#ecr-control-search').addEventListener('input', filterAndRender);
-    dom.viewContent.querySelector('#ecr-client-filter').addEventListener('change', filterAndRender);
-    dom.viewContent.querySelector('#ecr-status-filter').addEventListener('change', filterAndRender);
-    dom.viewContent.querySelector('#ecr-type-filter').addEventListener('change', filterAndRender);
+    const searchInput = dom.viewContent.querySelector('#ecr-control-search');
+    const clientFilter = dom.viewContent.querySelector('#ecr-client-filter');
+    const statusFilter = dom.viewContent.querySelector('#ecr-status-filter');
+    const typeFilter = dom.viewContent.querySelector('#ecr-type-filter');
+    const clearButton = dom.viewContent.querySelector('#clear-filters-btn');
+    const indicator = dom.viewContent.querySelector('#active-filters-indicator');
+
+    const updateActiveFilterIndicator = () => {
+        let activeCount = 0;
+        if (searchInput.value) activeCount++;
+        if (clientFilter.value !== 'all') activeCount++;
+        if (statusFilter.value !== 'all') activeCount++;
+        if (typeFilter.value !== 'all') activeCount++;
+
+        if (activeCount > 0) {
+            indicator.innerHTML = `<span class="count">${activeCount}</span> filtro(s) activo(s)`;
+        } else {
+            indicator.innerHTML = 'No hay filtros activos';
+        }
+    };
+
+    const enhancedFilterAndRender = () => {
+        filterAndRender();
+        updateActiveFilterIndicator();
+    };
+
+    searchInput.addEventListener('input', enhancedFilterAndRender);
+    clientFilter.addEventListener('change', enhancedFilterAndRender);
+    statusFilter.addEventListener('change', enhancedFilterAndRender);
+    typeFilter.addEventListener('change', enhancedFilterAndRender);
+
+    clearButton.addEventListener('click', () => {
+        searchInput.value = '';
+        clientFilter.value = 'all';
+        statusFilter.value = 'all';
+        typeFilter.value = 'all';
+        enhancedFilterAndRender();
+    });
 
     // --- Drag-to-scroll logic ---
     const slider = dom.viewContent.querySelector('.ecr-control-table-container');
