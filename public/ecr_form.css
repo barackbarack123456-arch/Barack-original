@@ -293,3 +293,12 @@
     font-size: 0.75rem; /* text-xs */
     margin-top: 0.25rem;
 }
+
+.highlight-section {
+  animation: highlight-animation 2.5s ease-out;
+}
+
+@keyframes highlight-animation {
+  0% { background-color: rgba(59, 130, 246, 0.25); }
+  100% { background-color: transparent; }
+}
