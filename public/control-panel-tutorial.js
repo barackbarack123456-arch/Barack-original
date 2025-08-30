@@ -2,6 +2,7 @@
  * Interactive Tutorial Module for the ECR/ECO Control Panel
  *
  * This module creates a guided tour for users to understand the control panel's features.
+ * It has been refactored for stability and robustness.
  */
 const controlPanelTutorial = (app) => {
     let currentStepIndex = 0;
@@ -14,84 +15,56 @@ const controlPanelTutorial = (app) => {
     };
 
     // All tutorial steps are defined here for clarity and easier maintenance.
+    // Refactored to use stable data-tutorial-id selectors and a simpler preAction/postAction flow.
     const TUTORIAL_STEPS = [
         {
-            element: 'body',
-            title: 'Bienvenido al Tutorial del Panel de Control',
-            content: 'Este tour te guiará por las diferentes secciones y funcionalidades del <strong>Panel de Control de ECR/ECO</strong>. ¡Empecemos!',
-            position: 'center'
-        },
-        {
-            element: '[data-view="ecr_table_view"]',
+            element: '[data-tutorial-id="control-panel-card-table"]',
             title: 'Tabla de Control ECR',
-            content: 'Aquí encontrarás una vista detallada de todos los ECRs. Es ideal para hacer un seguimiento exhaustivo. <strong>Haz clic para explorar.</strong>',
+            content: 'Aquí encontrarás una vista detallada de todos los ECRs. Es ideal para hacer un seguimiento exhaustivo.',
             position: 'top',
-            click: true,
-            postAction: async () => {
-                await app.switchView('ecr_table_view');
-            }
+            preAction: async () => await app.switchView('control_ecrs'),
         },
         {
-            element: '.ecr-control-table-container',
+            element: '[data-tutorial-id="ecr-table-view-container"]',
             title: 'Vista de Tabla',
-            content: 'Esta es la tabla de control. Puedes desplazarte horizontalmente para ver todos los datos y usar los filtros para encontrar ECRs específicos. Cuando termines, haz clic en "Siguiente".',
+            content: 'Esta es la tabla de control. Puedes desplazarte horizontalmente para ver todos los datos y usar los filtros para encontrar ECRs específicos.',
             position: 'center',
-            preAction: async () => {
-                await app.switchView('ecr_table_view');
-            }
+            preAction: async () => await app.switchView('ecr_table_view'),
         },
         {
-            element: '[data-view="indicadores_ecm_view"]',
+            element: '[data-tutorial-id="control-panel-card-indicators"]',
             title: 'Indicadores ECM',
-            content: 'Ahora, exploremos los indicadores. Este es el dashboard de KPIs para ECRs y ECOs. <strong>Haz clic para ver los detalles.</strong>',
+            content: 'Ahora, exploremos los indicadores. Este es el dashboard de KPIs para ECRs y ECOs.',
             position: 'top',
-            click: true,
-            preAction: async () => {
-                await app.switchView('control_ecrs');
-            },
-            postAction: async () => {
-                await app.switchView('indicadores_ecm_view');
-            }
+            preAction: async () => await app.switchView('control_ecrs'),
         },
         {
-            element: '.animate-fade-in.space-y-8',
+            element: '[data-tutorial-id="indicadores-ecm-view-container"]',
             title: 'Dashboard de Indicadores',
-            content: 'Aquí puedes analizar el rendimiento del proceso de gestión de cambios con gráficos y KPIs. Cuando estés listo, haz clic en "Siguiente" para continuar.',
+            content: 'Aquí puedes analizar el rendimiento del proceso de gestión de cambios con gráficos y KPIs.',
             position: 'center',
-            preAction: async () => {
-                await app.switchView('indicadores_ecm_view');
-            }
+            preAction: async () => await app.switchView('indicadores_ecm_view'),
         },
         {
-            element: '[data-view="ecr_seguimiento"]',
+            element: '[data-tutorial-id="control-panel-card-metrics"]',
             title: 'Seguimiento y Métricas',
-            content: 'Finalmente, veamos el seguimiento de reuniones. <strong>Haz clic para entrar.</strong>',
+            content: 'Finalmente, veamos el seguimiento de reuniones. Es clave para el seguimiento del equipo.',
             position: 'top',
-            click: true,
-            preAction: async () => {
-                await app.switchView('control_ecrs');
-            },
-            postAction: async () => {
-                await app.switchView('ecr_seguimiento');
-            }
+            preAction: async () => await app.switchView('control_ecrs'),
         },
         {
-            element: '.animate-fade-in-up.space-y-8',
+            element: '[data-tutorial-id="ecr-seguimiento-view-container"]',
             title: 'Registro y Asistencia',
-            content: 'En esta sección, puedes registrar la asistencia a las reuniones de ECR y ver gráficos de ausentismo. Es clave para el seguimiento del equipo.',
+            content: 'En esta sección, puedes registrar la asistencia a las reuniones de ECR y ver gráficos de ausentismo.',
             position: 'center',
-            preAction: async () => {
-                await app.switchView('ecr_seguimiento');
-            }
+            preAction: async () => await app.switchView('ecr_seguimiento'),
         },
         {
             element: 'body',
             title: '¡Fin del Tutorial!',
             content: 'Ahora conoces las principales herramientas del Panel de Control. Úsalas para tener una visión completa y gestionar eficientemente los cambios de ingeniería.',
             position: 'center',
-            preAction: async () => {
-                await app.switchView('control_ecrs');
-            }
+            preAction: async () => await app.switchView('control_ecrs'),
         }
     ];
 
@@ -99,16 +72,13 @@ const controlPanelTutorial = (app) => {
      * Creates the main DOM elements for the tutorial (overlay, highlight, tooltip).
      */
     const createTutorialUI = () => {
-        // Create overlay
         dom.overlay = document.createElement('div');
         dom.overlay.id = 'tutorial-overlay';
 
-        // Create highlight element
         dom.highlight = document.createElement('div');
         dom.highlight.id = 'tutorial-highlight';
         dom.overlay.appendChild(dom.highlight);
 
-        // Create tooltip
         dom.tooltip = document.createElement('div');
         dom.tooltip.id = 'tutorial-tooltip';
         dom.tooltip.innerHTML = `
@@ -131,35 +101,16 @@ const controlPanelTutorial = (app) => {
 
         document.body.appendChild(dom.overlay);
 
-        // Add event listeners
         document.getElementById('tutorial-skip-btn').addEventListener('click', skip);
-
-        const prevBtn = document.getElementById('tutorial-prev-btn');
-        prevBtn.addEventListener('click', async () => {
-            prevBtn.disabled = true;
-            try {
-                await previous();
-            } finally {
-                prevBtn.disabled = false;
-            }
-        });
-
-        const nextBtn = document.getElementById('tutorial-next-btn');
-        nextBtn.addEventListener('click', async () => {
-            nextBtn.disabled = true;
-            try {
-                await next();
-            } finally {
-                nextBtn.disabled = false;
-            }
-        });
+        document.getElementById('tutorial-prev-btn').addEventListener('click', previous);
+        document.getElementById('tutorial-next-btn').addEventListener('click', next);
     };
 
     /**
-     * Shows a specific step of the tutorial.
-     * @param {number} index - The index of the step to show.
+     * Waits for an element to be visible in the DOM.
+     * This is a robust version copied from the main tutorial.js.
      */
-    const waitForVisibleElement = (selector, timeout = 5000) => {
+    const waitForVisibleElement = (selector, timeout = 7000) => {
         return new Promise(resolve => {
             if (selector === 'body' && document.body) {
                 resolve(document.body);
@@ -169,15 +120,52 @@ const controlPanelTutorial = (app) => {
             const interval = 100;
             let elapsedTime = 0;
 
+            let originalTitle, originalText;
+            if (dom.tooltip) {
+                originalTitle = document.getElementById('tutorial-tooltip-title')?.textContent;
+                originalText = document.getElementById('tutorial-tooltip-text')?.innerHTML;
+            }
+
+            const showWaitingMessage = () => {
+                if (!dom.tooltip) return;
+                const titleEl = document.getElementById('tutorial-tooltip-title');
+                const textEl = document.getElementById('tutorial-tooltip-text');
+                if (titleEl) titleEl.textContent = 'Buscando Elemento...';
+                if (textEl) textEl.innerHTML = `Esperando que aparezca el siguiente elemento: <code class="text-xs bg-slate-200 p-1 rounded">${selector}</code>`;
+                dom.tooltip.classList.add('is-waiting');
+            };
+
+            const hideWaitingMessage = () => {
+                if (!dom.tooltip) return;
+                const titleEl = document.getElementById('tutorial-tooltip-title');
+                const textEl = document.getElementById('tutorial-tooltip-text');
+                if (titleEl) titleEl.textContent = originalTitle;
+                if (textEl) textEl.innerHTML = originalText;
+                dom.tooltip.classList.remove('is-waiting');
+            };
+
+            const isElementVisible = (el) => {
+                if (!el) return false;
+                if (el.offsetParent === null) return false;
+                const rect = el.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0;
+            }
+
+            const waitingTimeout = setTimeout(showWaitingMessage, 250);
+
             const timer = setInterval(() => {
                 const element = document.querySelector(selector);
-                if (element && element.offsetParent !== null) {
+                if (isElementVisible(element)) {
+                    clearTimeout(waitingTimeout);
                     clearInterval(timer);
+                    hideWaitingMessage();
                     resolve(element);
                 } else {
                     elapsedTime += interval;
                     if (elapsedTime >= timeout) {
+                        clearTimeout(waitingTimeout);
                         clearInterval(timer);
+                        hideWaitingMessage();
                         resolve(null);
                     }
                 }
@@ -228,47 +216,32 @@ const controlPanelTutorial = (app) => {
         const targetElement = await waitForVisibleElement(step.element);
 
         if (!targetElement) {
+            app.showToast(`Elemento del tutorial no encontrado: ${step.element}. Saltando paso.`, 'error');
             console.warn(`Tutorial element not found: ${step.element}`);
-            next(); // Skip to the next step
+            await next();
             return;
         }
 
+        if (dom.tooltip) dom.tooltip.classList.remove('is-waiting');
+
         smartScroll(targetElement);
 
-        document.getElementById('tutorial-tooltip-title').textContent = step.title;
-        document.getElementById('tutorial-tooltip-text').innerHTML = step.content;
-        document.getElementById('tutorial-prev-btn').style.display = index === 0 ? 'none' : 'inline-block';
-        document.getElementById('tutorial-next-btn').textContent = index === steps.length - 1 ? 'Finalizar' : 'Siguiente';
-        document.getElementById('tutorial-tooltip-progress').textContent = `Paso ${index + 1} de ${steps.length}`;
+        setTimeout(() => {
+            document.getElementById('tutorial-tooltip-title').textContent = step.title;
+            document.getElementById('tutorial-tooltip-text').innerHTML = step.content;
+            document.getElementById('tutorial-prev-btn').style.display = index === 0 ? 'none' : 'inline-block';
+            document.getElementById('tutorial-next-btn').textContent = index === steps.length - 1 ? 'Finalizar' : 'Siguiente';
+            document.getElementById('tutorial-tooltip-progress').textContent = `Paso ${index + 1} de ${steps.length}`;
 
-        updateHighlight(targetElement, step);
-
-        resizeObserver = new ResizeObserver(() => {
             updateHighlight(targetElement, step);
-        });
-        resizeObserver.observe(targetElement);
-        resizeObserver.observe(document.body);
 
-        scrollHandler = () => updateHighlight(targetElement, step);
-        window.addEventListener('scroll', scrollHandler, true);
+            resizeObserver = new ResizeObserver(() => updateHighlight(targetElement, step));
+            resizeObserver.observe(targetElement);
+            resizeObserver.observe(document.body);
 
-        if (step.click && index < steps.length - 1) {
-            const nextButton = document.getElementById('tutorial-next-btn');
-            const originalNextText = nextButton.textContent;
-            nextButton.textContent = 'Continuar';
-            targetElement.classList.add('tutorial-click-effect');
-
-            const clickHandler = async () => {
-                targetElement.removeEventListener('click', clickHandler);
-                targetElement.classList.remove('tutorial-click-effect');
-                nextButton.textContent = originalNextText;
-                if (step.postAction) {
-                    await step.postAction();
-                }
-                await next();
-            };
-            targetElement.addEventListener('click', clickHandler);
-        }
+            scrollHandler = () => updateHighlight(targetElement, step);
+            window.addEventListener('scroll', scrollHandler, true);
+        }, 0);
     };
 
     const smartScroll = (element) => {
@@ -281,7 +254,7 @@ const controlPanelTutorial = (app) => {
         );
 
         if (!isVisible) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            element.scrollIntoView({ behavior: 'instant', block: 'center' });
         }
     };
 
@@ -289,8 +262,14 @@ const controlPanelTutorial = (app) => {
         const tooltipRect = dom.tooltip.getBoundingClientRect();
         const spacing = 10;
         let top, left;
+        let finalPosition = position;
 
-        switch (position) {
+        if (position === 'right' && (targetRect.right + spacing + tooltipRect.width > window.innerWidth)) finalPosition = 'left';
+        if (position === 'left' && (targetRect.left - spacing - tooltipRect.width < 0)) finalPosition = 'right';
+        if (position === 'top' && (targetRect.top - spacing - tooltipRect.height < 0)) finalPosition = 'bottom';
+        if (position === 'bottom' && (targetRect.bottom + spacing + tooltipRect.height > window.innerHeight)) finalPosition = 'top';
+
+        switch (finalPosition) {
             case 'top':
                 top = targetRect.top - tooltipRect.height - spacing;
                 left = targetRect.left + (targetRect.width / 2) - (tooltipRect.width / 2);
@@ -319,17 +298,17 @@ const controlPanelTutorial = (app) => {
         dom.tooltip.style.left = `${left}px`;
     };
 
-    const start = () => {
+    const start = async () => {
         if (dom.overlay) return;
         steps = TUTORIAL_STEPS;
         createTutorialUI();
         dom.overlay.style.display = 'block';
-        showStep(0);
+        await showStep(0);
     };
 
     const next = async () => {
         const step = steps[currentStepIndex];
-        if (step && step.postAction && !step.click) {
+        if (step && step.postAction) {
             await step.postAction();
         }
         await showStep(currentStepIndex + 1);

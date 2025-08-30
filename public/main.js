@@ -2367,7 +2367,7 @@ async function runEcrTableViewLogic() {
     };
 
     const viewHTML = `
-    <div class="ecr-control-table-container animate-fade-in-up">
+    <div class="ecr-control-table-container animate-fade-in-up" data-tutorial-id="ecr-table-view-container">
         <header class="flex justify-between items-center mb-6">
             <div class="flex items-center gap-4">
                  <button data-view="control_ecrs" class="flex items-center justify-center p-2 rounded-full hover:bg-slate-100 transition-colors">
@@ -2546,7 +2546,7 @@ async function runIndicadoresEcmViewLogic() {
         }
 
         const viewHTML = `
-            <div class="animate-fade-in space-y-8">
+            <div class="animate-fade-in space-y-8" data-tutorial-id="indicadores-ecm-view-container">
                 <div class="flex flex-col md:flex-row justify-between items-center gap-4">
                      <div>
                         <button data-view="control_ecrs" class="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-800 mb-2">
@@ -2846,7 +2846,7 @@ async function runControlEcrsLogic() {
                 <p class="text-lg text-slate-500 mt-2">Seleccione un módulo para visualizar.</p>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-                <a href="#" data-view="ecr_table_view" class="nav-link dashboard-card bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer overflow-hidden transform hover:-translate-y-1">
+                <a href="#" data-view="ecr_table_view" data-tutorial-id="control-panel-card-table" class="nav-link dashboard-card bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer overflow-hidden transform hover:-translate-y-1">
                     <div class="p-6 bg-slate-700 text-white">
                         <div class="flex items-center gap-4">
                             <i data-lucide="table-properties" class="w-10 h-10"></i>
@@ -2860,7 +2860,7 @@ async function runControlEcrsLogic() {
                         <p class="text-slate-600">Ver y gestionar la tabla maestra de todos los Engineering Change Requests (ECR).</p>
                     </div>
                 </a>
-                <a href="#" data-view="indicadores_ecm_view" class="nav-link dashboard-card bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer overflow-hidden transform hover:-translate-y-1">
+                <a href="#" data-view="indicadores_ecm_view" data-tutorial-id="control-panel-card-indicators" class="nav-link dashboard-card bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer overflow-hidden transform hover:-translate-y-1">
                     <div class="p-6 bg-blue-600 text-white">
                         <div class="flex items-center gap-4">
                             <i data-lucide="bar-chart-3" class="w-10 h-10"></i>
@@ -2874,7 +2874,7 @@ async function runControlEcrsLogic() {
                         <p class="text-slate-600">Visualizar KPIs y gráficos sobre el estado y rendimiento de los ECRs y ECOs.</p>
                     </div>
                 </a>
-                <a href="#" data-view="ecr_seguimiento" class="nav-link dashboard-card bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer overflow-hidden transform hover:-translate-y-1">
+                <a href="#" data-view="ecr_seguimiento" data-tutorial-id="control-panel-card-metrics" class="nav-link dashboard-card bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer overflow-hidden transform hover:-translate-y-1">
                     <div class="p-6 bg-emerald-600 text-white">
                         <div class="flex items-center gap-4">
                             <i data-lucide="clipboard-check" class="w-10 h-10"></i>
@@ -3360,8 +3360,15 @@ async function runEcrSeguimientoLogic() {
         { id: 'ing_producto', label: 'Ing. Producto' }
     ];
 
+    const createPlaceholder = (message, icon = 'loader') => `
+        <div class="text-center text-slate-500 py-10 animate-fade-in">
+            <i data-lucide="${icon}" class="w-12 h-12 mx-auto text-slate-300 ${icon === 'loader' ? 'animate-spin' : ''}"></i>
+            <p class="mt-4 font-semibold">${message}</p>
+        </div>
+    `;
+
     const viewHTML = `
-        <div class="animate-fade-in-up space-y-8">
+        <div class="animate-fade-in-up space-y-8" data-tutorial-id="ecr-seguimiento-view-container">
             <div>
                 <button data-view="control_ecrs" class="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-800 mb-2">
                     <i data-lucide="arrow-left" class="w-4 h-4"></i>
@@ -3379,7 +3386,7 @@ async function runEcrSeguimientoLogic() {
                     </div>
                 </div>
                 <div id="ecr-log-container">
-                    <p class="text-slate-500">Cargando registro de ECR...</p>
+                    ${createPlaceholder('Cargando registro de ECR...')}
                 </div>
             </section>
 
@@ -3392,7 +3399,7 @@ async function runEcrSeguimientoLogic() {
                     </button>
                 </div>
                 <div id="asistencia-matriz-container">
-                    <p class="text-slate-500">Cargando matriz de asistencia...</p>
+                    ${createPlaceholder('Cargando matriz de asistencia...')}
                 </div>
             </section>
 
@@ -3401,14 +3408,14 @@ async function runEcrSeguimientoLogic() {
                 <h3 class="text-xl font-bold text-slate-800 mb-4">Resumen y Gráficos de Asistencia</h3>
                 <div id="resumen-graficos-container" class="space-y-8">
                     <div id="resumen-container">
-                         <p class="text-slate-500">Cargando resumen...</p>
+                        ${createPlaceholder('Cargando resumen...')}
                     </div>
                     <div id="graficos-container" class="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div id="grafico-ausentismo-dias" class="min-h-[300px]">
-                            <p class="text-slate-500">Cargando gráfico de días de ausentismo...</p>
+                            ${createPlaceholder('Cargando gráfico...')}
                         </div>
                         <div id="grafico-ausentismo-porcentaje" class="min-h-[300px]">
-                             <p class="text-slate-500">Cargando gráfico de % de ausentismo...</p>
+                             ${createPlaceholder('Cargando gráfico...')}
                         </div>
                     </div>
                 </div>
@@ -3427,7 +3434,8 @@ async function runEcrSeguimientoLogic() {
             const ecrDocs = appState.collections[COLLECTIONS.ECR_FORMS] || [];
 
             if (ecrDocs.length === 0) {
-                ecrLogContainer.innerHTML = `<p class="text-slate-500">No se encontraron registros de ECR.</p>`;
+                ecrLogContainer.innerHTML = createPlaceholder('No se encontraron registros de ECR.', 'search-x');
+                lucide.createIcons();
                 return;
             }
 
@@ -3565,7 +3573,8 @@ async function runEcrSeguimientoLogic() {
         try {
             const reuniones = appState.collections[COLLECTIONS.REUNIONES_ECR] || [];
             if (reuniones.length === 0) {
-                container.innerHTML = `<p class="text-slate-500">No se encontraron reuniones.</p>`;
+                container.innerHTML = createPlaceholder('No se encontraron reuniones para mostrar.', 'calendar-x');
+                lucide.createIcons();
                 return;
             }
 
@@ -3679,9 +3688,10 @@ async function runEcrSeguimientoLogic() {
         try {
             const reuniones = appState.collections[COLLECTIONS.REUNIONES_ECR] || [];
             if (reuniones.length === 0) {
-                resumenContainer.innerHTML = `<p class="text-slate-500">No hay datos de reuniones para generar el resumen.</p>`;
-                graficoDiasContainer.innerHTML = '';
-                graficoPorcContainer.innerHTML = '';
+                resumenContainer.innerHTML = createPlaceholder('Sin datos para el resumen.', 'file-x');
+                graficoDiasContainer.innerHTML = createPlaceholder('Sin datos para el gráfico.', 'bar-chart-big');
+                graficoPorcContainer.innerHTML = createPlaceholder('Sin datos para el gráfico.', 'pie-chart');
+                lucide.createIcons();
                 return;
             }
 
