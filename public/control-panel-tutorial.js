@@ -302,6 +302,12 @@ const controlPanelTutorial = (app) => {
 
     const start = async () => {
         if (dom.overlay) return;
+
+        // Ensure necessary data exists before starting the visual part of the tutorial.
+        if (app && typeof app.seedControlPanelTutorialData === 'function') {
+            await app.seedControlPanelTutorialData();
+        }
+
         steps = TUTORIAL_STEPS;
         createTutorialUI();
         dom.overlay.style.display = 'block';
