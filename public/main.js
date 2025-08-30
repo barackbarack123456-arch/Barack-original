@@ -3753,9 +3753,12 @@ async function runEcrSeguimientoLogic() {
                             const comment = approval.comment || 'Sin comentarios.';
                             const user = approval.user || 'N/A';
                             const date = approval.date || 'N/A';
-                            const title = canApprove ? `Estado: ${status}. Clic para cambiar. Comentario: ${comment} (Usuario: ${user} el ${date})` : `Estado: ${status}. Comentario: ${comment} (Usuario: ${user} el ${date})`;
+                            const isActionable = canApprove && (status === 'pending' || status === 'rejected');
+                            const title = isActionable
+                                ? `Clic para ir a la sección de aprobación de ${depto.label}`
+                                : `Ver detalles del ECR ${ecr.id}`;
 
-                            return `<td class="p-0"><button title="${title}" data-action="update-ecr-approval" data-ecr-id="${ecr.id}" data-depto-id="${depto.id}" data-current-status="${status}" class="w-full h-full text-center font-bold ${statusClass} ${buttonClass} p-2">${statusText}</button></td>`;
+                            return `<td class="p-0"><button title="${title}" data-action="navigate-to-ecr-details" data-ecr-id="${ecr.id}" data-depto-id="${depto.id}" data-current-status="${status}" class="w-full h-full text-center font-bold ${statusClass} cursor-pointer p-2">${statusText}</button></td>`;
                         }).join('')}
                     </tr>
                 `;
@@ -3775,65 +3778,23 @@ async function runEcrSeguimientoLogic() {
     const ecrLogContainer = document.getElementById('ecr-log-container');
     if (ecrLogContainer) {
         ecrLogContainer.addEventListener('click', async (e) => {
-            const button = e.target.closest('button[data-action="update-ecr-approval"]');
+            const button = e.target.closest('button[data-action="navigate-to-ecr-details"]');
             if (!button) return;
 
             const { ecrId, deptoId, currentStatus } = button.dataset;
-            const canApprove = appState.currentUser.role === 'admin' || appState.currentUser.sector === deptoId;
+            const currentUserSector = appState.currentUser.sector;
 
-            if (!canApprove) {
-                showToast('No tienes permisos para modificar el estado de este departamento.', 'error');
-                return;
+            // Admins or users from the correct department whose approval is pending/rejected can take action
+            const isActionable = (appState.currentUser.role === 'admin' || currentUserSector === deptoId) &&
+                                 (currentStatus === 'pending' || currentStatus === 'rejected');
+
+            if (isActionable) {
+                showToast(`Navegando a la sección de aprobación para ${depto.label}...`, 'info');
+                switchView('ecr_form', { ecrId, scrollToSection: deptoId });
+            } else {
+                showToast(`Abriendo ECR ${ecrId} en modo de solo lectura...`, 'info');
+                switchView('ecr_form', { ecrId });
             }
-
-            // Open a confirmation/action modal
-            const modalId = 'ecr-approval-modal';
-            const modalHTML = `
-                <div id="${modalId}" class="fixed inset-0 z-[60] flex items-center justify-center modal-backdrop animate-fade-in">
-                    <div class="bg-white rounded-lg shadow-xl w-full max-w-md m-4 modal-content">
-                        <div class="flex justify-between items-center p-5 border-b">
-                            <h3 class="text-xl font-bold">Actualizar Aprobación</h3>
-                            <button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button>
-                        </div>
-                        <div class="p-6 space-y-4">
-                            <p>ECR: <strong>${ecrId}</strong><br>Departamento: <strong>${deptoId}</strong></p>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Nuevo Estado:</label>
-                                <select id="approval-status-select" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                                    <option value="approved" ${currentStatus === 'approved' ? 'selected' : ''}>Aprobado (OK)</option>
-                                    <option value="rejected" ${currentStatus === 'rejected' ? 'selected' : ''}>Rechazado (NOK)</option>
-                                    <option value="pending" ${currentStatus === 'pending' ? 'selected' : ''}>Pendiente</option>
-                                </select>
-                            </div>
-                             <div>
-                                <label for="approval-comment" class="block text-sm font-medium text-gray-700 mb-1">Comentario (Opcional):</label>
-                                <textarea id="approval-comment" rows="3" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"></textarea>
-                            </div>
-                        </div>
-                        <div class="flex justify-end items-center p-4 border-t bg-gray-50 space-x-3">
-                            <button data-action="close" type="button" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
-                            <button id="confirm-approval-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-semibold">Confirmar</button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            dom.modalContainer.innerHTML = modalHTML;
-            lucide.createIcons();
-
-            const modalElement = document.getElementById(modalId);
-            modalElement.addEventListener('click', async (e) => {
-                const target = e.target.closest('button');
-                if (!target) return;
-
-                if (target.dataset.action === 'close') {
-                    modalElement.remove();
-                } else if (target.id === 'confirm-approval-btn') {
-                    const newStatus = modalElement.querySelector('#approval-status-select').value;
-                    const comment = modalElement.querySelector('#approval-comment').value;
-                    await registerEcrApproval(ecrId, deptoId, newStatus, comment);
-                    modalElement.remove();
-                }
-            });
         });
     }
 
@@ -4076,6 +4037,7 @@ async function runEcrSeguimientoLogic() {
 
 async function runEcrFormLogic(params = null) {
     const ecrId = params ? params.ecrId : null;
+    const scrollToSection = params ? params.scrollToSection : null;
     const isEditing = !!ecrId;
     const ECR_FORM_STORAGE_KEY = isEditing ? `inProgressEcrForm_${ecrId}` : 'inProgressEcrForm_new';
 
@@ -4663,6 +4625,20 @@ async function runEcrFormLogic(params = null) {
             });
         }
     });
+
+    // --- Scroll to section if requested ---
+    if (scrollToSection) {
+        const sectionElement = formContainer.querySelector(`.department-section[data-department-id="${scrollToSection}"]`);
+        if (sectionElement) {
+            setTimeout(() => { // Use a timeout to ensure the DOM is fully painted
+                sectionElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                sectionElement.classList.add('highlight-section');
+                setTimeout(() => {
+                    sectionElement.classList.remove('highlight-section');
+                }, 3000);
+            }, 100);
+        }
+    }
 
     // --- Cleanup ---
     appState.currentViewCleanup = () => {
