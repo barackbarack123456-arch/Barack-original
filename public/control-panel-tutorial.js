@@ -24,26 +24,74 @@ const controlPanelTutorial = (app) => {
         {
             element: '[data-view="ecr_table_view"]',
             title: 'Tabla de Control ECR',
-            content: 'Aquí encontrarás una vista detallada de todos los ECRs. Es ideal para hacer un seguimiento exhaustivo y ver toda la información en un solo lugar.',
-            position: 'top'
+            content: 'Aquí encontrarás una vista detallada de todos los ECRs. Es ideal para hacer un seguimiento exhaustivo. <strong>Haz clic para explorar.</strong>',
+            position: 'top',
+            click: true,
+            postAction: async () => {
+                await app.switchView('ecr_table_view');
+            }
+        },
+        {
+            element: '.ecr-control-table-container',
+            title: 'Vista de Tabla',
+            content: 'Esta es la tabla de control. Puedes desplazarte horizontalmente para ver todos los datos y usar los filtros para encontrar ECRs específicos. Cuando termines, haz clic en "Siguiente".',
+            position: 'center',
+            preAction: async () => {
+                await app.switchView('ecr_table_view');
+            }
         },
         {
             element: '[data-view="indicadores_ecm_view"]',
             title: 'Indicadores ECM',
-            content: 'Este es el dashboard de indicadores clave de rendimiento (KPIs) para ECRs y ECOs. Te permite visualizar el rendimiento del proceso de gestión de cambios.',
-            position: 'top'
+            content: 'Ahora, exploremos los indicadores. Este es el dashboard de KPIs para ECRs y ECOs. <strong>Haz clic para ver los detalles.</strong>',
+            position: 'top',
+            click: true,
+            preAction: async () => {
+                await app.switchView('control_ecrs');
+            },
+            postAction: async () => {
+                await app.switchView('indicadores_ecm_view');
+            }
+        },
+        {
+            element: '.animate-fade-in.space-y-8',
+            title: 'Dashboard de Indicadores',
+            content: 'Aquí puedes analizar el rendimiento del proceso de gestión de cambios con gráficos y KPIs. Cuando estés listo, haz clic en "Siguiente" para continuar.',
+            position: 'center',
+            preAction: async () => {
+                await app.switchView('indicadores_ecm_view');
+            }
         },
         {
             element: '[data-view="ecr_seguimiento"]',
             title: 'Seguimiento y Métricas',
-            content: 'En esta sección, puedes registrar y consultar la asistencia a las reuniones de ECR, así como ver gráficos de ausentismo y otros indicadores de seguimiento.',
-            position: 'top'
+            content: 'Finalmente, veamos el seguimiento de reuniones. <strong>Haz clic para entrar.</strong>',
+            position: 'top',
+            click: true,
+            preAction: async () => {
+                await app.switchView('control_ecrs');
+            },
+            postAction: async () => {
+                await app.switchView('ecr_seguimiento');
+            }
+        },
+        {
+            element: '.animate-fade-in-up.space-y-8',
+            title: 'Registro y Asistencia',
+            content: 'En esta sección, puedes registrar la asistencia a las reuniones de ECR y ver gráficos de ausentismo. Es clave para el seguimiento del equipo.',
+            position: 'center',
+            preAction: async () => {
+                await app.switchView('ecr_seguimiento');
+            }
         },
         {
             element: 'body',
             title: '¡Fin del Tutorial!',
             content: 'Ahora conoces las principales herramientas del Panel de Control. Úsalas para tener una visión completa y gestionar eficientemente los cambios de ingeniería.',
-            position: 'center'
+            position: 'center',
+            preAction: async () => {
+                await app.switchView('control_ecrs');
+            }
         }
     ];
 
