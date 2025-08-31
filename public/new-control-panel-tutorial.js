@@ -65,23 +65,9 @@ const newControlPanelTutorial = (app) => {
             position: 'bottom'
         },
         {
-            element: '[data-tutorial-id="control-panel-card-metrics"]',
-            title: '2. Seguimiento y Métricas',
-            content: 'Este módulo es para la gestión del equipo. Permite registrar la asistencia a reuniones y visualizar KPIs de ausentismo.',
-            position: 'top',
-            preAction: async () => { await app.switchView('control_ecrs'); }
-        },
-        {
-            element: '[data-tutorial-id="ecr-seguimiento-view-container"]',
-            title: 'Dashboard de Seguimiento',
-            content: 'Aquí puedes registrar la asistencia a las reuniones de ECR y ver gráficos sobre la participación de cada departamento.',
-            position: 'center',
-            preAction: async () => { await app.switchView('ecr_seguimiento'); }
-        },
-        {
             element: '[data-tutorial-id="control-panel-card-indicators"]',
-            title: '3. Indicadores de Gestión (ECM)',
-            content: 'Finalmente, este módulo ofrece una vista de alto nivel del rendimiento del proceso de cambios (ECM), con KPIs sobre ECRs y ECOs.',
+            title: '2. Indicadores de Gestión (ECM)',
+            content: 'Este módulo ofrece una vista de alto nivel del rendimiento del proceso de cambios (ECM), con KPIs sobre ECRs y ECOs.',
             position: 'top',
             preAction: async () => { await app.switchView('control_ecrs'); }
         },
@@ -91,6 +77,20 @@ const newControlPanelTutorial = (app) => {
             content: 'Este es el dashboard de ECM. Aquí puedes analizar métricas y KPIs sobre el proceso de ECRs y ECOs para identificar cuellos de botella y medir la eficiencia.',
             position: 'center',
             preAction: async () => { await app.switchView('indicadores_ecm_view'); }
+        },
+        {
+            element: '[data-tutorial-id="control-panel-card-metrics"]',
+            title: '3. Seguimiento y Métricas',
+            content: 'Finalmente, este módulo es para la gestión del equipo. Permite registrar la asistencia a reuniones y visualizar KPIs de ausentismo.',
+            position: 'top',
+            preAction: async () => { await app.switchView('control_ecrs'); }
+        },
+        {
+            element: '[data-tutorial-id="ecr-seguimiento-view-container"]',
+            title: 'Dashboard de Seguimiento',
+            content: 'Aquí puedes registrar la asistencia a las reuniones de ECR y ver gráficos sobre la participación de cada departamento.',
+            position: 'center',
+            preAction: async () => { await app.switchView('ecr_seguimiento'); }
         },
         {
             element: 'body',
