@@ -214,8 +214,15 @@ const newControlPanelTutorial = (app) => {
 
     const smartScroll = (element) => {
         const rect = element.getBoundingClientRect();
-        if (rect.top < 0 || rect.bottom > window.innerHeight) {
-            element.scrollIntoView({ behavior: 'instant', block: 'center' });
+        const isVisible = (
+            rect.top >= 0 &&
+            rect.left >= 0 &&
+            rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+            rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+        );
+
+        if (!isVisible) {
+            element.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
         }
     };
 
@@ -223,7 +230,27 @@ const newControlPanelTutorial = (app) => {
         const tooltipRect = dom.tooltip.getBoundingClientRect();
         const spacing = 10;
         let top, left;
-        switch (position) {
+        let finalPosition = position;
+
+        // Try to flip right to left if there's no space
+        if (position === 'right' && (targetRect.right + spacing + tooltipRect.width > window.innerWidth)) {
+            finalPosition = 'left';
+        }
+        // Try to flip left to right if there's no space
+        if (position === 'left' && (targetRect.left - spacing - tooltipRect.width < 0)) {
+            finalPosition = 'right';
+        }
+        // Try to flip top to bottom if there's no space
+        if (position === 'top' && (targetRect.top - spacing - tooltipRect.height < 0)) {
+            finalPosition = 'bottom';
+        }
+        // Try to flip bottom to top if there's no space
+        if (position === 'bottom' && (targetRect.bottom + spacing + tooltipRect.height > window.innerHeight)) {
+            finalPosition = 'top';
+        }
+
+        // Calculate position based on the (potentially flipped) finalPosition
+        switch (finalPosition) {
             case 'top':
                 top = targetRect.top - tooltipRect.height - spacing;
                 left = targetRect.left + (targetRect.width / 2) - (tooltipRect.width / 2);
@@ -236,12 +263,30 @@ const newControlPanelTutorial = (app) => {
                 top = targetRect.top + (targetRect.height / 2) - (tooltipRect.height / 2);
                 left = targetRect.left - tooltipRect.width - spacing;
                 break;
+            case 'bottom':
             default:
                 top = targetRect.bottom + spacing;
                 left = targetRect.left + (targetRect.width / 2) - (tooltipRect.width / 2);
+                break;
         }
-        dom.tooltip.style.top = `${Math.max(spacing, Math.min(top, window.innerHeight - tooltipRect.height - spacing))}px`;
-        dom.tooltip.style.left = `${Math.max(spacing, Math.min(left, window.innerWidth - tooltipRect.width - spacing))}px`;
+
+        // --- Final Boundary Enforcement ---
+        // Ensure the tooltip never goes out of bounds, no matter what.
+        if (left < spacing) {
+            left = spacing;
+        }
+        if (left + tooltipRect.width > window.innerWidth - spacing) {
+            left = window.innerWidth - tooltipRect.width - spacing;
+        }
+        if (top < spacing) {
+            top = spacing;
+        }
+        if (top + tooltipRect.height > window.innerHeight - spacing) {
+            top = window.innerHeight - tooltipRect.height - spacing;
+        }
+
+        dom.tooltip.style.top = `${top}px`;
+        dom.tooltip.style.left = `${left}px`;
     };
 
     const start = async () => {
