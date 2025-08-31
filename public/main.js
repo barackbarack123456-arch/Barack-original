@@ -660,15 +660,16 @@ async function seedEcos(batch, users, generatedData) {
     showToast('Generando 25 ECOs de prueba detallados...', 'info');
     const ecoFormsRef = collection(db, COLLECTIONS.ECO_FORMS);
     const TOTAL_ECOS = 25;
+    const currentYear = new Date().getFullYear();
 
     const getRandomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
     const getRandomDate = (start, end) => new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
 
     const formSectionsData = [
         { id: 'eng_producto', checklist: Array(4).fill(0) }, { id: 'calidad', checklist: Array(4).fill(0) },
-        { id: 'eng_proceso', checklist: Array(4).fill(0) }, { id: 'compras', checklist: Array(4).fill(0) },
-        { id: 'logistica', checklist: Array(4).fill(0) }, { id: 'implementacion', checklist: Array(4).fill(0) },
-        { id: 'aprobacion_final', checklist: null }
+        { id: 'eng_proceso', checklist: Array(4).fill(0) }, { id: 'doc_calidad', checklist: Array(4).fill(0) },
+        { id: 'compras', checklist: Array(4).fill(0) }, { id: 'logistica', checklist: Array(4).fill(0) },
+        { id: 'implementacion', checklist: Array(4).fill(0) }, { id: 'aprobacion_final', checklist: null }
     ];
 
     const sampleComments = [
@@ -680,12 +681,11 @@ async function seedEcos(batch, users, generatedData) {
     for (let i = 1; i <= TOTAL_ECOS; i++) {
         const user1 = getRandomItem(users) || { email: 'test@example.com', name: 'Usuario de Prueba 1' };
         const user2 = getRandomItem(users) || { email: 'test2@example.com', name: 'Usuario de Prueba 2' };
-        const status = getRandomItem(['implemented', 'closed']);
-        const ecoId = `ECO-2024-${String(i).padStart(3, '0')}`;
-        const ecrId = `ECR-2024-${String(i + 14).padStart(3, '0')}`;
+        const status = getRandomItem(['in-progress', 'approved', 'rejected']);
+        const ecrId = `ECR-${currentYear}-${String(i).padStart(3, '0')}`; // Match the generated ECRs
 
         const ecoData = {
-            id: ecoId,
+            id: ecrId, // The ECO ID is the same as the ECR ID
             ecr_no: ecrId,
             status: status,
             lastModified: getRandomDate(new Date(2023, 0, 1), new Date()),
@@ -693,17 +693,16 @@ async function seedEcos(batch, users, generatedData) {
             checklists: {},
             comments: {},
             signatures: {},
-            action_plan: [] // New field for the action plan
+            action_plan: []
         };
 
-        // Seed a sample action plan for some ECOs
-        if (Math.random() > 0.5) {
-            const taskCount = Math.floor(Math.random() * 5) + 1;
+        if (Math.random() > 0.4) { // 60% chance to have an action plan
+            const taskCount = Math.floor(Math.random() * 4) + 1;
             for(let j = 0; j < taskCount; j++) {
                 const assignee = getRandomItem(users);
                 ecoData.action_plan.push({
                     id: `task_${Date.now()}_${j}`,
-                    description: `Tarea de implementación de ejemplo ${j+1}`,
+                    description: `Tarea de implementación de ejemplo ${j+1} para ${ecrId}`,
                     assignee: assignee ? assignee.name : 'Sin asignar',
                     assigneeUid: assignee ? assignee.docId : null,
                     dueDate: getRandomDate(new Date(), new Date(new Date().getTime() + 30 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
@@ -712,30 +711,40 @@ async function seedEcos(batch, users, generatedData) {
             }
         }
 
-
         formSectionsData.forEach(section => {
             if (section.checklist) {
                 ecoData.checklists[section.id] = section.checklist.map(() => {
                     const choice = Math.random();
-                    if (choice < 0.6) return { si: true, na: false };
-                    if (choice < 0.8) return { si: false, na: true };
-                    return { si: false, na: false };
+                    if (choice < 0.6) return { si: true, na: false }; // 60% SI
+                    if (choice < 0.8) return { si: false, na: true }; // 20% N/A
+                    return { si: false, na: false }; // 20% NO
                 });
             }
 
-            if (Math.random() < 0.7) {
+            if (Math.random() < 0.7) { // 70% chance of having a comment
                 ecoData.comments[section.id] = getRandomItem(sampleComments);
             }
 
-            if (Math.random() < 0.8) {
+            let sectionFullySigned = false;
+            if (Math.random() < 0.8) { // 80% chance of being signed
                 const approver = getRandomItem([user1, user2]);
                 const reviewDate = getRandomDate(new Date(2023, 6, 1), new Date());
                 let sectionStatus = 'ok';
-                if (status === 'rejected' && Math.random() < 0.5) {
+
+                // If the whole ECO is rejected, some sections might be NOK
+                if (status === 'rejected' && Math.random() < 0.4) {
                     sectionStatus = 'nok';
-                } else if (status === 'in-progress' && Math.random() < 0.3) {
+                }
+                // If the ECO is approved, all signed sections must be OK
+                else if (status === 'approved') {
+                    sectionStatus = 'ok';
+                }
+                // If in-progress, it can be null
+                else if (status === 'in-progress' && Math.random() < 0.3) {
                     sectionStatus = null;
                 }
+
+                if (sectionStatus) sectionFullySigned = true;
 
                 ecoData.signatures[section.id] = {
                     date_review: reviewDate.toISOString().split('T')[0],
@@ -744,9 +753,19 @@ async function seedEcos(batch, users, generatedData) {
                     status: section.checklist ? sectionStatus : null
                 };
             }
+            // If the whole ECO is approved, every section must be signed and OK
+            if (status === 'approved' && !sectionFullySigned) {
+                 const approver = getRandomItem([user1, user2]);
+                 ecoData.signatures[section.id] = {
+                    date_review: getRandomDate(new Date(2023, 6, 1), new Date()).toISOString().split('T')[0],
+                    name: approver.name,
+                    visto: approver.name.split(' ').map(n => n[0]).join('').toUpperCase(),
+                    status: section.checklist ? 'ok' : null
+                };
+            }
         });
 
-        const docRef = doc(ecoFormsRef, ecoId);
+        const docRef = doc(ecoFormsRef, ecrId);
         batch.set(docRef, ecoData);
     }
 
@@ -754,7 +773,7 @@ async function seedEcos(batch, users, generatedData) {
 }
 
 async function seedEcrs(batch, users, generatedData) {
-    showToast('Generando 15 ECRs de prueba...', 'info');
+    showToast('Generando 15 ECRs de prueba detallados...', 'info');
     const ecrFormsRef = collection(db, COLLECTIONS.ECR_FORMS);
     const TOTAL_ECRS = 15;
     const currentYear = new Date().getFullYear();
@@ -763,6 +782,10 @@ async function seedEcrs(batch, users, generatedData) {
 
     const ALL_DEPARTMENTS = [ 'ing_manufatura', 'hse', 'calidad', 'compras', 'sqa', 'tooling', 'logistica', 'financiero', 'comercial', 'mantenimiento', 'produccion', 'calidad_cliente', 'ing_producto' ];
     const ECR_STATUSES = ['draft', 'pending-approval', 'stand-by', 'approved', 'rejected'];
+    const sampleComments = [
+        "Impacto mínimo en el costo, se aprueba.", "Requiere validación adicional del cliente.", "Rechazado por falta de análisis de riesgo.",
+        "Propuesta viable, proceder con el plan.", "El cambio mejora la producibilidad.", "Sin objeciones por parte de este departamento."
+    ];
 
     for (let i = 1; i <= TOTAL_ECRS; i++) {
         const user1 = getRandomItem(users);
@@ -770,7 +793,6 @@ async function seedEcrs(batch, users, generatedData) {
         const client = getRandomItem(generatedData.clientes.filter(c => c.id === product.clienteId)) || getRandomItem(generatedData.clientes);
         const ecrId = `ECR-${currentYear}-${String(i).padStart(3, '0')}`;
 
-        // Initialize the approvals map
         const approvals = {};
         ALL_DEPARTMENTS.forEach(dept => {
             approvals[dept] = { status: 'pending', user: null, date: null, comment: '' };
@@ -782,9 +804,7 @@ async function seedEcrs(batch, users, generatedData) {
             status: getRandomItem(ECR_STATUSES),
             lastModified: new Date(),
             modifiedBy: user1.email,
-            approvals: approvals, // Add the new approvals map
-
-            // Page 1 Data
+            approvals: approvals,
             origen_cliente: Math.random() > 0.5,
             origen_interno: Math.random() > 0.5,
             proyecto: (getRandomItem(generatedData.proyectos) || {}).nombre || 'Proyecto Alpha',
@@ -793,25 +813,39 @@ async function seedEcrs(batch, users, generatedData) {
             fecha_emision: getRandomDate(new Date(currentYear, 0, 1), new Date(currentYear, 11, 31)),
             codigo_barack: product?.id || `PROD-00${i}`,
             denominacion_producto: product?.descripcion || 'Componente de Muestra',
-            situacion_existente: 'El componente actual presenta fallas de material bajo alta temperatura.',
-            situacion_propuesta: 'Reemplazar el polímero por una aleación de aluminio 6061-T6 para mejorar la resistencia térmica y durabilidad.',
+            situacion_existente: 'El componente actual presenta fallas de material bajo alta temperatura, resultando en una tasa de falla del 5% en campo.',
+            situacion_propuesta: 'Reemplazar el polímero por una aleación de aluminio 6061-T6 para mejorar la resistencia térmica y durabilidad. Se estima una reducción de la tasa de fallas al 0.1%.',
             componentes_obsoletos: Math.floor(Math.random() * 11),
+            cliente_requiere_ppap: Math.random() > 0.4,
+            cliente_aprobacion_estado: getRandomItem(['na', 'pendiente', 'aprobado', 'rechazado']),
+            equipo_c1_0: getRandomItem(users).name,
+            equipo_c1_2: getRandomItem(users).name,
+            fecha_cierre: getRandomDate(new Date(currentYear, 6, 1), new Date(currentYear + 1, 5, 30)),
+            fecha_realizacion_ecr: getRandomDate(new Date(currentYear, 0, 1), new Date()),
+            causas_solicitud: 'Mejora de la fiabilidad del producto y reducción de costos de garantía.',
+            comentarios_alertas: 'Alerta de Calidad N° A-123 emitida por recurrencia de fallas.',
+            accion_objetiva: 'Implementar el cambio de material en la línea de producción a partir del lote 2025-01.',
+            final_coordinador: 'ECR aprobado. Se procede a la creación del ECO correspondiente para la implementación.'
         };
 
-        // Simulate some approvals based on status
-        if (ecrData.status === 'approved' || ecrData.status === 'rejected') {
+        if (ecrData.status === 'approved' || ecrData.status === 'rejected' || ecrData.status === 'stand-by') {
+            let hasBeenRejected = false;
             ALL_DEPARTMENTS.forEach(dept => {
-                if (Math.random() > 0.3) { // 70% chance to be approved
+                const randomValue = Math.random();
+                if (randomValue < 0.7) { // 70% chance of being decided
+                    const isApproved = ecrData.status === 'rejected' ? randomValue > 0.15 : randomValue > 0.05; // Lower chance of approval if final is rejected
+                    if (!isApproved) hasBeenRejected = true;
+
                     ecrData.approvals[dept] = {
-                        status: 'approved',
+                        status: isApproved ? 'approved' : 'rejected',
                         user: getRandomItem(users).name,
                         date: getRandomDate(new Date(currentYear, 0, 1), new Date()),
-                        comment: 'Aprobado sin comentarios.'
+                        comment: getRandomItem(sampleComments)
                     };
                 }
             });
-            // If rejected, at least one must be rejected
-            if (ecrData.status === 'rejected') {
+            // If the status is 'rejected' but no department rejected it, force one.
+            if (ecrData.status === 'rejected' && !hasBeenRejected) {
                 const randomDept = getRandomItem(ALL_DEPARTMENTS);
                 ecrData.approvals[randomDept] = {
                     status: 'rejected',
@@ -822,11 +856,10 @@ async function seedEcrs(batch, users, generatedData) {
             }
         }
 
-
         const docRef = doc(ecrFormsRef, ecrId);
         batch.set(docRef, ecrData);
     }
-    console.log(`${TOTAL_ECRS} ECRs de prueba añadidos al batch.`);
+    console.log(`${TOTAL_ECRS} ECRs de prueba detallados añadidos al batch.`);
 }
 
 async function seedReunionesEcr(batch) {
@@ -2529,14 +2562,14 @@ async function runEcrTableViewLogic() {
         }
         .search-container .search-icon {
             position: absolute;
-            left: 1rem;
+            left: 0.75rem; /* Adjusted from 1rem */
             top: 50%;
             transform: translateY(-50%);
             color: #94a3b8;
             pointer-events: none;
         }
         .search-container input {
-            padding-left: 2.75rem;
+            padding-left: 2.5rem; /* Adjusted from 2.75rem */
         }
         .filter-actions {
             display: flex;
@@ -2554,7 +2587,7 @@ async function runEcrTableViewLogic() {
             color: #1e293b;
         }
     </style>
-    <div class="ecr-control-table-container animate-fade-in-up" data-tutorial-id="ecr-table-view-container">
+    <div class="animate-fade-in-up" data-tutorial-id="ecr-table-view-container">
         <header class="flex justify-between items-center mb-6">
             <div class="flex items-center gap-4">
                  <button data-view="control_ecrs" class="flex items-center justify-center p-2 rounded-full hover:bg-slate-100 transition-colors">
@@ -2573,10 +2606,12 @@ async function runEcrTableViewLogic() {
 
         <div class="filters-container">
             ${createFilterGroup('Búsqueda General', `
-                <div class="filter-control search-container">
+                <div class="filter-control">
                     <label for="ecr-control-search">Buscar en todos los campos</label>
-                    <i data-lucide="search" class="search-icon"></i>
-                    <input type="text" id="ecr-control-search" placeholder="Escriba para buscar...">
+                    <div class="search-container">
+                        <i data-lucide="search" class="search-icon h-5 w-5"></i>
+                        <input type="text" id="ecr-control-search" placeholder="Escriba para buscar...">
+                    </div>
                 </div>
             `)}
 
@@ -2616,15 +2651,15 @@ async function runEcrTableViewLogic() {
             `)}
         </div>
 
-        <div class="p-2 bg-slate-100 border border-slate-200 rounded-md text-center text-sm text-slate-600 mb-4">
-             <i data-lucide="info" class="inline-block w-4 h-4 mr-2 -mt-0.5"></i>Sugerencia: Desplácese horizontalmente en la tabla para ver todas las columnas.
-        </div>
-
-        <div class="overflow-x-auto">
-            <table class="modern-table">
-                <thead>
-                    <tr>
-                        <th>N° de ECR</th>
+        <div class="ecr-control-table-wrapper">
+            <div class="table-drag-handle">
+                <i data-lucide="grip-vertical" class="w-5 h-5 text-slate-400"></i>
+            </div>
+            <div class="overflow-x-auto ecr-control-table-container">
+                <table class="modern-table">
+                    <thead>
+                        <tr>
+                            <th>N° de ECR</th>
                         <th>Cliente</th>
                         <th>Site</th>
                         <th>Origem del Pedido (Cliente ou interno)</th>
@@ -2699,41 +2734,37 @@ async function runEcrTableViewLogic() {
     });
 
     // --- Drag-to-scroll logic ---
-    const slider = dom.viewContent.querySelector('.ecr-control-table-container');
-    const scrollableArea = slider.querySelector('.overflow-x-auto');
-    let isDown = false;
-    let startX;
-    let scrollLeft;
+    const dragHandle = dom.viewContent.querySelector('.table-drag-handle');
+    const scrollableArea = dom.viewContent.querySelector('.ecr-control-table-container');
 
-    const mouseDownHandler = (e) => {
-        isDown = true;
-        slider.classList.add('active');
-        startX = e.pageX - slider.offsetLeft;
-        scrollLeft = scrollableArea.scrollLeft;
-    };
+    if (dragHandle && scrollableArea) {
+        let isDown = false;
+        let startX;
+        let scrollLeft;
 
-    const mouseLeaveHandler = () => {
-        isDown = false;
-        slider.classList.remove('active');
-    };
+        dragHandle.addEventListener('mousedown', (e) => {
+            isDown = true;
+            dragHandle.classList.add('active');
+            startX = e.pageX - dragHandle.offsetLeft;
+            scrollLeft = scrollableArea.scrollLeft;
+        });
 
-    const mouseUpHandler = () => {
-        isDown = false;
-        slider.classList.remove('active');
-    };
+        const stopDragging = () => {
+            isDown = false;
+            dragHandle.classList.remove('active');
+        };
 
-    const mouseMoveHandler = (e) => {
-        if (!isDown) return;
-        e.preventDefault();
-        const x = e.pageX - slider.offsetLeft;
-        const walk = (x - startX) * 2; // The multiplier makes scrolling faster
-        scrollableArea.scrollLeft = scrollLeft - walk;
-    };
+        dragHandle.addEventListener('mouseleave', stopDragging);
+        window.addEventListener('mouseup', stopDragging); // Use window to catch mouseup even if outside the handle
 
-    slider.addEventListener('mousedown', mouseDownHandler);
-    slider.addEventListener('mouseleave', mouseLeaveHandler);
-    slider.addEventListener('mouseup', mouseUpHandler);
-    slider.addEventListener('mousemove', mouseMoveHandler);
+        window.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - dragHandle.offsetLeft;
+            const walk = (x - startX) * 2; // The multiplier makes scrolling faster
+            scrollableArea.scrollLeft = scrollLeft - walk;
+        });
+    }
 
 
     const unsubscribe = onSnapshot(collection(db, COLLECTIONS.ECR_FORMS), (snapshot) => {
@@ -3096,7 +3127,7 @@ async function runControlEcrsLogic() {
                 </div>
                 <p class="text-lg text-slate-500 mt-2">Seleccione un módulo para visualizar.</p>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto" data-tutorial-id="control-panel-container">
                 <a href="#" data-view="ecr_table_view" data-tutorial-id="control-panel-card-table" class="nav-link dashboard-card bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer overflow-hidden transform hover:-translate-y-1">
                     <div class="p-6 bg-slate-700 text-white">
                         <div class="flex items-center gap-4">
@@ -8514,6 +8545,8 @@ document.addEventListener('DOMContentLoaded', () => {
 if (window.location.protocol === 'file:') {
     window.runDashboardLogic = runDashboardLogic;
 }
+
+window.seedDatabase = seedDatabase;
 
 function renderArbolesInitialView() {
     dom.viewContent.innerHTML = `<div class="flex flex-col items-center justify-center h-full bg-white rounded-xl shadow-lg p-6 text-center animate-fade-in-up"><i data-lucide="git-merge" class="h-24 w-24 text-gray-300 mb-6"></i><h3 class="text-2xl font-bold">Gestor de Árboles de Producto</h3><p class="text-gray-500 mt-2 mb-8 max-w-lg">Busque y seleccione el producto principal para cargar o crear su estructura de componentes.</p><button data-action="open-product-search-modal" class="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 text-lg font-semibold shadow-lg transition-transform transform hover:scale-105"><i data-lucide="search" class="inline-block mr-2 -mt-1"></i>Seleccionar Producto</button></div>`;

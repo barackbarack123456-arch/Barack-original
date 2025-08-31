@@ -1,15 +1,42 @@
 /* Styles for the ECR Control Table */
 
+.ecr-control-table-wrapper {
+    position: relative;
+    padding-left: 20px; /* Space for the drag handle */
+    background-color: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+.table-drag-handle {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    background-color: #f8fafc;
+    border-right: 1px solid #e2e8f0;
+    border-top-left-radius: 0.5rem;
+    border-bottom-left-radius: 0.5rem;
+}
+
+.table-drag-handle:active {
+    cursor: grabbing;
+}
+
 .ecr-control-table-container {
     overflow-x: auto;
     background-color: white;
-    padding: 0; /* Remove padding to allow table to fill container */
-    cursor: grab;
-    user-select: none; /* Prevent text selection while dragging */
 }
 
 .ecr-control-table-container.active {
-    cursor: grabbing;
+    /* (no styles needed here, handle takes care of cursor) */
 }
 
 .modern-table {
