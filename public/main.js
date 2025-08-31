@@ -4822,7 +4822,11 @@ function showToast(message, type = 'success', duration = 3000) {
     const icons = { success: 'check-circle', error: 'alert-circle', info: 'info' };
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    toast.innerHTML = `<i data-lucide="${icons[type]}"></i><span>${message}</span>`;
+
+    const template = document.createElement('template');
+    template.innerHTML = `<i data-lucide="${icons[type]}"></i><span>${message}</span>`;
+    toast.appendChild(template.content.cloneNode(true));
+
     dom.toastContainer.appendChild(toast);
     lucide.createIcons();
     setTimeout(() => toast.classList.add('show'), 10);

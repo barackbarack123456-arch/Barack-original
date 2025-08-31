@@ -3,4 +3,5 @@ export default {
     '^https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js$': '<rootDir>/__mocks__/firebase-firestore.js',
   },
   testEnvironment: 'node',
+  testPathIgnorePatterns: ['/node_modules/', '/tests/'],
 };
