@@ -17,8 +17,8 @@ test.describe('Seguimiento y Métricas Module Verification', () => {
 
     // --- LOGIN STEP ---
     await page.waitForSelector('#login-form');
-    await page.fill('input[type="email"]', 'admin@barack.com');
-    await page.fill('input[type="password"]', 'barack');
+    await page.fill('input[type="email"]', 'f.santoro@barackmercosul.com');
+    await page.fill('input[type="password"]', '$oof@k24');
     await page.click('button[type="submit"]');
     await page.waitForURL('http://localhost:8080/#dashboard', { timeout: 20000 });
 

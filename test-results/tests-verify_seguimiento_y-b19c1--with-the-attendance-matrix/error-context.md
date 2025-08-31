@@ -1,0 +1,173 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - img "Logo" [ref=e7]
+        - navigation [ref=e8]:
+          - link "Dashboard" [ref=e9] [cursor=pointer]:
+            - /url: "#"
+            - img [ref=e10] [cursor=pointer]
+            - text: Dashboard
+          - link "Tareas" [ref=e15] [cursor=pointer]:
+            - /url: "#"
+            - img [ref=e16] [cursor=pointer]
+            - text: Tareas
+          - button "ECR/ECO" [ref=e21] [cursor=pointer]:
+            - img [ref=e22] [cursor=pointer]
+            - text: ECR/ECO
+            - img [ref=e26] [cursor=pointer]
+          - button "Gestión" [ref=e29] [cursor=pointer]:
+            - img [ref=e30] [cursor=pointer]
+            - text: Gestión
+            - img [ref=e32] [cursor=pointer]
+          - button "Configuración" [ref=e35] [cursor=pointer]:
+            - img [ref=e36] [cursor=pointer]
+            - text: Configuración
+            - img [ref=e39] [cursor=pointer]
+      - generic [ref=e41]:
+        - button [ref=e43] [cursor=pointer]:
+          - img [ref=e44] [cursor=pointer]
+        - button "Avatar Facundo Santoro" [ref=e49] [cursor=pointer]:
+          - img "Avatar" [ref=e50] [cursor=pointer]
+          - generic [ref=e51] [cursor=pointer]: Facundo Santoro
+          - img [ref=e52] [cursor=pointer]
+  - main [ref=e55]:
+    - heading "Dashboard" [level=2] [ref=e58]
+    - generic [ref=e60]:
+      - generic [ref=e62]:
+        - heading "Bienvenido, Facundo Santoro" [level=1] [ref=e63]
+        - paragraph [ref=e64]: Aquí tienes un resumen de la actividad reciente y tus tareas.
+      - generic [ref=e65]:
+        - generic [ref=e66] [cursor=pointer]:
+          - img [ref=e68] [cursor=pointer]
+          - generic [ref=e72] [cursor=pointer]:
+            - paragraph [ref=e73] [cursor=pointer]: "50"
+            - paragraph [ref=e74] [cursor=pointer]: Productos Totales
+        - generic [ref=e75] [cursor=pointer]:
+          - img [ref=e77] [cursor=pointer]
+          - generic [ref=e79] [cursor=pointer]:
+            - paragraph [ref=e80] [cursor=pointer]: "200"
+            - paragraph [ref=e81] [cursor=pointer]: Insumos Registrados
+        - generic [ref=e82] [cursor=pointer]:
+          - img [ref=e84] [cursor=pointer]
+          - generic [ref=e86] [cursor=pointer]:
+            - paragraph [ref=e87] [cursor=pointer]: "15"
+            - paragraph [ref=e88] [cursor=pointer]: Proyectos Activos
+        - generic [ref=e89] [cursor=pointer]:
+          - img [ref=e91] [cursor=pointer]
+          - generic [ref=e93] [cursor=pointer]:
+            - paragraph [ref=e94] [cursor=pointer]: "2"
+            - paragraph [ref=e95] [cursor=pointer]: Tareas Vencidas
+      - generic [ref=e96]:
+        - generic [ref=e97]:
+          - generic [ref=e99]:
+            - heading "Mis Tareas Pendientes" [level=3] [ref=e100]
+            - generic [ref=e101]:
+              - generic [ref=e102] [cursor=pointer]:
+                - generic [ref=e103] [cursor=pointer]:
+                  - generic [ref=e104] [cursor=pointer]: Corregir codigo de material (Vinilo) p703
+                  - generic [ref=e105] [cursor=pointer]: Sin fecha límite
+                - generic [ref=e106] [cursor=pointer]:
+                  - text: "Prioridad:"
+                  - generic [ref=e107] [cursor=pointer]: high
+              - generic [ref=e108] [cursor=pointer]:
+                - generic [ref=e109] [cursor=pointer]:
+                  - generic [ref=e110] [cursor=pointer]: Corregir nombre del material en bom y sistema arb (Cozzuol)
+                  - generic [ref=e111] [cursor=pointer]: "Vence: 2/9/2025"
+                - generic [ref=e112] [cursor=pointer]:
+                  - text: "Prioridad:"
+                  - generic [ref=e113] [cursor=pointer]: high
+              - generic [ref=e114] [cursor=pointer]:
+                - generic [ref=e115] [cursor=pointer]:
+                  - generic [ref=e116] [cursor=pointer]: Crear hoja de recepción de materia prima
+                  - generic [ref=e117] [cursor=pointer]: Sin fecha límite
+                - generic [ref=e118] [cursor=pointer]:
+                  - text: "Prioridad:"
+                  - generic [ref=e119] [cursor=pointer]: medium
+              - generic [ref=e120] [cursor=pointer]:
+                - generic [ref=e121] [cursor=pointer]:
+                  - generic [ref=e122] [cursor=pointer]: Imprimir hojas de p21 p703y bajar alos puestos
+                  - generic [ref=e123] [cursor=pointer]: Sin fecha límite
+                - generic [ref=e124] [cursor=pointer]:
+                  - text: "Prioridad:"
+                  - generic [ref=e125] [cursor=pointer]: medium
+              - generic [ref=e126] [cursor=pointer]:
+                - generic [ref=e127] [cursor=pointer]:
+                  - generic [ref=e128] [cursor=pointer]: Cargar consumos en arb de Fiorentina
+                  - generic [ref=e129] [cursor=pointer]: Sin fecha límite
+                - generic [ref=e130] [cursor=pointer]:
+                  - text: "Prioridad:"
+                  - generic [ref=e131] [cursor=pointer]: medium
+          - generic [ref=e133]:
+            - heading "Resumen de Tareas" [level=3] [ref=e134]
+            - generic [ref=e135]:
+              - paragraph [ref=e137]: Mis Tareas por Estado
+              - paragraph [ref=e141]: Tareas por Prioridad (Global)
+          - generic [ref=e145]:
+            - heading "Panel de Administración" [level=3] [ref=e146]
+            - generic [ref=e147]:
+              - generic [ref=e148]:
+                - heading "Poblar con Datos de Prueba" [level=4] [ref=e149]
+                - paragraph [ref=e150]: Borra los datos actuales (excepto usuarios) y carga un set de datos de prueba completo para ECR, ECO, productos, etc.
+                - button "Poblar Base de Datos" [ref=e151] [cursor=pointer]:
+                  - img [ref=e152] [cursor=pointer]
+                  - text: Poblar Base de Datos
+              - generic [ref=e157]:
+                - heading "Borrar Solo Datos" [level=4] [ref=e158]
+                - paragraph [ref=e159]: Borra todos los datos pero mantiene a los usuarios.
+                - button "Ejecutar" [ref=e160] [cursor=pointer]:
+                  - img [ref=e161] [cursor=pointer]
+                  - text: Ejecutar
+              - generic [ref=e164]:
+                - heading "Borrar Otros Usuarios" [level=4] [ref=e165]
+                - paragraph [ref=e166]: Elimina a todos los usuarios excepto al admin principal.
+                - button "Ejecutar" [ref=e167] [cursor=pointer]:
+                  - img [ref=e168] [cursor=pointer]
+                  - text: Ejecutar
+        - generic [ref=e175]:
+          - heading "Actividad Reciente" [level=3] [ref=e176]
+          - generic [ref=e177]:
+            - generic [ref=e178]:
+              - img [ref=e180]
+              - generic [ref=e184]:
+                - paragraph [ref=e185]:
+                  - generic [ref=e186]: Producto
+                  - generic [ref=e187]: Ensamblaje Principal de Actuador
+                  - text: fue creado.
+                - paragraph [ref=e188]: hace 2 días
+            - generic [ref=e189]:
+              - img [ref=e191]
+              - generic [ref=e195]:
+                - paragraph [ref=e196]:
+                  - generic [ref=e197]: Producto
+                  - generic [ref=e198]: Ensamblaje Trasero de Sensor
+                  - text: fue creado.
+                - paragraph [ref=e199]: hace 2 días
+            - generic [ref=e200]:
+              - img [ref=e202]
+              - generic [ref=e206]:
+                - paragraph [ref=e207]:
+                  - generic [ref=e208]: Producto
+                  - generic [ref=e209]: Ensamblaje Auxiliar de Sensor
+                  - text: fue creado.
+                - paragraph [ref=e210]: hace 2 días
+            - generic [ref=e211]:
+              - img [ref=e213]
+              - generic [ref=e217]:
+                - paragraph [ref=e218]:
+                  - generic [ref=e219]: Producto
+                  - generic [ref=e220]: Ensamblaje Izquierdo de Engranaje
+                  - text: fue creado.
+                - paragraph [ref=e221]: hace 2 días
+            - generic [ref=e222]:
+              - img [ref=e224]
+              - generic [ref=e228]:
+                - paragraph [ref=e229]:
+                  - generic [ref=e230]: Producto
+                  - generic [ref=e231]: Ensamblaje Delantero de Panel
+                  - text: fue creado.
+                - paragraph [ref=e232]: hace 2 días
+```

@@ -98,6 +98,16 @@
     color: #777 !important;
 }
 
+.asistencia-matriz-table button {
+    min-width: 40px;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%; /* Ensure it fills the cell */
+    height: 100%; /* Ensure it fills the cell */
+}
+
 /* --- Resumen Table --- */
 .resumen-table-wrapper {
     border: 1px solid #e2e8f0;

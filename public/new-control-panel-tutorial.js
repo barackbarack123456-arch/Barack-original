@@ -188,6 +188,9 @@ const newControlPanelTutorial = (app) => {
             return next();
         }
 
+        // Add a small delay to ensure rendering completes after view switches.
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         smartScroll(targetElement);
 
         setTimeout(() => {
