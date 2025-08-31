@@ -2652,9 +2652,6 @@ async function runEcrTableViewLogic() {
         </div>
 
         <div class="ecr-control-table-wrapper">
-            <div class="table-drag-handle">
-                <i data-lucide="grip-vertical" class="w-5 h-5 text-slate-400"></i>
-            </div>
             <div class="overflow-x-auto ecr-control-table-container">
                 <table class="modern-table">
                     <thead>
@@ -2734,33 +2731,55 @@ async function runEcrTableViewLogic() {
     });
 
     // --- Drag-to-scroll logic ---
-    const dragHandle = dom.viewContent.querySelector('.table-drag-handle');
     const scrollableArea = dom.viewContent.querySelector('.ecr-control-table-container');
 
-    if (dragHandle && scrollableArea) {
+    if (scrollableArea) {
+        // Only apply grab cursor if the table is actually scrollable
+        if (scrollableArea.scrollWidth > scrollableArea.clientWidth) {
+            scrollableArea.style.cursor = 'grab';
+        }
+
         let isDown = false;
         let startX;
         let scrollLeft;
 
-        dragHandle.addEventListener('mousedown', (e) => {
+        scrollableArea.addEventListener('mousedown', (e) => {
+            // Prevent starting a drag from the table header or on scrollbars
+            if (e.target.closest('thead')) {
+                return;
+            }
+            // Check if the click is on the scrollbar itself
+            if (e.offsetX >= scrollableArea.clientWidth || e.offsetY >= scrollableArea.clientHeight) {
+                return;
+            }
+
             isDown = true;
-            dragHandle.classList.add('active');
-            startX = e.pageX - dragHandle.offsetLeft;
+            scrollableArea.classList.add('active');
+            startX = e.pageX - scrollableArea.offsetLeft;
             scrollLeft = scrollableArea.scrollLeft;
+            scrollableArea.style.cursor = 'grabbing';
         });
 
         const stopDragging = () => {
+            if (!isDown) return;
             isDown = false;
-            dragHandle.classList.remove('active');
+            scrollableArea.classList.remove('active');
+            // Restore grab cursor only if scrollable
+            if (scrollableArea.scrollWidth > scrollableArea.clientWidth) {
+                scrollableArea.style.cursor = 'grab';
+            } else {
+                scrollableArea.style.cursor = 'default';
+            }
         };
 
-        dragHandle.addEventListener('mouseleave', stopDragging);
-        window.addEventListener('mouseup', stopDragging); // Use window to catch mouseup even if outside the handle
+        // Add listeners to the window to ensure dragging stops even if the mouse leaves the element.
+        window.addEventListener('mouseup', stopDragging);
+        window.addEventListener('mouseleave', stopDragging);
 
-        window.addEventListener('mousemove', (e) => {
+        scrollableArea.addEventListener('mousemove', (e) => {
             if (!isDown) return;
             e.preventDefault();
-            const x = e.pageX - dragHandle.offsetLeft;
+            const x = e.pageX - scrollableArea.offsetLeft;
             const walk = (x - startX) * 2; // The multiplier makes scrolling faster
             scrollableArea.scrollLeft = scrollLeft - walk;
         });
