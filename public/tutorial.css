@@ -156,7 +156,8 @@
 
 /* Style for when the tutorial is waiting for an element */
 #tutorial-tooltip.is-waiting {
-    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    /* A more subtle "breathing" glow instead of a harsh blink */
+    animation: breathing-glow 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 #tutorial-tooltip.is-waiting #tutorial-tooltip-nav,
@@ -164,11 +165,12 @@
     visibility: hidden;
 }
 
-@keyframes pulse {
+/* A subtle glow animation to indicate the app is busy */
+@keyframes breathing-glow {
   0%, 100% {
-    opacity: 1;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
   }
   50% {
-    opacity: .8;
+    box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.2), 0 10px 10px -5px rgba(59, 130, 246, 0.1), 0 0 15px rgba(59, 130, 246, 0.3);
   }
 }

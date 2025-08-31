@@ -42,18 +42,20 @@ To run the application and verify frontend changes, use the following credential
 
 ## Verification Workflow
 
-**WARNING: Playwright tests are currently non-functional in the development environment.**
+## Verification Workflow
 
-After extensive debugging, it has been determined that there is a fundamental incompatibility between the Playwright test runner and the execution environment, causing tests to hang indefinitely. This issue could not be resolved after trying numerous fixes, including environment setup, dependency installation, and test code refactoring.
+As an AI agent, you are responsible for verifying all frontend changes. While the Playwright test suite (`tests/*.spec.js`) may have issues in some environments, you must still use Playwright to generate visual proof of your changes.
 
-**Do not attempt to run the Playwright tests (`tests/*.spec.js`) until this underlying environment issue is resolved by a human developer.**
+Your workflow for frontend verification is as follows:
 
-For now, frontend verification must be done manually. The original instructions for running the server are preserved below for this purpose.
+1.  **Use `frontend_verification_instructions()`:** Call this tool to get the latest instructions on how to create a verification script.
+2.  **Write a Verification Script:** Create a new Playwright script (e.g., in the `tests/` directory). This script should:
+    *   Log in to the application using the credentials provided below.
+    *   Navigate to the specific page or state that showcases your changes.
+    *   Take a screenshot of the relevant UI component.
+3.  **Run the Script:** Execute your script to generate the screenshot.
+4.  **Present for Approval:** Use the `message_user` tool to show the screenshot to the user for final approval before submitting your changes.
+
+This process ensures that all changes are visually confirmed by the user, even if the full test suite cannot be run.
 
 ---
-
-The application is a static site but uses ES modules, which are blocked by browser CORS policies when running from `file:///`. To verify changes manually, you must use a local HTTP server.
-
-1.  Navigate to the `public` directory: `cd public`
-2.  Start a simple Python HTTP server: `python -m http.server 8080`
-3.  Open `http://localhost:8080` in a browser to perform manual verification.
