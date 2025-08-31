@@ -66,41 +66,31 @@ const newControlPanelTutorial = (app) => {
         },
         {
             element: '[data-tutorial-id="control-panel-card-metrics"]',
-            title: '2. Indicadores de Gestión (KPIs)',
-            content: 'Este módulo convierte los datos de ECRs y reuniones en KPIs visuales para medir la eficiencia del proceso y la participación del equipo.',
+            title: '2. Seguimiento y Métricas',
+            content: 'Este módulo es para la gestión del equipo. Permite registrar la asistencia a reuniones y visualizar KPIs de ausentismo.',
             position: 'top',
             preAction: async () => { await app.switchView('control_ecrs'); }
         },
         {
             element: '[data-tutorial-id="ecr-seguimiento-view-container"]',
-            title: 'Dashboard de Indicadores',
-            content: 'Este es el dashboard. Aquí encontrarás gráficos sobre el <strong>estado de aprobación de ECRs</strong> por departamento, los <strong>días de atraso</strong> y la <strong>matriz de asistencia</strong> a reuniones. Usa estos datos para identificar cuellos de botella.',
+            title: 'Dashboard de Seguimiento',
+            content: 'Aquí puedes registrar la asistencia a las reuniones de ECR y ver gráficos sobre la participación de cada departamento.',
             position: 'center',
             preAction: async () => { await app.switchView('ecr_seguimiento'); }
         },
         {
-            element: '#ecr-log-section',
-            title: 'Registro de ECR y Pendencias',
-            content: 'Esta tabla muestra el estado de aprobación de cada ECR por departamento. Identifica rápidamente quién ha aprobado (OK), quién ha rechazado (NOK) y los días de atraso.',
-            position: 'top'
+            element: '[data-tutorial-id="control-panel-card-indicators"]',
+            title: '3. Indicadores de Gestión (ECM)',
+            content: 'Finalmente, este módulo ofrece una vista de alto nivel del rendimiento del proceso de cambios (ECM), con KPIs sobre ECRs y ECOs.',
+            position: 'top',
+            preAction: async () => { await app.switchView('control_ecrs'); }
         },
         {
-            element: '.ecr-log-table button[data-action="navigate-to-ecr-details"]',
-            title: 'Aprobaciones Interactivas',
-            content: 'Si tienes permisos, haz clic en estas celdas (OK/NOK) para navegar directamente a la sección de aprobación del ECR y registrar tu decisión.',
-            position: 'top'
-        },
-        {
-            element: '#asistencia-matriz-section',
-            title: 'Matriz de Asistencia Dinámica',
-            content: 'Registra la asistencia a las reuniones de ECR. Un clic cambia el estado: Presente (P) -> Ausente (A) -> Opcional (O).',
-            position: 'top'
-        },
-        {
-            element: '#resumen-graficos-section',
-            title: 'Gráficos y KPIs Automatizados',
-            content: 'Basado en los datos de la matriz, esta sección calcula y visualiza automáticamente los KPIs de ausentismo por departamento.',
-            position: 'top'
+            element: '[data-tutorial-id="indicadores-ecm-view-container"]',
+            title: 'Dashboard de Indicadores (ECM)',
+            content: 'Este es el dashboard de ECM. Aquí puedes analizar métricas y KPIs sobre el proceso de ECRs y ECOs para identificar cuellos de botella y medir la eficiencia.',
+            position: 'center',
+            preAction: async () => { await app.switchView('indicadores_ecm_view'); }
         },
         {
             element: 'body',
