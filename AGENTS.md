@@ -42,9 +42,18 @@ To run the application and verify frontend changes, use the following credential
 
 ## Verification Workflow
 
-The application is a static site but uses ES modules, which are blocked by browser CORS policies when running from `file:///`. To verify changes, you must use a local HTTP server.
+**WARNING: Playwright tests are currently non-functional in the development environment.**
+
+After extensive debugging, it has been determined that there is a fundamental incompatibility between the Playwright test runner and the execution environment, causing tests to hang indefinitely. This issue could not be resolved after trying numerous fixes, including environment setup, dependency installation, and test code refactoring.
+
+**Do not attempt to run the Playwright tests (`tests/*.spec.js`) until this underlying environment issue is resolved by a human developer.**
+
+For now, frontend verification must be done manually. The original instructions for running the server are preserved below for this purpose.
+
+---
+
+The application is a static site but uses ES modules, which are blocked by browser CORS policies when running from `file:///`. To verify changes manually, you must use a local HTTP server.
 
 1.  Navigate to the `public` directory: `cd public`
-2.  Start a simple Python HTTP server: `python -m http.server 8080 &`
-3.  In your Playwright verification script, navigate to `http://localhost:8080`.
-4.  After verification, stop the server with `kill %1`.
+2.  Start a simple Python HTTP server: `python -m http.server 8080`
+3.  Open `http://localhost:8080` in a browser to perform manual verification.
