@@ -66,15 +66,15 @@ const newControlPanelTutorial = (app) => {
         },
         {
             element: '[data-tutorial-id="control-panel-card-metrics"]',
-            title: '2. Seguimiento y Métricas',
-            content: 'Ahora, exploremos el módulo de seguimiento. Aquí es donde se gestiona el progreso de las aprobaciones y la asistencia del equipo.',
+            title: '2. Indicadores de Gestión (KPIs)',
+            content: 'Este módulo convierte los datos de ECRs y reuniones en KPIs visuales para medir la eficiencia del proceso y la participación del equipo.',
             position: 'top',
             preAction: async () => { await app.switchView('control_ecrs'); }
         },
         {
             element: '[data-tutorial-id="ecr-seguimiento-view-container"]',
-            title: 'Vista Unificada de Seguimiento',
-            content: 'Esta pantalla consolida toda la información sobre el avance de los ECRs y la participación del equipo en las reuniones de revisión.',
+            title: 'Dashboard de Indicadores',
+            content: 'Este es el dashboard. Aquí encontrarás gráficos sobre el <strong>estado de aprobación de ECRs</strong> por departamento, los <strong>días de atraso</strong> y la <strong>matriz de asistencia</strong> a reuniones. Usa estos datos para identificar cuellos de botella.',
             position: 'center',
             preAction: async () => { await app.switchView('ecr_seguimiento'); }
         },
@@ -186,9 +186,17 @@ const newControlPanelTutorial = (app) => {
         currentStepIndex = index;
         const step = steps[index];
 
+        if (dom.overlay) {
+            dom.overlay.style.display = 'none';
+        }
+
         if (step.preAction) await step.preAction();
 
         const targetElement = await waitForVisibleElement(step.element);
+
+        if (dom.overlay) {
+            dom.overlay.style.display = 'block';
+        }
         if (!targetElement) {
             app.showToast(`Elemento del tutorial no encontrado: ${step.element}`, 'error');
             return next();
