@@ -12,97 +12,103 @@ const newControlPanelTutorial = (app) => {
         highlight: null,
     };
 
-    // Steps provided by the user's AI
+    // Steps for the improved tutorial
     const TUTORIAL_STEPS = [
-      {
-        "element": "body",
-        "title": "Bienvenido al Panel de Control",
-        "content": "Este tour te guiará por las nuevas y mejoradas herramientas para la gestión de cambios de ingeniería. ¡Vamos a explorar!",
-        "position": "center",
-        "preAction": async () => { await app.switchView('control_ecrs'); }
-      },
-      {
-        "element": ".grid.grid-cols-1.md\\:grid-cols-3",
-        "title": "Tres Módulos Principales",
-        "content": "El panel se divide en tres secciones clave: La Tabla de Control, los Indicadores de rendimiento (KPIs), y el Seguimiento de reuniones.",
-        "position": "top"
-      },
-      {
-        "element": "[data-tutorial-id=\"control-panel-card-table\"]",
-        "title": "Tabla de Control ECR",
-        "content": "Comencemos aquí. Esta vista ha sido rediseñada para ofrecer una experiencia de filtrado más potente y amigable.",
-        "position": "bottom"
-      },
-      {
-        "element": "[data-tutorial-id=\"ecr-table-view-container\"]",
-        "title": "Filtros Mejorados",
-        "content": "Hemos rediseñado por completo la sección de filtros para que encontrar la información que necesitas sea más rápido y fácil.",
-        "position": "top",
-        "preAction": async () => { await app.switchView('ecr_table_view'); }
-      },
-      {
-        "element": ".filters-container",
-        "title": "Disposición Lógica y Agrupada",
-        "content": "Los filtros ahora están organizados en grupos claros: <strong>Búsqueda General</strong>, <strong>Filtros Específicos</strong> y <strong>Acciones</strong>. Las etiquetas se encuentran encima de cada campo para mayor claridad.",
-        "position": "bottom"
-      },
-      {
-        "element": "#active-filters-indicator",
-        "title": "Contador de Filtros Activos",
-        "content": "Este contador te muestra de un vistazo cuántos filtros tienes aplicados, para que nunca pierdas el contexto de tu búsqueda.",
-        "position": "left"
-      },
-      {
-        "element": "#clear-filters-btn",
-        "title": "Botón para Limpiar Filtros",
-        "content": "Usa este botón para restablecer instantáneamente todos los filtros y volver a la vista completa de todos los ECRs.",
-        "position": "left"
-      },
-      {
-        "element": "[data-tutorial-id=\"control-panel-card-metrics\"]",
-        "title": "Seguimiento y Métricas",
-        "content": "Ahora, exploremos el módulo de seguimiento. Aquí es donde se gestiona el progreso de las aprobaciones y la asistencia del equipo.",
-        "position": "top",
-        "preAction": async () => { await app.switchView('control_ecrs'); }
-      },
-      {
-        "element": "[data-tutorial-id=\"ecr-seguimiento-view-container\"]",
-        "title": "Vista de Seguimiento y Métricas",
-        "content": "Esta vista consolida toda la información sobre el avance de los ECRs y la participación del equipo en las reuniones de revisión.",
-        "position": "center",
-        "preAction": async () => { await app.switchView('ecr_seguimiento'); }
-      },
-      {
-        "element": "#ecr-log-section",
-        "title": "Registro de ECR y Pendencias",
-        "content": "Esta tabla muestra el estado de aprobación de cada ECR por departamento. Puedes ver rápidamente quién ha aprobado (OK) y quién no (NOK), además de los días de atraso.",
-        "position": "top"
-      },
-      {
-        "element": ".ecr-log-table .status-ok, .ecr-log-table .status-nok, .ecr-log-table .status-empty",
-        "title": "Aprobaciones Interactivas",
-        "content": "Si tienes los permisos necesarios, puedes hacer clic directamente en estas celdas (OK/NOK) para registrar la aprobación de tu departamento sin salir de esta pantalla.",
-        "position": "top"
-      },
-      {
-        "element": "#asistencia-matriz-section",
-        "title": "Matriz de Asistencia",
-        "content": "Aquí se registra la asistencia a las reuniones de ECR. Haz clic en cualquier celda para cambiar el estado entre Presente (P), Ausente (A) y Opcional (O).",
-        "position": "top"
-      },
-      {
-        "element": "#resumen-graficos-section",
-        "title": "Resumen y Gráficos de Asistencia",
-        "content": "Basado en los datos de la matriz, esta sección calcula y visualiza automáticamente los KPIs de ausentismo por departamento.",
-        "position": "top"
-      },
-      {
-        "element": "body",
-        "title": "¡Tutorial Completado!",
-        "content": "¡Felicidades! Has explorado todas las nuevas funcionalidades del Panel de Control. Ahora tienes herramientas más poderosas para gestionar el ciclo de vida de los cambios de ingeniería.",
-        "position": "center",
-        "preAction": async () => { await app.switchView('control_ecrs'); }
-      }
+        {
+            element: 'body',
+            title: '¡Bienvenido al Nuevo Panel de Control!',
+            content: 'Este tour interactivo te mostrará las potentes herramientas de gestión de cambios de ingeniería. ¡Comencemos!',
+            position: 'center',
+            preAction: async () => { await app.switchView('control_ecrs'); }
+        },
+        {
+            element: '[data-tutorial-id="control-panel-container"]',
+            title: 'Tres Módulos Centrales',
+            content: 'El panel ahora se organiza en tres módulos especializados: la <strong>Tabla de Control</strong> para análisis detallado, los <strong>Indicadores (KPIs)</strong> para una vista gerencial, y el <strong>Seguimiento de Reuniones</strong> para la gestión del equipo.',
+            position: 'top'
+        },
+        {
+            element: '[data-tutorial-id="control-panel-card-table"]',
+            title: '1. Tabla de Control ECR',
+            content: 'Esta es la vista principal para el análisis profundo. Ha sido rediseñada para ofrecer una experiencia de filtrado más potente y amigable.',
+            position: 'bottom'
+        },
+        {
+            element: '[data-tutorial-id="ecr-table-view-container"]',
+            title: 'Filtros Inteligentes y Búsqueda Rápida',
+            content: 'La nueva sección de filtros te permite encontrar la información que necesitas de manera más rápida y eficiente.',
+            position: 'top',
+            preAction: async () => { await app.switchView('ecr_table_view'); }
+        },
+        {
+            element: '.filters-container',
+            title: 'Disposición Lógica y Agrupada',
+            content: 'Los filtros están organizados en grupos claros: <strong>Búsqueda General</strong>, <strong>Filtros Específicos</strong> y <strong>Acciones</strong>. Las etiquetas ahora están encima de cada campo para mayor claridad.',
+            position: 'bottom'
+        },
+        {
+            element: '#active-filters-indicator',
+            title: 'Contador de Filtros Activos',
+            content: 'Este práctico contador te informa cuántos filtros están aplicados, para que nunca pierdas el contexto de tu búsqueda.',
+            position: 'left'
+        },
+        {
+            element: '#clear-filters-btn',
+            title: 'Limpiar Filtros',
+            content: 'Con un solo clic, puedes restablecer todos los filtros y volver a la vista completa de todos los ECRs.',
+            position: 'left'
+        },
+        {
+            element: '.ecr-control-table-wrapper',
+            title: 'Tabla Desplazable',
+            content: 'La tabla completa puede ser muy ancha. Utiliza esta manija de agarre para desplazarte horizontalmente y ver todas las columnas. ¡Arrastra hacia la izquierda o derecha!',
+            position: 'bottom'
+        },
+        {
+            element: '[data-tutorial-id="control-panel-card-metrics"]',
+            title: '2. Seguimiento y Métricas',
+            content: 'Ahora, exploremos el módulo de seguimiento. Aquí es donde se gestiona el progreso de las aprobaciones y la asistencia del equipo.',
+            position: 'top',
+            preAction: async () => { await app.switchView('control_ecrs'); }
+        },
+        {
+            element: '[data-tutorial-id="ecr-seguimiento-view-container"]',
+            title: 'Vista Unificada de Seguimiento',
+            content: 'Esta pantalla consolida toda la información sobre el avance de los ECRs y la participación del equipo en las reuniones de revisión.',
+            position: 'center',
+            preAction: async () => { await app.switchView('ecr_seguimiento'); }
+        },
+        {
+            element: '#ecr-log-section',
+            title: 'Registro de ECR y Pendencias',
+            content: 'Esta tabla muestra el estado de aprobación de cada ECR por departamento. Identifica rápidamente quién ha aprobado (OK), quién ha rechazado (NOK) y los días de atraso.',
+            position: 'top'
+        },
+        {
+            element: '.ecr-log-table button[data-action="navigate-to-ecr-details"]',
+            title: 'Aprobaciones Interactivas',
+            content: 'Si tienes permisos, haz clic en estas celdas (OK/NOK) para navegar directamente a la sección de aprobación del ECR y registrar tu decisión.',
+            position: 'top'
+        },
+        {
+            element: '#asistencia-matriz-section',
+            title: 'Matriz de Asistencia Dinámica',
+            content: 'Registra la asistencia a las reuniones de ECR. Un clic cambia el estado: Presente (P) -> Ausente (A) -> Opcional (O).',
+            position: 'top'
+        },
+        {
+            element: '#resumen-graficos-section',
+            title: 'Gráficos y KPIs Automatizados',
+            content: 'Basado en los datos de la matriz, esta sección calcula y visualiza automáticamente los KPIs de ausentismo por departamento.',
+            position: 'top'
+        },
+        {
+            element: 'body',
+            title: '¡Tutorial Completado!',
+            content: '¡Felicidades! Has explorado las nuevas funcionalidades del Panel de Control. Ahora tienes herramientas más poderosas para gestionar el ciclo de vida de los cambios de ingeniería.',
+            position: 'center',
+            preAction: async () => { await app.switchView('control_ecrs'); }
+        }
     ];
 
     const createTutorialUI = () => {
