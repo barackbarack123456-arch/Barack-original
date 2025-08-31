@@ -1,42 +1,26 @@
 /* Styles for the ECR Control Table */
 
 .ecr-control-table-wrapper {
-    position: relative;
-    padding-left: 20px; /* Space for the drag handle */
     background-color: white;
     border: 1px solid #e2e8f0;
     border-radius: 0.5rem;
     padding-top: 8px;
     padding-bottom: 8px;
+    /* No more padding-left needed */
 }
 
-.table-drag-handle {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: grab;
-    background-color: #f8fafc;
-    border-right: 1px solid #e2e8f0;
-    border-top-left-radius: 0.5rem;
-    border-bottom-left-radius: 0.5rem;
-}
-
-.table-drag-handle:active {
-    cursor: grabbing;
-}
+/* The drag handle is no longer used. */
 
 .ecr-control-table-container {
     overflow-x: auto;
     background-color: white;
+    /* The cursor is now set dynamically by main.js,
+       but we can set a default for non-JS environments. */
+    cursor: auto;
 }
 
 .ecr-control-table-container.active {
-    /* (no styles needed here, handle takes care of cursor) */
+    cursor: grabbing;
 }
 
 .modern-table {
