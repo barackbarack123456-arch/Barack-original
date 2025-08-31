@@ -194,36 +194,41 @@ const newControlPanelTutorial = (app) => {
             return next();
         }
 
-        // Add a small delay to ensure rendering completes after view switches.
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await smartScroll(targetElement);
 
-        smartScroll(targetElement);
-
-        setTimeout(() => {
-            document.getElementById('tutorial-tooltip-title').textContent = step.title;
-            document.getElementById('tutorial-tooltip-text').innerHTML = step.content;
-            document.getElementById('tutorial-prev-btn').style.display = index === 0 ? 'none' : 'inline-block';
-            document.getElementById('tutorial-next-btn').textContent = index === steps.length - 1 ? 'Finalizar' : 'Siguiente';
-            document.getElementById('tutorial-tooltip-progress').textContent = `Paso ${index + 1} de ${steps.length}`;
-            updateHighlight(targetElement, step);
-            resizeObserver = new ResizeObserver(() => updateHighlight(targetElement, step));
-            resizeObserver.observe(targetElement);
-            window.addEventListener('scroll', scrollHandler = () => updateHighlight(targetElement, step), true);
-        }, 50);
+        // The setTimeout wrapper has been removed. By awaiting a properly implemented
+        // smartScroll, we ensure the highlight is drawn after the element is in place.
+        document.getElementById('tutorial-tooltip-title').textContent = step.title;
+        document.getElementById('tutorial-tooltip-text').innerHTML = step.content;
+        document.getElementById('tutorial-prev-btn').style.display = index === 0 ? 'none' : 'inline-block';
+        document.getElementById('tutorial-next-btn').textContent = index === steps.length - 1 ? 'Finalizar' : 'Siguiente';
+        document.getElementById('tutorial-tooltip-progress').textContent = `Paso ${index + 1} de ${steps.length}`;
+        updateHighlight(targetElement, step);
+        resizeObserver = new ResizeObserver(() => updateHighlight(targetElement, step));
+        resizeObserver.observe(targetElement);
+        window.addEventListener('scroll', scrollHandler = () => updateHighlight(targetElement, step), true);
     };
 
     const smartScroll = (element) => {
-        const rect = element.getBoundingClientRect();
-        const isVisible = (
-            rect.top >= 0 &&
-            rect.left >= 0 &&
-            rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
-            rect.right <= (window.innerWidth || document.documentElement.clientWidth)
-        );
+        return new Promise(resolve => {
+            const rect = element.getBoundingClientRect();
+            const isVisible = (
+                rect.top >= 0 &&
+                rect.left >= 0 &&
+                rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+                rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+            );
 
-        if (!isVisible) {
-            element.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
-        }
+            if (!isVisible) {
+                element.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
+                // We wait for two animation frames to ensure the browser has painted the change.
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(resolve);
+                });
+            } else {
+                resolve();
+            }
+        });
     };
 
     const positionTooltip = (targetRect, position = 'bottom') => {
