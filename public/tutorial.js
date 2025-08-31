@@ -442,34 +442,34 @@ const tutorial = (app) => {
 
         if (dom.tooltip) dom.tooltip.classList.remove('is-waiting');
 
-        smartScroll(targetElement);
+        await smartScroll(targetElement);
 
-        setTimeout(() => {
-            if (step.click) {
-                targetElement.classList.add('tutorial-click-effect');
-                setTimeout(() => {
-                     targetElement.classList.remove('tutorial-click-effect');
-                }, 1000);
-            }
+        // The setTimeout wrapper has been removed. By awaiting a properly implemented
+        // smartScroll, we ensure the highlight is drawn after the element is in place.
+        if (step.click) {
+            targetElement.classList.add('tutorial-click-effect');
+            setTimeout(() => {
+                    targetElement.classList.remove('tutorial-click-effect');
+            }, 1000);
+        }
 
-            document.getElementById('tutorial-tooltip-title').textContent = step.title;
-            document.getElementById('tutorial-tooltip-text').innerHTML = step.content;
-            document.getElementById('tutorial-prev-btn').style.display = index === 0 ? 'none' : 'inline-block';
-            document.getElementById('tutorial-next-btn').textContent = index === steps.length - 1 ? 'Finalizar' : 'Siguiente';
-            document.getElementById('tutorial-tooltip-progress').textContent = `Paso ${index + 1} de ${steps.length}`;
+        document.getElementById('tutorial-tooltip-title').textContent = step.title;
+        document.getElementById('tutorial-tooltip-text').innerHTML = step.content;
+        document.getElementById('tutorial-prev-btn').style.display = index === 0 ? 'none' : 'inline-block';
+        document.getElementById('tutorial-next-btn').textContent = index === steps.length - 1 ? 'Finalizar' : 'Siguiente';
+        document.getElementById('tutorial-tooltip-progress').textContent = `Paso ${index + 1} de ${steps.length}`;
 
+        updateHighlight(targetElement, step);
+
+        resizeObserver = new ResizeObserver(() => {
             updateHighlight(targetElement, step);
+        });
+        resizeObserver.observe(targetElement);
+        resizeObserver.observe(document.body);
 
-            resizeObserver = new ResizeObserver(() => {
-                updateHighlight(targetElement, step);
-            });
-            resizeObserver.observe(targetElement);
-            resizeObserver.observe(document.body);
-
-            // Also listen for scroll events to keep the highlight in sync
-            scrollHandler = () => updateHighlight(targetElement, step);
-            window.addEventListener('scroll', scrollHandler, true);
-        }, 0); // Defer to next paint cycle
+        // Also listen for scroll events to keep the highlight in sync
+        scrollHandler = () => updateHighlight(targetElement, step);
+        window.addEventListener('scroll', scrollHandler, true);
     };
 
     /**
@@ -477,17 +477,25 @@ const tutorial = (app) => {
      * @param {Element} element - The DOM element to scroll to.
      */
     const smartScroll = (element) => {
-        const rect = element.getBoundingClientRect();
-        const isVisible = (
-            rect.top >= 0 &&
-            rect.left >= 0 &&
-            rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
-            rect.right <= (window.innerWidth || document.documentElement.clientWidth)
-        );
+        return new Promise(resolve => {
+            const rect = element.getBoundingClientRect();
+            const isVisible = (
+                rect.top >= 0 &&
+                rect.left >= 0 &&
+                rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+                rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+            );
 
-        if (!isVisible) {
-            element.scrollIntoView({ behavior: 'instant', block: 'nearest' });
-        }
+            if (!isVisible) {
+                element.scrollIntoView({ behavior: 'instant', block: 'nearest' });
+                // We wait for two animation frames to ensure the browser has painted the change.
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(resolve);
+                });
+            } else {
+                resolve();
+            }
+        });
     };
 
     /**
