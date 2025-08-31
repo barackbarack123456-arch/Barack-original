@@ -105,6 +105,17 @@ Para mantener a todos los involucrados informados, el sistema cuenta con un cent
         -   *Ejemplo:* "El estado del ECR "ECR-2024-021" ha cambiado a approved."
 -   **Navegación:** Hacer clic en una notificación marca la misma como leída y redirige al usuario directamente al formulario del ECR o ECO correspondiente.
 
+#### 5. Indicadores de Gestión de Cambios (ECM)
+
+Para ofrecer una visión de alto nivel sobre la eficiencia del proceso, el sistema incluye un **Dashboard de Indicadores de Gestión de Cambios (ECM - Engineering Change Management)**. Este panel centraliza métricas y KPIs clave sobre los ECRs y ECOs, permitiendo a los gestores:
+
+-   Visualizar el volumen de solicitudes de cambio a lo largo del tiempo.
+-   Analizar los tiempos promedio de aprobación por departamento.
+-   Identificar cuellos de botella en el flujo de trabajo.
+-   Monitorear el estado general de todos los cambios en curso.
+
+Este dashboard es una herramienta estratégica para la mejora continua del proceso de gestión de cambios de ingeniería.
+
 ## Panel de Administración del Dashboard
 
 El dashboard incluye un panel de administración con herramientas potentes para gestionar el estado de la base de datos. Estas acciones son delicadas y deben usarse con precaución.
