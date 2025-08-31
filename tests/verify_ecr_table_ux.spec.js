@@ -11,20 +11,20 @@ test.describe('ECR Table UX Verification', () => {
 
   test.beforeEach(async () => {
     page = await browser.newPage();
-    await page.goto('http://localhost:5000', { waitUntil: 'networkidle' });
+    await page.goto('http://localhost:8080', { waitUntil: 'networkidle' });
 
     // --- LOGIN STEP ---
     await page.waitForSelector('#login-form');
-    await page.fill('input[type="email"]', 'admin@barack.com');
-    await page.fill('input[type="password"]', 'barack');
+    await page.fill('input[type="email"]', 'f.santoro@barackmercosul.com');
+    await page.fill('input[type="password"]', '$oof@k24');
     await page.click('button[type="submit"]');
-    await page.waitForURL('http://localhost:5000/#dashboard', { timeout: 20000 });
+    await page.waitForURL('http://localhost:8080/#dashboard', { timeout: 20000 });
 
     // Now navigate to the ECR Table View
     await page.click('a[data-view="control_ecrs"]');
-    await page.waitForURL('http://localhost:5000/#control_ecrs');
+    await page.waitForURL('http://localhost:8080/#control_ecrs');
     await page.click('a[data-view="ecr_table_view"]');
-    await page.waitForURL('http://localhost:5000/#ecr_table_view');
+    await page.waitForURL('http://localhost:8080/#ecr_table_view');
   });
 
   test.afterEach(async () => {

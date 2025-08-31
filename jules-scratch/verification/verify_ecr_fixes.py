@@ -1,126 +1,68 @@
-import os
 import re
 from playwright.sync_api import sync_playwright, Page, expect
 
 def run_verification(page: Page):
     """
-    Main verification script to test all ECR-related fixes.
+    This script verifies the fixes for the ECR Seguimiento y Metricas view
+    with the corrected navigation path and extra waits.
     """
-    # Get the absolute path to the index.html file
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    index_path = os.path.join(base_dir, 'public', 'index.html')
+    # 1. Navigate and Log in
+    page.goto("http://localhost:8080")
 
-    # Use 'file://' protocol to open the local file
-    page.goto(f'file://{index_path}')
+    login_panel = page.locator("#login-panel")
+    login_panel.get_by_label("Correo electrónico").fill("f.santoro@barackmercosul.com")
+    login_panel.get_by_label("Contraseña").fill("$oof@k24")
+    login_panel.get_by_role("button", name="Iniciar Sesión").click()
 
-    # 1. --- Login ---
-    print("Logging in...")
-    page.wait_for_selector("#login-panel", state="visible")
-    page.get_by_label("Email").fill("test.admin@barack.com")
-    page.get_by_label("Password").fill("123456")
-    page.get_by_role("button", name="Iniciar Sesión").click()
+    # 2. Navigate to the correct view via the Control Panel
+    expect(page.locator("#app-view")).to_be_visible(timeout=10000)
 
-    # Wait for the main dashboard to load
-    expect(page.get_by_role("heading", name="Bienvenido, Test Admin"))
-
-    # 2. --- Verify Control Panel Tutorial Fix ---
-    print("Verifying Control Panel Tutorial fix...")
-    # Navigate to the Control Panel
+    # Click on the "ECR/ECO" dropdown
     page.get_by_role("button", name="ECR/ECO").click()
-    page.get_by_role("link", name="Panel de Control").click()
-    expect(page.get_by_role("heading", name="Panel de Control")).to_be_visible()
 
-    # Start the tutorial
-    page.get_by_role("button", name="Tutorial").click()
+    # Use a more stable locator and add a small manual wait for animations
+    panel_de_control_link = page.locator('[data-view="control_ecrs"]')
+    expect(panel_de_control_link).to_be_visible(timeout=5000)
+    panel_de_control_link.click()
 
-    # The tutorial should now automatically seed data and progress.
-    # We'll just click through the steps.
-    expect(page.get_by_text("Bienvenido al tutorial del Panel de Control")).to_be_visible()
-    page.get_by_role("button", name="Siguiente").click()
+    expect(page.locator("#view-title", has_text="Panel de Control")).to_be_visible(timeout=10000)
 
-    expect(page.get_by_text("Esta es la Tabla de Control ECR")).to_be_visible()
-    page.get_by_role("button", name="Siguiente").click()
+    # Click on the "Seguimiento y Métricas" card
+    page.get_by_role("a", name="Seguimiento y Métricas").click()
 
-    expect(page.get_by_text("Estos son los Indicadores de ECM")).to_be_visible()
-    page.get_by_role("button", name="Siguiente").click()
+    # 3. Wait for the view to load
+    expect(page.locator("#view-title", has_text="Seguimiento y Métricas de ECR")).to_be_visible(timeout=10000)
 
-    expect(page.get_by_text("Aquí se encuentra el Seguimiento y Métricas")).to_be_visible()
-    page.get_by_role("button", name="Siguiente").click()
+    # Wait for the attendance matrix to be populated by data
+    expect(page.locator("#asistencia-matriz-container").get_by_role("button")).to_contain_text(["P"], timeout=15000)
 
-    # Final step of the tutorial
-    expect(page.get_by_text("¡Tutorial completado!")).to_be_visible()
-    page.screenshot(path="jules-scratch/verification/01_tutorial_fix.png")
-    print("Screenshot 1: Tutorial fix verified.")
-    page.get_by_role("button", name="Finalizar").click()
+    # Verification Step 1: Check if titles are centered
+    h3_elements = page.locator("#ecr-log-section h3, #asistencia-matriz-section h3, #resumen-graficos-section h3")
+    for i in range(h3_elements.count()):
+        expect(h3_elements.nth(i)).to_have_class(re.compile(r".*text-center.*"))
 
+    # Verification Step 2: Check if an empty attendance cell is clickable and changes state
+    empty_buttons = page.locator('.asistencia-matriz-table button:text-is("")')
+    if empty_buttons.count() > 0:
+        first_empty_button = empty_buttons.first
+        expect(first_empty_button).to_be_visible()
+        first_empty_button.click()
+        expect(first_empty_button).to_have_text("P")
+        first_empty_button.click()
+        expect(first_empty_button).to_have_text("A")
 
-    # 3. --- Verify ECR Form and Approval Fix (`data-department-id`) ---
-    print("Verifying ECR Form and Approval fix...")
-    # Navigate to ECR list
-    page.get_by_role("button", name="ECR/ECO").click()
-    page.get_by_role("link", name="Gestión de ECR").click()
-    expect(page.get_by_role("heading", name="Planilla General de ECR")).to_be_visible()
+    # Verification Step 3: Check if a pendencia cell is clickable and changes state
+    pendencia_buttons = page.locator('button[data-action="toggle-pendencia-status"]:text-is("")')
+    if pendencia_buttons.count() > 0:
+        first_pendencia_button = pendencia_buttons.first
+        expect(first_pendencia_button).to_be_visible()
+        first_pendencia_button.click()
+        expect(first_pendencia_button).to_have_text("OK")
+        first_pendencia_button.click()
+        expect(first_pendencia_button).to_have_text("NOK")
 
-    # Create a new ECR
-    page.get_by_role("button", name="Crear Nuevo ECR").click()
-    expect(page.get_by_text("CHECK LIST ECR - ENGINEERING CHANGE REQUEST")).to_be_visible()
-
-    ecr_id = f"ECR-VERIFY-{page.evaluate('() => Date.now()')}"
-    page.locator('input[name="ecr_no"]').fill(ecr_id)
-    page.locator('input[name="proyecto"]').fill("Proyecto de Verificación")
-    page.locator('input[name="cliente"]').fill("Cliente de Prueba")
-    page.locator('input[name="fecha_emision"]').fill("2024-01-01")
-    page.locator('textarea[name="situacion_propuesta"]').fill("Situación propuesta para la prueba de verificación.")
-
-    # Save progress
-    page.get_by_role("button", name="Guardar Progreso").click()
-
-    # Re-open the ECR to check the approval logic
-    page.get_by_role("button", name=re.compile(r"Ver/Editar")).first.click()
-
-    # Find the 'Calidad' department section and approve it
-    calidad_section = page.locator('.department-section[data-department-id="calidad"]')
-    expect(calidad_section).to_be_visible()
-
-    # Before approval, the inputs should be enabled
-    expect(calidad_section.get_by_label("AFECTA DIMENSIONAL CLIENTE?")).to_be_enabled()
-
-    # Approve the section
-    calidad_section.get_by_role("button", name="Aprobar").click()
-
-    # Wait for the approval to register and the form to refresh
-    expect(page.get_by_text(f"Decisión del departamento de calidad registrada.")).to_be_visible()
-
-    # The page reloads, so we need to find the section again
-    calidad_section = page.locator('.department-section[data-department-id="calidad"]')
-
-    # Now, the inputs should be disabled
-    expect(calidad_section.get_by_label("AFECTA DIMENSIONAL CLIENTE?")).to_be_disabled()
-    print("ECR Approval and form disabling verified.")
-
-    # 4. --- Verify `ecrData is not defined` fix ---
-    print("Verifying `ecrData` ReferenceError fix...")
-    # To test this, we need to approve the ECR fully and then generate an ECO.
-    # For simplicity, we will manually set the ECR status to 'approved' via the UI.
-    page.get_by_role("button", name="Aprobar y Guardar").click()
-    page.get_by_text(re.compile(r"¿Está seguro de que desea aprobar y guardar este ECR\?")).to_be_visible()
-    page.get_by_role("button", name="Confirmar").click()
-
-    # Go back to the ECR list
-    expect(page.get_by_role("heading", name="Planilla General de ECR")).to_be_visible()
-
-    # Find our newly created ECR and click "Generate ECO"
-    page.locator(f'tr:has-text("{ecr_id}")').get_by_role("button", name="Generar ECO desde este ECR").click()
-
-    # The original bug would have thrown an error here.
-    # We expect to see the ECO form loaded correctly.
-    expect(page.get_by_role("heading", name="ECO DE PRODUCTO / PROCESO")).to_be_visible()
-
-    # Verify the ECR number is pre-filled in the ECO form
-    expect(page.locator('input[name="ecr_no"]')).to_have_value(ecr_id)
-
-    page.screenshot(path="jules-scratch/verification/02_ecr_flow_fix.png")
-    print("Screenshot 2: ECR flow and ReferenceError fix verified.")
+    # Take a screenshot *after* performing actions
+    page.screenshot(path="jules-scratch/verification/ecr_fixes_verified.png")
 
 
 def main():
