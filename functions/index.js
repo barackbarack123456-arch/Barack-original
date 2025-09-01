@@ -3,6 +3,50 @@ const admin = require("firebase-admin");
 
 admin.initializeApp();
 
+exports.getNextEcrNumber = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+  }
+
+  const db = admin.firestore();
+  const ecrRef = db.collection('ecr_forms');
+  const currentYear = new Date().getFullYear();
+
+  // Query for ECRs in the current year, order by ID descending, and get the last one.
+  const query = ecrRef
+    .where('id', '>=', `ECR-${currentYear}-000`)
+    .where('id', '<', `ECR-${currentYear + 1}-000`)
+    .orderBy('id', 'desc')
+    .limit(1);
+
+  try {
+    const snapshot = await query.get();
+    let nextNumber = 1;
+
+    if (!snapshot.empty) {
+      const lastEcrId = snapshot.docs[0].id;
+      // E.g., "ECR-2024-005" -> parts = ["ECR", "2024", "005"]
+      const parts = lastEcrId.split('-');
+      if (parts.length === 3) {
+          const lastNumber = parseInt(parts[2], 10);
+          if (!isNaN(lastNumber)) {
+              nextNumber = lastNumber + 1;
+          }
+      }
+    }
+
+    // Format the number with leading zeros
+    const formattedNumber = String(nextNumber).padStart(3, '0');
+    const newEcrId = `ECR-${currentYear}-${formattedNumber}`;
+
+    return { newEcrId: newEcrId };
+
+  } catch (error) {
+    console.error("Error getting next ECR number:", error);
+    throw new functions.https.HttpsError('internal', 'Could not retrieve the next ECR number.');
+  }
+});
+
 exports.saveFormWithValidation = functions.https.onCall(async (data, context) => {
   // Check that the user is authenticated.
   if (!context.auth) {
@@ -16,8 +60,8 @@ exports.saveFormWithValidation = functions.https.onCall(async (data, context) =>
 
   // --- ECR Validation ---
   if (formType === 'ecr') {
+    // The ecr_no is now generated server-side, so we don't validate its presence from the client.
     const requiredFields = [
-        { key: 'ecr_no', label: 'ECR N°' },
         { key: 'denominacion_producto', label: 'Denominación del Producto' },
         { key: 'situacion_existente', label: 'Situación Existente' },
         { key: 'situacion_propuesta', label: 'Situación Propuesta' }

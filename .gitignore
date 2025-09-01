@@ -35,3 +35,6 @@ hosting.*.cache
 firebase.log
 error_screenshot.png
 public/error_screenshot.png
+
+# Ignore nested node_modules for Firebase Functions
+functions/node_modules
