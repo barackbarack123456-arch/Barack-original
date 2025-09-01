@@ -105,7 +105,26 @@ Para mantener a todos los involucrados informados, el sistema cuenta con un cent
         -   *Ejemplo:* "El estado del ECR "ECR-2024-021" ha cambiado a approved."
 -   **Navegación:** Hacer clic en una notificación marca la misma como leída y redirige al usuario directamente al formulario del ECR o ECO correspondiente.
 
-#### 5. Indicadores de Gestión de Cambios (ECM)
+#### 5. Flujo de Aprobación de Partes de Producción (PPAP)
+
+Para cambios que requieren una validación formal por parte del cliente, el sistema integra un control específico para el **Proceso de Aprobación de Partes de Producción (PPAP)**. Este flujo asegura que la implementación interna de un cambio (ECO) no se finalice hasta que se reciba y confirme la aprobación externa del cliente.
+
+-   **Activación en el ECR:** Durante la creación de un ECR, el solicitante puede marcar la casilla **"Requiere PPAP"**. Esto indica que el cambio propuesto necesita una validación formal del cliente antes de su implementación en serie.
+
+-   **Condición de Bloqueo en el ECO:** Cuando se genera un ECO a partir de un ECR que tiene marcada la opción "Requiere PPAP", aparece una nueva sección en el formulario del ECO: **"Confirmación de PPAP Requerida"**.
+
+-   **Control Crítico:** Esta casilla de confirmación actúa como un **bloqueo de seguridad**. El sistema **no permitirá la aprobación final del ECO** hasta que un usuario responsable marque esta casilla. Esta acción representa una confirmación formal de que el proceso PPAP con el cliente ha sido completado y aprobado satisfactoriamente.
+
+-   **Lógica de Activación:** El sistema muestra la sección de confirmación de PPAP en el ECO solo si se cumplen dos condiciones en el ECR original:
+    1.  El campo **`cliente_aprobacion_estado`** está marcado como `aprobado`.
+    2.  La casilla **`cliente_requiere_ppap`** está marcada como `true`.
+    Esto asegura que el bloqueo de PPAP solo se active cuando el cliente ya ha dado su consentimiento inicial al cambio y se ha determinado que el método formal de documentación es un PPAP.
+
+-   **Responsabilidad:** Generalmente, el departamento de **Calidad** o **Calidad Cliente** es el responsable de gestionar el proceso PPAP con el cliente y, por lo tanto, de marcar la casilla de confirmación en el ECO una vez obtenida la aprobación.
+
+-   **Flujo Estándar:** Si un ECR no requiere PPAP, el ECO correspondiente no mostrará esta sección de confirmación y su flujo de aprobación procederá de manera estándar.
+
+#### 6. Indicadores de Gestión de Cambios (ECM)
 
 Para ofrecer una visión de alto nivel sobre la eficiencia del proceso, el sistema incluye un **Dashboard de Indicadores de Gestión de Cambios (ECM - Engineering Change Management)**. Este panel centraliza métricas y KPIs clave sobre los ECRs y ECOs, permitiendo a los gestores:
 
