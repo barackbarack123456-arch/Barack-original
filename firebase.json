@@ -1,23 +1,14 @@
 {
-  "firestore": {
-    "rules": "firestore.rules"
-  },
   "hosting": {
     "public": "public",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
-    ],
-    "rewrites": [
-      {
-        "source": "/saveFormWithValidation",
-        "function": "saveFormWithValidation"
-      },
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
     ]
+  },
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs18"
   }
 }
