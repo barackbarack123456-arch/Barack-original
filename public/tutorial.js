@@ -159,6 +159,12 @@ const tutorial = (app) => {
             position: 'top'
         },
         {
+            element: '#ppap-confirmation-container',
+            title: 'Verificación de Pasos Críticos (PPAP)',
+            content: 'Para pasos críticos como el PPAP, ahora se puede añadir un <strong>enlace de evidencia</strong>. Esto mejora la trazabilidad, pasando de una simple casilla de verificación a una confirmación verificable.',
+            position: 'top'
+        },
+        {
             element: '.section-block:first-of-type',
             title: 'ECO: Checklists Departamentales',
             content: 'Cada departamento utiliza estas listas de verificación para confirmar que todas las acciones necesarias (actualizar planos, planes de control, etc.) se han completado antes del cierre del ECO.',
@@ -229,6 +235,12 @@ const tutorial = (app) => {
             element: '#action-plan-list',
             title: 'Seguimiento del Plan',
             content: 'El plan de acción se va llenando con todas las tareas necesarias. Cada tarea puede ser marcada como completada, lo que permite un seguimiento claro del progreso.',
+            position: 'top'
+        },
+        {
+            element: 'i[data-lucide="rocket"]',
+            title: 'Integración del Plan de Acción',
+            content: '¡Nueva mejora! La primera opción de la sección "Implementación", "¿Plan de acción completado?", ahora se marca automáticamente cuando todas las tareas que definiste en el Plan de Acción están completas. Esto conecta la planificación con la ejecución.',
             position: 'top'
         },
         {
