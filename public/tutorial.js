@@ -159,7 +159,7 @@ const tutorial = (app) => {
             position: 'top'
         },
         {
-            element: '#ppap-confirmation-container',
+            element: '[data-tutorial-id="ppap-container"]',
             title: 'Verificación de Pasos Críticos (PPAP)',
             content: 'Para pasos críticos como el PPAP, ahora se puede añadir un <strong>enlace de evidencia</strong>. Esto mejora la trazabilidad, pasando de una simple casilla de verificación a una confirmación verificable.',
             position: 'top'
@@ -177,64 +177,9 @@ const tutorial = (app) => {
             position: 'top',
         },
         {
-            element: '[data-tutorial-id="new-action-description"]',
-            title: 'Añadir una Tarea',
-            content: 'Primero, describimos la tarea a realizar. Por ejemplo, "Actualizar el plano del componente X".',
-            position: 'top',
-            postAction: async () => {
-                const input = document.querySelector('[data-tutorial-id="new-action-description"]');
-                if (input) {
-                    input.value = 'Actualizar el plano del componente X';
-                    input.dispatchEvent(new Event('input', { bubbles: true }));
-                }
-            }
-        },
-        {
-            element: '[data-tutorial-id="new-action-assignee"]',
-            title: 'Asignar un Responsable',
-            content: 'Luego, asignamos la tarea a un miembro del equipo. Esto asegura que haya un dueño claro para cada acción.',
-            position: 'top',
-            postAction: async () => {
-                const select = document.querySelector('[data-tutorial-id="new-action-assignee"]');
-                if (select && select.options.length > 1) {
-                    select.selectedIndex = 1;
-                    select.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-            }
-        },
-        {
-            element: '[data-tutorial-id="new-action-duedate"]',
-            title: 'Establecer una Fecha Límite',
-            content: 'Finalmente, establecemos una fecha límite para mantener el plan en marcha y asegurar que el cambio se implemente a tiempo.',
-            position: 'top',
-            postAction: async () => {
-                const input = document.querySelector('[data-tutorial-id="new-action-duedate"]');
-                if (input) {
-                    const today = new Date();
-                    const futureDate = new Date(today.setDate(today.getDate() + 7));
-                    input.value = futureDate.toISOString().split('T')[0];
-                    input.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-            }
-        },
-        {
-            element: '[data-tutorial-id="add-action-item-btn"]',
-            title: 'Agregar al Plan',
-            content: 'Ahora, agregamos la tarea al plan de acción. Verás que aparece en la lista de arriba.',
-            position: 'left',
-            click: true,
-            postAction: async () => {
-                const button = document.querySelector('[data-tutorial-id="add-action-item-btn"]');
-                if (button) {
-                    button.click();
-                }
-                await waitForVisibleElement('.action-item');
-            }
-        },
-        {
-            element: '#action-plan-list',
-            title: 'Seguimiento del Plan',
-            content: 'El plan de acción se va llenando con todas las tareas necesarias. Cada tarea puede ser marcada como completada, lo que permite un seguimiento claro del progreso.',
+            element: '[data-tutorial-id="add-action-item-form-container"]',
+            title: 'Añadir Tareas al Plan',
+            content: 'Utilice este formulario para añadir tareas. Puede describir la acción, asignar un responsable y fijar una fecha límite. Cada tarea aparecerá en la lista de arriba para su seguimiento.',
             position: 'top'
         },
         {
@@ -357,9 +302,11 @@ const tutorial = (app) => {
 
             const isElementVisible = (el) => {
                 if (!el) return false;
-                // The offsetParent check is a good baseline.
+                const style = window.getComputedStyle(el);
+                if (style.display === 'none' || style.visibility === 'hidden' || el.hidden) {
+                    return false;
+                }
                 if (el.offsetParent === null) return false;
-                // Additionally, check if the element has actual dimensions.
                 const rect = el.getBoundingClientRect();
                 return rect.width > 0 && rect.height > 0;
             }

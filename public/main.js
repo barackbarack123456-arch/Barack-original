@@ -1359,7 +1359,7 @@ function setupGlobalEventListeners() {
         console.log("Tutorial finished, global clicks re-enabled.");
     };
 
-    document.getElementById('start-tutorial-btn')?.addEventListener('click', () => {
+    const startTutorial = () => {
         appState.isTutorialActive = true;
         const app = {
             switchView,
@@ -1371,7 +1371,16 @@ function setupGlobalEventListeners() {
             createTutorialEcr // Expose the new helper function to the tutorial
         };
         tutorial(app).start();
-    });
+    };
+
+    document.getElementById('start-tutorial-btn')?.addEventListener('click', startTutorial);
+
+    // Check if the page was loaded with the tutorial parameter
+    const isTutorialMode = new URLSearchParams(window.location.search).get('tutorial') === 'true';
+    if (isTutorialMode) {
+        // A short delay to ensure the rest of the UI is ready
+        setTimeout(startTutorial, 500);
+    }
 
     document.getElementById('main-nav').addEventListener('click', (e) => {
         // This listener now ONLY handles dropdown toggling
@@ -1599,7 +1608,7 @@ async function runEcoFormLogic(params = null) {
                 </div>
             </header>
             <main id="dynamic-form-sections"></main>
-            <div id="ppap-confirmation-container" class="hidden mt-6 p-4 border-2 border-yellow-400 bg-yellow-50 rounded-lg">
+            <div id="ppap-confirmation-container" data-tutorial-id="ppap-container" class="hidden mt-6 p-4 border-2 border-yellow-400 bg-yellow-50 rounded-lg">
                 <label class="flex items-center gap-3 cursor-pointer">
                     <input type="checkbox" name="ppap_completed_confirmation" class="h-5 w-5 rounded text-blue-600 focus:ring-blue-500 border-gray-300">
                     <div class="flex-grow">
@@ -1616,20 +1625,22 @@ async function runEcoFormLogic(params = null) {
                     <div id="action-plan-list" class="space-y-2">
                         <!-- Action items will be rendered here -->
                     </div>
-                    <div id="add-action-item-form" class="mt-4 flex items-end gap-3 p-3 bg-slate-50 rounded-lg border">
-                        <div class="flex-grow">
-                            <label for="new-action-description" class="text-xs font-bold text-slate-600">Nueva Acción</label>
-                            <input type="text" id="new-action-description" data-tutorial-id="new-action-description" placeholder="Descripción de la tarea..." class="w-full mt-1 p-2 border rounded-md">
+                    <div id="add-action-item-form-wrapper" data-tutorial-id="add-action-item-form-container">
+                        <div id="add-action-item-form" class="mt-4 flex items-end gap-3 p-3 bg-slate-50 rounded-lg border">
+                            <div class="flex-grow">
+                                <label for="new-action-description" class="text-xs font-bold text-slate-600">Nueva Acción</label>
+                                <input type="text" id="new-action-description" placeholder="Descripción de la tarea..." class="w-full mt-1 p-2 border rounded-md">
+                            </div>
+                            <div class="w-48">
+                                <label for="new-action-assignee" class="text-xs font-bold text-slate-600">Responsable</label>
+                                <select id="new-action-assignee" class="w-full mt-1 p-2 border rounded-md"></select>
+                            </div>
+                            <div class="w-40">
+                                <label for="new-action-duedate" class="text-xs font-bold text-slate-600">Fecha Límite</label>
+                                <input type="date" id="new-action-duedate" class="w-full mt-1 p-2 border rounded-md">
+                            </div>
+                            <button type="button" id="add-action-item-btn" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 font-semibold h-10">Agregar</button>
                         </div>
-                        <div class="w-48">
-                            <label for="new-action-assignee" class="text-xs font-bold text-slate-600">Responsable</label>
-                            <select id="new-action-assignee" data-tutorial-id="new-action-assignee" class="w-full mt-1 p-2 border rounded-md"></select>
-                        </div>
-                        <div class="w-40">
-                            <label for="new-action-duedate" class="text-xs font-bold text-slate-600">Fecha Límite</label>
-                            <input type="date" id="new-action-duedate" data-tutorial-id="new-action-duedate" class="w-full mt-1 p-2 border rounded-md">
-                        </div>
-                        <button type="button" id="add-action-item-btn" data-tutorial-id="add-action-item-btn" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 font-semibold h-10">Agregar</button>
                     </div>
                 </div>
             </section>
@@ -1923,9 +1934,22 @@ async function runEcoFormLogic(params = null) {
                 // This is the crucial fix: update the checkbox state after loading data.
                 updateActionPlanCompletionStatus();
                  // Fetch associated ECR to check for PPAP requirement
-                const ecrDocRef = doc(db, COLLECTIONS.ECR_FORMS, ecoId);
-                const ecrDocSnap = await getDoc(ecrDocRef);
-                if (ecrDocSnap.exists() && ecrDocSnap.data().cliente_requiere_ppap) {
+                let ecrDocSnap;
+                if (window.isInTutorial) {
+                    console.log("TUTORIAL MODE: Using mock ECR data.");
+                    ecrDocSnap = {
+                        exists: () => true,
+                        data: () => ({
+                            cliente_requiere_ppap: true,
+                            cliente_aprobacion_estado: 'aprobado'
+                        })
+                    };
+                } else {
+                    const ecrDocRef = doc(db, COLLECTIONS.ECR_FORMS, ecoId);
+                    ecrDocSnap = await getDoc(ecrDocRef);
+                }
+
+                if (ecrDocSnap.exists() && ecrDocSnap.data().cliente_requiere_ppap && ecrDocSnap.data().cliente_aprobacion_estado === 'aprobado') {
                     const ppapContainer = formElement.querySelector('#ppap-confirmation-container');
                     if (ppapContainer) {
                         ppapContainer.classList.remove('hidden');
@@ -2309,6 +2333,7 @@ async function runEcrLogic() {
 
         let isFirstRender = true;
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            console.log('ECR listener fired.', querySnapshot.size, 'docs found.');
             const ecrTableBody = document.getElementById('ecr-table-body');
             if (!ecrTableBody) return;
 
@@ -4747,13 +4772,23 @@ function handleViewContentActions(e) {
     const userId = button.dataset.userId;
 
     const actions = {
-        'generate-eco-from-ecr': () => {
+        'generate-eco-from-ecr': async () => {
             const ecrId = button.dataset.id;
-            const ecrData = appState.collections[COLLECTIONS.ECR_FORMS].find(e => e.id === ecrId);
-            if (ecrData) {
-                switchView('eco_form', { ecrData: ecrData });
-            } else {
-                showToast(`No se encontraron datos para el ECR: ${ecrId}`, 'error');
+            if (!ecrId) {
+                showToast('Error: No se encontró el ID del ECR.', 'error');
+                return;
+            }
+            try {
+                const ecrDocRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
+                const ecrDocSnap = await getDoc(ecrDocRef);
+                if (ecrDocSnap.exists()) {
+                    switchView('eco_form', { ecrData: ecrDocSnap.data() });
+                } else {
+                    showToast(`No se encontraron datos para el ECR: ${ecrId}`, 'error');
+                }
+            } catch (error) {
+                console.error("Error fetching full ECR document:", error);
+                showToast('Error al cargar los datos completos del ECR.', 'error');
             }
         },
         'view-eco': () => switchView('eco_form', { ecoId: button.dataset.id }),
@@ -8259,6 +8294,43 @@ async function seedDefaultRoles() {
 }
 
 onAuthStateChanged(auth, async (user) => {
+    // --- TUTORIAL BYPASS ---
+    // If the tutorial is running (indicated by a URL parameter), we bypass the real auth and create a mock user.
+    const isTutorialMode = new URLSearchParams(window.location.search).get('tutorial') === 'true';
+    if (isTutorialMode) {
+        console.log("TUTORIAL MODE: Bypassing auth and creating mock user.");
+        const mockUser = {
+            uid: 'tutorial-user-001',
+            email: 'tutorial@barack.com',
+            emailVerified: true,
+            displayName: 'Usuario Tutorial',
+            photoURL: `https://api.dicebear.com/8.x/identicon/svg?seed=Tutorial`,
+            // Mock role for permissions
+            role: 'admin'
+        };
+        // We will now manually run the setup logic that normally happens for a real user.
+        appState.currentUser = {
+            uid: mockUser.uid,
+            name: mockUser.displayName,
+            email: mockUser.email,
+            avatarUrl: mockUser.photoURL,
+            role: mockUser.role,
+            isSuperAdmin: true // Give admin rights for the tutorial
+        };
+
+        dom.authContainer.classList.add('hidden');
+        dom.appView.classList.remove('hidden');
+        updateNavForRole();
+        renderUserMenu();
+
+        await startRealtimeListeners();
+        switchView('dashboard');
+        dom.loadingOverlay.style.display = 'none';
+
+        return; // IMPORTANT: Stop further execution of the real auth logic.
+    }
+    // --- END TUTORIAL BYPASS ---
+
     if (user) {
         if (user.emailVerified) {
             const wasAlreadyLoggedIn = !!appState.currentUser;
