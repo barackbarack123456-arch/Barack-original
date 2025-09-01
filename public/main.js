@@ -4,6 +4,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser, sendEmailVerification, updateProfile } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, writeBatch, runTransaction, orderBy, limit, startAfter, or, getCountFromServer } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
 import { COLLECTIONS, getUniqueKeyForCollection, createHelpTooltip } from './utils.js';
 import { deleteProductAndOrphanedSubProducts } from './data_logic.js';
 import tutorial from './tutorial.js';
@@ -34,6 +35,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const functions = getFunctions(app);
 
 // =================================================================================
 // --- CONSTANTES Y CONFIGURACIÓN ---
@@ -1997,41 +1999,28 @@ async function runEcoFormLogic(params = null) {
         };
 
         const saveEcoForm = async (status = 'in-progress') => {
-            const ecrId = ecrInput.value.trim();
-            if (!ecrId) {
-                showToast('Por favor, ingrese un ECR N° para guardar.', 'error');
-                ecrInput.focus();
-                return;
-            }
+            const formData = getFormData();
+            formData.status = status;
+            formData.id = ecrInput.value.trim();
 
-            const dataToSave = getFormData();
-            dataToSave.status = status;
-            dataToSave.id = ecrId;
-            dataToSave.lastModified = new Date();
-            dataToSave.modifiedBy = appState.currentUser.email;
+            showToast('Validando y guardando formulario ECO...', 'info');
 
-            showToast('Guardando formulario ECO...', 'info');
             try {
-                const docRef = doc(db, COLLECTIONS.ECO_FORMS, ecrId);
-                const historyRef = collection(docRef, 'history');
+                const saveForm = httpsCallable(functions, 'saveFormWithValidation');
+                const result = await saveForm({ formType: 'eco', formData: formData });
 
-                const batch = writeBatch(db);
-
-                // Set the main document (latest version)
-                batch.set(docRef, dataToSave, { merge: true });
-
-                // Add a new document to the history subcollection
-                const historyDocRef = doc(historyRef); // Auto-generate ID
-                batch.set(historyDocRef, dataToSave);
-
-                await batch.commit();
-
-                localStorage.removeItem(ECO_FORM_STORAGE_KEY);
-                showToast(`ECO "${ecrId}" guardado con éxito.`, 'success');
-
+                if (result.data.success) {
+                    localStorage.removeItem(ECO_FORM_STORAGE_KEY);
+                    showToast(result.data.message, 'success');
+                    switchView('eco');
+                } else {
+                    // This case might not be reached if the function throws an error on failure
+                    showToast(result.data.message || 'Ocurrió un error inesperado.', 'error');
+                }
             } catch(error) {
-                console.error("Error saving ECO form: ", error);
-                showToast('Error al guardar el formulario.', 'error');
+                console.error("Error calling saveFormWithValidation for ECO:", error);
+                const errorMessage = error.message || 'Error desconocido al guardar el formulario.';
+                showToast(errorMessage, 'error');
             }
         };
 
@@ -4610,28 +4599,29 @@ async function runEcrFormLogic(params = null) {
         dataToSave.lastModified = new Date();
         dataToSave.modifiedBy = appState.currentUser.email;
 
-        showToast('Guardando formulario ECR...', 'info');
+        // Ensure approvals object exists
+        if (!dataToSave.approvals) {
+            dataToSave.approvals = {};
+        }
+
+        showToast('Validando y guardando formulario ECR...', 'info');
+
         try {
-            const docRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
-            const historyRef = collection(docRef, 'history');
-            const batch = writeBatch(db);
+            const saveForm = httpsCallable(functions, 'saveFormWithValidation');
+            const result = await saveForm({ formType: 'ecr', formData: dataToSave });
 
-            // Set the main document (latest version)
-            batch.set(docRef, dataToSave, { merge: true });
-
-            // Add a new document to the history subcollection
-            const historyDocRef = doc(historyRef); // Auto-generate ID
-            batch.set(historyDocRef, dataToSave);
-
-            await batch.commit();
-
-            localStorage.removeItem(ECR_FORM_STORAGE_KEY);
-            showToast(`ECR "${ecrId}" guardado con éxito.`, 'success');
-            switchView('ecr');
-
+            if (result.data.success) {
+                localStorage.removeItem(ECR_FORM_STORAGE_KEY);
+                showToast(result.data.message, 'success');
+                switchView('ecr');
+            } else {
+                // This case might not be reached if the function throws an error on failure
+                showToast(result.data.message || 'Ocurrió un error inesperado.', 'error');
+            }
         } catch(error) {
-            console.error("Error saving ECR form: ", error);
-            showToast('Error al guardar el formulario.', 'error');
+            console.error("Error calling saveFormWithValidation for ECR:", error);
+            const errorMessage = error.message || 'Error desconocido al guardar el formulario.';
+            showToast(errorMessage, 'error');
         }
     };
 
