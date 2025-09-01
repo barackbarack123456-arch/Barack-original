@@ -1223,13 +1223,8 @@ async function createTutorialEcr() {
     const ecrId = 'TUTORIAL-ECR-001';
     const ecrRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
 
-    // First, check if it already exists to avoid unnecessary writes
-    const docSnap = await getDoc(ecrRef);
-    if (docSnap.exists() && docSnap.data().status === 'approved') {
-        console.log('Tutorial ECR already exists and is approved.');
-        return ecrId; // It's already there, just return the ID
-    }
-
+    // Always overwrite the tutorial ECR to ensure it's fresh and correct.
+    // This prevents issues with stale data from previous tutorial runs.
     showToast('Preparando ECR de demostración para el tutorial...', 'info');
 
     const tutorialEcrData = {
