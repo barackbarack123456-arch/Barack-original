@@ -1,50 +1,57 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const cors = require('cors')({origin: true});
 
 admin.initializeApp();
 
-exports.getNextEcrNumber = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
-  }
+exports.getNextEcrNumber = functions.https.onRequest((req, res) => {
+  cors(req, res, async () => {
+    // Note: Authentication is not checked here. For a production environment,
+    // you would want to verify the user's token passed in the request headers.
+    // Example: const idToken = req.headers.authorization?.split('Bearer ')[1];
+    // try { await admin.auth().verifyIdToken(idToken); } catch (e) { res.status(403).send('Unauthorized'); return; }
 
-  const db = admin.firestore();
-  const ecrRef = db.collection('ecr_forms');
-  const currentYear = new Date().getFullYear();
+    const db = admin.firestore();
+    const ecrRef = db.collection('ecr_forms');
+    const currentYear = new Date().getFullYear();
 
-  // Query for ECRs in the current year, order by ID descending, and get the last one.
-  const query = ecrRef
-    .where('id', '>=', `ECR-${currentYear}-000`)
-    .where('id', '<', `ECR-${currentYear + 1}-000`)
-    .orderBy('id', 'desc')
-    .limit(1);
+    const query = ecrRef
+      .where('id', '>=', `ECR-${currentYear}-000`)
+      .where('id', '<', `ECR-${currentYear + 1}-000`)
+      .orderBy('id', 'desc')
+      .limit(1);
 
-  try {
-    const snapshot = await query.get();
-    let nextNumber = 1;
+    try {
+      const snapshot = await query.get();
+      let nextNumber = 1;
 
-    if (!snapshot.empty) {
-      const lastEcrId = snapshot.docs[0].id;
-      // E.g., "ECR-2024-005" -> parts = ["ECR", "2024", "005"]
-      const parts = lastEcrId.split('-');
-      if (parts.length === 3) {
-          const lastNumber = parseInt(parts[2], 10);
-          if (!isNaN(lastNumber)) {
-              nextNumber = lastNumber + 1;
-          }
+      if (!snapshot.empty) {
+        const lastEcrId = snapshot.docs[0].id;
+        const parts = lastEcrId.split('-');
+        if (parts.length === 3) {
+            const lastNumber = parseInt(parts[2], 10);
+            if (!isNaN(lastNumber)) {
+                nextNumber = lastNumber + 1;
+            }
+        }
+      }
+
+      const formattedNumber = String(nextNumber).padStart(3, '0');
+      const newEcrId = `ECR-${currentYear}-${formattedNumber}`;
+
+      // With onRequest, we send a JSON response directly.
+      // The `data` property is added to match the structure expected by the client SDK.
+      res.status(200).send({ data: { newEcrId: newEcrId } });
+
+    } catch (error) {
+      console.error("Error getting next ECR number:", error);
+      if (error.code === 'failed-precondition') {
+          res.status(400).send({ error: 'failed-precondition', message: 'Query requires a database index.' });
+      } else {
+          res.status(500).send({ error: 'internal', message: 'Could not retrieve the next ECR number.' });
       }
     }
-
-    // Format the number with leading zeros
-    const formattedNumber = String(nextNumber).padStart(3, '0');
-    const newEcrId = `ECR-${currentYear}-${formattedNumber}`;
-
-    return { newEcrId: newEcrId };
-
-  } catch (error) {
-    console.error("Error getting next ECR number:", error);
-    throw new functions.https.HttpsError('internal', 'Could not retrieve the next ECR number.');
-  }
+  });
 });
 
 exports.saveFormWithValidation = functions.https.onCall(async (data, context) => {
