@@ -1597,7 +1597,7 @@ async function runEcoFormLogic(params = null) {
                 </div>
             </header>
             <main id="dynamic-form-sections"></main>
-            <div id="ppap-confirmation-container" class="hidden mt-6 p-4 border-2 border-yellow-400 bg-yellow-50 rounded-lg space-y-3">
+            <div id="ppap-confirmation-container" class="hidden mt-6 p-4 border-2 border-yellow-400 bg-yellow-50 rounded-lg">
                 <label class="flex items-center gap-3 cursor-pointer">
                     <input type="checkbox" name="ppap_completed_confirmation" class="h-5 w-5 rounded text-blue-600 focus:ring-blue-500 border-gray-300">
                     <div class="flex-grow">
@@ -1605,10 +1605,6 @@ async function runEcoFormLogic(params = null) {
                         <p class="text-sm text-yellow-700">El ECR asociado indica que se requiere un PPAP. Marque esta casilla para confirmar que el PPAP ha sido completado y aprobado por el cliente antes de cerrar este ECO.</p>
                     </div>
                 </label>
-                <div>
-                    <label for="ppap_evidence" class="text-sm font-semibold text-yellow-900">Evidencia PPAP (URL, N° de documento, etc.):</label>
-                    <input type="text" id="ppap_evidence" name="ppap_evidence" class="mt-1 w-full p-2 border border-yellow-300 rounded-md bg-yellow-50 focus:ring-yellow-500 focus:border-yellow-500">
-                </div>
             </div>
 
             <!-- Action Plan Section -->
@@ -1681,7 +1677,7 @@ async function runEcoFormLogic(params = null) {
             },
             {
                 title: 'IMPLEMENTACIÓN', id: 'implementacion', icon: 'rocket',
-                checklist: [ '¿Se requiere actualizar el stock?', '¿Se requiere notificar al cliente?', '¿Se requiere capacitar al personal?', '¿Se requiere validar el proceso?' ]
+                checklist: [ '¿Plan de acción completado?', '¿Se requiere actualizar el stock?', '¿Se requiere notificar al cliente?', '¿Se requiere capacitar al personal?', '¿Se requiere validar el proceso?' ]
             },
             {
                 title: 'APROBACIÓN FINAL', id: 'aprobacion_final', icon: 'flag',
@@ -1705,20 +1701,12 @@ async function runEcoFormLogic(params = null) {
                 `).join('')
                 : '';
 
-            const docuEvidenceHTML = section.id === 'doc_calidad'
-                ? `<div class="mt-4">
-                        <label for="doc_calidad_evidence" class="block font-bold text-gray-700 mb-2">Notas de Evidencia:</label>
-                        <textarea id="doc_calidad_evidence" name="doc_calidad_evidence" rows="3" class="form-field" placeholder="Ej: AMFE v1.2, Plan de Control rev. C..."></textarea>
-                   </div>`
-                : '';
-
             const mainContentHTML = section.checklist
                 ? `
                 <div class="section-checklist">${checklistItemsHTML}</div>
                 <div class="section-comments">
                     <label for="comments_${section.id}" class="block font-bold text-gray-700 mb-2">Comentarios:</label>
-                    <textarea id="comments_${section.id}" name="comments_${section.id}" rows="4" class="form-field"></textarea>
-                    ${docuEvidenceHTML}
+                    <textarea id="comments_${section.id}" name="comments_${section.id}" rows="8" class="form-field"></textarea>
                 </div>`
                 : `<div class="p-4 w-full col-span-2">
                     <p class="text-gray-700 text-center italic">${section.description}</p>
@@ -1806,25 +1794,42 @@ async function runEcoFormLogic(params = null) {
 
         let actionPlan = [];
 
+        const updateActionPlanCompletionStatus = () => {
+            // The new checkbox is the first item (index 0) in the 'implementacion' section.
+            const actionPlanCheckbox = document.querySelector('input[name="check_implementacion_0_si"]');
+            if (!actionPlanCheckbox) return;
+
+            // This checkbox should be controlled only by the action plan's status.
+            actionPlanCheckbox.disabled = true;
+
+            const allTasksCompleted = actionPlan.length > 0 && actionPlan.every(task => task.status === 'completed');
+            actionPlanCheckbox.checked = allTasksCompleted;
+
+            // Also disable the N/A checkbox for this item
+            const naCheckbox = document.querySelector('input[name="check_implementacion_0_na"]');
+            if(naCheckbox) naCheckbox.disabled = true;
+        };
+
         const renderActionPlan = () => {
             const listEl = document.getElementById('action-plan-list');
             if (!listEl) return;
             if (actionPlan.length === 0) {
                 listEl.innerHTML = '<p class="text-center text-sm text-slate-500 py-4">No hay acciones en el plan.</p>';
-                return;
-            }
-            listEl.innerHTML = actionPlan.map((item, index) => `
-                <div class="action-item grid grid-cols-[1fr,120px,100px,50px] gap-3 items-center p-2 rounded-md ${item.status === 'completed' ? 'bg-green-50' : 'bg-white'} border">
-                    <p class="font-medium text-slate-700">${item.description}</p>
-                    <p class="text-sm text-slate-600">${item.assignee || 'N/A'}</p>
-                    <p class="text-sm text-slate-500">${item.dueDate || 'N/A'}</p>
-                    <div class="flex justify-center gap-2">
-                         <input type="checkbox" data-action="toggle-action-status" data-index="${index}" class="h-4 w-4" ${item.status === 'completed' ? 'checked' : ''}>
-                         <button type="button" data-action="delete-action-item" data-index="${index}" class="text-red-500 hover:text-red-700"><i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i></button>
+            } else {
+                listEl.innerHTML = actionPlan.map((item, index) => `
+                    <div class="action-item grid grid-cols-[1fr,120px,100px,50px] gap-3 items-center p-2 rounded-md ${item.status === 'completed' ? 'bg-green-50' : 'bg-white'} border">
+                        <p class="font-medium text-slate-700">${item.description}</p>
+                        <p class="text-sm text-slate-600">${item.assignee || 'N/A'}</p>
+                        <p class="text-sm text-slate-500">${item.dueDate || 'N/A'}</p>
+                        <div class="flex justify-center gap-2">
+                             <input type="checkbox" data-action="toggle-action-status" data-index="${index}" class="h-4 w-4" ${item.status === 'completed' ? 'checked' : ''}>
+                             <button type="button" data-action="delete-action-item" data-index="${index}" class="text-red-500 hover:text-red-700"><i data-lucide="trash-2" class="h-4 w-4 pointer-events-none"></i></button>
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `).join('');
+            }
             lucide.createIcons();
+            updateActionPlanCompletionStatus(); // Update status whenever the plan is re-rendered
         };
 
         const setupActionPlanListeners = () => {
@@ -1913,6 +1918,8 @@ async function runEcoFormLogic(params = null) {
                 const data = docSnap.data();
                 populateEcoForm(formElement, data);
                 actionPlan = data.action_plan || [];
+                // This is the crucial fix: update the checkbox state after loading data.
+                updateActionPlanCompletionStatus();
             } else {
                 showToast(`Error: No se encontró el ECO con ID ${ecoId}`, 'error');
                 switchView('eco');
@@ -1995,7 +2002,7 @@ async function runEcoFormLogic(params = null) {
                 }
             }
              // Handle checkboxes correctly
-            formElement.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            formElement.querySelectorAll('input[type="checkbox"]:not(:disabled)').forEach(cb => {
                 const key = cb.name;
                  if (key.startsWith('check_')) {
                     const [, section, index, type] = key.split('_');
