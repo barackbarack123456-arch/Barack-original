@@ -11,6 +11,10 @@
     ],
     "rewrites": [
       {
+        "source": "/saveFormWithValidation",
+        "function": "saveFormWithValidation"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

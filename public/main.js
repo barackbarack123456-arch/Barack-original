@@ -1598,9 +1598,13 @@ async function runEcoFormLogic(params = null) {
                     <img src="/barack_logo.png" alt="Logo" class="h-12">
                     ${createHelpTooltip('ECO (Engineering Change Order): Este formulario se usa para implementar y documentar el cierre de un cambio de ingeniería ya aprobado. Cada sección debe ser revisada y firmada por el departamento correspondiente.')}
                 </div>
-                <div>
-                    <label for="ecr_no" class="text-lg font-semibold mr-2">ECR N°:</label>
-                    <input type="text" id="ecr_no" name="ecr_no" class="border-2 border-gray-300 rounded-md p-2 w-48">
+                <div class="form-field">
+                    <label for="ecr_no_display" class="text-lg font-semibold">ECR Asociado:</label>
+                    <div class="flex items-center gap-2 mt-1">
+                        <input type="text" id="ecr_no_display" class="border-2 border-gray-300 rounded-md p-2 w-64 bg-gray-100" readonly placeholder="Seleccionar ECR...">
+                        <input type="hidden" name="ecr_no" id="ecr_no">
+                        <button type="button" data-action="open-ecr-search-for-eco" class="bg-blue-500 text-white p-2.5 rounded-md hover:bg-blue-600"><i data-lucide="search" class="h-5 w-5 pointer-events-none"></i></button>
+                    </div>
                 </div>
             </header>
             <main id="dynamic-form-sections"></main>
@@ -2000,6 +2004,13 @@ async function runEcoFormLogic(params = null) {
 
         // Add event listener to save on any input
         formElement.addEventListener('input', saveEcoFormToLocalStorage);
+
+        formElement.addEventListener('click', (e) => {
+            const button = e.target.closest('button[data-action="open-ecr-search-for-eco"]');
+            if (button) {
+                openEcrSearchModalForEcoForm();
+            }
+        });
 
         const getFormData = () => {
             const formData = new FormData(formElement);
@@ -4134,6 +4145,180 @@ async function runEcrSeguimientoLogic() {
     };
 }
 
+function openEcrProductSearchModal() {
+    let clientOptions = '<option value="">Todos</option>' + appState.collections[COLLECTIONS.CLIENTES].map(c => `<option value="${c.id}">${c.descripcion}</option>`).join('');
+    const modalId = `ecr-prod-search-modal-${Date.now()}`;
+    const modalHTML = `
+        <div id="${modalId}" class="fixed inset-0 z-[60] flex items-center justify-center modal-backdrop animate-fade-in">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[80vh] flex flex-col m-4 modal-content">
+                <div class="flex justify-between items-center p-5 border-b">
+                    <h3 class="text-xl font-bold">Buscar Producto</h3>
+                    <button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button>
+                </div>
+                <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="search-ecr-prod-term" class="block text-sm font-medium">Código/Descripción</label>
+                        <input type="text" id="search-ecr-prod-term" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="search-ecr-prod-client" class="block text-sm font-medium">Cliente</label>
+                        <select id="search-ecr-prod-client" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">${clientOptions}</select>
+                    </div>
+                </div>
+                <div id="search-ecr-prod-results" class="p-6 border-t overflow-y-auto flex-1"></div>
+            </div>
+        </div>
+    `;
+
+    dom.modalContainer.insertAdjacentHTML('beforeend', modalHTML);
+    lucide.createIcons();
+
+    const modalElement = document.getElementById(modalId);
+    const termInput = modalElement.querySelector('#search-ecr-prod-term');
+    const clientSelect = modalElement.querySelector('#search-ecr-prod-client');
+    const resultsContainer = modalElement.querySelector('#search-ecr-prod-results');
+
+    const searchHandler = () => {
+        const term = termInput.value.toLowerCase();
+        const clientId = clientSelect.value;
+        let results = appState.collections[COLLECTIONS.PRODUCTOS].filter(p =>
+            (term === '' || p.id.toLowerCase().includes(term) || p.descripcion.toLowerCase().includes(term)) &&
+            (!clientId || p.clienteId === clientId)
+        );
+        resultsContainer.innerHTML = results.length === 0
+            ? `<p class="text-center py-8">No se encontraron productos.</p>`
+            : `<div class="space-y-1">${results.map(p => `
+                <button data-product-id="${p.id}" class="w-full text-left p-2.5 bg-gray-50 hover:bg-blue-100 rounded-md border flex justify-between items-center">
+                    <div>
+                        <p class="font-semibold text-blue-800">${p.descripcion}</p>
+                        <p class="text-xs text-gray-500">${p.id}</p>
+                    </div>
+                    <p class="text-xs text-gray-500">${appState.collections[COLLECTIONS.CLIENTES].find(c => c.id === p.clienteId)?.descripcion || ''}</p>
+                </button>
+            `).join('')}</div>`;
+    };
+
+    const selectHandler = (e) => {
+        const button = e.target.closest('button[data-product-id]');
+        if (button) {
+            const productId = button.dataset.productId;
+            const product = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.id === productId);
+            if (product) {
+                // Populate the ECR form fields
+                document.getElementById('codigo_barack').value = product.id;
+                document.getElementById('codigo_barack_display').value = `${product.descripcion} (${product.id})`;
+                document.getElementById('denominacion_producto').value = product.descripcion;
+                // Also, auto-select the client associated with the product
+                const clientSelectInForm = document.getElementById('cliente');
+                if (clientSelectInForm && product.clienteId) {
+                    clientSelectInForm.value = product.clienteId;
+                }
+            }
+            modalElement.remove();
+        }
+    };
+
+    termInput.addEventListener('input', searchHandler);
+    clientSelect.addEventListener('change', searchHandler);
+    resultsContainer.addEventListener('click', selectHandler);
+    modalElement.querySelector('button[data-action="close"]').addEventListener('click', () => modalElement.remove());
+
+    searchHandler(); // Initial render
+}
+
+function openEcrSearchModalForEcoForm() {
+    const modalId = `ecr-search-for-eco-modal-${Date.now()}`;
+    const modalHTML = `
+        <div id="${modalId}" class="fixed inset-0 z-[60] flex items-center justify-center modal-backdrop animate-fade-in">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl m-4 modal-content max-h-[90vh] flex flex-col">
+                <div class="flex justify-between items-center p-5 border-b">
+                    <h3 class="text-xl font-bold">Seleccionar ECR Aprobado</h3>
+                    <button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button>
+                </div>
+                <div class="p-4 border-b">
+                    <input type="text" id="ecr-search-input-modal" placeholder="Buscar por N°, producto o cliente..." class="w-full p-2 border rounded-md">
+                </div>
+                <div id="ecr-list-container" class="p-6 overflow-y-auto">
+                    <!-- ECRs will be rendered here -->
+                </div>
+            </div>
+        </div>
+    `;
+
+    dom.modalContainer.insertAdjacentHTML('beforeend', modalHTML);
+    lucide.createIcons();
+    const modalElement = document.getElementById(modalId);
+
+    const approvedEcrs = appState.collections[COLLECTIONS.ECR_FORMS].filter(ecr => ecr.status === 'approved');
+
+    const renderList = (searchTerm = '') => {
+        const container = modalElement.querySelector('#ecr-list-container');
+        const lowerCaseSearchTerm = searchTerm.toLowerCase();
+        const filteredEcrs = approvedEcrs.filter(ecr =>
+            ecr.id.toLowerCase().includes(lowerCaseSearchTerm) ||
+            (ecr.denominacion_producto && ecr.denominacion_producto.toLowerCase().includes(lowerCaseSearchTerm)) ||
+            (ecr.cliente && ecr.cliente.toLowerCase().includes(lowerCaseSearchTerm))
+        );
+
+        if (filteredEcrs.length === 0) {
+            container.innerHTML = '<p class="text-center text-slate-500 py-8">No se encontraron ECRs aprobados.</p>';
+            return;
+        }
+
+        container.innerHTML = filteredEcrs.map(ecr => `
+            <button data-ecr-id="${ecr.id}" class="w-full text-left p-3 mb-2 bg-slate-50 hover:bg-blue-100 rounded-md border transition">
+                <div class="flex justify-between items-center">
+                    <p class="font-bold text-blue-800">${ecr.id}</p>
+                    <p class="text-xs text-slate-500">Cliente: ${ecr.cliente || 'N/A'}</p>
+                </div>
+                <p class="text-sm text-slate-700">${ecr.denominacion_producto || 'Sin descripción'}</p>
+            </button>
+        `).join('');
+    };
+
+    modalElement.querySelector('#ecr-search-input-modal').addEventListener('input', e => renderList(e.target.value));
+
+    modalElement.querySelector('#ecr-list-container').addEventListener('click', e => {
+        const button = e.target.closest('button[data-ecr-id]');
+        if (button) {
+            const ecrId = button.dataset.ecrId;
+            const ecrData = approvedEcrs.find(ecr => ecr.id === ecrId);
+            if (ecrData) {
+                const ecrNoInput = document.getElementById('ecr_no');
+                const ecrNoDisplay = document.getElementById('ecr_no_display');
+
+                if (ecrNoInput && ecrNoDisplay) {
+                    ecrNoInput.value = ecrData.id;
+                    ecrNoDisplay.value = `${ecrData.denominacion_producto} (${ecrData.id})`;
+
+                    const formElement = document.getElementById('eco-form');
+                    const fieldsToPrepopulate = {
+                        'name_eng_producto': ecrData.equipo_c1_2,
+                        'comments_eng_producto': `Basado en la situación propuesta en el ECR ${ecrData.id}:\n${ecrData.situacion_propuesta || ''}`
+                    };
+
+                    for (const fieldName in fieldsToPrepopulate) {
+                        const element = formElement.querySelector(`[name="${fieldName}"]`);
+                        if (element) {
+                            element.value = fieldsToPrepopulate[fieldName];
+                        }
+                    }
+                    if (ecrData.cliente_requiere_ppap && ecrData.cliente_aprobacion_estado === 'aprobado') {
+                        const ppapContainer = formElement.querySelector('#ppap-confirmation-container');
+                        if (ppapContainer) {
+                            ppapContainer.classList.remove('hidden');
+                        }
+                    }
+                }
+            }
+            modalElement.remove();
+        }
+    });
+
+    modalElement.querySelector('button[data-action="close"]').addEventListener('click', () => modalElement.remove());
+    renderList();
+}
+
 async function runEcrFormLogic(params = null) {
     const ecrId = params ? params.ecrId : null;
     const scrollToSection = params ? params.scrollToSection : null;
@@ -4327,11 +4512,21 @@ async function runEcrFormLogic(params = null) {
             </section>
 
             <section class="form-row">
-                ${createTextField('Código(s) Barack:', 'codigo_barack', '...')}
+                <div class="form-field">
+                    <label for="codigo_barack_search" class="text-sm font-bold mb-1">Producto Barack</label>
+                    <div class="flex items-center gap-2">
+                        <input type="text" id="codigo_barack_display" class="w-full bg-gray-100" readonly placeholder="Seleccione un producto...">
+                        <input type="hidden" name="codigo_barack" id="codigo_barack">
+                        <button type="button" data-action="open-ecr-product-search" class="bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600"><i data-lucide="search" class="h-5 w-5 pointer-events-none"></i></button>
+                    </div>
+                </div>
                 ${createTextField('Código(s) Cliente:', 'codigo_cliente', '...')}
             </section>
             <section class="form-row">
-                ${createTextField('Denominación del Producto:', 'denominacion_producto', '...', true)}
+                 <div class="form-field col-span-full">
+                    <label for="denominacion_producto" class="text-sm font-bold mb-1">Denominación del Producto</label>
+                    <input type="text" name="denominacion_producto" id="denominacion_producto" placeholder="..." class="w-full bg-gray-100" readonly>
+                </div>
             </section>
 
             <section class="form-row">
@@ -4592,6 +4787,17 @@ async function runEcrFormLogic(params = null) {
             });
         }
 
+        // Add logic for the new product selector
+        if (data.codigo_barack) {
+            const product = appState.collections[COLLECTIONS.PRODUCTOS].find(p => p.id === data.codigo_barack);
+            if (product) {
+                const displayInput = form.querySelector('#codigo_barack_display');
+                if (displayInput) {
+                    displayInput.value = `${product.descripcion} (${product.id})`;
+                }
+            }
+        }
+
         // Populate and disable approval sections
         if (data.approvals) {
             for (const deptId in data.approvals) {
@@ -4626,24 +4832,30 @@ async function runEcrFormLogic(params = null) {
     formContainer.addEventListener('input', saveEcrFormToLocalStorage);
 
     formContainer.addEventListener('click', async (e) => {
-        const button = e.target.closest('button[data-action="register-ecr-approval"]');
+        const button = e.target.closest('button[data-action]');
         if (!button) return;
 
-        const decision = button.dataset.decision;
-        const departmentId = button.dataset.departmentId;
-        const ecrId = formContainer.querySelector('[name="ecr_no"]').value.trim();
+        const action = button.dataset.action;
 
-        if (!ecrId) {
-            showToast('Debe guardar el ECR con un N° antes de poder aprobar.', 'error');
-            return;
+        if (action === 'register-ecr-approval') {
+            const decision = button.dataset.decision;
+            const departmentId = button.dataset.departmentId;
+            const ecrId = formContainer.querySelector('[name="ecr_no"]').value.trim();
+
+            if (!ecrId) {
+                showToast('Debe guardar el ECR con un N° antes de poder aprobar.', 'error');
+                return;
+            }
+
+            const commentEl = formContainer.querySelector(`[name="comments_${departmentId}"]`);
+            const comment = commentEl ? commentEl.value : '';
+
+            await registerEcrApproval(ecrId, departmentId, decision, comment);
+            // Refresh the form view to show the new state
+            switchView('ecr_form', { ecrId: ecrId });
+        } else if (action === 'open-ecr-product-search') {
+            openEcrProductSearchModal();
         }
-
-        const commentEl = formContainer.querySelector(`[name="comments_${departmentId}"]`);
-        const comment = commentEl ? commentEl.value : '';
-
-        await registerEcrApproval(ecrId, departmentId, decision, comment);
-        // Refresh the form view to show the new state
-        switchView('ecr_form', { ecrId: ecrId });
     });
 
     // --- Button Event Listeners ---
