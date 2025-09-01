@@ -25,3 +25,13 @@ lerna-debug.log*
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Agent-specific files
+*.bak
+*.cache
+playwright-report/
+test-results/
+hosting.*.cache
+firebase.log
+error_screenshot.png
+public/error_screenshot.png
