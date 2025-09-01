@@ -1258,7 +1258,7 @@ async function createTutorialEcr() {
     try {
         await setDoc(ecrRef, tutorialEcrData);
         console.log(`Successfully created or updated tutorial ECR: ${ecrId}`);
-        return ecrId;
+        return tutorialEcrData; // Return the full object
     } catch (error) {
         console.error("Error creating tutorial ECR:", error);
         showToast('Error al preparar el ECR del tutorial.', 'error');
@@ -1702,8 +1702,12 @@ async function runEcoFormLogic(params = null) {
 
         function buildSectionHTML(section) {
             const checklistItemsHTML = section.checklist
-                ? section.checklist.map((item, index) => `
-                    <div class="checklist-item">
+            ? section.checklist.map((item, index) => {
+                const tutorialId = (section.id === 'implementacion' && index === 0)
+                    ? 'data-tutorial-id="action-plan-completion-checkbox"'
+                    : '';
+                return `
+                    <div class="checklist-item" ${tutorialId}>
                         <span class="checklist-item-label text-sm">${item}</span>
                         <div class="checklist-item-options">
                             <label class="text-sm font-medium">SI</label>
@@ -1711,8 +1715,9 @@ async function runEcoFormLogic(params = null) {
                             <label class="text-sm font-medium">N/A</label>
                             <input type="checkbox" name="check_${section.id}_${index}_na" class="form-checkbox h-5 w-5 text-gray-400">
                         </div>
-                    </div>
-                `).join('')
+                        </div>
+                `;
+            }).join('')
                 : '';
 
             const mainContentHTML = section.checklist

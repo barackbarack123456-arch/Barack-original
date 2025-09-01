@@ -133,22 +133,16 @@ const tutorial = (app) => {
             title: 'Generación del ECO',
             content: 'Para este ECR aprobado de ejemplo, el botón "Generar ECO" está activo. Al hacer clic, se crea la Orden de Cambio de Ingeniería (ECO) y nos lleva a su formulario.',
             position: 'left',
-            preAction: async () => {
-                // The user is already on the 'ecr' view. Calling the helper directly
-                // is more stable and avoids potential race conditions with view re-initialization.
-                await app.createTutorialEcr();
-
-                // A slightly longer, more robust wait for the onSnapshot listener to fire and the UI to re-render.
-                await new Promise(resolve => setTimeout(resolve, 750));
-            },
-            click: true,
+            // By calling switchView directly in postAction, we bypass the generic click handler
+            // and its racy re-fetch from the database. This ensures the correct, fresh data is used.
             postAction: async () => {
-                // Find the button and click it to trigger the view switch.
-                const button = document.querySelector('button[data-action="generate-eco-from-ecr"]');
-                if (button) {
-                    button.click();
+                const ecrData = await app.createTutorialEcr();
+                if (ecrData) {
+                    await app.switchView('eco_form', { ecrData: ecrData });
+                } else {
+                    app.showToast('No se pudieron generar los datos del tutorial.', 'error');
                 }
-                // Now, wait for the form to be visible as a result of the click.
+                // Now, wait for the form to be visible as a result of the view switch.
                 await waitForVisibleElement('#eco-form');
             }
         },
@@ -167,8 +161,8 @@ const tutorial = (app) => {
         {
             element: '.section-block:first-of-type',
             title: 'ECO: Checklists Departamentales',
-            content: 'Cada departamento utiliza estas listas de verificación para confirmar que todas las acciones necesarias (actualizar planos, planes de control, etc.) se han completado antes del cierre del ECO.',
-            position: 'right'
+            content: 'Cada departamento utiliza estas listas de verificación para confirmar que todas lasactions necesarias (actualizar planos, planes de control, etc.) se han completado antes del cierre del ECO.',
+            position: 'top'
         },
         {
             element: '#action-plan-section',
@@ -183,7 +177,7 @@ const tutorial = (app) => {
             position: 'top'
         },
         {
-            element: '[data-lucide="rocket"]',
+            element: '[data-tutorial-id="action-plan-completion-checkbox"]',
             title: 'Integración del Plan de Acción',
             content: '¡Nueva mejora! La primera opción de la sección "Implementación", "¿Plan de acción completado?", ahora se marca automáticamente cuando todas las tareas que definiste en el Plan de Acción están completas. Esto conecta la planificación con la ejecución.',
             position: 'top'
