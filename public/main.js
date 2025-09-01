@@ -1922,6 +1922,15 @@ async function runEcoFormLogic(params = null) {
                 actionPlan = data.action_plan || [];
                 // This is the crucial fix: update the checkbox state after loading data.
                 updateActionPlanCompletionStatus();
+                 // Fetch associated ECR to check for PPAP requirement
+                const ecrDocRef = doc(db, COLLECTIONS.ECR_FORMS, ecoId);
+                const ecrDocSnap = await getDoc(ecrDocRef);
+                if (ecrDocSnap.exists() && ecrDocSnap.data().cliente_requiere_ppap) {
+                    const ppapContainer = formElement.querySelector('#ppap-confirmation-container');
+                    if (ppapContainer) {
+                        ppapContainer.classList.remove('hidden');
+                    }
+                }
             } else {
                 showToast(`Error: No se encontró el ECO con ID ${ecoId}`, 'error');
                 switchView('eco');
@@ -1943,6 +1952,12 @@ async function runEcoFormLogic(params = null) {
                 const element = formElement.querySelector(`[name="${fieldName}"]`);
                 if (element && !element.value) { // Don't overwrite if already has a value (e.g., from local storage)
                     element.value = fieldsToPrepopulate[fieldName];
+                }
+            }
+            if (ecrDataFromParam.cliente_requiere_ppap) {
+                const ppapContainer = formElement.querySelector('#ppap-confirmation-container');
+                if (ppapContainer) {
+                    ppapContainer.classList.remove('hidden');
                 }
             }
 

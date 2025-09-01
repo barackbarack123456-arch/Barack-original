@@ -238,7 +238,7 @@ const tutorial = (app) => {
             position: 'top'
         },
         {
-            element: 'i[data-lucide="rocket"]',
+            element: '[data-lucide="rocket"]',
             title: 'Integración del Plan de Acción',
             content: '¡Nueva mejora! La primera opción de la sección "Implementación", "¿Plan de acción completado?", ahora se marca automáticamente cuando todas las tareas que definiste en el Plan de Acción están completas. Esto conecta la planificación con la ejecución.',
             position: 'top'
