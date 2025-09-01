@@ -6,9 +6,5 @@
       "**/.*",
       "**/node_modules/**"
     ]
-  },
-  "functions": {
-    "source": "functions",
-    "runtime": "nodejs18"
   }
 }
