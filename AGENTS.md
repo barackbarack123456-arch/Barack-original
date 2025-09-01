@@ -28,6 +28,13 @@ This file contains guidelines and lessons learned for AI agents working on this 
     *   **Scenario:** In the ECO form, the "Plan de acción completado" checkbox in the "Implementation" section should be checked *if and only if* all tasks in the Action Plan are marked as 'completed'. It should be a read-only indicator.
     *   **Problem:** The initial implementation correctly disabled the checkbox to prevent user clicks. However, the form-saving logic (`getFormData`) used a broad `querySelectorAll('input[type="checkbox"]')` to gather the state of all checkboxes. This read the `checked` property of the disabled checkbox and saved it to Firestore. If the user later reloaded the form with an incomplete action plan, `populateEcoForm` would read the stale `true` value from the database, incorrectly showing the box as checked before the runtime logic had a chance to correct it.
     *   **Solution:** The form-saving logic must be modified to exclude disabled elements. The most robust way to do this is to change the selector to `querySelectorAll('input[type="checkbox"]:not(:disabled)')`. This ensures that any UI element whose state is purely derived and therefore disabled will not have its state persisted, correctly treating it as a read-only, calculated field.
+12. **Avoiding Paid Firebase Features (The "Blaze" Plan):** A key requirement for this project is to stay within the free "Spark" tier of Firebase. Be vigilant about implementing features that require the paid "Blaze" plan.
+    *   **Scenario:** The application needed to generate sequential, unique numbers for ECR forms (e.g., ECR-2024-001, ECR-2024-002).
+    *   **Problem:** The initial implementation used a Firebase Cloud Function (`getNextEcrNumber`) to handle this. While this works, **Cloud Functions are a "Blaze" plan feature.** Any attempt to use them on the free tier will result in CORS errors and failed network requests, as the function will not be deployed.
+    *   **Solution:** The correct, free-tier approach for generating atomic, sequential numbers is to use a **Firestore Transaction** on the client side. This involves:
+        1.  Creating a dedicated "counter" document in a collection (e.g., `counters/ecr_counter`).
+        2.  Wrapping the logic to read, increment, and write the counter inside a `runTransaction` block.
+        3.  This ensures that even with multiple users requesting a number at the same time, the counter is updated atomically, preventing duplicate numbers. This entire operation is handled by the client-side Firestore SDK and does not require paid backend functions.
 
 ## Important Technical Details
 
@@ -43,23 +50,4 @@ To run the application and verify frontend changes, use the following credential
 
 - **Username:** `f.santoro@barackmercosul.com`
 - **Password:** `$oof@k24`
-
-## Verification Workflow
-
-## Verification Workflow
-
-As an AI agent, you are responsible for verifying all frontend changes. While the Playwright test suite (`tests/*.spec.js`) may have issues in some environments, you must still use Playwright to generate visual proof of your changes.
-
-Your workflow for frontend verification is as follows:
-
-1.  **Use `frontend_verification_instructions()`:** Call this tool to get the latest instructions on how to create a verification script.
-2.  **Write a Verification Script:** Create a new Playwright script (e.g., in the `tests/` directory). This script should:
-    *   Log in to the application using the credentials provided below.
-    *   Navigate to the specific page or state that showcases your changes.
-    *   Take a screenshot of the relevant UI component.
-3.  **Run the Script:** Execute your script to generate the screenshot.
-4.  **Present for Approval:** Use the `message_user` tool to show the screenshot to the user for final approval before submitting your changes.
-
-This process ensures that all changes are visually confirmed by the user, even if the full test suite cannot be run.
-
 ---
