@@ -1,4 +1,4 @@
-import { getUniqueKeyForCollection, COLLECTIONS } from './utils.js';
+import { getUniqueKeyForCollection, COLLECTIONS } from '../../public/utils.js';
 
 describe('getUniqueKeyForCollection', () => {
   test('should return "codigo_pieza" for PRODUCTOS', () => {
