@@ -4613,7 +4613,17 @@ async function runEcrFormLogic(params = null) {
         showToast('Guardando formulario ECR...', 'info');
         try {
             const docRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
-            await setDoc(docRef, dataToSave, { merge: true });
+            const historyRef = collection(docRef, 'history');
+            const batch = writeBatch(db);
+
+            // Set the main document (latest version)
+            batch.set(docRef, dataToSave, { merge: true });
+
+            // Add a new document to the history subcollection
+            const historyDocRef = doc(historyRef); // Auto-generate ID
+            batch.set(historyDocRef, dataToSave);
+
+            await batch.commit();
 
             localStorage.removeItem(ECR_FORM_STORAGE_KEY);
             showToast(`ECR "${ecrId}" guardado con éxito.`, 'success');
