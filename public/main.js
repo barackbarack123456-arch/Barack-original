@@ -4743,22 +4743,36 @@ async function runEcrFormLogic(params = null) {
     lucide.createIcons();
 
     if (!isEditing) {
-        const getNextEcr = httpsCallable(functions, 'getNextEcrNumber');
-        getNextEcr()
-            .then(result => {
-                const ecrInput = formContainer.querySelector('[name="ecr_no"]');
-                if (ecrInput) {
-                    ecrInput.value = result.data.newEcrId;
-                }
-            })
-            .catch(error => {
-                console.error("Error fetching next ECR number:", error);
-                showToast('Error al generar el número de ECR.', 'error');
-                const ecrInput = formContainer.querySelector('[name="ecr_no"]');
-                if (ecrInput) {
-                    ecrInput.placeholder = 'Error. Recargue.';
-                }
-            });
+        // Using fetch to call the onRequest function
+        fetch('https://us-central1-barack2-0-f81a6.cloudfunctions.net/getNextEcrNumber', {
+            method: 'POST', // Or 'GET', depending on the function, but POST is common for CORS
+            headers: {
+                'Content-Type': 'application/json'
+            },
+        })
+        .then(response => {
+            if (!response.ok) {
+                // Try to parse error response from the function
+                return response.json().then(err => { throw new Error(err.message || 'Network response was not ok'); });
+            }
+            return response.json();
+        })
+        .then(result => {
+            const ecrInput = formContainer.querySelector('[name="ecr_no"]');
+            if (ecrInput && result.data.newEcrId) {
+                ecrInput.value = result.data.newEcrId;
+            } else {
+                 throw new Error('Invalid data structure in response');
+            }
+        })
+        .catch(error => {
+            console.error("Error fetching next ECR number:", error);
+            showToast(`Error al generar el número de ECR: ${error.message}`, 'error', 6000);
+            const ecrInput = formContainer.querySelector('[name="ecr_no"]');
+            if (ecrInput) {
+                ecrInput.placeholder = 'Error. Recargue.';
+            }
+        });
     }
 
     // Start observing each page section for the progress bar
