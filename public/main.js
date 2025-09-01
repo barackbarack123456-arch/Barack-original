@@ -1247,6 +1247,7 @@ async function createTutorialEcr() {
         situacion_propuesta: 'Esta es la situación propuesta para el ECR del tutorial, que permite la generación de un ECO.',
         // This field is checked by the ECO form logic
         cliente_requiere_ppap: true,
+        cliente_aprobacion_estado: 'aprobado',
         // Add a basic approvals structure so it looks realistic
         approvals: {
             ing_producto: { status: 'approved', user: 'Sistema', date: new Date().toISOString().split('T')[0], comment: 'Aprobado para tutorial' },
@@ -1978,7 +1979,7 @@ async function runEcoFormLogic(params = null) {
                     element.value = fieldsToPrepopulate[fieldName];
                 }
             }
-            if (ecrDataFromParam.cliente_requiere_ppap) {
+            if (ecrDataFromParam.cliente_requiere_ppap && ecrDataFromParam.cliente_aprobacion_estado === 'aprobado') {
                 const ppapContainer = formElement.querySelector('#ppap-confirmation-container');
                 if (ppapContainer) {
                     ppapContainer.classList.remove('hidden');
