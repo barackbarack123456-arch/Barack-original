@@ -24,6 +24,10 @@ This file contains guidelines and lessons learned for AI agents working on this 
         *   **Solution:** In the tutorial's scrolling logic (e.g., a function that calls `element.scrollIntoView()`), set the `behavior` option to `'instant'`. This eliminates the animation, ensuring the element is in its final position immediately.
     *   **Unstable Selectors:** If a tutorial step needs to highlight a concept represented by a group of dynamically generated elements (e.g., a list of department sections), applying a `data-tutorial-id` to only the *first* element is fragile. The tutorial may fail if that specific element is not visible or if the user navigates in a way that doesn't render it first.
         *   **Solution:** Instead of targeting a single dynamic item, wrap the entire group of related elements in a stable container `div`. Apply a single, consistent `data-tutorial-id` to this wrapper. Then, point all relevant tutorial steps (e.g., "Review Departments", "Approve Departments") to this single, stable wrapper. This makes the tutorial far more robust.
+11. **Implementing Derived, Read-Only UI State:** When a UI element's state should be derived from other data (and not be directly user-editable), it is crucial to ensure this state is not accidentally persisted back to the database.
+    *   **Scenario:** In the ECO form, the "Plan de acción completado" checkbox in the "Implementation" section should be checked *if and only if* all tasks in the Action Plan are marked as 'completed'. It should be a read-only indicator.
+    *   **Problem:** The initial implementation correctly disabled the checkbox to prevent user clicks. However, the form-saving logic (`getFormData`) used a broad `querySelectorAll('input[type="checkbox"]')` to gather the state of all checkboxes. This read the `checked` property of the disabled checkbox and saved it to Firestore. If the user later reloaded the form with an incomplete action plan, `populateEcoForm` would read the stale `true` value from the database, incorrectly showing the box as checked before the runtime logic had a chance to correct it.
+    *   **Solution:** The form-saving logic must be modified to exclude disabled elements. The most robust way to do this is to change the selector to `querySelectorAll('input[type="checkbox"]:not(:disabled)')`. This ensures that any UI element whose state is purely derived and therefore disabled will not have its state persisted, correctly treating it as a read-only, calculated field.
 
 ## Important Technical Details
 
@@ -59,5 +63,3 @@ Your workflow for frontend verification is as follows:
 This process ensures that all changes are visually confirmed by the user, even if the full test suite cannot be run.
 
 ---
-
-11. **Neutral Language for Prompts:** When formulating objectives or plans for another AI agent, use direct, descriptive, and neutral language. Instead of conceptual verbs like 'ensure', 'strengthen', or 'guarantee', prefer concrete action verbs like 'add a function', 'create a component', 'modify the text', or 'verify the value'. This helps avoid unnecessary activations of language safety filters and provides clearer, less ambiguous instructions.
