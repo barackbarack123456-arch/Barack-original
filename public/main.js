@@ -4212,6 +4212,23 @@ async function runEcrFormLogic(params = null) {
     const createDateField = (label, name) => `<div class="form-field"><label for="${name}" class="text-sm font-bold mb-1">${label}</label><input type="date" name="${name}" id="${name}" class="w-full"></div>`;
     const createTextarea = (name, placeholder = '') => `<textarea name="${name}" placeholder="${placeholder}" class="w-full h-full border-none resize-none p-1 bg-transparent focus:outline-none"></textarea>`;
 
+    const createSelectFieldFromCollection = (label, name, collectionKey, placeholder = 'Seleccionar...') => {
+        const items = appState.collections[collectionKey] || [];
+        // Sort items alphabetically by description or name for better UX
+        items.sort((a, b) => (a.descripcion || a.nombre).localeCompare(b.descripcion || b.nombre));
+
+        let optionsHTML = `<option value="">${placeholder}</option>`;
+        items.forEach(item => {
+            optionsHTML += `<option value="${item.id}">${item.descripcion || item.nombre}</option>`;
+        });
+        return `
+            <div class="form-field">
+                <label for="${name}" class="text-sm font-bold mb-1">${label}</label>
+                <select name="${name}" id="${name}" class="w-full">${optionsHTML}</select>
+            </div>
+        `;
+    };
+
     const buildDepartmentSection = (config, ecrData) => {
         const checklistHTML = config.checklist.map(item => `<div class="check-item">${createCheckbox(item.label, item.name)}</div>`).join('');
         const customContent = config.customHTML || '';
@@ -4293,8 +4310,8 @@ async function runEcrFormLogic(params = null) {
                         ${createCheckbox('Reglamentación', 'origen_reglamentacion')}
                     </div>
                 </div>
-                ${createTextField('Proyecto:', 'proyecto')}
-                ${createTextField('Cliente:', 'cliente')}
+                ${createSelectFieldFromCollection('Proyecto:', 'proyecto', COLLECTIONS.PROYECTOS)}
+                ${createSelectFieldFromCollection('Cliente:', 'cliente', COLLECTIONS.CLIENTES)}
             </section>
 
             <section class="form-row">
