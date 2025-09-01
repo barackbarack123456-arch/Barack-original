@@ -4743,36 +4743,50 @@ async function runEcrFormLogic(params = null) {
     lucide.createIcons();
 
     if (!isEditing) {
-        // Using fetch to call the onRequest function
-        fetch('https://us-central1-barack2-0-f81a6.cloudfunctions.net/getNextEcrNumber', {
-            method: 'POST', // Or 'GET', depending on the function, but POST is common for CORS
-            headers: {
-                'Content-Type': 'application/json'
-            },
-        })
-        .then(response => {
-            if (!response.ok) {
-                // Try to parse error response from the function
-                return response.json().then(err => { throw new Error(err.message || 'Network response was not ok'); });
+        const ecrInput = formContainer.querySelector('[name="ecr_no"]');
+        ecrInput.value = 'Generando...';
+
+        // This function uses a transaction to atomically get the next ECR number.
+        const getNextEcrId = async () => {
+            const counterRef = doc(db, "counters", "ecr_counter");
+            try {
+                const newEcrId = await runTransaction(db, async (transaction) => {
+                    const counterSnap = await transaction.get(counterRef);
+                    const currentYear = new Date().getFullYear();
+                    let nextNumber = 1;
+
+                    if (counterSnap.exists()) {
+                        const counterData = counterSnap.data();
+                        // If the counter is for the current year, increment it.
+                        // Otherwise, it's a new year, so we reset the counter to 1.
+                        if (counterData.year === currentYear) {
+                            nextNumber = counterData.count + 1;
+                        }
+                    }
+
+                    // Update the counter document within the transaction.
+                    transaction.set(counterRef, { count: nextNumber, year: currentYear });
+
+                    // Format the new ECR ID.
+                    const formattedNumber = String(nextNumber).padStart(3, '0');
+                    return `ECR-${currentYear}-${formattedNumber}`;
+                });
+
+                if (ecrInput) {
+                    ecrInput.value = newEcrId;
+                }
+
+            } catch (error) {
+                console.error("Error generating ECR number with transaction:", error);
+                showToast(`Error al generar el número de ECR: ${error.message}`, 'error', 6000);
+                // Put the error code in the input for debugging in Playwright
+                if (ecrInput) {
+                    ecrInput.value = `Error: ${error.code || 'Unknown'}`;
+                }
             }
-            return response.json();
-        })
-        .then(result => {
-            const ecrInput = formContainer.querySelector('[name="ecr_no"]');
-            if (ecrInput && result.data.newEcrId) {
-                ecrInput.value = result.data.newEcrId;
-            } else {
-                 throw new Error('Invalid data structure in response');
-            }
-        })
-        .catch(error => {
-            console.error("Error fetching next ECR number:", error);
-            showToast(`Error al generar el número de ECR: ${error.message}`, 'error', 6000);
-            const ecrInput = formContainer.querySelector('[name="ecr_no"]');
-            if (ecrInput) {
-                ecrInput.placeholder = 'Error. Recargue.';
-            }
-        });
+        };
+
+        await getNextEcrId();
     }
 
     // Start observing each page section for the progress bar
