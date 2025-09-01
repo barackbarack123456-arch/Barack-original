@@ -59,3 +59,5 @@ Your workflow for frontend verification is as follows:
 This process ensures that all changes are visually confirmed by the user, even if the full test suite cannot be run.
 
 ---
+
+11. **Neutral Language for Prompts:** When formulating objectives or plans for another AI agent, use direct, descriptive, and neutral language. Instead of conceptual verbs like 'ensure', 'strengthen', or 'guarantee', prefer concrete action verbs like 'add a function', 'create a component', 'modify the text', or 'verify the value'. This helps avoid unnecessary activations of language safety filters and provides clearer, less ambiguous instructions.
