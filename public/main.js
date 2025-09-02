@@ -527,6 +527,15 @@ function deleteItem(docId) {
     const config = viewConfig[appState.currentView];
     if (!config || !config.dataKey) return;
 
+    // For most items, only a super admin can delete.
+    // We make exceptions for specific cases below.
+    if (config.dataKey !== COLLECTIONS.USUARIOS && config.dataKey !== COLLECTIONS.PRODUCTOS) {
+        if (!appState.currentUser.isSuperAdmin) {
+            showToast('Solo un Super Administrador puede eliminar este tipo de registro.', 'error');
+            return;
+        }
+    }
+
     if (config.dataKey === COLLECTIONS.USUARIOS) {
         const itemToDelete = appState.currentData.find(d => d.docId === docId);
         if (itemToDelete?.docId === auth.currentUser.uid) {
@@ -1102,16 +1111,17 @@ function checkUserPermission(action, item = null) {
         return false; // Si no hay usuario, no hay permisos.
     }
 
-    const { role, uid } = appState.currentUser;
+    const { role, uid, isSuperAdmin } = appState.currentUser;
+    const isImpersonating = appState.godModeState?.isImpersonating;
 
-    // 1. El rol 'admin' siempre tiene acceso total.
-    if (role === 'admin') {
+    // 1. SuperAdmins can do anything, UNLESS they are impersonating another role.
+    if (isSuperAdmin && !isImpersonating) {
         return true;
     }
 
     const isTask = (typeof item === 'string' && item === 'tarea') || (item && typeof item === 'object' && 'creatorUid' in item);
 
-    // 2. Lógica específica para Tareas
+    // 2. Specific logic for Tasks (applies to all roles)
     if (isTask) {
         if (action === 'create') {
             // Todos los roles pueden crear tareas.
@@ -1123,7 +1133,17 @@ function checkUserPermission(action, item = null) {
         }
     }
 
-    // 3. Lógica para el rol 'lector'
+    // 3. Logic for the 'admin' role (non-super-admin)
+    if (role === 'admin') {
+        // Regular admins cannot perform destructive actions on general items.
+        // Task deletion is handled above. User deletion is handled in `deleteItem`.
+        if (action === 'delete') {
+            return false;
+        }
+        return true; // Can do everything else.
+    }
+
+    // 4. Lógica para el rol 'lector'
     if (role === 'lector') {
         // Los lectores no pueden crear, editar o eliminar nada (excepto la creación de tareas ya manejada).
         if (['create', 'edit', 'delete'].includes(action)) {
@@ -1131,7 +1151,7 @@ function checkUserPermission(action, item = null) {
         }
     }
 
-    // 4. Lógica para el rol 'editor'
+    // 5. Lógica para el rol 'editor'
     if (role === 'editor') {
         if (action === 'create') {
             return true; // Los editores pueden crear nuevos elementos.
@@ -6347,7 +6367,7 @@ function renderDashboardAdminPanel() {
     const container = document.getElementById('dashboard-admin-panel-container');
     if (!container) return;
 
-    if (!checkUserPermission('delete')) { // 'delete' is used as a proxy for admin-level permissions
+    if (!appState.currentUser.isSuperAdmin) {
         container.innerHTML = '';
         return;
     }
@@ -8740,8 +8760,18 @@ onAuthStateChanged(auth, async (user) => {
                 email: user.email,
                 avatarUrl: user.photoURL || `https://api.dicebear.com/8.x/identicon/svg?seed=${encodeURIComponent(user.displayName || user.email)}`,
                 role: userData.role || 'lector',
-                isSuperAdmin: userData.isSuperAdmin || user.uid === 'KTIQRzPBRcOFtBRjoFViZPSsbSq2'
+                isSuperAdmin: userData.isSuperAdmin || user.uid === 'KTIQRzPBRcOFtBRjoFViZPSsbSq2',
+                // Initialize godModeState if the user is a super admin
+                godModeState: (userData.isSuperAdmin || user.uid === 'KTIQRzPBRcOFtBRjoFViZPSsbSq2')
+                    ? { realRole: userData.role || 'admin', isImpersonating: false }
+                    : null
             };
+
+            // This is a fix for the godModeState not being set on the appState object itself.
+            if(appState.currentUser.godModeState) {
+                appState.godModeState = appState.currentUser.godModeState;
+            }
+
 
             dom.authContainer.classList.add('hidden');
             dom.appView.classList.remove('hidden');
