@@ -6344,7 +6344,7 @@ function renderDashboardAdminPanel() {
     lucide.createIcons();
 }
 
-function runDashboardLogic() {
+async function runDashboardLogic() {
     const currentUser = appState.currentUser;
 
     // 1. Create the main skeleton of the dashboard.
@@ -6407,7 +6407,7 @@ function runDashboardLogic() {
     renderDashboardKpis();
     renderDashboardTasks();
     renderDashboardCharts();
-    renderDashboardActivityFeed();
+    await renderDashboardActivityFeed();
     renderDashboardAdminPanel();
 
     lucide.createIcons();
@@ -6591,49 +6591,76 @@ function renderDashboardCharts() {
     }
 }
 
-function renderDashboardActivityFeed() {
+async function renderDashboardActivityFeed() {
     const container = document.getElementById('dashboard-activity-container');
     if (!container) return;
 
-    const { productos, insumos, semiterminados } = appState.collections;
-    const allItems = [...productos, ...insumos, ...semiterminados];
-    const recentActivity = allItems.filter(item => item.createdAt?.seconds).sort((a, b) => b.createdAt.seconds - a.createdAt.seconds).slice(0, 5);
-
-    let contentHTML;
-    if (recentActivity.length === 0) {
-        contentHTML = `<p class="text-sm text-center text-slate-500 py-4">No hay actividad reciente.</p>`;
-    } else {
-        const typeMap = {
-            productos: { icon: 'package', label: 'Producto', color: 'blue' },
-            insumos: { icon: 'beaker', label: 'Insumo', color: 'green' },
-            semiterminados: { icon: 'box', label: 'Semiterminado', color: 'purple' }
-        };
-        const getType = (item) => {
-            if ('version_vehiculo' in item) return typeMap.productos;
-            if ('proceso' in item) return typeMap.semiterminados;
-            return typeMap.insumos;
-        };
-        contentHTML = recentActivity.map(item => {
-            const itemType = getType(item);
-            const timeAgo = formatTimeAgo(item.createdAt.seconds * 1000);
-            return `
-                <div class="flex items-start space-x-3">
-                    <div class="p-2 rounded-full bg-${itemType.color}-100 text-${itemType.color}-600"><i data-lucide="${itemType.icon}" class="h-5 w-5"></i></div>
-                    <div>
-                        <p class="text-sm"><span class="font-bold">${itemType.label}</span> <span class="font-semibold text-slate-700">${item.descripcion}</span> fue creado.</p>
-                        <p class="text-xs text-slate-400">${timeAgo}</p>
-                    </div>
-                </div>`;
-        }).join('');
-    }
-
+    // Show a loading state
     container.innerHTML = `
         <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
             <h3 class="text-xl font-bold text-gray-800 mb-4">Actividad Reciente</h3>
-            <div class="space-y-4">${contentHTML}</div>
-        </div>
-    `;
+            <div class="text-center text-slate-500 py-4"><i data-lucide="loader" class="animate-spin h-6 w-6 mx-auto"></i></div>
+        </div>`;
     lucide.createIcons();
+
+    try {
+        const p1 = getDocs(query(collection(db, COLLECTIONS.PRODUCTOS), orderBy('createdAt', 'desc'), limit(5)));
+        const p2 = getDocs(query(collection(db, COLLECTIONS.INSUMOS), orderBy('createdAt', 'desc'), limit(5)));
+        const p3 = getDocs(query(collection(db, COLLECTIONS.SEMITERMINADOS), orderBy('createdAt', 'desc'), limit(5)));
+
+        const [productosSnap, insumosSnap, semiterminadosSnap] = await Promise.all([p1, p2, p3]);
+
+        const productos = productosSnap.docs.map(d => d.data());
+        const insumos = insumosSnap.docs.map(d => d.data());
+        const semiterminados = semiterminadosSnap.docs.map(d => d.data());
+
+        const allItems = [...productos, ...insumos, ...semiterminados];
+        const recentActivity = allItems.filter(item => item.createdAt?.seconds).sort((a, b) => b.createdAt.seconds - a.createdAt.seconds).slice(0, 5);
+
+        let contentHTML;
+        if (recentActivity.length === 0) {
+            contentHTML = `<p class="text-sm text-center text-slate-500 py-4">No hay actividad reciente.</p>`;
+        } else {
+            const typeMap = {
+                productos: { icon: 'package', label: 'Producto', color: 'blue' },
+                insumos: { icon: 'beaker', label: 'Insumo', color: 'green' },
+                semiterminados: { icon: 'box', label: 'Semiterminado', color: 'purple' }
+            };
+            const getType = (item) => {
+                if ('version_vehiculo' in item) return typeMap.productos;
+                if ('proceso' in item) return typeMap.semiterminados;
+                return typeMap.insumos;
+            };
+            contentHTML = recentActivity.map(item => {
+                const itemType = getType(item);
+                const timeAgo = formatTimeAgo(item.createdAt.seconds * 1000);
+                return `
+                    <div class="flex items-start space-x-3">
+                        <div class="p-2 rounded-full bg-${itemType.color}-100 text-${itemType.color}-600"><i data-lucide="${itemType.icon}" class="h-5 w-5"></i></div>
+                        <div>
+                            <p class="text-sm"><span class="font-bold">${itemType.label}</span> <span class="font-semibold text-slate-700">${item.descripcion}</span> fue creado.</p>
+                            <p class="text-xs text-slate-400">${timeAgo}</p>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        container.innerHTML = `
+            <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">Actividad Reciente</h3>
+                <div class="space-y-4">${contentHTML}</div>
+            </div>
+        `;
+        lucide.createIcons();
+    } catch (error) {
+        console.error("Error fetching activity feed:", error);
+        container.innerHTML = `
+            <div class="bg-white p-6 rounded-xl shadow-md border border-red-200">
+                <h3 class="text-xl font-bold text-red-800 mb-4">Actividad Reciente</h3>
+                <p class="text-sm text-center text-red-600 py-4">No se pudo cargar la actividad.</p>
+            </div>
+        `;
+    }
 }
 
 function formatTimeAgo(timestamp) {
@@ -8598,16 +8625,8 @@ onAuthStateChanged(auth, async (user) => {
     const isTutorialMode = urlParams.get('tutorial') === 'true';
     const isVerificationMode = urlParams.get('verification') === 'true';
 
-    // If in E2E test mode, seed data but DO NOT bypass auth. Let the tests log in.
-    if (isTestMode) {
-        // We only want to seed data once. We can use a flag on the window object.
-        if (!window.e2eDataSeeded) {
-            await seedMinimalTestDataForE2E();
-            window.e2eDataSeeded = true;
-        }
-    }
     // For other test-like modes, we bypass auth entirely.
-    else if (isTutorialMode || isVerificationMode) {
+    if (isTutorialMode || isVerificationMode) {
         console.log("TUTORIAL/VERIFICATION MODE: Bypassing auth and creating mock user.");
         const mockUser = {
             uid: 'KTIQRzPBRcOFtBRjoFViZPSsbSq2',
@@ -8646,6 +8665,15 @@ onAuthStateChanged(auth, async (user) => {
     if (user) {
         const urlParams = new URLSearchParams(window.location.search);
         const isTestMode = urlParams.get('env') === 'test';
+
+        // If in E2E test mode, seed data now that the user is authenticated.
+        if (isTestMode) {
+            if (!window.e2eDataSeeded) {
+                await seedMinimalTestDataForE2E();
+                window.e2eDataSeeded = true;
+            }
+        }
+
         if (user.emailVerified || isTestMode) {
             const wasAlreadyLoggedIn = !!appState.currentUser;
 
