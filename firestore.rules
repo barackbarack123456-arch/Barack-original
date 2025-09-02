@@ -216,8 +216,11 @@ service cloud.firestore {
 
     // --- NOTIFICACIONES ---
     match /notifications/{notificationId} {
-      // Un usuario puede leer, actualizar o eliminar sus propias notificaciones.
-      allow read, update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      // Un usuario puede leer o actualizar sus propias notificaciones.
+      allow read, update: if request.auth != null && request.auth.uid == resource.data.userId;
+
+      // Un usuario puede eliminar sus propias notificaciones, O un admin puede eliminar cualquiera.
+      allow delete: if request.auth != null && (request.auth.uid == resource.data.userId || isUserAdmin());
 
       // Cualquier usuario autenticado puede crear una notificación (la lógica de la app determina para quién es).
       allow create: if request.auth != null;
