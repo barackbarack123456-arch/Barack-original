@@ -208,17 +208,19 @@ service cloud.firestore {
     }
 
     // --- COUNTERS ---
-    // This collection stores different counters for the application.
-    // We use specific rules for each type of counter.
-    match /counters/{counterDoc} {
-        // Allow any authenticated user to read and listen to any document in the collection.
-        // 'read' is a shortcut for 'get' and 'list'. We are being explicit here.
-        // Listeners require both 'get' (for the initial read) and 'list' (to be notified of changes).
-        allow get, list: if request.auth != null;
+    // Specific rules for each document in the counters collection.
+    match /counters/kpi_counts {
+      // Any authenticated user can listen to the KPI counts for the dashboard.
+      allow read: if request.auth != null;
+      // Writing to KPI counts should be handled by backend functions, not clients.
+      allow write: if false;
+    }
 
-        // Allow client writes ONLY to the 'ecr_counter' document.
-        // The 'kpi_counts' document should only be written to by a backend function (for security).
-        allow write: if request.auth != null && counterDoc == 'ecr_counter';
+    match /counters/ecr_counter {
+      // Reading the ECR counter isn't a current client-side requirement.
+      allow read: if false;
+      // Only authenticated users with creation privileges can update the ECR counter via transaction.
+      allow write: if canCreateUpdate();
     }
 
     // --- NOTIFICACIONES ---
