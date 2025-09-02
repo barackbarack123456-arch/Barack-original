@@ -577,7 +577,7 @@ function deleteItem(docId) {
 async function clearDataOnly() {
     showToast('Limpiando colecciones de datos...', 'info', 5000);
     const collectionNames = Object.values(COLLECTIONS);
-    const collectionsToSkip = [COLLECTIONS.USUARIOS, COLLECTIONS.TAREAS, COLLECTIONS.COVER_MASTER, COLLECTIONS.NOTIFICATIONS];
+    const collectionsToSkip = [COLLECTIONS.USUARIOS, COLLECTIONS.TAREAS, COLLECTIONS.COVER_MASTER, 'notifications'];
     for (const name of collectionNames) {
         if (collectionsToSkip.includes(name)) {
             console.log(`Se omite la limpieza de la colección '${name}' para preservar los datos.`);
