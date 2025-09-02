@@ -335,29 +335,18 @@ async function startRealtimeListeners() {
     }
 
     // --- Real-time listener for KPI counts ---
-    // The previous diagnostic test confirmed the issue is a race condition with auth state,
-    // not the rules themselves. The fix is to restore the onSnapshot listener but ensure
-    // it is instantiated within the main async function's execution context.
-    try {
-        const kpiCounterRef = doc(db, 'counters', 'kpi_counts');
-        const kpiUnsub = onSnapshot(kpiCounterRef, (doc) => {
-            if (doc.exists()) {
-                const counts = doc.data();
-                appState.collectionCounts = { ...appState.collectionCounts, ...counts };
-                console.log("Dashboard KPI counts updated in real-time:", appState.collectionCounts);
-                if (appState.currentView === 'dashboard') {
-                    renderDashboardKpis();
-                }
+    const kpiCounterRef = doc(db, 'counters', 'kpi_counts');
+    const kpiUnsub = onSnapshot(kpiCounterRef, (doc) => {
+        if (doc.exists()) {
+            const counts = doc.data();
+            appState.collectionCounts = { ...appState.collectionCounts, ...counts };
+            console.log("Dashboard KPI counts updated in real-time:", appState.collectionCounts);
+            if (appState.currentView === 'dashboard') {
+                renderDashboardKpis();
             }
-        }, (error) => {
-            // This error handler is for issues after the listener is established.
-            console.error("Error listening to KPI counters:", error);
-        });
-        listeners.push(kpiUnsub);
-    } catch (error) {
-        // This error handler is for issues during the initial setup of the listener.
-        console.error("Error ATTACHING KPI counters listener:", error);
-    }
+        }
+    }, (error) => console.error("Error listening to KPI counters:", error));
+    listeners.push(kpiUnsub);
 
     // --- Listener for user's most recent tasks for the dashboard ---
     const tasksQuery = query(
