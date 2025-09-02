@@ -51,7 +51,41 @@ exports.saveFormWithValidation = functions.https.onCall(async (data, context) =>
   // --- Firestore Write Logic ---
   const db = admin.firestore();
   const collectionName = formType === 'ecr' ? 'ecr_forms' : 'eco_forms';
-  const docId = formData.id;
+  let docId = formData.id;
+
+  // --- ECR Number Generation (if new ECR) ---
+  if (formType === 'ecr' && !docId) {
+    const counterRef = db.collection('counters').doc('ecr_counter');
+    try {
+      const newEcrNumber = await db.runTransaction(async (transaction) => {
+        const counterSnap = await transaction.get(counterRef);
+        const currentYear = new Date().getFullYear();
+        let nextNumber = 1;
+
+        if (counterSnap.exists) {
+          const counterData = counterSnap.data();
+          if (counterData.year === currentYear) {
+            nextNumber = counterData.count + 1;
+          }
+        }
+        transaction.set(counterRef, { count: nextNumber, year: currentYear }, { merge: true });
+        return `ECR-${currentYear}-${String(nextNumber).padStart(3, '0')}`;
+      });
+
+      // Assign the new number to the form data and use it as the document ID
+      formData.ecr_no = newEcrNumber;
+      formData.id = newEcrNumber;
+      docId = newEcrNumber;
+
+    } catch (error) {
+      console.error("Error generating ECR number in transaction:", error);
+      throw new functions.https.HttpsError('internal', 'Failed to generate ECR number.');
+    }
+  }
+
+  if (!docId) {
+    throw new functions.https.HttpsError('invalid-argument', 'The document ID is missing.');
+  }
 
   const docRef = db.collection(collectionName).doc(docId);
   const historyRef = docRef.collection('history');
