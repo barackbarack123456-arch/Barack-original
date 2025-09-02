@@ -208,10 +208,11 @@ service cloud.firestore {
     }
 
     // --- COUNTERS ---
-    // Allow any authenticated user to read/write to the counters collection.
-    // This is necessary for the client-side transaction to generate new ECR numbers.
+    // Allow any authenticated user to read the counters collection for KPIs.
+    // Writes are only performed by server-side functions with admin privileges.
     match /counters/{docId} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null;
+      allow write: if false;
     }
 
     // --- NOTIFICACIONES ---
