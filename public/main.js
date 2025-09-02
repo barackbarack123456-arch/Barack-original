@@ -334,23 +334,19 @@ async function startRealtimeListeners() {
         showToast('Error al cargar datos de configuración inicial.', 'error');
     }
 
-    // --- Dashboard KPI Counts (one-time fetch) ---
-    // This is much more efficient than loading all documents.
-    const kpiCollections = [
-        COLLECTIONS.PRODUCTOS,
-        COLLECTIONS.INSUMOS,
-        COLLECTIONS.PROYECTOS,
-        COLLECTIONS.TAREAS
-    ];
-
-    for (const collectionName of kpiCollections) {
-        const collRef = collection(db, collectionName);
-        const countSnapshot = await getCountFromServer(collRef);
-        // We store the count in a new object to avoid confusion with the old `appState.collections`
-        if (!appState.collectionCounts) appState.collectionCounts = {};
-        appState.collectionCounts[collectionName] = countSnapshot.data().count;
-    }
-    console.log("Dashboard KPI counts loaded.");
+    // --- Real-time listener for KPI counts ---
+    const kpiCounterRef = doc(db, 'counters', 'kpi_counts');
+    const kpiUnsub = onSnapshot(kpiCounterRef, (doc) => {
+        if (doc.exists()) {
+            const counts = doc.data();
+            appState.collectionCounts = { ...appState.collectionCounts, ...counts };
+            console.log("Dashboard KPI counts updated in real-time:", appState.collectionCounts);
+            if (appState.currentView === 'dashboard') {
+                renderDashboardKpis();
+            }
+        }
+    }, (error) => console.error("Error listening to KPI counters:", error));
+    listeners.push(kpiUnsub);
 
     // --- Listener for user's most recent tasks for the dashboard ---
     const tasksQuery = query(
@@ -982,8 +978,8 @@ async function seedDatabase() {
     }
     generated.proyectos.forEach(p => setInBatch(COLLECTIONS.PROYECTOS, p));
 
-    // Generar Insumos (200)
-    for (let i = 1; i <= 200; i++) {
+    // Generar Insumos (20) - Reducido de 200
+    for (let i = 1; i <= 20; i++) {
         const id = `INS${String(i).padStart(4, '0')}`;
         generated.insumos.push({
             id, codigo_pieza: id, lc_kd: getRandomItem(['LC', 'KD']),
@@ -1089,6 +1085,18 @@ async function seedDatabase() {
     try {
         await batch.commit();
         showToast('Carga masiva completada.', 'success', 5000);
+
+        // Manually set the initial counts after seeding to ensure dashboard is updated.
+        const kpiCounts = {
+            productos: generated.productos.length,
+            insumos: generated.insumos.length,
+            proyectos: generated.proyectos.length,
+            tareas: 0 // Seeder doesn't create tasks.
+        };
+        const counterRef = doc(db, 'counters', 'kpi_counts');
+        await setDoc(counterRef, kpiCounts, { merge: true });
+        console.log("Initial KPI counts set after seeding:", kpiCounts);
+
         switchView('dashboard');
     } catch (error) {
         console.error("Error al cargar datos de prueba masivos: ", error);
