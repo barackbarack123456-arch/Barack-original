@@ -335,41 +335,29 @@ async function startRealtimeListeners() {
     }
 
     // --- Real-time listener for KPI counts ---
-    const kpiCounterRef = doc(db, 'counters', 'kpi_counts');
-    // TEMPORARY DEBUGGING: Use getDoc instead of onSnapshot to isolate the permission issue.
-    // This will help determine if the problem is with 'get' (read) or 'list' (listen) permissions.
-    (async () => {
-        try {
-            const docSnap = await getDoc(kpiCounterRef);
-            if (docSnap.exists()) {
-                const counts = docSnap.data();
+    // The previous diagnostic test confirmed the issue is a race condition with auth state,
+    // not the rules themselves. The fix is to restore the onSnapshot listener but ensure
+    // it is instantiated within the main async function's execution context.
+    try {
+        const kpiCounterRef = doc(db, 'counters', 'kpi_counts');
+        const kpiUnsub = onSnapshot(kpiCounterRef, (doc) => {
+            if (doc.exists()) {
+                const counts = doc.data();
                 appState.collectionCounts = { ...appState.collectionCounts, ...counts };
-                console.log("Dashboard KPI counts fetched once (DEBUG MODE):", appState.collectionCounts);
+                console.log("Dashboard KPI counts updated in real-time:", appState.collectionCounts);
                 if (appState.currentView === 'dashboard') {
                     renderDashboardKpis();
                 }
-            } else {
-                console.log("Debug: KPI counters document does not exist.");
             }
-        } catch (error) {
-            // Using a different error message to confirm this code path is being executed.
-            console.error("Error GETTING KPI counters (getDoc debug):", error);
-        }
-    })();
-    // The original listener is commented out below for easy restoration.
-    /*
-    const kpiUnsub = onSnapshot(kpiCounterRef, (doc) => {
-        if (doc.exists()) {
-            const counts = doc.data();
-            appState.collectionCounts = { ...appState.collectionCounts, ...counts };
-            console.log("Dashboard KPI counts updated in real-time:", appState.collectionCounts);
-            if (appState.currentView === 'dashboard') {
-                renderDashboardKpis();
-            }
-        }
-    }, (error) => console.error("Error listening to KPI counters:", error));
-    listeners.push(kpiUnsub);
-    */
+        }, (error) => {
+            // This error handler is for issues after the listener is established.
+            console.error("Error listening to KPI counters:", error);
+        });
+        listeners.push(kpiUnsub);
+    } catch (error) {
+        // This error handler is for issues during the initial setup of the listener.
+        console.error("Error ATTACHING KPI counters listener:", error);
+    }
 
     // --- Listener for user's most recent tasks for the dashboard ---
     const tasksQuery = query(
