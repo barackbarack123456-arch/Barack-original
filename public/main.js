@@ -8710,6 +8710,11 @@ onAuthStateChanged(auth, async (user) => {
                 // For E2E tests, we bypass the real-time listeners entirely to ensure speed and determinism.
                 // We manually populate the necessary appState with our seeded mock data.
                 console.log("E2E MODE: Bypassing listeners and using seeded data.");
+                // Initialize collections that the dashboard relies on to prevent crashes.
+                appState.collections.productos = [];
+                appState.collections.insumos = [];
+                appState.collections.semiterminados = [];
+                appState.collections.tareas = [];
                 appState.collections.roles = [{ id: 'admin', descripcion: 'Admin' }, { id: 'lector', descripcion: 'Lector' }];
                 appState.collections.sectores = [{ id: 'ingenieria', descripcion: 'Ingeniería', icon: 'pencil-ruler' }];
                 appState.isAppInitialized = true;
