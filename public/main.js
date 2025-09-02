@@ -336,6 +336,28 @@ async function startRealtimeListeners() {
 
     // --- Real-time listener for KPI counts ---
     const kpiCounterRef = doc(db, 'counters', 'kpi_counts');
+    // TEMPORARY DEBUGGING: Use getDoc instead of onSnapshot to isolate the permission issue.
+    // This will help determine if the problem is with 'get' (read) or 'list' (listen) permissions.
+    (async () => {
+        try {
+            const docSnap = await getDoc(kpiCounterRef);
+            if (docSnap.exists()) {
+                const counts = docSnap.data();
+                appState.collectionCounts = { ...appState.collectionCounts, ...counts };
+                console.log("Dashboard KPI counts fetched once (DEBUG MODE):", appState.collectionCounts);
+                if (appState.currentView === 'dashboard') {
+                    renderDashboardKpis();
+                }
+            } else {
+                console.log("Debug: KPI counters document does not exist.");
+            }
+        } catch (error) {
+            // Using a different error message to confirm this code path is being executed.
+            console.error("Error GETTING KPI counters (getDoc debug):", error);
+        }
+    })();
+    // The original listener is commented out below for easy restoration.
+    /*
     const kpiUnsub = onSnapshot(kpiCounterRef, (doc) => {
         if (doc.exists()) {
             const counts = doc.data();
@@ -347,6 +369,7 @@ async function startRealtimeListeners() {
         }
     }, (error) => console.error("Error listening to KPI counters:", error));
     listeners.push(kpiUnsub);
+    */
 
     // --- Listener for user's most recent tasks for the dashboard ---
     const tasksQuery = query(
