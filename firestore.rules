@@ -210,16 +210,12 @@ service cloud.firestore {
     // --- COUNTERS ---
     // This collection stores different counters for the application.
     // We use specific rules for each type of counter.
-    match /counters/ecr_counter {
-      // The `ecr_counter` can be read and written by any authenticated user
-      // inside a transaction to ensure safe, sequential number generation on the client.
-      allow read, write: if request.auth != null;
-    }
-
-    match /counters/kpi_counts {
-        // The `kpi_counts` document is only written by the backend and read by clients.
+    match /counters/{counterDoc} {
+        // Allow any authenticated user to read any document in the collection.
         allow read: if request.auth != null;
-        allow write: if false; // Explicitly deny client writes
+
+        // Allow writes ONLY to the 'ecr_counter' document for authenticated users.
+        allow write: if request.auth != null && counterDoc == 'ecr_counter';
     }
 
     // --- NOTIFICACIONES ---
