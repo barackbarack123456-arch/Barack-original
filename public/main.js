@@ -8715,6 +8715,25 @@ onAuthStateChanged(auth, async (user) => {
             }
 
             const userData = userDocSnap.exists() ? userDocSnap.data() : {};
+
+            // --- ONE-TIME FIX FOR f.santoro@barackmercosul.com ---
+            // This script checks if the logged-in user is f.santoro and if their
+            // role is not yet 'admin'. If so, it updates their document in Firestore
+            // to permanently restore their admin rights and super admin status.
+            // This is to fix a data corruption issue from a previous bug.
+            if (user.email === 'f.santoro@barackmercosul.com' && userData.role !== 'admin') {
+                showToast('Restaurando permisos de administrador...', 'info');
+                const userRef = doc(db, COLLECTIONS.USUARIOS, user.uid);
+                await updateDoc(userRef, {
+                    role: 'admin',
+                    isSuperAdmin: true
+                });
+                // Reload the page to apply the new role immediately.
+                location.reload();
+                return; // Stop execution to allow reload to take effect.
+            }
+            // --- END ONE-TIME FIX ---
+
             appState.currentUser = {
                 uid: user.uid,
                 name: user.displayName || user.email.split('@')[0],
