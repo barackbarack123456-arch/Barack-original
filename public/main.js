@@ -448,20 +448,21 @@ function stopRealtimeListeners() {
 }
 
 async function saveDocument(collectionName, data, docId = null) {
+    const toastId = showToast('Guardando...', 'loading', { duration: 0 }); // Show loading toast that doesn't auto-hide
+
     try {
         if (docId) {
             // Logic for updating an existing document remains the same.
             const docRef = doc(db, collectionName, docId);
             await updateDoc(docRef, data);
-            showToast('Registro actualizado con éxito.', 'success');
+            showToast('Registro actualizado con éxito.', 'success', { toastId });
         } else {
             // Logic for creating a new document, now using a transaction.
             const uniqueKeyField = getUniqueKeyForCollection(collectionName);
             const uniqueKeyValue = data[uniqueKeyField];
 
             if (!uniqueKeyValue) {
-                showToast(`Error: El campo de identificación único '${uniqueKeyField}' está vacío.`, 'error');
-                return false;
+                throw new Error(`Error: El campo de identificación único '${uniqueKeyField}' está vacío.`);
             }
 
             data.id = uniqueKeyValue;
@@ -476,14 +477,16 @@ async function saveDocument(collectionName, data, docId = null) {
                 transaction.set(docRef, data);
             });
 
-            showToast('Registro creado con éxito.', 'success');
+            showToast('Registro creado con éxito.', 'success', { toastId });
         }
         return true;
     } catch (error) {
         console.error("Error guardando el documento: ", error);
         // Display the specific error message from the transaction if available.
-        const errorMessage = error.message.includes('ya existe') ? error.message : "Error al guardar el registro.";
-        showToast(errorMessage, 'error');
+        const errorMessage = error.message.includes('ya existe') || error.message.includes('identificación único')
+            ? error.message
+            : "Error al guardar el registro.";
+        showToast(errorMessage, 'error', { toastId });
         return false;
     }
 }
@@ -506,15 +509,16 @@ async function getLogoBase64() {
 }
 
 async function deleteDocument(collectionName, docId) {
+    const toastId = showToast('Eliminando...', 'loading', { duration: 0 });
     try {
         await deleteDoc(doc(db, collectionName, docId));
-        showToast('Elemento eliminado.', 'success');
+        showToast('Elemento eliminado.', 'success', { toastId });
         if (viewConfig[appState.currentView]?.dataKey === collectionName) {
             runTableLogic();
         }
     } catch (error) {
         console.error("Error deleting document: ", error);
-        showToast('Error al eliminar el elemento.', 'error');
+        showToast('Error al eliminar el elemento.', 'error', { toastId });
     }
 }
 
@@ -4255,9 +4259,59 @@ function openEcrSearchModalForEcoForm() {
     renderList();
 }
 
+async function ensureCollectionsAreLoaded(collectionNames) {
+    const collectionsToFetch = collectionNames.filter(name => {
+        // Check if the collection is already loaded and not empty
+        return !appState.collections[name] || appState.collections[name].length === 0;
+    });
+
+    if (collectionsToFetch.length === 0) {
+        console.log("All required collections are already in appState.");
+        return; // All collections are already loaded
+    }
+
+    const toastId = showToast(`Cargando datos del formulario...`, 'loading', { duration: 0 });
+
+    try {
+        const fetchPromises = collectionsToFetch.map(async (name) => {
+            const querySnapshot = await getDocs(collection(db, name));
+            const data = querySnapshot.docs.map(d => ({ ...d.data(), docId: d.id }));
+            appState.collections[name] = data;
+            // Also update the 'ById' map for quick lookups
+            if (data.length > 0 && data[0].id) {
+                appState.collectionsById[name] = new Map(data.map(item => [item.id, item]));
+            }
+            console.log(`Collection '${name}' fetched and stored.`);
+        });
+
+        await Promise.all(fetchPromises);
+        showToast('Datos cargados.', 'success', { toastId });
+    } catch (error) {
+        console.error("Error ensuring collections are loaded:", error);
+        showToast('Error al cargar datos necesarios para el formulario.', 'error', { toastId });
+        // Propagate the error to stop the form from rendering incorrectly
+        throw error;
+    }
+}
+
+
 async function runEcrFormLogic(params = null) {
     const ecrId = params ? params.ecrId : null;
     const scrollToSection = params ? params.scrollToSection : null;
+
+    // Ensure all necessary data for dropdowns is loaded before rendering the form
+    try {
+        await ensureCollectionsAreLoaded([
+            COLLECTIONS.PROYECTOS,
+            COLLECTIONS.CLIENTES,
+            COLLECTIONS.PRODUCTOS // Needed for the product search modal
+        ]);
+    } catch (error) {
+        // If data loading fails, show an error and stop rendering the form
+        dom.viewContent.innerHTML = `<p class="text-red-500 p-8">Error fatal: No se pudieron cargar los datos necesarios para el formulario ECR. Por favor, recargue la página.</p>`;
+        return;
+    }
+
     const isEditing = !!ecrId;
     const ECR_FORM_STORAGE_KEY = isEditing ? `inProgressEcrForm_${ecrId}` : 'inProgressEcrForm_new';
 
@@ -5063,22 +5117,44 @@ function handleViewContentActions(e) {
 // --- 5. UI, COMPONENTES Y NOTIFICACIONES ---
 // =================================================================================
 
-function showToast(message, type = 'success', duration = 3000) {
-    const icons = { success: 'check-circle', error: 'alert-circle', info: 'info' };
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
+function showToast(message, type = 'success', options = {}) {
+    const { duration = 3000, toastId = null } = typeof options === 'number' ? { duration: options } : options;
+    const icons = { success: 'check-circle', error: 'alert-circle', info: 'info', loading: 'loader' };
+    const icon = icons[type] || 'info';
 
-    const template = document.createElement('template');
-    template.innerHTML = `<i data-lucide="${icons[type]}"></i><span>${message}</span>`;
-    toast.appendChild(template.content.cloneNode(true));
+    let toastElement = toastId ? document.getElementById(toastId) : null;
+    const toastContent = `<i data-lucide="${icon}" class="${type === 'loading' ? 'animate-spin' : ''}"></i><span>${message}</span>`;
 
-    dom.toastContainer.appendChild(toast);
-    lucide.createIcons();
-    setTimeout(() => toast.classList.add('show'), 10);
-    setTimeout(() => {
-        toast.classList.remove('show');
-        toast.addEventListener('transitionend', () => toast.remove());
-    }, duration);
+    if (toastElement) {
+        // Update existing toast
+        toastElement.className = `toast ${type} show`;
+        toastElement.innerHTML = toastContent;
+        lucide.createIcons({ nodes: [toastElement.querySelector('i')] });
+    } else {
+        // Create new toast
+        const newToastId = `toast-${Date.now()}`;
+        const toast = document.createElement('div');
+        toast.id = newToastId;
+        toast.className = `toast ${type}`;
+        toast.innerHTML = toastContent;
+
+        dom.toastContainer.appendChild(toast);
+        lucide.createIcons({ nodes: [toast.querySelector('i')] });
+        // Use a short timeout to allow the element to be in the DOM for the transition to work.
+        setTimeout(() => toast.classList.add('show'), 10);
+        toastElement = toast;
+    }
+
+    // Auto-hide unless it's a loading message or duration is set to 0
+    if (type !== 'loading' && duration > 0) {
+        setTimeout(() => {
+            toastElement.classList.remove('show');
+            // Remove the element after the transition is complete
+            toastElement.addEventListener('transitionend', () => toastElement.remove());
+        }, duration);
+    }
+
+    return toastElement.id;
 }
 
 function renderNotificationCenter() {
