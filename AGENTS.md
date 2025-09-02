@@ -35,6 +35,7 @@ This file contains guidelines and lessons learned for AI agents working on this 
         1.  Creating a dedicated "counter" document in a collection (e.g., `counters/ecr_counter`).
         2.  Wrapping the logic to read, increment, and write the counter inside a `runTransaction` block.
         3.  This ensures that even with multiple users requesting a number at the same time, the counter is updated atomically, preventing duplicate numbers. This entire operation is handled by the client-side Firestore SDK and does not require paid backend functions.
+13. **Agent Workflow: Submit Before Verification.** Do not ask the user to verify a fix before the changes have been submitted. The user cannot see changes in the agent's sandboxed environment. The correct workflow is to complete the implementation, submit the code, and *then* inform the user that the changes are ready for their review and testing in their own environment.
 
 ## Important Technical Details
 
