@@ -8658,49 +8658,6 @@ async function seedMinimalTestDataForE2E() {
 
 
 onAuthStateChanged(auth, async (user) => {
-    // --- E2E TEST, VERIFICATION & TUTORIAL BYPASS ---
-    const urlParams = new URLSearchParams(window.location.search);
-    const isTestMode = urlParams.get('env') === 'test';
-    const isTutorialMode = urlParams.get('tutorial') === 'true';
-    const isVerificationMode = urlParams.get('verification') === 'true';
-
-    // For other test-like modes, we bypass auth entirely.
-    if (isTutorialMode || isVerificationMode) {
-        console.log("TUTORIAL/VERIFICATION MODE: Bypassing auth and creating mock user.");
-        const mockUser = {
-            uid: 'KTIQRzPBRcOFtBRjoFViZPSsbSq2',
-            email: 'f.santoro@barackmercosul.com',
-            emailVerified: true,
-            displayName: 'Usuario de Prueba',
-            photoURL: `https://api.dicebear.com/8.x/identicon/svg?seed=TestUser`,
-            role: 'admin'
-        };
-        appState.currentUser = {
-            uid: mockUser.uid,
-            name: mockUser.displayName,
-            email: mockUser.email,
-            avatarUrl: mockUser.photoURL,
-            role: mockUser.role,
-            isSuperAdmin: true
-        };
-        appState.collections[COLLECTIONS.PRODUCTOS] = [];
-        appState.collections[COLLECTIONS.INSUMOS] = [];
-        appState.collections[COLLECTIONS.SEMITERMINADOS] = [];
-        appState.collectionCounts[COLLECTIONS.PRODUCTOS] = 0;
-        appState.collectionCounts[COLLECTIONS.INSUMOS] = 0;
-        appState.collectionCounts[COLLECTIONS.PROYECTOS] = 0;
-        appState.collectionCounts[COLLECTIONS.TAREAS] = 0;
-        dom.authContainer.classList.add('hidden');
-        dom.appView.classList.remove('hidden');
-        updateNavForRole();
-        renderUserMenu();
-        appState.isAppInitialized = true;
-        await switchView('dashboard');
-        dom.loadingOverlay.style.display = 'none';
-        return;
-    }
-    // --- END BYPASS ---
-
     if (user) {
         const urlParams = new URLSearchParams(window.location.search);
         const isTestMode = urlParams.get('env') === 'test';
