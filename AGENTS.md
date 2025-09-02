@@ -38,6 +38,11 @@ This file contains guidelines and lessons learned for AI agents working on this 
 
 ## Important Technical Details
 
+*   **Note on E2E Testing with Playwright (As of 2025-09-02):** The Playwright E2E test suite has been temporarily disabled by renaming `playwright.config.js` to `playwright.config.js.disabled`.
+    *   **Reason:** The tests were running against a live, data-heavy Firebase instance, causing them to be extremely slow and unreliable. This was causing significant developer friction.
+    *   **Do not re-enable without a proper test data strategy.**
+    *   **Recommendation:** Before re-enabling, implement a solution to either (a) connect to a dedicated, clean test database seeded with minimal, specific data for each test run, or (b) mock the Firestore data layer for the E2E tests, similar to how it's done for the Jest unit tests. This will ensure tests are fast, deterministic, and do not rely on the state of a live database.
+
 *   **Real-Time by Default:** The application heavily uses real-time Firestore listeners (`onSnapshot`). Assume that when data is changed, the relevant UI will update automatically. Do not add manual refresh/refetch calls after creating, updating, or deleting data.
 *   **Admin-Only Features:** Some features are restricted to administrators. The user's role is stored in `appState.currentUser.role`. Check for `appState.currentUser.role === 'admin'` to conditionally show UI elements.
 *   **Form Modals:** The `openFormModal` function is generic and driven by the `viewConfig` object. It can be extended to support new field types and configurations.

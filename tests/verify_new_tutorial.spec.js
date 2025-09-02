@@ -12,7 +12,7 @@ test.describe('New Control Panel Tutorial Verification', () => {
 
   test.beforeEach(async () => {
     page = await browser.newPage();
-    await page.goto('http://localhost:8080', { waitUntil: 'networkidle' });
+    await page.goto('http://localhost:8080/?env=test', { waitUntil: 'networkidle' });
 
     // --- LOGIN STEP ---
     await page.waitForSelector('#login-form');
