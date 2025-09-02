@@ -71,40 +71,12 @@ exports.saveFormWithValidation = functions.https.onRequest((req, res) => {
       const collectionName = formType === 'ecr' ? 'ecr_forms' : 'eco_forms';
       let docId = formData.id;
 
-      // --- ECR Number Generation (if new ECR) ---
-      if (formType === 'ecr' && !docId) {
-        const counterRef = db.collection('counters').doc('ecr_counter');
-        try {
-          const newEcrNumber = await db.runTransaction(async (transaction) => {
-            const counterSnap = await transaction.get(counterRef);
-            const currentYear = new Date().getFullYear();
-            let nextNumber = 1;
-
-            if (counterSnap.exists) {
-              const counterData = counterSnap.data();
-              if (counterData.year === currentYear) {
-                nextNumber = (counterData.count || 0) + 1;
-              }
-            }
-            transaction.set(counterRef, { count: nextNumber, year: currentYear }, { merge: true });
-            return `ECR-${currentYear}-${String(nextNumber).padStart(3, '0')}`;
-          });
-
-          formData.ecr_no = newEcrNumber;
-          formData.id = newEcrNumber;
-          docId = newEcrNumber;
-
-        } catch (error) {
-          console.error("Error generating ECR number in transaction:", error);
-          return res.status(500).json({
-            error: { status: 'INTERNAL', message: 'Failed to generate ECR number.' }
-          });
-        }
-      }
-
+      // ECR number is now generated client-side.
+      // The function now assumes the 'id' field is always present.
+      const docId = formData.id;
       if (!docId) {
         return res.status(400).json({
-          error: { status: 'INVALID_ARGUMENT', message: 'The document ID is missing.' }
+          error: { status: 'INVALID_ARGUMENT', message: 'The document ID is missing from the form data.' }
         });
       }
 
