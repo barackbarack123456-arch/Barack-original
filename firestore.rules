@@ -212,7 +212,8 @@ service cloud.firestore {
     // We use specific rules for each type of counter.
     match /counters/{counterDoc} {
         // Allow any authenticated user to read any document in the collection.
-        allow read: if request.auth != null;
+        // TEMPORARY DEBUGGING RULE: Open read access to isolate the problem.
+        allow read: if true;
 
         // Allow writes ONLY to the 'ecr_counter' document for authenticated users.
         allow write: if request.auth != null && counterDoc == 'ecr_counter';
