@@ -238,29 +238,21 @@ let appState = {
     isAppInitialized: false,
     isTutorialActive: false,
     collections: {
-        [COLLECTIONS.PRODUCTOS]: [], [COLLECTIONS.SEMITERMINADOS]: [], [COLLECTIONS.INSUMOS]: [], [COLLECTIONS.CLIENTES]: [],
-        [COLLECTIONS.SECTORES]: [], [COLLECTIONS.PROCESOS]: [],
-        [COLLECTIONS.PROVEEDORES]: [], [COLLECTIONS.UNIDADES]: [],
-        [COLLECTIONS.USUARIOS]: [], [COLLECTIONS.PROYECTOS]: [], [COLLECTIONS.ROLES]: [], [COLLECTIONS.TAREAS]: [],
-        [COLLECTIONS.ECR_FORMS]: [], [COLLECTIONS.ECO_FORMS]: [], [COLLECTIONS.REUNIONES_ECR]: [], [COLLECTIONS.NOTIFICATIONS]: []
+        // Most collections are now loaded on demand.
+        // Only keep collections that are small, essential, and used globally.
+        [COLLECTIONS.ROLES]: [],
+        [COLLECTIONS.SECTORES]: [],
+        [COLLECTIONS.NOTIFICATIONS]: [],
+        [COLLECTIONS.TAREAS]: [], // For dashboard view
+        [COLLECTIONS.USUARIOS]: [] // Still needed for some seeding functions
     },
     collectionsById: {
-        [COLLECTIONS.PRODUCTOS]: new Map(),
-        [COLLECTIONS.SEMITERMINADOS]: new Map(),
-        [COLLECTIONS.INSUMOS]: new Map(),
-        [COLLECTIONS.CLIENTES]: new Map(),
-        [COLLECTIONS.SECTORES]: new Map(),
-        [COLLECTIONS.PROCESOS]: new Map(),
-        [COLLECTIONS.PROVEEDORES]: new Map(),
-        [COLLECTIONS.UNIDADES]: new Map(),
-        [COLLECTIONS.USUARIOS]: new Map(),
-        [COLLECTIONS.PROYECTOS]: new Map(),
+        // This will be populated on-demand or for the small collections above.
         [COLLECTIONS.ROLES]: new Map(),
-        [COLLECTIONS.TAREAS]: new Map(),
-        [COLLECTIONS.ECR_FORMS]: new Map(),
-        [COLLECTIONS.ECO_FORMS]: new Map(),
-        [COLLECTIONS.REUNIONES_ECR]: new Map()
+        [COLLECTIONS.SECTORES]: new Map(),
+        [COLLECTIONS.USUARIOS]: new Map(),
     },
+    collectionCounts: {}, // New property to store KPI counts
     unsubscribeListeners: [],
     sinopticoState: null,
     sinopticoTabularState: null,
@@ -288,117 +280,102 @@ const dom = {
     userMenuContainer: document.getElementById('user-menu-container'),
 };
 
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function waitForUsers() {
-    let retries = 0;
-    const maxRetries = 10; // Wait for a maximum of 20 seconds
-    while ((!appState.collections.usuarios || appState.collections.usuarios.length === 0) && retries < maxRetries) {
-        showToast('Cargando lista de usuarios...', 'info', 1800);
-        await sleep(2000);
-        retries++;
-    }
-    if (retries >= maxRetries) {
-        showToast('No se pudo cargar la lista de usuarios. Por favor, recargue la página.', 'error');
-        return false;
-    }
-    return true;
-}
-
 // =================================================================================
 // --- 3. LÓGICA DE DATOS (FIRESTORE) ---
 // =================================================================================
 
-function startRealtimeListeners() {
-    appState.isAppInitialized = false;
-    return new Promise((resolve, reject) => {
-        // Essential collections needed for the first paint (dashboard)
-        const essentialCollections = new Set([
-            COLLECTIONS.PRODUCTOS,
-            COLLECTIONS.INSUMOS,
-            COLLECTIONS.CLIENTES,
-            COLLECTIONS.USUARIOS,
-            COLLECTIONS.ROLES,
-            COLLECTIONS.SECTORES,
-            COLLECTIONS.TAREAS,
-            COLLECTIONS.PROYECTOS,
-            COLLECTIONS.ECR_FORMS,
-            COLLECTIONS.ECO_FORMS,
-            COLLECTIONS.REUNIONES_ECR,
-            COLLECTIONS.NOTIFICATIONS
-        ]);
+async function startRealtimeListeners() {
+    if (appState.unsubscribeListeners.length > 0) {
+        stopRealtimeListeners();
+    }
 
-        if (appState.unsubscribeListeners.length > 0) {
-            stopRealtimeListeners();
+    const listeners = [];
+
+    // --- Listener for the current user's profile data ---
+    const userDocRef = doc(db, COLLECTIONS.USUARIOS, appState.currentUser.uid);
+    const userUnsub = onSnapshot(userDocRef, (doc) => {
+        if (doc.exists()) {
+            const userData = doc.data();
+            appState.currentUser = { ...appState.currentUser, ...userData };
+            console.log("User profile updated in real-time.");
+            // Re-render components that depend on user data if needed
+            renderUserMenu();
         }
+    }, (error) => console.error("Error listening to user profile:", error));
+    listeners.push(userUnsub);
 
-        const collectionNames = Object.keys(appState.collections);
-        let loadedCount = 0;
+    // --- Listener for user notifications ---
+    const notificationsQuery = query(
+        collection(db, COLLECTIONS.NOTIFICATIONS),
+        where('userId', '==', appState.currentUser.uid),
+        orderBy('createdAt', 'desc'),
+        limit(20)
+    );
+    const notificationsUnsub = onSnapshot(notificationsQuery, (snapshot) => {
+        appState.collections.notifications = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+        renderNotificationCenter();
+    }, (error) => console.error("Error listening to notifications:", error));
+    listeners.push(notificationsUnsub);
 
-        collectionNames.forEach(name => {
-            let q;
-            if (name === COLLECTIONS.NOTIFICATIONS) {
-                q = query(collection(db, name), where('userId', '==', appState.currentUser.uid), orderBy('createdAt', 'desc'), limit(20));
-            } else if (name === COLLECTIONS.TAREAS && appState.currentUser.role !== 'admin') {
-                q = query(collection(db, name), or(
-                    where('isPublic', '==', true),
-                    where('assigneeUid', '==', appState.currentUser.uid),
-                    where('creatorUid', '==', appState.currentUser.uid)
-                ));
-            } else {
-                q = query(collection(db, name));
-            }
-            const unsubscribe = onSnapshot(q, (querySnapshot) => {
-                const data = [];
-                const dataMap = new Map();
-                querySnapshot.forEach((doc) => {
-                    const item = { ...doc.data(), docId: doc.id };
-                    data.push(item);
-                    if (name === COLLECTIONS.USUARIOS) {
-                        dataMap.set(doc.id, item);
-                    } else if(item.id) {
-                        dataMap.set(item.id, item);
-                    }
-                });
-                appState.collections[name] = data;
-                if(appState.collectionsById[name]) appState.collectionsById[name] = dataMap;
+    // --- One-time fetches for small, critical collections (Roles & Sectors) ---
+    // These are small and used in many places, so loading them once is efficient.
+    try {
+        const rolesSnap = await getDocs(collection(db, COLLECTIONS.ROLES));
+        appState.collections.roles = rolesSnap.docs.map(d => ({ ...d.data(), docId: d.id }));
+        appState.collectionsById.roles = new Map(appState.collections.roles.map(r => [r.id, r]));
 
-                // Check if the initial load is complete
-                if (essentialCollections.has(name)) {
-                    essentialCollections.delete(name);
-                    if (essentialCollections.size === 0 && !appState.isAppInitialized) {
-                        console.log("Essential data loaded.");
-                        appState.isAppInitialized = true;
-                        resolve();
-                    }
-                }
+        const sectoresSnap = await getDocs(collection(db, COLLECTIONS.SECTORES));
+        appState.collections.sectores = sectoresSnap.docs.map(d => ({ ...d.data(), docId: d.id }));
+        appState.collectionsById.sectores = new Map(appState.collections.sectores.map(s => [s.id, s]));
 
-                // After initial load, these can run on subsequent updates
-                if (appState.isAppInitialized) {
-                    if (name === COLLECTIONS.USUARIOS) populateTaskAssigneeDropdown();
-                    if (name === COLLECTIONS.NOTIFICATIONS) renderNotificationCenter();
-                    if (appState.currentView === 'dashboard') updateDashboard(name);
-                    if (appState.currentView === 'sinoptico' && appState.sinopticoState) initSinoptico();
-                    if (viewConfig[appState.currentView]?.dataKey === name) {
-                        runTableLogic();
-                    }
-                    if (appState.currentView === 'ecr_seguimiento' && (name === COLLECTIONS.REUNIONES_ECR || name === COLLECTIONS.ECR_FORMS)) {
-                        runEcrSeguimientoLogic();
-                    }
-                }
+        console.log("Roles and Sectors loaded.");
+    } catch (error) {
+        console.error("Error fetching initial roles/sectors:", error);
+        showToast('Error al cargar datos de configuración inicial.', 'error');
+    }
 
-            }, (error) => {
-                const collectionIdentifier = (typeof name === 'string' && name) ? `collection '${name}'` : 'an undefined collection';
-                console.error(`Error listening to ${collectionIdentifier}:`, error);
-                showToast(`Error al cargar datos desde ${collectionIdentifier}.`, 'error');
-                // Reject the promise if a critical listener fails
-                reject(error);
-            });
-            appState.unsubscribeListeners.push(unsubscribe);
-        });
-    });
+    // --- Dashboard KPI Counts (one-time fetch) ---
+    // This is much more efficient than loading all documents.
+    const kpiCollections = [
+        COLLECTIONS.PRODUCTOS,
+        COLLECTIONS.INSUMOS,
+        COLLECTIONS.PROYECTOS,
+        COLLECTIONS.TAREAS
+    ];
+
+    for (const collectionName of kpiCollections) {
+        const collRef = collection(db, collectionName);
+        const countSnapshot = await getCountFromServer(collRef);
+        // We store the count in a new object to avoid confusion with the old `appState.collections`
+        if (!appState.collectionCounts) appState.collectionCounts = {};
+        appState.collectionCounts[collectionName] = countSnapshot.data().count;
+    }
+    console.log("Dashboard KPI counts loaded.");
+
+    // --- Listener for user's most recent tasks for the dashboard ---
+    const tasksQuery = query(
+        collection(db, COLLECTIONS.TAREAS),
+        where('assigneeUid', '==', appState.currentUser.uid),
+        where('status', '!=', 'done'),
+        orderBy('status'),
+        orderBy('createdAt', 'desc'),
+        limit(5)
+    );
+    const tasksUnsub = onSnapshot(tasksQuery, (snapshot) => {
+        appState.collections.tareas = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+        if (appState.currentView === 'dashboard') {
+            renderDashboardTasks();
+            renderDashboardCharts();
+        }
+    }, (error) => console.error("Error listening to user tasks:", error));
+    listeners.push(tasksUnsub);
+
+
+    appState.unsubscribeListeners = listeners;
+    appState.isAppInitialized = true;
+    console.log("Optimized real-time listeners started.");
+
+    return Promise.resolve();
 }
 
 function openAvatarSelectionModal() {
@@ -1086,54 +1063,14 @@ async function seedDatabase() {
         setInBatch(COLLECTIONS.PRODUCTOS, productoData);
     }
 
-    // --- GENERACIÓN DE TAREAS DE PRUEBA ---
-    const TOTAL_TAREAS = 40;
-    showToast(`Generando ${TOTAL_TAREAS} tareas de prueba...`, 'info');
-    const taskTitles = ['Revisar plano', 'Actualizar documentación', 'Contactar proveedor', 'Optimizar proceso', 'Validar muestra', 'Generar reporte'];
-    const taskDescriptions = [
-        'Es necesario verificar las últimas modificaciones del plano y asegurar la correspondencia con el prototipo.',
-        'Actualizar la documentación técnica para reflejar los cambios de la versión 2.1.',
-        'Contactar al proveedor de materia prima para negociar nuevos términos de entrega.',
-        'Analizar el cuello de botella en la línea de ensamblaje y proponer mejoras.',
-        'Realizar pruebas de calidad sobre la última muestra recibida del proveedor X.',
-        'Generar el reporte de avance semanal del proyecto Y para la reunión de directorio.'
-    ];
-    const statuses = ['todo', 'inprogress', 'done'];
-    const priorities = ['low', 'medium', 'high'];
-    const users = appState.collections.usuarios.filter(u => u.disabled !== true);
-
     // --- GENERACIÓN DE ECOS DE PRUEBA ---
+    // Fetch users directly for seeding, as they are no longer pre-loaded globally.
+    const usersSnapshot = await getDocs(collection(db, COLLECTIONS.USUARIOS));
+    const users = usersSnapshot.docs.map(d => ({...d.data(), docId: d.id})).filter(u => u.disabled !== true);
+
     await seedEcos(batch, users, generated);
     await seedEcrs(batch, users, generated);
     await seedReunionesEcr(batch);
-
-    // for (let i = 1; i <= TOTAL_TAREAS; i++) {
-    //     const creator = getRandomItem(users);
-    //     const assignee = Math.random() > 0.2 ? getRandomItem(users) : null; // 20% de tareas no asignadas
-
-    //     const startDate = new Date();
-    //     startDate.setDate(startDate.getDate() - Math.floor(Math.random() * 30));
-    //     const dueDate = new Date(startDate);
-    //     dueDate.setDate(dueDate.getDate() + Math.floor(Math.random() * 60));
-
-    //     const taskData = {
-    //         title: `${getRandomItem(taskTitles)} #${i}`,
-    //         description: getRandomItem(taskDescriptions),
-    //         creatorUid: creator.docId,
-    //         assigneeUid: assignee ? assignee.docId : null,
-    //         status: getRandomItem(statuses),
-    //         priority: getRandomItem(priorities),
-    //         isPublic: Math.random() > 0.3, // 70% de tareas públicas
-    //         createdAt: startDate,
-    //         startDate: startDate.toISOString().split('T')[0],
-    //         dueDate: dueDate.toISOString().split('T')[0],
-    //         subtasks: []
-    //     };
-
-    //     const docRef = doc(collection(db, COLLECTIONS.TAREAS));
-    //     batch.set(docRef, taskData);
-    // }
-
 
     // --- COMMIT FINAL ---
     try {
@@ -5120,9 +5057,9 @@ function handleViewContentActions(e) {
         'export-pdf': () => handleExport('pdf'),
         'export-excel': () => handleExport('excel'),
         'open-sector-modal': () => openSectorProcessesModal(button.dataset.sectorId),
-        'open-product-search-modal': openProductSearchModal,
+        'open-product-search-modal-sinoptico': () => openProductSearchModalForView('sinoptico'),
+        'open-product-search-modal': () => openProductSearchModalForView('arboles'),
         'volver-a-busqueda': () => {
-            // Ya no es necesario liberar ningún bloqueo.
             appState.arbolActivo = null;
             renderArbolesInitialView();
         },
@@ -5845,6 +5782,8 @@ async function runTableLogic(direction = 'first') {
 
     const PAGE_SIZE = 10;
     const collectionRef = collection(db, config.dataKey);
+
+    // The main field for ordering should be consistent. 'id' is a good default.
     const baseQuery = query(collectionRef, orderBy("id"));
 
     let currentPage = appState.pagination.currentPage;
@@ -5867,7 +5806,10 @@ async function runTableLogic(direction = 'first') {
     }
 
     try {
-        // Fetch total count only on the first load of a view
+        dom.viewContent.innerHTML = `<div class="text-center py-16 text-gray-500"><i data-lucide="loader" class="animate-spin h-8 w-8 mx-auto"></i><p class="mt-2">Cargando datos...</p></div>`;
+        lucide.createIcons();
+
+        // Fetch total count only on the first load of a view for efficiency
         if (direction === 'first') {
             const countSnapshot = await getCountFromServer(query(collection(db, config.dataKey)));
             appState.pagination.totalItems = countSnapshot.data().count;
@@ -5877,15 +5819,18 @@ async function runTableLogic(direction = 'first') {
         const data = documentSnapshots.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
 
         if (documentSnapshots.empty && currentPage > 1) {
+            // This can happen if the user clicks "next" on the last page.
+            // We just go back one page.
             appState.pagination.currentPage = currentPage - 1;
-            const nextButton = dom.viewContent.querySelector('button[data-action="next-page"]');
-            if (nextButton) nextButton.disabled = true;
             showToast('No hay más resultados.', 'info');
+            // Re-render the last known good page.
+            runTableLogic('prev');
             return;
         }
 
         appState.pagination.currentPage = currentPage;
 
+        // Special filtering for users view
         if (config.dataKey === COLLECTIONS.USUARIOS) {
             appState.currentData = data.filter(user => user.disabled !== true);
         } else {
@@ -5894,20 +5839,16 @@ async function runTableLogic(direction = 'first') {
 
         renderTable(appState.currentData, config);
 
+        // Store the cursor for the *next* page
         if (!documentSnapshots.empty) {
             const lastVisibleDoc = documentSnapshots.docs[documentSnapshots.docs.length - 1];
             appState.pagination.pageCursors[currentPage + 1] = lastVisibleDoc;
         }
 
-        // Disable/enable next button based on items fetched
-        const totalPages = Math.ceil(appState.pagination.totalItems / PAGE_SIZE);
-        const nextButton = dom.viewContent.querySelector('button[data-action="next-page"]');
-        if (nextButton) {
-            nextButton.disabled = currentPage >= totalPages;
-        }
     } catch (error) {
         console.error("Error fetching paginated data:", error);
         showToast("Error al cargar los datos. Puede que necesite crear un índice en Firestore.", "error");
+        dom.viewContent.innerHTML = `<p class="text-red-500">Error al cargar la tabla. Verifique la consola.</p>`;
     }
 }
 
@@ -5947,7 +5888,7 @@ function renderTable(data, config) {
     <div class="flex justify-between items-center pt-4">
         <button data-action="prev-page" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed" ${currentPage <= 1 ? 'disabled' : ''}>Anterior</button>
         <span class="text-sm font-semibold text-gray-600">Página ${currentPage} de ${totalPages > 0 ? totalPages : 1}</span>
-        <button data-action="next-page" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 text-sm font-semibold">Siguiente</button>
+        <button data-action="next-page" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 text-sm font-semibold" ${currentPage >= totalPages ? 'disabled' : ''}>Siguiente</button>
     </div>
     </div>`;
     dom.viewContent.innerHTML = tableHTML;
@@ -6093,9 +6034,32 @@ async function openFormModal(item = null) {
     const config = viewConfig[appState.currentView];
     const isEditing = item !== null;
     const modalId = `form-modal-${Date.now()}`;
+
+    // Step 1: Identify all collections that need to be fetched for dropdowns.
+    const dropdownFields = config.fields.filter(field => field.type === 'select' && field.searchKey);
+    const collectionsToFetch = [...new Set(dropdownFields.map(field => field.searchKey))];
+
+    // Step 2: Fetch all required collections concurrently.
+    const fetchedCollections = {};
+    try {
+        if (collectionsToFetch.length > 0) {
+            showToast('Cargando opciones del formulario...', 'info', 2000);
+            await Promise.all(collectionsToFetch.map(async (collectionName) => {
+                const querySnapshot = await getDocs(collection(db, collectionName));
+                const data = querySnapshot.docs.map(d => ({ ...d.data(), docId: d.id }));
+                // Sort data for user-friendly dropdowns
+                data.sort((a, b) => (a.descripcion || a.name || '').localeCompare(b.descripcion || b.name || ''));
+                fetchedCollections[collectionName] = data;
+            }));
+        }
+    } catch (error) {
+        console.error("Error fetching data for form dropdowns:", error);
+        showToast('Error al cargar los datos para el formulario.', 'error');
+        return; // Abort if data can't be loaded
+    }
     
     let fieldsHTML = '';
-    config.fields.forEach(field => {
+    for (const field of config.fields) {
         const isReadonly = (isEditing && field.key === 'id') || field.readonly;
         let inputHTML = '';
         const commonClasses = 'block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm';
@@ -6104,7 +6068,8 @@ async function openFormModal(item = null) {
         
         if (field.type === 'select') {
             let optionsHTML = '';
-            const options = field.searchKey ? appState.collections[field.searchKey] : field.options;
+            // Use the pre-fetched data if available, otherwise use static options from config.
+            const options = field.searchKey ? (fetchedCollections[field.searchKey] || []) : (field.options || []);
 
             if (field.searchKey) {
                 options.forEach(opt => {
@@ -6113,19 +6078,23 @@ async function openFormModal(item = null) {
                 });
             } else { // Simple array of options
                 options.forEach(opt => {
-                    const optionValue = typeof opt === 'string' ? opt.toLowerCase() : opt;
+                    const optionValue = typeof opt === 'string' ? opt : opt;
                     const isSelected = optionValue === value;
                     optionsHTML += `<option value="${optionValue}" ${isSelected ? 'selected' : ''}>${opt}</option>`;
                 });
             }
-            inputHTML = `<select id="${field.key}" name="${field.key}" class="${commonClasses} ${readonlyClasses}" ${isReadonly ? 'disabled' : ''} ${field.required ? 'required' : ''}>${optionsHTML}</select>`;
+            inputHTML = `<select id="${field.key}" name="${field.key}" class="${commonClasses} ${readonlyClasses}" ${isReadonly ? 'disabled' : ''} ${field.required ? 'required' : ''}><option value="">Seleccionar...</option>${optionsHTML}</select>`;
 
         } else if (field.type === 'search-select') {
             let selectedItemName = 'Ninguno seleccionado';
             if (isEditing && value) {
+                // This assumes the data for search-select is small and loaded globally (e.g., sectors, roles)
+                // or that we can fetch it if necessary. For now, it relies on global state.
                 const sourceDB = appState.collections[field.searchKey];
-                const foundItem = sourceDB.find(dbItem => dbItem.id === value);
-                if(foundItem) selectedItemName = foundItem.descripcion;
+                if (sourceDB) {
+                    const foundItem = sourceDB.find(dbItem => dbItem.id === value);
+                    if(foundItem) selectedItemName = foundItem.descripcion;
+                }
             }
             inputHTML = `<div class="flex items-center gap-2">
                 <input type="text" id="${field.key}-display" value="${selectedItemName}" class="${commonClasses} bg-gray-100" readonly>
@@ -6143,7 +6112,7 @@ async function openFormModal(item = null) {
             ${inputHTML}
             <p id="error-${field.key}" class="text-xs text-red-600 mt-1 h-4"></p>
         </div>`;
-    });
+    }
 
     const modalHTML = `<div id="${modalId}" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop animate-fade-in"><div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col m-4 modal-content"><div class="flex justify-between items-center p-5 border-b"><h3 class="text-xl font-bold">${isEditing ? 'Editar' : 'Agregar'} ${config.singular}</h3><button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button></div><form id="data-form" class="p-6 overflow-y-auto" novalidate><input type="hidden" name="edit-doc-id" value="${isEditing ? item.docId : ''}"><div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">${fieldsHTML}</div></form><div class="flex justify-end items-center p-4 border-t bg-gray-50 space-x-3"><button data-action="close" type="button" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button><button type="submit" form="data-form" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-semibold">Guardar</button></div></div></div>`;
     
@@ -6279,39 +6248,60 @@ function openDetailsModal(item) {
     });
 }
 
-function openAssociationSearchModal(searchKey, onSelect) {
-    const config = { 
-        [COLLECTIONS.CLIENTES]: { title: 'Buscar Cliente', data: appState.collections[COLLECTIONS.CLIENTES] }, 
-        [COLLECTIONS.SECTORES]: { title: 'Buscar Sector', data: appState.collections[COLLECTIONS.SECTORES] }, 
-        [COLLECTIONS.PROCESOS]: { title: 'Buscar Proceso', data: appState.collections[COLLECTIONS.PROCESOS] },
-        [COLLECTIONS.PROVEEDORES]: { title: 'Buscar Proveedor', data: appState.collections[COLLECTIONS.PROVEEDORES] },
-        [COLLECTIONS.UNIDADES]: { title: 'Buscar Unidad', data: appState.collections[COLLECTIONS.UNIDADES] }
+async function openAssociationSearchModal(searchKey, onSelect) {
+    const titleMap = {
+        [COLLECTIONS.CLIENTES]: 'Buscar Cliente',
+        [COLLECTIONS.SECTORES]: 'Buscar Sector',
+        [COLLECTIONS.PROCESOS]: 'Buscar Proceso',
+        [COLLECTIONS.PROVEEDORES]: 'Buscar Proveedor',
+        [COLLECTIONS.UNIDADES]: 'Buscar Unidad'
     };
-    const searchConfig = config[searchKey];
-    if (!searchConfig) return;
+    const title = titleMap[searchKey] || 'Buscar';
     const modalId = `assoc-search-modal-${Date.now()}`;
-    const modalHTML = `<div id="${modalId}" class="fixed inset-0 z-[60] flex items-center justify-center modal-backdrop animate-fade-in"><div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col m-4 modal-content"><div class="flex justify-between items-center p-5 border-b"><h3 class="text-xl font-bold">${searchConfig.title}</h3><button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button></div><div class="p-6"><input type="text" id="assoc-search-term" placeholder="Buscar..." class="w-full border-gray-300 rounded-md shadow-sm"></div><div id="assoc-search-results" class="p-6 border-t overflow-y-auto flex-1"></div></div></div>`;
+    const modalHTML = `<div id="${modalId}" class="fixed inset-0 z-[60] flex items-center justify-center modal-backdrop animate-fade-in"><div class="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col m-4 modal-content"><div class="flex justify-between items-center p-5 border-b"><h3 class="text-xl font-bold">${title}</h3><button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button></div><div class="p-6"><input type="text" id="assoc-search-term" placeholder="Buscar..." class="w-full border-gray-300 rounded-md shadow-sm"></div><div id="assoc-search-results" class="p-6 border-t overflow-y-auto flex-1"></div></div></div>`;
     
     dom.modalContainer.insertAdjacentHTML('beforeend', modalHTML);
+    lucide.createIcons();
     const modalElement = document.getElementById(modalId);
     const searchInput = modalElement.querySelector('#assoc-search-term');
     const resultsContainer = modalElement.querySelector('#assoc-search-results');
-    const renderResults = (term = '') => {
-        term = term.toLowerCase();
-        const filteredData = searchConfig.data.filter(item => item.id.toLowerCase().includes(term) || item.descripcion.toLowerCase().includes(term));
-        resultsContainer.innerHTML = filteredData.length === 0 ? `<p class="text-gray-500 text-center py-8">No hay resultados.</p>` : `<div class="space-y-2">${filteredData.map(item => `<button data-item-id="${item.id}" class="w-full text-left p-3 bg-gray-50 hover:bg-blue-100 rounded-md border transition"><p class="font-semibold">${item.descripcion}</p><p class="text-sm text-gray-500">${item.id}</p></button>`).join('')}</div>`;
-    };
-    searchInput.addEventListener('input', () => renderResults(searchInput.value));
-    resultsContainer.addEventListener('click', e => {
-        const button = e.target.closest('button[data-item-id]');
-        if (button) {
-            const selectedItem = searchConfig.data.find(d => d.id === button.dataset.itemId);
-            onSelect(selectedItem);
-            modalElement.remove();
-        }
-    });
+
+    resultsContainer.innerHTML = '<p class="text-center py-8 text-slate-500">Cargando datos...</p>';
+
+    try {
+        const querySnapshot = await getDocs(collection(db, searchKey));
+        const allData = querySnapshot.docs.map(doc => ({...doc.data(), docId: doc.id}));
+        allData.sort((a,b) => (a.descripcion || '').localeCompare(b.descripcion || ''));
+
+        const renderResults = (term = '') => {
+            term = term.toLowerCase();
+            const filteredData = allData.filter(item =>
+                (item.id && item.id.toLowerCase().includes(term)) ||
+                (item.descripcion && item.descripcion.toLowerCase().includes(term))
+            );
+            resultsContainer.innerHTML = filteredData.length === 0
+                ? `<p class="text-gray-500 text-center py-8">No hay resultados.</p>`
+                : `<div class="space-y-2">${filteredData.map(item => `<button data-item-id="${item.id}" class="w-full text-left p-3 bg-gray-50 hover:bg-blue-100 rounded-md border transition"><p class="font-semibold">${item.descripcion}</p><p class="text-sm text-gray-500">${item.id}</p></button>`).join('')}</div>`;
+        };
+
+        searchInput.addEventListener('input', () => renderResults(searchInput.value));
+        resultsContainer.addEventListener('click', e => {
+            const button = e.target.closest('button[data-item-id]');
+            if (button) {
+                const selectedItem = allData.find(d => d.id === button.dataset.itemId);
+                onSelect(selectedItem);
+                modalElement.remove();
+            }
+        });
+
+        renderResults(); // Initial render
+    } catch (error) {
+        console.error(`Error fetching data for ${searchKey}:`, error);
+        resultsContainer.innerHTML = `<p class="text-red-500 text-center py-8">Error al cargar los datos.</p>`;
+        showToast('Error al cargar datos de búsqueda.', 'error');
+    }
+
     modalElement.querySelector('button[data-action="close"]').addEventListener('click', () => modalElement.remove());
-    renderResults();
 }
 
 function renderDashboardAdminPanel() {
@@ -6352,28 +6342,6 @@ function renderDashboardAdminPanel() {
         </div>
     `;
     lucide.createIcons();
-}
-
-function updateDashboard(collectionName) {
-    if (appState.currentView !== 'dashboard') return;
-
-    // The new component-based approach handles updates by re-rendering the specific component.
-    switch (collectionName) {
-        case COLLECTIONS.PRODUCTOS:
-        case COLLECTIONS.INSUMOS:
-        case COLLECTIONS.SEMITERMINADOS:
-            renderDashboardKpis();
-            renderDashboardActivityFeed();
-            break;
-        case COLLECTIONS.PROYECTOS:
-            renderDashboardKpis();
-            break;
-        case COLLECTIONS.TAREAS:
-            renderDashboardKpis();
-            renderDashboardTasks();
-            renderDashboardCharts();
-            break;
-    }
 }
 
 function runDashboardLogic() {
@@ -6451,15 +6419,15 @@ function renderDashboardKpis() {
     const container = document.getElementById('dashboard-kpi-container');
     if (!container) return;
 
-    const { productos, insumos, tareas, proyectos } = appState.collections;
-    const myTasks = tareas.filter(t => t.assigneeUid === appState.currentUser.uid && t.status !== 'done');
+    // Now using the more efficient counts from appState.collectionCounts
+    const { collectionCounts, collections } = appState;
+    const myTasks = collections.tareas.filter(t => t.assigneeUid === appState.currentUser.uid && t.status !== 'done');
     const overdueTasks = myTasks.filter(t => t.dueDate && new Date(t.dueDate + "T00:00:00") < new Date());
-    const activeProjects = proyectos.filter(p => p.status !== 'finalizado');
 
     const kpis = [
-        { id: 'kpi-productos', value: productos.length, label: 'Productos Totales', icon: 'package', color: 'blue' },
-        { id: 'kpi-insumos', value: insumos.length, label: 'Insumos Registrados', icon: 'beaker', color: 'green' },
-        { id: 'kpi-proyectos', value: activeProjects.length, label: 'Proyectos Activos', icon: 'kanban-square', color: 'amber' },
+        { id: 'kpi-productos', value: collectionCounts[COLLECTIONS.PRODUCTOS] || 0, label: 'Productos Totales', icon: 'package', color: 'blue' },
+        { id: 'kpi-insumos', value: collectionCounts[COLLECTIONS.INSUMOS] || 0, label: 'Insumos Registrados', icon: 'beaker', color: 'green' },
+        { id: 'kpi-proyectos', value: collectionCounts[COLLECTIONS.PROYECTOS] || 0, label: 'Proyectos Totales', icon: 'kanban-square', color: 'amber' },
         { id: 'kpi-vencidas', value: overdueTasks.length, label: 'Tareas Vencidas', icon: 'alert-circle', color: 'red' }
     ];
 
@@ -8597,6 +8565,16 @@ onAuthStateChanged(auth, async (user) => {
             isSuperAdmin: true // Give admin rights for the tutorial
         };
 
+        // Provide minimal mock data to prevent rendering crashes in verification mode
+        appState.collections[COLLECTIONS.PRODUCTOS] = [];
+        appState.collections[COLLECTIONS.INSUMOS] = [];
+        appState.collections[COLLECTIONS.SEMITERMINADOS] = [];
+        appState.collectionCounts[COLLECTIONS.PRODUCTOS] = 0;
+        appState.collectionCounts[COLLECTIONS.INSUMOS] = 0;
+        appState.collectionCounts[COLLECTIONS.PROYECTOS] = 0;
+        appState.collectionCounts[COLLECTIONS.TAREAS] = 0;
+
+
         dom.authContainer.classList.add('hidden');
         dom.appView.classList.remove('hidden');
         updateNavForRole();
@@ -8608,7 +8586,7 @@ onAuthStateChanged(auth, async (user) => {
         appState.isAppInitialized = true;
         console.log("TUTORIAL MODE: Bypassing real-time listeners for verification.");
 
-        switchView('dashboard');
+        await switchView('dashboard');
         dom.loadingOverlay.style.display = 'none';
 
         return; // IMPORTANT: Stop further execution of the real auth logic.
@@ -8726,18 +8704,6 @@ onAuthStateChanged(auth, async (user) => {
         }
     }
 });
-
-function updateAuthView(isLoggedIn) {
-    // This function is now only used for logout and unverified email scenarios.
-    if (!isLoggedIn) {
-        stopRealtimeListeners();
-        dom.authContainer.classList.remove('hidden');
-        dom.appView.classList.add('hidden');
-        appState.currentUser = null;
-        showAuthScreen('login');
-    }
-    // The logged-in logic is now handled directly in onAuthStateChanged
-}
 
 function updateNavForRole() {
     const userManagementLink = document.querySelector('[data-view="user_management"]');
@@ -9236,6 +9202,141 @@ function eliminarNodo(id) {
     });
 }
 
+async function loadDataForTreeView(selectedProductId) {
+    const requiredCollections = [
+        // We only need the selected product, not all of them.
+        // The other collections are needed to resolve references in the tree.
+        COLLECTIONS.SEMITERMINADOS,
+        COLLECTIONS.INSUMOS,
+        COLLECTIONS.CLIENTES,
+        COLLECTIONS.PROVEEDORES,
+        COLLECTIONS.UNIDADES,
+        COLLECTIONS.PROYECTOS
+    ];
+
+    try {
+        dom.loadingOverlay.style.display = 'flex';
+        dom.loadingOverlay.querySelector('p').textContent = 'Cargando estructura del producto...';
+
+        // Fetch the specific product document first.
+        const productDocRef = doc(db, COLLECTIONS.PRODUCTOS, selectedProductId);
+        const productSnap = await getDoc(productDocRef);
+
+        if (!productSnap.exists()) {
+            throw new Error(`Producto con ID ${selectedProductId} no encontrado.`);
+        }
+        const selectedProduct = { ...productSnap.data(), docId: productSnap.id };
+
+        // Fetch all other required collections concurrently.
+        const otherCollectionsData = await Promise.all(requiredCollections.map(async (collName) => {
+            const querySnapshot = await getDocs(collection(db, collName));
+            return { name: collName, data: querySnapshot.docs.map(d => ({ ...d.data(), docId: d.id })) };
+        }));
+
+        // Populate appState with the fetched data.
+        // We replace the entire 'productos' collection with an array containing only the selected one.
+        appState.collections[COLLECTIONS.PRODUCTOS] = [selectedProduct];
+        appState.collectionsById[COLLECTIONS.PRODUCTOS] = new Map([[selectedProduct.id, selectedProduct]]);
+
+        otherCollectionsData.forEach(coll => {
+            appState.collections[coll.name] = coll.data;
+            if (coll.data.length > 0 && coll.data[0].id) {
+                appState.collectionsById[coll.name] = new Map(coll.data.map(item => [item.id, item]));
+            }
+        });
+
+        return selectedProduct; // Return the fully loaded product
+
+    } catch (error) {
+        console.error("Error loading data for Tree view:", error);
+        showToast('Error al cargar los datos del producto seleccionado.', 'error');
+        return null;
+    } finally {
+        dom.loadingOverlay.style.display = 'none';
+    }
+}
+
+
+function openProductSearchModalForView(viewType) {
+    // Re-use the existing modal logic but adapt the callback.
+    const modalId = `prod-search-modal-${viewType}-${Date.now()}`;
+
+    const onProductSelect = async (productId) => {
+        const productData = await loadDataForTreeView(productId);
+        if (!productData) {
+            // If data loading fails, go back to the initial screen of the respective view.
+            if (viewType === 'sinoptico') {
+                runSinopticoLogic();
+            } else if (viewType === 'arboles') {
+                renderArbolesInitialView();
+            }
+            return;
+        }
+
+        if (viewType === 'sinoptico') {
+            dom.viewContent.innerHTML = `<div class="animate-fade-in-up">${renderSinopticoLayout()}</div>`;
+            lucide.createIcons();
+            initSinoptico();
+        } else if (viewType === 'arboles') {
+            handleProductSelect(productId); // This function already handles loading the detail view
+        }
+    };
+
+    // This part is similar to the original openProductSearchModal
+    let clientOptions = '<option value="">Todos</option>';
+    if (appState.collections[COLLECTIONS.CLIENTES] && appState.collections[COLLECTIONS.CLIENTES].length > 0) {
+        clientOptions += appState.collections[COLLECTIONS.CLIENTES].map(c => `<option value="${c.id}">${c.descripcion}</option>`).join('');
+    }
+
+    const modalHTML = `<div id="${modalId}" class="fixed inset-0 z-50 flex items-center justify-center modal-backdrop animate-fade-in"><div class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[80vh] flex flex-col m-4 modal-content"><div class="flex justify-between items-center p-5 border-b"><h3 class="text-xl font-bold">Buscar Producto Principal</h3><button data-action="close" class="text-gray-500 hover:text-gray-800"><i data-lucide="x" class="h-6 w-6"></i></button></div><div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4"><div><label for="search-prod-term" class="block text-sm font-medium">Código/Descripción</label><input type="text" id="search-prod-term" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"></div><div><label for="search-prod-client" class="block text-sm font-medium">Cliente</label><select id="search-prod-client" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">${clientOptions}</select></div></div><div id="search-prod-results" class="p-6 border-t overflow-y-auto flex-1"></div></div></div>`;
+
+    dom.modalContainer.innerHTML = modalHTML;
+    const modalElement = document.getElementById(modalId);
+    const termInput = modalElement.querySelector('#search-prod-term');
+    const clientSelect = modalElement.querySelector('#search-prod-client');
+    const resultsContainer = modalElement.querySelector('#search-prod-results');
+
+    const searchHandler = async () => {
+        const term = termInput.value.toLowerCase();
+        const clientId = clientSelect.value;
+
+        // Efficiently fetch only products for the search list
+        const productsRef = collection(db, COLLECTIONS.PRODUCTOS);
+        const q = query(productsRef, orderBy('id'));
+        const querySnapshot = await getDocs(q);
+        const allProducts = querySnapshot.docs.map(doc => ({...doc.data(), docId: doc.id}));
+
+        let results = allProducts.filter(p =>
+            (term === '' || p.id.toLowerCase().includes(term) || p.descripcion.toLowerCase().includes(term)) &&
+            (!clientId || p.clienteId === clientId)
+        );
+
+        resultsContainer.innerHTML = results.length === 0
+            ? `<p class="text-center py-8">No se encontraron productos.</p>`
+            : `<div class="space-y-1">${results.map(p => {
+                const client = appState.collectionsById[COLLECTIONS.CLIENTES]?.get(p.clienteId);
+                return `<button data-product-id="${p.docId}" class="w-full text-left p-2.5 bg-gray-50 hover:bg-blue-100 rounded-md border flex justify-between items-center">
+                    <p class="font-semibold text-blue-800">${p.descripcion} (${p.id})</p>
+                    <p class="text-xs text-gray-500">${client?.descripcion || ''}</p>
+                </button>`;
+            }).join('')}</div>`;
+    };
+
+    termInput.addEventListener('input', searchHandler);
+    clientSelect.addEventListener('change', searchHandler);
+    resultsContainer.addEventListener('click', e => {
+        const button = e.target.closest('button[data-product-id]');
+        if (button) {
+            onProductSelect(button.dataset.productId);
+            modalElement.remove();
+        }
+    });
+    modalElement.querySelector('button[data-action="close"]').addEventListener('click', () => modalElement.remove());
+
+    searchHandler(); // Initial render
+}
+
+
 // =================================================================================
 // --- LÓGICA DE VISTA SINÓPTICA ---
 // =================================================================================
@@ -9457,9 +9558,19 @@ async function handleSinopticoFormSubmit(e) {
 }
 
 function runSinopticoLogic() {
-    dom.viewContent.innerHTML = `<div class="animate-fade-in-up">${renderSinopticoLayout()}</div>`;
+    // This view is now on-demand. First, show a selection screen.
+    dom.viewContent.innerHTML = `<div class="flex flex-col items-center justify-center h-full bg-white rounded-xl shadow-lg p-6 text-center animate-fade-in-up">
+        <i data-lucide="network" class="h-24 w-24 text-gray-300 mb-6"></i>
+        <h3 class="text-2xl font-bold">Vista Sinóptica</h3>
+        <p class="text-gray-500 mt-2 mb-8 max-w-lg">Para comenzar, busque y seleccione un producto para ver su estructura completa en modo de solo lectura.</p>
+        <button data-action="open-product-search-modal-sinoptico" class="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 text-lg font-semibold shadow-lg transition-transform transform hover:scale-105">
+            <i data-lucide="search" class="inline-block mr-2 -mt-1"></i>Seleccionar Producto
+        </button>
+    </div>`;
     lucide.createIcons();
-    initSinoptico();
+
+    // The rest of the logic (initSinoptico, etc.) will be triggered by a click handler
+    // that first loads the necessary data.
 }
 
 const getFlattenedData = (product, levelFilters) => {
