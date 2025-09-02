@@ -111,3 +111,27 @@ exports.saveFormWithValidation = functions.https.onCall(async (data, context) =>
     throw new functions.https.HttpsError('internal', `Error al guardar el formulario ${formType.toUpperCase()}.`);
   }
 });
+
+exports.updateCollectionCounts = functions.firestore
+  .document('{collectionId}/{docId}')
+  .onWrite(async (change, context) => {
+    const collectionId = context.params.collectionId;
+    const collectionsToCount = ['productos', 'insumos', 'proyectos', 'tareas'];
+
+    if (!collectionsToCount.includes(collectionId)) {
+        return null;
+    }
+
+    const db = admin.firestore();
+    const collectionRef = db.collection(collectionId);
+    const snapshot = await collectionRef.count().get();
+    const count = snapshot.data().count;
+
+    const counterRef = db.collection('counters').doc('kpi_counts');
+
+    console.log(`Updating count for ${collectionId} to ${count}`);
+
+    return counterRef.set({
+        [collectionId]: count
+    }, { merge: true });
+});
