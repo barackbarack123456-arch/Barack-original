@@ -48,7 +48,10 @@ export async function deleteProductAndOrphanedSubProducts(productDocId, db, fire
         const allProductsSnap = await getDocs(collection(db, COLLECTIONS.PRODUCTOS));
         const allOtherProducts = [];
         allProductsSnap.docs.forEach(doc => {
-            allOtherProducts.push(doc.data());
+            // This is the fix: Exclude the product being deleted from the dependency check.
+            if (doc.id !== productDocId) {
+                allOtherProducts.push(doc.data());
+            }
         });
 
         let deletedCount = 0;
