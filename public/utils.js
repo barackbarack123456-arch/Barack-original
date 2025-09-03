@@ -47,3 +47,18 @@ export function createHelpTooltip(message) {
         </div>
     `;
 }
+
+/**
+ * Determines if the PPAP confirmation checkbox should be required and validated for an ECO.
+ * The condition is that PPAP is required by the client AND the client has formally approved it.
+ * @param {object} ecrData - The data object from the associated ECR document.
+ * @returns {boolean} - True if PPAP confirmation is required, false otherwise.
+ */
+export function shouldRequirePpapConfirmation(ecrData) {
+    if (!ecrData) {
+        return false;
+    }
+    // The logic is that the PPAP confirmation is only relevant if the ECR
+    // both requires a PPAP and the client has given their final approval.
+    return !!ecrData.cliente_requiere_ppap && ecrData.cliente_aprobacion_estado === 'aprobado';
+}
