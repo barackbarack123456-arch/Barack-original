@@ -102,3 +102,120 @@ export async function deleteProductAndOrphanedSubProducts(productDocId, db, fire
         runTableLogic();
     }
 }
+
+/**
+ * Registra la decisión de un departamento sobre un ECR y evalúa si el estado general del ECR debe cambiar.
+ * @param {string} ecrId - El ID del ECR a modificar.
+ *param {string} departmentId - El ID del departamento que emite la decisión (ej: 'calidad').
+ * @param {string} decision - La decisión tomada ('approved', 'rejected', 'stand-by').
+ * @param {string} comment - Un comentario opcional sobre la decisión.
+ * @param {object} deps - An object containing all dependencies.
+ * @param {object} deps.db - The Firestore database instance.
+ * @param {object} deps.firestore - An object with Firestore functions like { runTransaction, doc, getDoc }.
+ * @param {object} deps.COLLECTIONS - The collections map.
+ * @param {object} deps.appState - The global application state.
+ * @param {object} deps.uiCallbacks - An object with UI functions like { showToast, sendNotification }.
+ */
+export async function registerEcrApproval(ecrId, departmentId, decision, comment, deps) {
+    const { db, firestore, COLLECTIONS, appState, uiCallbacks } = deps;
+    const { runTransaction, doc, getDoc } = firestore;
+    const { showToast, sendNotification } = uiCallbacks;
+
+    const user = appState.currentUser;
+    if (!user) {
+        showToast('Debe iniciar sesión para aprobar.', 'error');
+        return;
+    }
+
+    if (!ecrId || !departmentId || !decision) {
+        showToast('Error: Faltan datos para registrar la aprobación.', 'error');
+        return;
+    }
+
+    const ecrRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
+    let ecrDataBeforeUpdate = null;
+
+    try {
+        await runTransaction(db, async (transaction) => {
+            const ecrDoc = await transaction.get(ecrRef);
+            if (!ecrDoc.exists()) {
+                throw new Error("El ECR no existe.");
+            }
+
+            const ecrData = ecrDoc.data();
+            ecrDataBeforeUpdate = { ...ecrData }; // Store state before change for notification logic
+
+            if (!ecrData.approvals) {
+                ecrData.approvals = {};
+            }
+
+            if (appState.currentUser.sector !== departmentId && appState.currentUser.role !== 'admin') {
+                throw new Error(`No tienes permiso para aprobar por el departamento de ${departmentId}.`);
+            }
+
+            const approvalPath = `approvals.${departmentId}`;
+            const approvalUpdate = {
+                status: decision,
+                user: user.name,
+                date: new Date().toISOString().split('T')[0],
+                comment: comment || ''
+            };
+
+            const updateData = { [approvalPath]: approvalUpdate };
+            ecrData.approvals[departmentId] = approvalUpdate; // Apply update to local copy
+
+            let newOverallStatus = ecrData.status;
+            if (ecrData.status === 'pending-approval') {
+                const allDepartments = [
+                    'ing_producto', 'ing_manufatura', 'hse', 'calidad', 'compras',
+                    'sqa', 'tooling', 'logistica', 'financiero', 'comercial',
+                    'mantenimiento', 'produccion', 'calidad_cliente'
+                ];
+                const requiredApprovals = allDepartments.filter(dept => ecrData[`afecta_${dept}`] === true);
+
+                if (requiredApprovals.length === 0 && decision === 'approved') {
+                    newOverallStatus = 'approved';
+                } else {
+                    if (decision === 'rejected') {
+                        newOverallStatus = 'rejected';
+                    } else {
+                        const allApproved = requiredApprovals.every(dept => ecrData.approvals[dept]?.status === 'approved');
+                        if (allApproved) {
+                            newOverallStatus = 'approved';
+                        }
+                    }
+                }
+            }
+
+            if (newOverallStatus !== ecrData.status) {
+                updateData.status = newOverallStatus;
+            }
+
+            updateData.lastModified = new Date();
+            updateData.modifiedBy = user.email;
+
+            transaction.update(ecrRef, updateData);
+        });
+
+        const finalEcrDoc = await getDoc(ecrRef);
+        const finalEcrData = finalEcrDoc.data();
+
+        showToast(`Decisión del departamento de ${departmentId} registrada.`, 'success');
+
+        if (finalEcrData.status !== ecrDataBeforeUpdate.status) {
+            showToast(`El estado del ECR ha cambiado a: ${finalEcrData.status}`, 'info');
+            if (finalEcrData.creatorUid) {
+                sendNotification(
+                    finalEcrData.creatorUid,
+                    `El estado del ECR "${ecrId}" ha cambiado a ${finalEcrData.status}.`,
+                    'ecr_form',
+                    { ecrId: ecrId }
+                );
+            }
+        }
+
+    } catch (error) {
+        console.error("Error al registrar la aprobación del ECR:", error);
+        showToast(error.message || 'No se pudo registrar la aprobación.', 'error');
+    }
+}
