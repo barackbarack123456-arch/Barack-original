@@ -334,34 +334,27 @@ async function startRealtimeListeners() {
         showToast('Error al cargar datos de configuración inicial.', 'error');
     }
 
-    // --- Real-time listener for KPI counts ---
-    const kpiCounterRef = doc(db, 'counters', 'kpi_counts');
-    const kpiUnsub = onSnapshot(kpiCounterRef, (doc) => {
-        if (doc.exists()) {
-            const counts = doc.data();
-            appState.collectionCounts = { ...appState.collectionCounts, ...counts };
-            console.log("Dashboard KPI counts updated in real-time:", appState.collectionCounts);
-            if (appState.currentView === 'dashboard') {
-                renderDashboardKpis();
-            }
-        }
-    }, (error) => console.error("Error listening to KPI counters:", error));
-    listeners.push(kpiUnsub);
+    // The kpi_counts listener has been removed for efficiency.
+    // KPIs are now calculated on demand in runDashboardLogic.
 
     // --- Listener for user's most recent tasks for the dashboard ---
+    // FIX: The query with '!=' and 'orderBy' on different fields requires a composite index.
+    // To avoid this, we fetch recent tasks and filter on the client.
     const tasksQuery = query(
         collection(db, COLLECTIONS.TAREAS),
         where('assigneeUid', '==', appState.currentUser.uid),
-        where('status', '!=', 'done'),
-        orderBy('status'),
         orderBy('createdAt', 'desc'),
-        limit(5)
+        limit(15) // Fetch a few more to allow for client-side filtering.
     );
     const tasksUnsub = onSnapshot(tasksQuery, (snapshot) => {
-        appState.collections.tareas = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+        const allRecentTasks = snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+        // Filter out completed tasks on the client and take the 5 most recent.
+        appState.collections.tareas = allRecentTasks.filter(t => t.status !== 'done').slice(0, 5);
+
         if (appState.currentView === 'dashboard') {
-            renderDashboardTasks();
-            renderDashboardCharts();
+            // The main dashboard logic already renders the chart once.
+            // This listener will just update the task list for now.
+            renderDashboardTasks(appState.collections.tareas);
         }
     }, (error) => console.error("Error listening to user tasks:", error));
     listeners.push(tasksUnsub);
@@ -2365,52 +2358,7 @@ async function runEcrLogic() {
     });
 }
 
-// Helper to create individual KPI cards
-const createKpiCard = (label, value, icon, colorClass) => {
-    return `
-        <div class="bg-white p-4 rounded-xl shadow-md border flex items-center gap-4">
-            <div class="p-3 rounded-full bg-${colorClass}-100 text-${colorClass}-600">
-                <i data-lucide="${icon}" class="w-8 h-8"></i>
-            </div>
-            <div>
-                <p class="text-3xl font-bold text-slate-800">${value}</p>
-                <p class="text-sm font-semibold text-gray-600">${label}</p>
-            </div>
-        </div>
-    `;
-};
-
-// Modified helper for pie/doughnut charts
-const createDashboardChartConfig = (type, labels, data, title) => ({
-    type: type,
-    data: {
-        labels: labels,
-        datasets: [{
-            data: data,
-            backgroundColor: ['#3b82f6', '#ef4444', '#16a34a', '#f59e0b', '#6366f1', '#ec4899'],
-            borderColor: '#ffffff',
-            borderWidth: 4,
-            hoverOffset: 8
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                position: 'bottom',
-                labels: { padding: 20, boxWidth: 12 }
-            },
-            title: {
-                display: true,
-                text: title,
-                font: { size: 18, weight: 'bold' },
-                padding: { bottom: 15 }
-            }
-        },
-        cutout: type === 'doughnut' ? '60%' : '0%'
-    }
-});
+// The old dashboard functions are being replaced with a new, more professional and efficient version.
 
 
 async function runEcrTableViewLogic() {
@@ -6429,321 +6377,189 @@ function renderDashboardAdminPanel() {
 
 async function runDashboardLogic() {
     const currentUser = appState.currentUser;
-
-    // 1. Create the main skeleton of the dashboard.
-    const skeletonHTML = `
-    <div class="animate-fade-in-up space-y-6">
-        <!-- Header -->
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    dom.viewContent.innerHTML = `
+        <div class="space-y-8">
             <div>
-                <h1 class="text-3xl font-bold text-slate-800">Bienvenido, ${currentUser.name}</h1>
-                <p class="text-slate-500 mt-1">Aquí tienes un resumen de la actividad reciente y tus tareas.</p>
+                <h1 class="text-4xl font-extrabold text-slate-800">Dashboard de Control</h1>
+                <p class="text-slate-500 mt-1 text-lg">Resumen general del sistema.</p>
             </div>
-        </div>
-
-        <!-- KPI Cards Placeholder -->
-        <div id="dashboard-kpi-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"></div>
-
-        <!-- Main Content Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Left Column -->
-            <div id="dashboard-left-column" class="lg:col-span-2 space-y-6">
-                <!-- My Tasks Placeholder -->
-                <div id="dashboard-tasks-container"></div>
-
-                <!-- Task Charts Placeholder -->
-                <div id="dashboard-charts-container">
-                    <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
-                        <h3 class="text-xl font-bold text-gray-800 mb-4">Resumen de Tareas</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                            <div>
-                                <p class="text-sm font-semibold text-slate-600 mb-2 text-center">Mis Tareas por Estado</p>
-                                <div class="h-48 relative">
-                                    <canvas id="dashboard-status-chart"></canvas>
-                                </div>
-                            </div>
-                            <div class="border-t md:border-t-0 md:border-l pt-4 md:pt-0 md:pl-6">
-                                <p class="text-sm font-semibold text-slate-600 mb-2 text-center">Tareas por Prioridad (Global)</p>
-                                <div class="h-48 relative">
-                                    <canvas id="dashboard-priority-chart"></canvas>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+            <div id="dashboard-kpi-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                ${[1,2,3,4].map(() => `<div class="bg-slate-200 h-28 rounded-xl animate-pulse"></div>`).join('')}
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-lg border">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">Distribución de Tareas por Proyecto</h3>
+                    <div id="tasks-by-project-chart-container" class="h-96"></div>
                 </div>
-
-                <!-- Admin Panel Placeholder -->
-                <div id="dashboard-admin-panel-container"></div>
+                <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg border">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">Mis Tareas Pendientes</h3>
+                    <div id="dashboard-tasks-container"></div>
+                </div>
             </div>
-
-            <!-- Right Column -->
-            <div id="dashboard-right-column" class="space-y-6">
-                <!-- Recent Activity Placeholder -->
-                <div id="dashboard-activity-container"></div>
-            </div>
+             <div id="dashboard-admin-panel-container"></div>
         </div>
-    </div>
     `;
-    dom.viewContent.innerHTML = skeletonHTML;
+    lucide.createIcons();
 
-    // 2. Call the self-contained component renderers
-    renderDashboardKpis();
-    renderDashboardTasks();
-    renderDashboardCharts();
-    await renderDashboardActivityFeed();
+    // Fetch all data concurrently
+    const kpiPromise = fetchDashboardKpis();
+    const tasksPromise = fetchDashboardTasks();
+    const projectsPromise = getDocs(collection(db, COLLECTIONS.PROYECTOS));
+
+    const [kpiData, tasks, projectsSnap] = await Promise.all([kpiPromise, tasksPromise, projectsSnap]);
+
+    const projects = projectsSnap.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+
+    // Render all components with the fetched data
+    renderDashboardKpis(kpiData, tasks);
+    renderDashboardTasks(tasks);
+    renderTasksByProjectChart(tasks, projects);
     renderDashboardAdminPanel();
-
     lucide.createIcons();
 }
 
-// --- DASHBOARD COMPONENT RENDERERS ---
+async function fetchDashboardKpis() {
+    const kpiCollections = [
+        { name: 'Productos', key: COLLECTIONS.PRODUCTOS },
+        { name: 'Insumos', key: COLLECTIONS.INSUMOS },
+        { name: 'Proyectos', key: COLLECTIONS.PROYECTOS },
+        { name: 'Usuarios', key: COLLECTIONS.USUARIOS }
+    ];
+    const promises = kpiCollections.map(c => getCountFromServer(collection(db, c.key)));
+    const snapshots = await Promise.all(promises);
+    const kpiData = {};
+    snapshots.forEach((snap, index) => {
+        kpiData[kpiCollections[index].name] = snap.data().count;
+    });
+    return kpiData;
+}
 
-function renderDashboardKpis() {
+async function fetchDashboardTasks() {
+    const tasksQuery = query(collection(db, COLLECTIONS.TAREAS));
+    const snapshot = await getDocs(tasksQuery);
+    return snapshot.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
+}
+
+function renderDashboardKpis(kpiData, allTasks) {
     const container = document.getElementById('dashboard-kpi-container');
     if (!container) return;
 
-    // Now using the more efficient counts from appState.collectionCounts
-    const { collectionCounts, collections } = appState;
-    const myTasks = collections.tareas.filter(t => t.assigneeUid === appState.currentUser.uid && t.status !== 'done');
-    const overdueTasks = myTasks.filter(t => t.dueDate && new Date(t.dueDate + "T00:00:00") < new Date());
+    const overdueTasks = allTasks.filter(t => t.status !== 'done' && t.dueDate && new Date(t.dueDate) < new Date()).length;
 
     const kpis = [
-        { id: 'kpi-productos', value: collectionCounts[COLLECTIONS.PRODUCTOS] || 0, label: 'Productos Totales', icon: 'package', color: 'blue' },
-        { id: 'kpi-insumos', value: collectionCounts[COLLECTIONS.INSUMOS] || 0, label: 'Insumos Registrados', icon: 'beaker', color: 'green' },
-        { id: 'kpi-proyectos', value: collectionCounts[COLLECTIONS.PROYECTOS] || 0, label: 'Proyectos Totales', icon: 'kanban-square', color: 'amber' },
-        { id: 'kpi-vencidas', value: overdueTasks.length, label: 'Tareas Vencidas', icon: 'alert-circle', color: 'red' }
+        { label: 'Proyectos Activos', value: kpiData['Proyectos'] || 0, icon: 'kanban-square-stack', color: 'blue' },
+        { label: 'Productos Totales', value: kpiData['Productos'] || 0, icon: 'package', color: 'indigo' },
+        { label: 'Tareas Vencidas', value: overdueTasks, icon: 'siren', color: 'red' },
+        { label: 'Usuarios Activos', value: kpiData['Usuarios'] || 0, icon: 'users', color: 'emerald' }
     ];
 
     container.innerHTML = kpis.map(kpi => `
-        <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 flex items-center space-x-4 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-lg cursor-pointer">
-            <div class="p-3 rounded-full bg-${kpi.color}-100 text-${kpi.color}-600"><i data-lucide="${kpi.icon}" class="h-8 w-8"></i></div>
-            <div><p id="${kpi.id}" class="text-3xl font-bold">${kpi.value}</p><p class="text-sm font-semibold text-gray-600">${kpi.label}</p></div>
+        <div class="bg-${kpi.color}-500 text-white p-6 rounded-2xl shadow-lg hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300">
+            <div class="flex justify-between items-start">
+                <p class="text-5xl font-black">${kpi.value}</p>
+                <div class="bg-white/30 p-3 rounded-xl">
+                    <i data-lucide="${kpi.icon}" class="w-8 h-8"></i>
+                </div>
+            </div>
+            <p class="mt-4 text-xl font-bold opacity-90">${kpi.label}</p>
         </div>
     `).join('');
     lucide.createIcons();
 }
 
-function renderDashboardTasks() {
+function renderDashboardTasks(allTasks) {
     const container = document.getElementById('dashboard-tasks-container');
     if (!container) return;
+    const myTasks = allTasks.filter(t => t.assigneeUid === appState.currentUser.uid && t.status !== 'done').slice(0, 5);
 
-    const myTasks = appState.collections.tareas.filter(t => t.assigneeUid === appState.currentUser.uid && t.status !== 'done');
-
-    let taskListHTML;
     if (myTasks.length === 0) {
-        taskListHTML = `
-            <div class="text-center py-8 text-slate-500">
-                <i data-lucide="check-circle-2" class="h-12 w-12 mx-auto text-green-500"></i>
-                <h4 class="mt-4 font-semibold">¡Todo en orden!</h4>
-                <p class="text-sm">No tienes tareas pendientes.</p>
-            </div>
-        `;
+        container.innerHTML = `
+            <div class="text-center py-10">
+                <i data-lucide="check-circle-2" class="w-16 h-16 text-green-500 mx-auto"></i>
+                <h4 class="mt-4 text-lg font-semibold text-slate-700">¡Bandeja de entrada limpia!</h4>
+                <p class="text-slate-500">No tienes tareas pendientes.</p>
+            </div>`;
     } else {
-        taskListHTML = myTasks.slice(0, 5).map(task => {
-            const dueDate = task.dueDate ? new Date(task.dueDate + "T00:00:00") : null;
-            const today = new Date();
-            today.setHours(0,0,0,0);
-            const isOverdue = dueDate && dueDate < today;
-            const dateClass = isOverdue ? 'text-red-600 font-bold' : 'text-slate-500';
-            const dueDateStr = dueDate ? `Vence: ${dueDate.toLocaleDateString('es-AR')}` : 'Sin fecha límite';
-
+        container.innerHTML = `<div class="space-y-3">${myTasks.map(task => {
+            const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
             return `
-            <div class="p-3 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all cursor-pointer" onclick="switchView('tareas')">
-                <div class="flex justify-between items-center">
-                    <span class="font-semibold text-slate-700">${task.title}</span>
-                    <span class="text-xs ${dateClass}">${dueDateStr}</span>
-                </div>
-                <div class="text-xs text-slate-400 mt-1">
-                    Prioridad: <span class="font-medium">${task.priority || 'Media'}</span>
+            <div class="p-3 rounded-lg hover:bg-slate-100/80 transition-all cursor-pointer" onclick="switchView('tareas')">
+                <p class="font-bold text-slate-800">${task.title}</p>
+                <div class="flex justify-between items-center text-sm mt-1">
+                    <span class="px-2 py-0.5 text-xs font-semibold rounded-full ${
+                        task.priority === 'high' ? 'bg-red-100 text-red-800' :
+                        task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-slate-100 text-slate-800'
+                    }">${task.priority || 'Media'}</span>
+                    <span class="font-semibold ${isOverdue ? 'text-red-600' : 'text-slate-500'}">
+                        ${task.dueDate ? `Vence: ${new Date(task.dueDate).toLocaleDateString('es-AR')}` : ''}
+                    </span>
                 </div>
             </div>
             `;
-        }).join('');
+        }).join('')}</div>`;
     }
-
-    container.innerHTML = `
-        <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Mis Tareas Pendientes</h3>
-            <div class="space-y-3">${taskListHTML}</div>
-        </div>
-    `;
     lucide.createIcons();
 }
 
-let dashboardCharts = { statusChart: null, priorityChart: null };
+function renderTasksByProjectChart(allTasks, allProjects) {
+    const container = document.getElementById('tasks-by-project-chart-container');
+    if (!container) return;
+    container.innerHTML = '<canvas id="tasks-by-project-chart"></canvas>';
+    const ctx = document.getElementById('tasks-by-project-chart')?.getContext('2d');
+    if(!ctx) return;
 
-function destroyDashboardCharts() {
-    Object.keys(dashboardCharts).forEach(key => {
-        if (dashboardCharts[key]) {
-            dashboardCharts[key].destroy();
-            dashboardCharts[key] = null;
+    const tasksByProject = allTasks.reduce((acc, task) => {
+        const projectId = task.projectId || 'unassigned';
+        if (!acc[projectId]) {
+            acc[projectId] = { todo: 0, inprogress: 0, done: 0 };
+        }
+        if (task.status !== 'done') {
+            acc[projectId][task.status || 'todo']++;
+        }
+        return acc;
+    }, {});
+
+    const projectMap = new Map(allProjects.map(p => [p.id, p.nombre]));
+    const labels = Object.keys(tasksByProject).map(id => projectMap.get(id) || 'Sin Proyecto');
+
+    const chartData = {
+        labels: labels,
+        datasets: [
+            {
+                label: 'Por Hacer',
+                data: Object.values(tasksByProject).map(p => p.todo),
+                backgroundColor: 'rgba(245, 158, 11, 0.7)', // amber-500
+                borderColor: 'rgba(245, 158, 11, 1)',
+                borderWidth: 1
+            },
+            {
+                label: 'En Progreso',
+                data: Object.values(tasksByProject).map(p => p.inprogress),
+                backgroundColor: 'rgba(59, 130, 246, 0.7)', // blue-500
+                borderColor: 'rgba(59, 130, 246, 1)',
+                borderWidth: 1
+            }
+        ]
+    };
+
+    if (dashboardCharts.tasksByProjectChart) dashboardCharts.tasksByProjectChart.destroy();
+    dashboardCharts.tasksByProjectChart = new Chart(ctx, {
+        type: 'bar',
+        data: chartData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { stacked: true, grid: { display: false } },
+                y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
+            },
+            plugins: {
+                legend: { position: 'top' },
+                tooltip: { mode: 'index', intersect: false }
+            }
         }
     });
-}
-
-function renderDashboardCharts() {
-    const container = document.getElementById('dashboard-charts-container');
-    if (!container) return;
-
-    // HTML structure is now in runDashboardLogic. This function only manages the charts.
-
-    const myTasks = appState.collections.tareas.filter(t => t.assigneeUid === appState.currentUser.uid && t.status !== 'done');
-    const allTasks = appState.collections.tareas;
-
-    // --- STATUS CHART (Doughnut) ---
-    const statusCtx = document.getElementById('dashboard-status-chart')?.getContext('2d');
-    if (statusCtx) {
-        const statusCounts = myTasks.reduce((acc, task) => {
-            const status = task.status || 'todo';
-            if (status === 'todo' || status === 'inprogress') {
-                acc[status] = (acc[status] || 0) + 1;
-            }
-            return acc;
-        }, { todo: 0, inprogress: 0 });
-
-        if (dashboardCharts.statusChart) {
-            dashboardCharts.statusChart.data.datasets[0].data = [statusCounts.todo, statusCounts.inprogress];
-            dashboardCharts.statusChart.update();
-        } else {
-            dashboardCharts.statusChart = new Chart(statusCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Por Hacer', 'En Progreso'],
-                    datasets: [{ data: [statusCounts.todo, statusCounts.inprogress], backgroundColor: ['#f59e0b', '#3b82f6'], borderColor: '#ffffff', borderWidth: 4, hoverOffset: 8 }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom', labels: { boxWidth: 12, padding: 20 } }
-                    },
-                    cutout: '60%'
-                }
-            });
-        }
-    }
-
-    // --- PRIORITY CHART (Bar) ---
-    const priorityCtx = document.getElementById('dashboard-priority-chart')?.getContext('2d');
-    if (priorityCtx) {
-        const activeTasks = allTasks.filter(t => t.status !== 'done');
-        const priorityCounts = activeTasks.reduce((acc, task) => {
-            acc[task.priority || 'medium'] = (acc[task.priority || 'medium'] || 0) + 1;
-            return acc;
-        }, { low: 0, medium: 0, high: 0 });
-        const priorityData = [priorityCounts.low, priorityCounts.medium, priorityCounts.high];
-
-        if (dashboardCharts.priorityChart) {
-            dashboardCharts.priorityChart.data.datasets[0].data = priorityData;
-            dashboardCharts.priorityChart.update();
-        } else {
-            dashboardCharts.priorityChart = new Chart(priorityCtx, {
-                type: 'bar',
-                data: {
-                    labels: ['Baja', 'Media', 'Alta'],
-                    datasets: [{
-                        label: 'Tareas Activas',
-                        data: priorityData,
-                        backgroundColor: ['#6b7280', '#f59e0b', '#ef4444'],
-                        borderRadius: 4,
-                        maxBarThickness: 30
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                precision: 0 // Show only whole numbers
-                            }
-                        },
-                        x: {
-                            grid: {
-                                display: false
-                            }
-                        }
-                    }
-                }
-            });
-        }
-    }
-}
-
-async function renderDashboardActivityFeed() {
-    const container = document.getElementById('dashboard-activity-container');
-    if (!container) return;
-
-    // Show a loading state
-    container.innerHTML = `
-        <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">Actividad Reciente</h3>
-            <div class="text-center text-slate-500 py-4"><i data-lucide="loader" class="animate-spin h-6 w-6 mx-auto"></i></div>
-        </div>`;
-    lucide.createIcons();
-
-    try {
-        const p1 = getDocs(query(collection(db, COLLECTIONS.PRODUCTOS), orderBy('createdAt', 'desc'), limit(5)));
-        const p2 = getDocs(query(collection(db, COLLECTIONS.INSUMOS), orderBy('createdAt', 'desc'), limit(5)));
-        const p3 = getDocs(query(collection(db, COLLECTIONS.SEMITERMINADOS), orderBy('createdAt', 'desc'), limit(5)));
-
-        const [productosSnap, insumosSnap, semiterminadosSnap] = await Promise.all([p1, p2, p3]);
-
-        const productos = productosSnap.docs.map(d => d.data());
-        const insumos = insumosSnap.docs.map(d => d.data());
-        const semiterminados = semiterminadosSnap.docs.map(d => d.data());
-
-        const allItems = [...productos, ...insumos, ...semiterminados];
-        const recentActivity = allItems.filter(item => item.createdAt?.seconds).sort((a, b) => b.createdAt.seconds - a.createdAt.seconds).slice(0, 5);
-
-        let contentHTML;
-        if (recentActivity.length === 0) {
-            contentHTML = `<p class="text-sm text-center text-slate-500 py-4">No hay actividad reciente.</p>`;
-        } else {
-            const typeMap = {
-                productos: { icon: 'package', label: 'Producto', color: 'blue' },
-                insumos: { icon: 'beaker', label: 'Insumo', color: 'green' },
-                semiterminados: { icon: 'box', label: 'Semiterminado', color: 'purple' }
-            };
-            const getType = (item) => {
-                if ('version_vehiculo' in item) return typeMap.productos;
-                if ('proceso' in item) return typeMap.semiterminados;
-                return typeMap.insumos;
-            };
-            contentHTML = recentActivity.map(item => {
-                const itemType = getType(item);
-                const timeAgo = formatTimeAgo(item.createdAt.seconds * 1000);
-                return `
-                    <div class="flex items-start space-x-3">
-                        <div class="p-2 rounded-full bg-${itemType.color}-100 text-${itemType.color}-600"><i data-lucide="${itemType.icon}" class="h-5 w-5"></i></div>
-                        <div>
-                            <p class="text-sm"><span class="font-bold">${itemType.label}</span> <span class="font-semibold text-slate-700">${item.descripcion}</span> fue creado.</p>
-                            <p class="text-xs text-slate-400">${timeAgo}</p>
-                        </div>
-                    </div>`;
-            }).join('');
-        }
-
-        container.innerHTML = `
-            <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200">
-                <h3 class="text-xl font-bold text-gray-800 mb-4">Actividad Reciente</h3>
-                <div class="space-y-4">${contentHTML}</div>
-            </div>
-        `;
-        lucide.createIcons();
-    } catch (error) {
-        console.error("Error fetching activity feed:", error);
-        container.innerHTML = `
-            <div class="bg-white p-6 rounded-xl shadow-md border border-red-200">
-                <h3 class="text-xl font-bold text-red-800 mb-4">Actividad Reciente</h3>
-                <p class="text-sm text-center text-red-600 py-4">No se pudo cargar la actividad.</p>
-            </div>
-        `;
-    }
 }
 
 function formatTimeAgo(timestamp) {
@@ -8706,49 +8522,34 @@ onAuthStateChanged(auth, async (user) => {
         const urlParams = new URLSearchParams(window.location.search);
         const isTestMode = urlParams.get('env') === 'test';
 
-        // If in E2E test mode, seed data now that the user is authenticated.
-        if (isTestMode) {
-            if (!window.e2eDataSeeded) {
-                await seedMinimalTestDataForE2E();
-                window.e2eDataSeeded = true;
-            }
+        if (isTestMode && !window.e2eDataSeeded) {
+            await seedMinimalTestDataForE2E();
+            window.e2eDataSeeded = true;
         }
 
         if (user.emailVerified || isTestMode) {
             const wasAlreadyLoggedIn = !!appState.currentUser;
 
-            // Show loading overlay with appropriate message
             const loadingText = dom.loadingOverlay.querySelector('p');
             loadingText.textContent = wasAlreadyLoggedIn ? 'Recargando datos...' : 'Verificación exitosa, cargando datos...';
             dom.loadingOverlay.style.display = 'flex';
 
-            // Fetch user profile
             const userDocRef = doc(db, COLLECTIONS.USUARIOS, user.uid);
             let userDocSnap = await getDoc(userDocRef);
 
-            // Self-healing: If user is authenticated but has no profile in Firestore, create one.
             if (!userDocSnap.exists()) {
                 showToast(`Creando perfil para usuario existente: ${user.email}`, 'info', 4000);
                 const newUserDoc = {
                     id: user.uid,
                     name: user.displayName || user.email.split('@')[0],
                     email: user.email,
-                    role: 'lector', // Default role for self-healed users
+                    role: 'lector',
                     sector: 'Sin Asignar',
                     createdAt: new Date(),
                     photoURL: user.photoURL || `https://api.dicebear.com/8.x/identicon/svg?seed=${encodeURIComponent(user.displayName || user.email)}`
                 };
-                try {
-                    await setDoc(userDocRef, newUserDoc);
-                    // Re-fetch the document so the rest of the login flow has the correct data
-                    userDocSnap = await getDoc(userDocRef);
-                    console.log(`User profile self-healed in Firestore for ${user.email}`);
-                } catch (error) {
-                    console.error("Error self-healing user profile:", error);
-                    showToast('Error crítico al crear el perfil de usuario. Contacte a un administrador.', 'error', 10000);
-                    await signOut(auth);
-                    return;
-                }
+                await setDoc(userDocRef, newUserDoc);
+                userDocSnap = await getDoc(userDocRef);
             }
 
             if (userDocSnap.exists() && userDocSnap.data().disabled) {
@@ -8760,23 +8561,12 @@ onAuthStateChanged(auth, async (user) => {
 
             const userData = userDocSnap.exists() ? userDocSnap.data() : {};
 
-            // --- ONE-TIME FIX FOR f.santoro@barackmercosul.com ---
-            // This script checks if the logged-in user is f.santoro and if their
-            // role is not yet 'admin'. If so, it updates their document in Firestore
-            // to permanently restore their admin rights and super admin status.
-            // This is to fix a data corruption issue from a previous bug.
             if (user.email === 'f.santoro@barackmercosul.com' && userData.role !== 'admin') {
                 showToast('Restaurando permisos de administrador...', 'info');
-                const userRef = doc(db, COLLECTIONS.USUARIOS, user.uid);
-                await updateDoc(userRef, {
-                    role: 'admin',
-                    isSuperAdmin: true
-                });
-                // Reload the page to apply the new role immediately.
+                await updateDoc(doc(db, COLLECTIONS.USUARIOS, user.uid), { role: 'admin', isSuperAdmin: true });
                 location.reload();
-                return; // Stop execution to allow reload to take effect.
+                return;
             }
-            // --- END ONE-TIME FIX ---
 
             appState.currentUser = {
                 uid: user.uid,
@@ -8785,49 +8575,43 @@ onAuthStateChanged(auth, async (user) => {
                 avatarUrl: user.photoURL || `https://api.dicebear.com/8.x/identicon/svg?seed=${encodeURIComponent(user.displayName || user.email)}`,
                 role: userData.role || 'lector',
                 isSuperAdmin: userData.isSuperAdmin || user.uid === 'KTIQRzPBRcOFtBRjoFViZPSsbSq2',
-                // Initialize godModeState if the user is a super admin
-                godModeState: (userData.isSuperAdmin || user.uid === 'KTIQRzPBRcOFtBRjoFViZPSsbSq2')
-                    ? { realRole: userData.role || 'admin', isImpersonating: false }
-                    : null
+                godModeState: (userData.isSuperAdmin || user.uid === 'KTIQRzPBRcOFtBRjoFViZPSsbSq2') ? { realRole: userData.role || 'admin', isImpersonating: false } : null
             };
-
-            // This is a fix for the godModeState not being set on the appState object itself.
             if(appState.currentUser.godModeState) {
                 appState.godModeState = appState.currentUser.godModeState;
             }
 
-
-            dom.authContainer.classList.add('hidden');
-            dom.appView.classList.remove('hidden');
-            updateNavForRole();
-            renderUserMenu();
-            renderNotificationCenter();
-
-            if (isTestMode) {
-                // For E2E tests, we bypass the real-time listeners entirely to ensure speed and determinism.
-                // We manually populate the necessary appState with our seeded mock data.
-                console.log("E2E MODE: Bypassing listeners and using seeded data.");
-                // Initialize collections that the dashboard relies on to prevent crashes.
-                appState.collections.productos = [];
-                appState.collections.insumos = [];
-                appState.collections.semiterminados = [];
-                appState.collections.tareas = [];
-                appState.collections.roles = [{ id: 'admin', descripcion: 'Admin' }, { id: 'lector', descripcion: 'Lector' }];
-                appState.collections.sectores = [{ id: 'ingenieria', descripcion: 'Ingeniería', icon: 'pencil-ruler' }];
-                appState.isAppInitialized = true;
-            } else {
-                 // For normal execution, seed default data if necessary and start listeners.
+            if (!isTestMode) {
                 if (appState.currentUser.isSuperAdmin) {
                     await seedDefaultSectors();
                     await seedDefaultRoles();
                 }
                 await startRealtimeListeners();
+            } else {
+                appState.isAppInitialized = true;
             }
 
-            switchView('dashboard');
-            dom.loadingOverlay.style.display = 'none';
+            // This must happen BEFORE switchView to avoid UI flicker
+            updateNavForRole();
+            renderUserMenu();
+            renderNotificationCenter();
 
-            if (!wasAlreadyLoggedIn && !isTestMode) { // Don't show welcome toast in test mode
+            // This is the critical sequence: render the content, THEN hide the loading screen.
+            await switchView('dashboard');
+
+            // FIX: Per AGENTS.md, defer UI updates to prevent race conditions with E2E tests.
+            // A longer delay is used for E2E tests to ensure rendering completes before screenshotting.
+            const urlParams = new URLSearchParams(window.location.search);
+            const isE2ETest = urlParams.get('e2e-test') === 'true';
+            const delay = isE2ETest ? 500 : 0;
+
+            setTimeout(() => {
+                dom.loadingOverlay.style.display = 'none';
+                dom.authContainer.classList.add('hidden');
+                dom.appView.classList.remove('hidden');
+            }, delay);
+
+            if (!wasAlreadyLoggedIn && !isTestMode) {
                 showToast(`¡Bienvenido de nuevo, ${appState.currentUser.name}!`, 'success');
             }
         } else {
@@ -8838,14 +8622,12 @@ onAuthStateChanged(auth, async (user) => {
     } else {
         dom.loadingOverlay.style.display = 'none';
         const wasLoggedIn = !!appState.currentUser;
-
         stopRealtimeListeners();
         appState.currentUser = null;
         dom.authContainer.classList.remove('hidden');
         dom.appView.classList.add('hidden');
         updateNavForRole();
         showAuthScreen('login');
-
         if (wasLoggedIn) {
             showToast(`Sesión cerrada.`, 'info');
         }
