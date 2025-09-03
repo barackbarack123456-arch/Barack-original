@@ -62,3 +62,35 @@ export function shouldRequirePpapConfirmation(ecrData) {
     // both requires a PPAP and the client has given their final approval.
     return !!ecrData.cliente_requiere_ppap && ecrData.cliente_aprobacion_estado === 'aprobado';
 }
+
+/**
+ * Validates a single form field based on its configuration.
+ * @param {object} fieldConfig - The configuration object for the field from viewConfig.
+ * @param {HTMLInputElement} inputElement - The DOM element for the input.
+ * @returns {boolean} - True if the field is valid, false otherwise.
+ */
+export function validateField(fieldConfig, inputElement) {
+    const errorElement = document.getElementById(`error-${fieldConfig.key}`);
+    let isValid = true;
+    let errorMessage = '';
+
+    const value = inputElement.value.trim();
+
+    // Check for required fields
+    if (fieldConfig.required && !value) {
+        isValid = false;
+        errorMessage = 'Este campo es obligatorio.';
+    }
+    // Check for number types, but only if a value is present
+    else if (fieldConfig.type === 'number' && value && isNaN(Number(value))) {
+        isValid = false;
+        errorMessage = 'Debe ingresar un valor numérico.';
+    }
+
+    if (errorElement) {
+        errorElement.textContent = errorMessage;
+    }
+    inputElement.classList.toggle('border-red-500', !isValid);
+    inputElement.classList.toggle('border-gray-300', isValid);
+    return isValid;
+}

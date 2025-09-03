@@ -5,8 +5,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebas
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser, sendEmailVerification, updateProfile } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, writeBatch, runTransaction, orderBy, limit, startAfter, or, getCountFromServer } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
-import { COLLECTIONS, getUniqueKeyForCollection, createHelpTooltip, shouldRequirePpapConfirmation } from './utils.js';
-import { deleteProductAndOrphanedSubProducts } from './data_logic.js';
+import { COLLECTIONS, getUniqueKeyForCollection, createHelpTooltip, shouldRequirePpapConfirmation, validateField } from './utils.js';
+import { deleteProductAndOrphanedSubProducts, registerEcrApproval } from './data_logic.js';
 import tutorial from './tutorial.js';
 import newControlPanelTutorial from './new-control-panel-tutorial.js';
 
@@ -4824,7 +4824,14 @@ async function runEcrFormLogic(params = null) {
             const commentEl = formContainer.querySelector(`[name="comments_${departmentId}"]`);
             const comment = commentEl ? commentEl.value : '';
 
-            await registerEcrApproval(ecrId, departmentId, decision, comment);
+            const deps = {
+                db,
+                firestore: { runTransaction, doc, getDoc },
+                COLLECTIONS,
+                appState,
+                uiCallbacks: { showToast, sendNotification }
+            };
+            await registerEcrApproval(ecrId, departmentId, decision, comment, deps);
             // Refresh the form view to show the new state
             switchView('ecr_form', { ecrId: ecrId });
         } else if (action === 'open-ecr-product-search') {
@@ -6178,20 +6185,6 @@ async function openFormModal(item = null) {
             });
         }
     });
-}
-
-function validateField(fieldConfig, inputElement) {
-    const errorElement = document.getElementById(`error-${fieldConfig.key}`);
-    let isValid = true;
-    let errorMessage = '';
-    if (fieldConfig.required && !inputElement.value) {
-        isValid = false;
-        errorMessage = 'Este campo es obligatorio.';
-    }
-    if (errorElement) errorElement.textContent = errorMessage;
-    inputElement.classList.toggle('border-red-500', !isValid);
-    inputElement.classList.toggle('border-gray-300', isValid);
-    return isValid;
 }
 
 async function handleFormSubmit(e, fields, item = null) {
@@ -8201,141 +8194,6 @@ async function sendNotification(userId, message, view, params = {}) {
  * @param {string} decision - La decisión tomada ('approved', 'rejected', 'stand-by').
  * @param {string} comment - Un comentario opcional sobre la decisión.
  */
-export async function registerEcrApproval(ecrId, departmentId, decision, comment) {
-    const user = appState.currentUser;
-    if (!user) {
-        showToast('Debe iniciar sesión para aprobar.', 'error');
-        return;
-    }
-
-    // Basic validation
-    if (!ecrId || !departmentId || !decision) {
-        showToast('Error: Faltan datos para registrar la aprobación.', 'error');
-        return;
-    }
-
-    const ecrRef = doc(db, COLLECTIONS.ECR_FORMS, ecrId);
-    let ecrData = null; // Declare ecrData here to be accessible in the outer scope
-
-    try {
-        await runTransaction(db, async (transaction) => {
-            const ecrDoc = await transaction.get(ecrRef);
-            if (!ecrDoc.exists()) {
-                throw new Error("El ECR no existe.");
-            }
-
-            ecrData = ecrDoc.data(); // Assign to the outer scope variable
-
-            // FIX: Ensure approvals map exists to prevent crash on new ECRs
-            if (!ecrData.approvals) {
-                ecrData.approvals = {};
-            }
-
-            const currentUserSector = appState.currentUser.sector;
-
-            // Security Check: Ensure the user belongs to the department they are approving for.
-            if (currentUserSector !== departmentId && appState.currentUser.role !== 'admin') {
-                 throw new Error(`No tienes permiso para aprobar por el departamento de ${departmentId}.`);
-            }
-
-            // Update the specific department's approval status
-            const approvalPath = `approvals.${departmentId}`;
-            const approvalUpdate = {
-                status: decision,
-                user: user.name,
-                date: new Date().toISOString().split('T')[0],
-                comment: comment || ''
-            };
-
-            // This creates the object to be used with updateDoc
-            const updateData = { [approvalPath]: approvalUpdate };
-
-            // Apply the update to our local copy to evaluate the new state
-            ecrData.approvals[departmentId] = approvalUpdate;
-
-            // --- State Machine Logic ---
-            let newOverallStatus = ecrData.status; // Start with the current status
-
-            if (ecrData.status === 'pending-approval') {
-                // BUGFIX: Dynamically determine required approvals instead of using a hardcoded list.
-                // A department's approval is required if its "afecta" checkbox was checked in the form.
-                const allDepartments = [
-                    'ing_producto', 'ing_manufatura', 'hse', 'calidad', 'compras',
-                    'sqa', 'tooling', 'logistica', 'financiero', 'comercial',
-                    'mantenimiento', 'produccion', 'calidad_cliente'
-                ];
-
-                const requiredApprovals = allDepartments.filter(dept => {
-                    // The form saves checked checkboxes as 'on'. We check for this value.
-                    // The field name in the form is, e.g., 'afecta_calidad'.
-                    return ecrData[`afecta_${dept}`] === 'on' || ecrData[`afecta_${dept}`] === true;
-                });
-
-                // If no department is marked as "afecta", no approval is needed, which is a valid state.
-                // In this case, the ECR can be considered approved by default if not rejected.
-                if (requiredApprovals.length === 0 && decision === 'approved') {
-                    newOverallStatus = 'approved';
-                } else {
-                    const approvalStates = ecrData.approvals;
-
-                    // 1. Check for any rejection
-                    if (decision === 'rejected') {
-                        newOverallStatus = 'rejected';
-                    } else {
-                        // 2. Check if all dynamically required departments have approved
-                        const allApproved = requiredApprovals.every(dept => approvalStates[dept]?.status === 'approved');
-
-                        if (allApproved) {
-                            newOverallStatus = 'approved';
-                        }
-                        // If not all approved and no rejections, it remains 'pending-approval'
-                    }
-                }
-            }
-
-            // If the overall status has changed, add it to the update object
-            if (newOverallStatus !== ecrData.status) {
-                updateData.status = newOverallStatus;
-            }
-
-            // Add metadata
-            updateData.lastModified = new Date();
-            updateData.modifiedBy = user.email;
-
-            // Perform the transactional write
-            transaction.update(ecrRef, updateData);
-
-            // Return the new status for notification logic outside the transaction
-            return newOverallStatus;
-        });
-
-        // --- Post-Transaction Logic ---
-        const finalEcrDoc = await getDoc(ecrRef);
-        const finalEcrData = finalEcrDoc.data();
-        const finalStatus = finalEcrData.status;
-
-        showToast(`Decisión del departamento de ${departmentId} registrada.`, 'success');
-
-        // Send notifications if the status changed
-        if (finalStatus !== ecrData.status) {
-            showToast(`El estado del ECR ha cambiado a: ${finalStatus}`, 'info');
-            if (finalEcrData.creatorUid) {
-                 sendNotification(
-                    finalEcrData.creatorUid,
-                    `El estado del ECR "${ecrId}" ha cambiado a ${finalStatus}.`,
-                    'ecr_form',
-                    { ecrId: ecrId }
-                );
-            }
-        }
-
-    } catch (error) {
-        console.error("Error al registrar la aprobación del ECR:", error);
-        showToast(error.message || 'No se pudo registrar la aprobación.', 'error');
-    }
-}
-
-
 async function handleTaskFormSubmit(e) {
     e.preventDefault();
     const form = e.target;
