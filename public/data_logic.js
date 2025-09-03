@@ -1,5 +1,7 @@
 // No longer importing from firebase here. The functions will be passed in.
 
+import { getUniqueKeyForCollection } from './utils.js';
+
 export async function deleteProductAndOrphanedSubProducts(productDocId, db, firestore, COLLECTIONS, uiCallbacks) {
     // Destructure the required firestore functions from the passed-in object
     const { doc, getDoc, getDocs, deleteDoc, collection, query, where } = firestore;
@@ -73,7 +75,8 @@ export async function deleteProductAndOrphanedSubProducts(productDocId, db, fire
             }
 
             if (!isUsedElsewhere) {
-                const q = query(collection(db, COLLECTIONS.SEMITERMINADOS), where("id", "==", subProductRefId));
+                const uniqueKeyField = getUniqueKeyForCollection(COLLECTIONS.SEMITERMINADOS);
+                const q = query(collection(db, COLLECTIONS.SEMITERMINADOS), where(uniqueKeyField, "==", subProductRefId));
                 const subProductToDeleteSnap = await getDocs(q);
                 if (!subProductToDeleteSnap.empty) {
                     const subProductDocToDelete = subProductToDeleteSnap.docs[0];
