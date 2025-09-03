@@ -6403,7 +6403,7 @@ async function runDashboardLogic() {
     const tasksPromise = fetchDashboardTasks();
     const projectsPromise = getDocs(collection(db, COLLECTIONS.PROYECTOS));
 
-    const [kpiData, tasks, projectsSnap] = await Promise.all([kpiPromise, tasksPromise, projectsSnap]);
+    const [kpiData, tasks, projectsSnap] = await Promise.all([kpiPromise, tasksPromise, projectsPromise]);
 
     const projects = projectsSnap.docs.map(doc => ({ ...doc.data(), docId: doc.id }));
 
