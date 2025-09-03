@@ -280,6 +280,8 @@ const dom = {
     userMenuContainer: document.getElementById('user-menu-container'),
 };
 
+const dashboardCharts = {};
+
 // =================================================================================
 // --- 3. LÓGICA DE DATOS (FIRESTORE) ---
 // =================================================================================
