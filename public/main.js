@@ -5,7 +5,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebas
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser, sendEmailVerification, updateProfile } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, writeBatch, runTransaction, orderBy, limit, startAfter, or, getCountFromServer } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
-import { COLLECTIONS, getUniqueKeyForCollection, createHelpTooltip, shouldRequirePpapConfirmation, validateField } from './utils.js';
+import { COLLECTIONS, getUniqueKeyForCollection, createHelpTooltip, shouldRequirePpapConfirmation, validateField, saveEcrFormToLocalStorage, loadEcrFormFromLocalStorage } from './utils.js';
 import { deleteProductAndOrphanedSubProducts, registerEcrApproval } from './data_logic.js';
 import tutorial from './tutorial.js';
 import newControlPanelTutorial from './new-control-panel-tutorial.js';
@@ -4726,22 +4726,6 @@ async function runEcrFormLogic(params = null) {
     });
 
     // --- Local Storage and Data Handling ---
-    const saveEcrFormToLocalStorage = () => {
-        const formData = new FormData(formContainer);
-        const data = Object.fromEntries(formData.entries());
-        formContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-            data[cb.name] = cb.checked;
-        });
-        localStorage.setItem(ECR_FORM_STORAGE_KEY, JSON.stringify(data));
-    };
-
-    const loadEcrFormFromLocalStorage = () => {
-        const savedData = localStorage.getItem(ECR_FORM_STORAGE_KEY);
-        if (!savedData) return;
-        const data = JSON.parse(savedData);
-        populateEcrForm(formContainer, data);
-    };
-
     const populateEcrForm = (form, data) => {
         if (!data || !form) return;
         // Populate standard fields
@@ -4800,10 +4784,10 @@ async function runEcrFormLogic(params = null) {
     if (ecrData) {
         populateEcrForm(formContainer, ecrData);
     } else {
-        loadEcrFormFromLocalStorage();
+        loadEcrFormFromLocalStorage(formContainer, ECR_FORM_STORAGE_KEY, populateEcrForm);
     }
 
-    formContainer.addEventListener('input', saveEcrFormToLocalStorage);
+    formContainer.addEventListener('input', () => saveEcrFormToLocalStorage(formContainer, ECR_FORM_STORAGE_KEY));
 
     formContainer.addEventListener('click', async (e) => {
         const button = e.target.closest('button[data-action]');
