@@ -6387,7 +6387,7 @@ async function runDashboardLogic() {
             </div>
             <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
                 <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-lg border">
-                    <h3 class="text-xl font-bold text-slate-800 mb-4">Distribución de Tareas por Proyecto</h3>
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">Carga de Tareas por Proyecto</h3>
                     <div id="tasks-by-project-chart-container" class="h-96"></div>
                 </div>
                 <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg border">
@@ -6526,13 +6526,13 @@ function renderTasksByProjectChart(allTasks, allProjects) {
         labels: labels,
         datasets: [
             {
-                label: 'Por Hacer',
+                label: 'Pendientes',
                 data: Object.values(tasksByProject).map(p => p.todo),
                 backgroundColor: '#FBBF24', // Amber 400
                 borderRadius: 4,
             },
             {
-                label: 'En Progreso',
+                label: 'En Curso',
                 data: Object.values(tasksByProject).map(p => p.inprogress),
                 backgroundColor: '#3B82F6', // Blue 500
                 borderRadius: 4,
@@ -8070,9 +8070,22 @@ async function openTaskFormModal(task = null, defaultStatus = 'todo', defaultAss
     dom.modalContainer.innerHTML = modalHTML;
     lucide.createIcons();
 
-    populateTaskAssigneeDropdown();
-
     const modalElement = document.getElementById('task-form-modal');
+
+    // Ensure users are loaded before populating the dropdown
+    ensureCollectionsAreLoaded([COLLECTIONS.USUARIOS])
+        .then(() => {
+            populateTaskAssigneeDropdown();
+        })
+        .catch(error => {
+            console.error("Failed to load users for task form:", error);
+            showToast('Error al cargar la lista de usuarios.', 'error');
+            const select = modalElement.querySelector('#task-assignee');
+            if (select) {
+                select.innerHTML = '<option value="">Error al cargar</option>';
+                select.disabled = true;
+            }
+        });
     const subtaskListEl = modalElement.querySelector('#subtasks-list');
     const newSubtaskInput = modalElement.querySelector('#new-subtask-title');
 
