@@ -6506,7 +6506,7 @@ function renderTasksByProjectChart(allTasks, allProjects) {
     if (!container) return;
     container.innerHTML = '<canvas id="tasks-by-project-chart"></canvas>';
     const ctx = document.getElementById('tasks-by-project-chart')?.getContext('2d');
-    if(!ctx) return;
+    if (!ctx) return;
 
     const tasksByProject = allTasks.reduce((acc, task) => {
         const projectId = task.projectId || 'unassigned';
@@ -6528,16 +6528,14 @@ function renderTasksByProjectChart(allTasks, allProjects) {
             {
                 label: 'Por Hacer',
                 data: Object.values(tasksByProject).map(p => p.todo),
-                backgroundColor: 'rgba(245, 158, 11, 0.7)', // amber-500
-                borderColor: 'rgba(245, 158, 11, 1)',
-                borderWidth: 1
+                backgroundColor: '#FBBF24', // Amber 400
+                borderRadius: 4,
             },
             {
                 label: 'En Progreso',
                 data: Object.values(tasksByProject).map(p => p.inprogress),
-                backgroundColor: 'rgba(59, 130, 246, 0.7)', // blue-500
-                borderColor: 'rgba(59, 130, 246, 1)',
-                borderWidth: 1
+                backgroundColor: '#3B82F6', // Blue 500
+                borderRadius: 4,
             }
         ]
     };
@@ -6547,15 +6545,48 @@ function renderTasksByProjectChart(allTasks, allProjects) {
         type: 'bar',
         data: chartData,
         options: {
+            indexAxis: 'y', // This makes the bar chart horizontal
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-                x: { stacked: true, grid: { display: false } },
-                y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } }
+                x: {
+                    stacked: true,
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        precision: 0,
+                        font: {
+                            family: "'Inter', sans-serif",
+                        }
+                    }
+                },
+                y: {
+                    stacked: true,
+                    ticks: {
+                        font: {
+                            family: "'Inter', sans-serif",
+                        }
+                    }
+                }
             },
             plugins: {
-                legend: { position: 'top' },
-                tooltip: { mode: 'index', intersect: false }
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        font: {
+                            family: "'Inter', sans-serif",
+                            size: 14
+                        }
+                    }
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    titleFont: { family: "'Inter', sans-serif", weight: 'bold' },
+                    bodyFont: { family: "'Inter', sans-serif" },
+                    footerFont: { family: "'Inter', sans-serif" },
+                }
             }
         }
     });
