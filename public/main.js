@@ -2033,24 +2033,57 @@ async function runEcoFormLogic(params = null) {
             formData.status = status;
             formData.id = ecrInput.value.trim();
 
-            showToast('Validando y guardando formulario ECO...', 'info');
+            showToast('Validando formulario ECO...', 'info');
 
+            // --- Client-side Validation (migrated from Cloud Function) ---
+            if (!formData.id || formData.id.trim() === '') {
+                showToast('El campo "ECR N°" no puede estar vacío. Por favor, seleccione un ECR asociado.', 'error');
+                return;
+            }
+            const hasComments = formData.comments && Object.values(formData.comments).some(comment => comment && comment.trim() !== '');
+            const hasChecklists = formData.checklists && Object.values(formData.checklists).some(section =>
+                section && section.some(item => item && (item.si || item.na))
+            );
+
+            if (!hasComments && !hasChecklists) {
+                showToast('El formulario ECO está vacío. Agregue al menos un comentario o marque una opción en el checklist.', 'error');
+                return;
+            }
+
+            const toastId = showToast('Guardando formulario ECO...', 'loading', { duration: 0 });
+
+            // --- Client-side Firestore Write Logic (migrated from Cloud Function) ---
             try {
-                const saveForm = httpsCallable(functions, 'saveFormWithValidation');
-                const result = await saveForm({ formType: 'eco', formData: formData });
+                const docId = formData.id;
+                const docRef = doc(db, COLLECTIONS.ECO_FORMS, docId);
+                const historyCollectionRef = collection(docRef, 'history');
 
-                if (result.data.success) {
-                    localStorage.removeItem(ECO_FORM_STORAGE_KEY);
-                    showToast(result.data.message, 'success');
-                    switchView('eco');
-                } else {
-                    // This case might not be reached if the function throws an error on failure
-                    showToast(result.data.message || 'Ocurrió un error inesperado.', 'error');
-                }
-            } catch(error) {
-                console.error("Error calling saveFormWithValidation for ECO:", error);
-                const errorMessage = error.message || 'Error desconocido al guardar el formulario.';
-                showToast(errorMessage, 'error');
+                const dataToSave = {
+                    ...formData,
+                    lastModified: new Date(),
+                    modifiedBy: appState.currentUser.email,
+                };
+
+                const batch = writeBatch(db);
+
+                // 1. Save the main document
+                batch.set(docRef, dataToSave, { merge: true });
+
+                // 2. Save a copy to the history subcollection
+                const historyDocRef = doc(historyCollectionRef); // Auto-generate ID for history entry
+                batch.set(historyDocRef, dataToSave);
+
+                await batch.commit();
+
+                // Use the toastId to update the loading message to success
+                showToast('ECO guardado con éxito.', 'success', { toastId });
+                localStorage.removeItem(ECO_FORM_STORAGE_KEY);
+                switchView('eco');
+
+            } catch (error) {
+                console.error("Error saving ECO form to Firestore:", error);
+                // Use the toastId to update the loading message to an error
+                showToast(`Error al guardar: ${error.message}`, 'error', { toastId });
             }
         };
 
