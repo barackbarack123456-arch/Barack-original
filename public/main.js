@@ -4966,6 +4966,11 @@ async function runEcrFormLogic(params = null) {
         ];
 
         requiredFields.forEach(field => {
+            // Skip ecr_no validation if creating a new ECR
+            if (field.name === 'ecr_no' && !isEditing) {
+                return;
+            }
+
             const input = formContainer.querySelector(`[name="${field.name}"]`);
             if (input && !input.value.trim()) {
                 isValid = false;
