@@ -4870,7 +4870,6 @@ async function runEcrFormLogic(params = null) {
         const isEditing = !!ecrId;
         const formData = new FormData(formContainer);
         const dataToSave = Object.fromEntries(formData.entries());
-        // Lesson #11: Exclude disabled checkboxes to prevent saving derived state.
         formContainer.querySelectorAll('input[type="checkbox"]:not(:disabled)').forEach(cb => {
             dataToSave[cb.name] = cb.checked;
         });
@@ -4882,17 +4881,33 @@ async function runEcrFormLogic(params = null) {
 
         const toastId = showToast('Validando y guardando...', 'loading', { duration: 0 });
 
+        // --- Client-side ECR Validation ---
+        const requiredFields = [
+            { key: 'denominacion_producto', label: 'Denominación del Producto' },
+            { key: 'situacion_existente', label: 'Situación Existente' },
+            { key: 'situacion_propuesta', label: 'Situación Propuesta' }
+        ];
+
+        for (const field of requiredFields) {
+            if (!dataToSave[field.key] || dataToSave[field.key].trim() === '') {
+                showToast(`El campo "${field.label}" no puede estar vacío.`, 'error', { toastId });
+                const inputElement = formContainer.querySelector(`[name="${field.key}"]`);
+                if(inputElement) {
+                    inputElement.classList.add('validation-error');
+                    inputElement.focus();
+                }
+                return;
+            }
+        }
+
         try {
             if (!isEditing) {
-                // --- New Client-Side ECR Number Generation ---
                 showToast('Generando número de ECR...', 'loading', { toastId });
                 const counterRef = doc(db, "counters", "ecr_counter");
-
                 const newEcrNumber = await runTransaction(db, async (transaction) => {
                     const counterSnap = await transaction.get(counterRef);
                     const currentYear = new Date().getFullYear();
                     let nextNumber = 1;
-
                     if (counterSnap.exists()) {
                         const counterData = counterSnap.data();
                         if (counterData.year === currentYear) {
@@ -4902,30 +4917,34 @@ async function runEcrFormLogic(params = null) {
                     transaction.set(counterRef, { count: nextNumber, year: currentYear }, { merge: true });
                     return `ECR-${currentYear}-${String(nextNumber).padStart(3, '0')}`;
                 });
-
                 dataToSave.ecr_no = newEcrNumber;
                 dataToSave.id = newEcrNumber;
                 showToast(`Número de ECR ${newEcrNumber} generado. Guardando...`, 'loading', { toastId });
             } else {
-                // For existing ECRs, the ID is already set.
                 dataToSave.id = ecrId;
             }
 
-            // --- Call the simplified Cloud Function ---
-            const saveForm = httpsCallable(functions, 'saveFormWithValidation');
-            const result = await saveForm({ formType: 'ecr', formData: dataToSave });
+            // --- Client-side Firestore Write Logic ---
+            const docId = dataToSave.id;
+            const docRef = doc(db, COLLECTIONS.ECR_FORMS, docId);
+            const historyCollectionRef = collection(docRef, 'history');
 
-            if (result.data.success) {
-                localStorage.removeItem(ECR_FORM_STORAGE_KEY);
-                showToast(result.data.message, 'success', { toastId });
-                switchView('ecr');
-            } else {
-                // This case should ideally not be reached if the backend throws errors
-                showToast(result.data.message || 'Ocurrió un error inesperado.', 'error', { toastId });
-            }
+            const batch = writeBatch(db);
+
+            batch.set(docRef, dataToSave, { merge: true });
+
+            const historyDocRef = doc(historyCollectionRef);
+            batch.set(historyDocRef, dataToSave);
+
+            await batch.commit();
+
+            localStorage.removeItem(ECR_FORM_STORAGE_KEY);
+            showToast('ECR guardado con éxito.', 'success', { toastId });
+            switchView('ecr');
+
         } catch (error) {
             console.error("Error during ECR save process:", error);
-            const errorMessage = error.details?.message || error.message || 'Error desconocido al guardar el formulario.';
+            const errorMessage = error.message || 'Error desconocido al guardar el formulario.';
             showToast(errorMessage, 'error', { toastId });
         }
     };
