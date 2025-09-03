@@ -110,4 +110,124 @@ describe('deleteProductAndOrphanedSubProducts', () => {
         expect(mockFirestore.deleteDoc).not.toHaveBeenCalled();
         expect(mockUiCallbacks.showToast).toHaveBeenCalledWith('El producto ya no existe.', 'info');
     });
+
+    test('should handle nested sub-products correctly', async () => {
+        // Arrange
+        const productToDelete = {
+            id: 'PROD001',
+            estructura: [
+                {
+                    tipo: 'semiterminado',
+                    refId: 'SUB001',
+                    children: [
+                        { tipo: 'semiterminado', refId: 'SUB002' }
+                    ]
+                }
+            ]
+        };
+        const subProduct1 = { id: 'SUB001' };
+        const subProduct2 = { id: 'SUB002' };
+
+        mockFirestore.getDoc.mockResolvedValueOnce({ exists: () => true, data: () => productToDelete });
+        mockFirestore.getDocs
+            .mockResolvedValueOnce({ empty: true, docs: [] }) // no other products
+            .mockResolvedValueOnce({ empty: false, docs: [{ id: 'SUB001_DOC_ID', data: () => subProduct1 }] })
+            .mockResolvedValueOnce({ empty: false, docs: [{ id: 'SUB002_DOC_ID', data: () => subProduct2 }] });
+
+        // Act
+        await deleteProductAndOrphanedSubProducts('PROD001', mockDb, mockFirestore, mockCollections, mockUiCallbacks);
+
+        // Assert
+        expect(mockFirestore.deleteDoc).toHaveBeenCalledTimes(3);
+        expect(mockUiCallbacks.showToast).toHaveBeenCalledWith('2 sub-componentes huérfanos eliminados.', 'success');
+    });
+
+    test('should handle errors during deletion', async () => {
+        // Arrange
+        const error = new Error('Firestore error');
+        mockFirestore.getDoc.mockRejectedValue(error);
+
+        // Act
+        await deleteProductAndOrphanedSubProducts('PROD001', mockDb, mockFirestore, mockCollections, mockUiCallbacks);
+
+        // Assert
+        expect(mockUiCallbacks.showToast).toHaveBeenCalledWith('Ocurrió un error durante la eliminación compleja.', 'error');
+        expect(mockUiCallbacks.runTableLogic).toHaveBeenCalled();
+    });
+
+    test('should not delete a sub-product if it is not found', async () => {
+        const productToDelete = {
+            id: 'PROD001',
+            estructura: [{ tipo: 'semiterminado', refId: 'SUB001' }]
+        };
+
+        mockFirestore.getDoc.mockResolvedValueOnce({ exists: () => true, data: () => productToDelete });
+        mockFirestore.getDocs
+            .mockResolvedValueOnce({ empty: true, docs: [] }) // no other products
+            .mockResolvedValueOnce({ empty: true, docs: [] }); // sub-product not found
+
+        // Act
+        await deleteProductAndOrphanedSubProducts('PROD001', mockDb, mockFirestore, mockCollections, mockUiCallbacks);
+
+        // Assert
+        expect(mockFirestore.deleteDoc).toHaveBeenCalledTimes(1); // Only the main product
+        expect(mockUiCallbacks.showToast).toHaveBeenCalledWith('No se eliminaron sub-componentes (están en uso por otros productos).', 'info');
+    });
+
+    test('should correctly check for sub-product usage in other products with complex structures', async () => {
+        // Arrange
+        const productToDelete = {
+            id: 'PROD001',
+            estructura: [{ tipo: 'semiterminado', refId: 'SUB001' }]
+        };
+        const otherProduct = {
+            id: 'PROD002',
+            estructura: [
+                {
+                    tipo: 'semiterminado',
+                    refId: 'SUB002',
+                    children: [
+                        { tipo: 'insumo', refId: 'INS001' }
+                    ]
+                }
+            ]
+        };
+        const subProductToDelete = { id: 'SUB001' };
+
+        mockFirestore.getDoc.mockResolvedValueOnce({ exists: () => true, data: () => productToDelete });
+        mockFirestore.getDocs
+            .mockResolvedValueOnce({ docs: [{ data: () => otherProduct }] })
+            .mockResolvedValueOnce({ empty: false, docs: [{ id: 'SUB001_DOC_ID', data: () => subProductToDelete }] });
+
+        // Act
+        await deleteProductAndOrphanedSubProducts('PROD001', mockDb, mockFirestore, mockCollections, mockUiCallbacks);
+
+        // Assert
+        expect(mockFirestore.deleteDoc).toHaveBeenCalledTimes(2);
+        expect(mockUiCallbacks.showToast).toHaveBeenCalledWith('1 sub-componentes huérfanos eliminados.', 'success');
+    });
+
+    test('should handle products with empty structure', async () => {
+        // Arrange
+        const productToDelete = {
+            id: 'PROD001',
+            estructura: [{ tipo: 'semiterminado', refId: 'SUB001' }]
+        };
+        const otherProduct = {
+            id: 'PROD002',
+            estructura: [] // Empty structure
+        };
+        const subProductToDelete = { id: 'SUB001' };
+
+        mockFirestore.getDoc.mockResolvedValueOnce({ exists: () => true, data: () => productToDelete });
+        mockFirestore.getDocs
+            .mockResolvedValueOnce({ docs: [{ data: () => otherProduct }] })
+            .mockResolvedValueOnce({ empty: false, docs: [{ id: 'SUB001_DOC_ID', data: () => subProductToDelete }] });
+
+        // Act
+        await deleteProductAndOrphanedSubProducts('PROD001', mockDb, mockFirestore, mockCollections, mockUiCallbacks);
+
+        // Assert
+        expect(mockFirestore.deleteDoc).toHaveBeenCalledTimes(2);
+    });
 });
