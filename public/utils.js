@@ -94,3 +94,32 @@ export function validateField(fieldConfig, inputElement) {
     inputElement.classList.toggle('border-gray-300', isValid);
     return isValid;
 }
+
+/**
+ * Saves ECR form data to local storage.
+ * @param {HTMLElement} formContainer - The form element.
+ * @param {string} storageKey - The key for local storage.
+ */
+export function saveEcrFormToLocalStorage(formContainer, storageKey) {
+    if (!formContainer) return;
+    const formData = new FormData(formContainer);
+    const data = Object.fromEntries(formData.entries());
+    // This is the fixed implementation.
+    formContainer.querySelectorAll('input[type="checkbox"]:not(:disabled)').forEach(cb => {
+        data[cb.name] = cb.checked;
+    });
+    localStorage.setItem(storageKey, JSON.stringify(data));
+}
+
+/**
+ * Loads ECR form data from local storage and populates the form.
+ * @param {HTMLElement} formContainer - The form element.
+ * @param {string} storageKey - The key for local storage.
+ * @param {Function} populateFormFn - The function to populate the form with data.
+ */
+export function loadEcrFormFromLocalStorage(formContainer, storageKey, populateFormFn) {
+    const savedData = localStorage.getItem(storageKey);
+    if (!savedData) return;
+    const data = JSON.parse(savedData);
+    populateFormFn(formContainer, data);
+}
