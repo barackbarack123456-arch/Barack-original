@@ -1511,8 +1511,8 @@ async function runEcoFormLogic(params = null) {
                 data[key] = value;
             }
         }
-        // Also handle checkboxes
-        form.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        // Also handle checkboxes, but ignore disabled ones which are used for derived state.
+        form.querySelectorAll('input[type="checkbox"]:not(:disabled)').forEach(cb => {
             data[cb.name] = cb.checked;
         });
 
