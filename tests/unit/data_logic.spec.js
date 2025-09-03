@@ -298,4 +298,53 @@ describe('deleteProductAndOrphanedSubProducts', () => {
         expect(mockUiCallbacks.showToast).toHaveBeenCalledWith('1 sub-componentes huérfanos eliminados.', 'success');
         expect(mockUiCallbacks.runTableLogic).toHaveBeenCalled();
     });
+
+    test('[New Failing Test] should correctly identify and delete an orphan when it is only used by the product being deleted', async () => {
+        // Arrange
+        const productToDeleteId = 'PROD_A';
+        const productToDeleteData = {
+            id: productToDeleteId,
+            estructura: [{ tipo: 'semiterminado', refId: 'ORPHAN_SUB' }]
+        };
+
+        const otherProductData = {
+            id: 'PROD_B',
+            estructura: [{ tipo: 'semiterminado', refId: 'USED_SUB' }]
+        };
+
+        const orphanSubProductData = { id: 'ORPHAN_SUB' };
+
+        // 1. Mock getDoc for the product to be deleted
+        mockFirestore.getDoc.mockResolvedValueOnce({
+            exists: () => true,
+            data: () => productToDeleteData
+        });
+
+        // 2. Mock getDocs for fetching "all" products.
+        // THIS IS THE CORE OF THE BUG: The buggy code fetches ALL products, including the one being deleted.
+        mockFirestore.getDocs
+            .mockResolvedValueOnce({
+                docs: [
+                    { id: productToDeleteId, data: () => productToDeleteData },
+                    { id: 'PROD_B', data: () => otherProductData }
+                ]
+            })
+            // 3. Mock getDocs for finding the orphan sub-product to delete it
+            .mockResolvedValueOnce({
+                docs: [{ id: 'ORPHAN_SUB_DOC_ID', data: () => orphanSubProductData }]
+            });
+
+        // Act
+        await deleteProductAndOrphanedSubProducts(productToDeleteId, mockDb, mockFirestore, COLLECTIONS, mockUiCallbacks);
+
+        // Assert
+        // The bug is that `deleteDoc` is only called once (for the main product) because it incorrectly
+        // finds the orphan in use by the product being deleted.
+        // A correct implementation should call it TWICE.
+        expect(mockFirestore.deleteDoc).toHaveBeenCalledTimes(2);
+
+        // Verify it was called for the orphan
+        expect(mockFirestore.doc).toHaveBeenCalledWith(mockDb, COLLECTIONS.SEMITERMINADOS, 'ORPHAN_SUB_DOC_ID');
+        expect(mockUiCallbacks.showToast).toHaveBeenCalledWith('1 sub-componentes huérfanos eliminados.', 'success');
+    });
 });
