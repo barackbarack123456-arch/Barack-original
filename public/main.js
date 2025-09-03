@@ -5,7 +5,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebas
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, updatePassword, reauthenticateWithCredential, EmailAuthProvider, deleteUser, sendEmailVerification, updateProfile } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, writeBatch, runTransaction, orderBy, limit, startAfter, or, getCountFromServer } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
-import { COLLECTIONS, getUniqueKeyForCollection, createHelpTooltip } from './utils.js';
+import { COLLECTIONS, getUniqueKeyForCollection, createHelpTooltip, shouldRequirePpapConfirmation } from './utils.js';
 import { deleteProductAndOrphanedSubProducts } from './data_logic.js';
 import tutorial from './tutorial.js';
 import newControlPanelTutorial from './new-control-panel-tutorial.js';
@@ -1914,7 +1914,7 @@ async function runEcoFormLogic(params = null) {
                     ecrDocSnap = await getDoc(ecrDocRef);
                 }
 
-                if (ecrDocSnap.exists() && ecrDocSnap.data().cliente_requiere_ppap && ecrDocSnap.data().cliente_aprobacion_estado === 'aprobado') {
+                if (ecrDocSnap.exists() && shouldRequirePpapConfirmation(ecrDocSnap.data())) {
                     const ppapContainer = formElement.querySelector('#ppap-confirmation-container');
                     if (ppapContainer) {
                         ppapContainer.classList.remove('hidden');
@@ -1943,7 +1943,7 @@ async function runEcoFormLogic(params = null) {
                     element.value = fieldsToPrepopulate[fieldName];
                 }
             }
-            if (ecrDataFromParam.cliente_requiere_ppap && ecrDataFromParam.cliente_aprobacion_estado === 'aprobado') {
+            if (shouldRequirePpapConfirmation(ecrDataFromParam)) {
                 const ppapContainer = formElement.querySelector('#ppap-confirmation-container');
                 if (ppapContainer) {
                     ppapContainer.classList.remove('hidden');
@@ -2088,9 +2088,9 @@ async function runEcoFormLogic(params = null) {
             if (ecrNo) {
                 const ecrDocRef = doc(db, COLLECTIONS.ECR_FORMS, ecrNo);
                 const ecrDocSnap = await getDoc(ecrDocRef);
-                if (ecrDocSnap.exists() && ecrDocSnap.data().cliente_requiere_ppap) {
+                if (ecrDocSnap.exists() && shouldRequirePpapConfirmation(ecrDocSnap.data())) {
                     const ppapContainer = document.getElementById('ppap-confirmation-container');
-                    ppapContainer.classList.remove('hidden'); // Make sure it's visible
+                    // No need to remove hidden here, as the container should already be visible if this logic runs.
                     const ppapCheckbox = formElement.querySelector('[name="ppap_completed_confirmation"]');
                     if (!ppapCheckbox.checked) {
                         errorMessages.push('Se requiere confirmación de PPAP antes de aprobar este ECO.');
