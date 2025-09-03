@@ -1366,9 +1366,6 @@ function setupGlobalEventListeners() {
 }
 
 async function switchView(viewName, params = null) {
-    if (appState.currentView === 'dashboard') {
-        destroyDashboardCharts();
-    }
     if (appState.currentViewCleanup) {
         appState.currentViewCleanup();
         appState.currentViewCleanup = null;
