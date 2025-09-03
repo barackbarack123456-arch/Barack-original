@@ -4853,7 +4853,8 @@ async function runEcrFormLogic(params = null) {
         const isEditing = !!ecrId;
         const formData = new FormData(formContainer);
         const dataToSave = Object.fromEntries(formData.entries());
-        formContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        // Lesson #11: Exclude disabled checkboxes to prevent saving derived state.
+        formContainer.querySelectorAll('input[type="checkbox"]:not(:disabled)').forEach(cb => {
             dataToSave[cb.name] = cb.checked;
         });
 
