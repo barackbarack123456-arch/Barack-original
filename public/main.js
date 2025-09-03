@@ -229,7 +229,7 @@ const viewConfig = {
 };
 
 // --- Estado Global de la Aplicación ---
-let appState = { 
+export let appState = {
     currentView: 'dashboard', 
     currentData: [], 
     arbolActivo: null,
@@ -8201,7 +8201,7 @@ async function sendNotification(userId, message, view, params = {}) {
  * @param {string} decision - La decisión tomada ('approved', 'rejected', 'stand-by').
  * @param {string} comment - Un comentario opcional sobre la decisión.
  */
-async function registerEcrApproval(ecrId, departmentId, decision, comment) {
+export async function registerEcrApproval(ecrId, departmentId, decision, comment) {
     const user = appState.currentUser;
     if (!user) {
         showToast('Debe iniciar sesión para aprobar.', 'error');
@@ -8257,20 +8257,39 @@ async function registerEcrApproval(ecrId, departmentId, decision, comment) {
             let newOverallStatus = ecrData.status; // Start with the current status
 
             if (ecrData.status === 'pending-approval') {
-                const requiredApprovals = ['ing_manufatura', 'calidad', 'compras', 'logistica', 'financiero', 'comercial'];
-                const approvalStates = ecrData.approvals;
+                // BUGFIX: Dynamically determine required approvals instead of using a hardcoded list.
+                // A department's approval is required if its "afecta" checkbox was checked in the form.
+                const allDepartments = [
+                    'ing_producto', 'ing_manufatura', 'hse', 'calidad', 'compras',
+                    'sqa', 'tooling', 'logistica', 'financiero', 'comercial',
+                    'mantenimiento', 'produccion', 'calidad_cliente'
+                ];
 
-                // 1. Check for any rejection
-                if (decision === 'rejected') {
-                    newOverallStatus = 'rejected';
+                const requiredApprovals = allDepartments.filter(dept => {
+                    // The form saves checked checkboxes as 'on'. We check for this value.
+                    // The field name in the form is, e.g., 'afecta_calidad'.
+                    return ecrData[`afecta_${dept}`] === 'on' || ecrData[`afecta_${dept}`] === true;
+                });
+
+                // If no department is marked as "afecta", no approval is needed, which is a valid state.
+                // In this case, the ECR can be considered approved by default if not rejected.
+                if (requiredApprovals.length === 0 && decision === 'approved') {
+                    newOverallStatus = 'approved';
                 } else {
-                    // 2. Check if all required departments have approved
-                    const allApproved = requiredApprovals.every(dept => approvalStates[dept]?.status === 'approved');
+                    const approvalStates = ecrData.approvals;
 
-                    if (allApproved) {
-                        newOverallStatus = 'approved';
+                    // 1. Check for any rejection
+                    if (decision === 'rejected') {
+                        newOverallStatus = 'rejected';
+                    } else {
+                        // 2. Check if all dynamically required departments have approved
+                        const allApproved = requiredApprovals.every(dept => approvalStates[dept]?.status === 'approved');
+
+                        if (allApproved) {
+                            newOverallStatus = 'approved';
+                        }
+                        // If not all approved and no rejections, it remains 'pending-approval'
                     }
-                    // If not all approved and no rejections, it remains 'pending-approval'
                 }
             }
 
