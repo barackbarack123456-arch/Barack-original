@@ -264,7 +264,7 @@ export let appState = {
     godModeState: null
 };
 
-const dom = {
+export let dom = {
     appView: document.getElementById('app-view'),
     authContainer: document.getElementById('auth-container'),
     loadingOverlay: document.getElementById('loading-overlay'),
@@ -9554,7 +9554,7 @@ const getFlattenedData = (product, levelFilters) => {
     return flattenTree(filteredEstructura, 0, []);
 };
 
-function runSinopticoTabularLogic() {
+export function runSinopticoTabularLogic() {
     // Initialize state for the view
     if (!appState.sinopticoTabularState) {
         appState.sinopticoTabularState = {
@@ -9603,7 +9603,7 @@ function runSinopticoTabularLogic() {
             let prefix = lineage.map(parentIsNotLast => parentIsNotLast ? '│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' : '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;').join('');
             if (level > 0)  prefix += isLast ? '└─ ' : '├─ ';
             const descripcion = `<span class="font-sans">${prefix}</span>${item.descripcion || item.nombre || ''}`;
-            const nivel = node.originalLevel ?? level;
+            const nivel = node.originalLevel;
             const lc_kd = item.lc_kd || NA;
             const codigo_pieza = item.codigo_pieza || NA;
             const version = item.version || NA;
