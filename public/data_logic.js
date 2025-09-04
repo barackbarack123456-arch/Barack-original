@@ -219,3 +219,21 @@ export async function registerEcrApproval(ecrId, departmentId, decision, comment
         showToast(error.message || 'No se pudo registrar la aprobación.', 'error');
     }
 }
+
+/**
+ * Gathers and formats data from the ECR form, including the state of all checkboxes.
+ * This is the function with the bug that includes disabled checkboxes.
+ * @param {HTMLFormElement} formContainer - The form element to process.
+ * @returns {object} - The processed form data.
+ */
+export function getEcrFormData(formContainer) {
+    const formData = new FormData(formContainer);
+    const dataToSave = Object.fromEntries(formData.entries());
+
+    // FIX: This selector now correctly excludes disabled checkboxes.
+    formContainer.querySelectorAll('input[type="checkbox"]:not(:disabled)').forEach(cb => {
+        dataToSave[cb.name] = cb.checked;
+    });
+
+    return dataToSave;
+}
