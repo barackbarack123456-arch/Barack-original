@@ -148,8 +148,8 @@ exports.enviarRecordatoriosDiarios = functions.pubsub.schedule("every day 09:00"
   .onRun(async (context) => {
     console.log("Ejecutando la revisión de recordatorios diarios.");
 
-    const telegramToken = functions.config().telegram.token;
-    const chatId = functions.config().telegram.chat_id;
+    const telegramToken = process.env.TELEGRAM_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
 
     if (!telegramToken || !chatId) {
         console.log("Telegram token or chat ID not set.");
