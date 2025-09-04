@@ -11,10 +11,12 @@ service cloud.firestore {
     }
 
     function canCreateUpdate() {
-      // isUserAdmin() is now safe to call. Then, safely check for the 'editor' role.
-      return isUserAdmin() ||
+      // Check for Super Admin UID first, then for 'admin' or 'editor' roles.
+      // This ensures the seeder works on a clean install for the Super Admin.
+      return request.auth.uid == 'KTIQRzPBRcOFtBRjoFViZPSsbSq2' ||
         (exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.role == 'editor');
+         (get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.role == 'admin' ||
+          get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.role == 'editor'));
     }
 
     // --- USUARIOS ---
@@ -211,11 +213,12 @@ service cloud.firestore {
     // This collection stores different counters for the application.
     // We use specific rules for each type of counter.
     match /counters/{counterDoc} {
-        // Allow any authenticated user to read any document in the collection.
-        allow read: if request.auth != null;
+      // Allow any authenticated user to read any document in the collection.
+      allow read: if request.auth != null;
 
-        // Allow writes ONLY to the 'ecr_counter' document for authenticated users.
-        allow write: if request.auth != null && counterDoc == 'ecr_counter';
+      // Allow admins to write to any counter document for seeding/maintenance.
+      // Allow any authenticated user to write to the 'ecr_counter' for transactions.
+      allow write: if isUserAdmin() || (request.auth != null && counterDoc == 'ecr_counter');
     }
 
     // --- NOTIFICACIONES ---
