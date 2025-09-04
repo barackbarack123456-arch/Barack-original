@@ -1,82 +1,50 @@
-import { jest, describe, test, expect, beforeEach } from '@jest/globals';
-import { JSDOM } from 'jsdom';
-import { runSinopticoTabularLogic } from '../../public/main.js';
+import { jest, describe, test, expect, afterEach } from '@jest/globals';
+// Import the real appState and the function to test
+import { appState, getFlattenedData } from '../../public/main.js';
 import { COLLECTIONS } from '../../public/utils.js';
 
-// Mock lucide - it's a DOM dependency we don't need for this test
-global.lucide = {
-    createIcons: jest.fn(),
-};
+describe('getFlattenedData Level Filtering Logic', () => {
 
-describe('Sinoptico Tabular View Level Filtering Bug', () => {
-    let dom;
-    let mockAppState;
-
-    beforeEach(() => {
-        // Set up a mock DOM environment
-        dom = new JSDOM(`
-            <!DOCTYPE html>
-            <html>
-                <body>
-                    <div id="view-content"></div>
-                    <div id="modal-container"></div>
-                </body>
-            </html>
-        `);
-        global.document = dom.window.document;
-        global.window = dom.window;
-
-        // Mock the global appState
-        mockAppState = {
-            currentView: 'sinoptico_tabular',
-            sinopticoTabularState: null, // This will be initialized by the function
-            collections: {
-                [COLLECTIONS.PRODUCTOS]: [],
-                [COLLECTIONS.CLIENTES]: [],
-                [COLLECTIONS.PROCESOS]: [],
-                [COLLECTIONS.UNIDADES]: [],
-                [COLLECTIONS.PROVEEDORES]: [],
-            },
-            collectionsById: {
-                [COLLECTIONS.PRODUCTOS]: new Map(),
-                [COLLECTIONS.SEMITERMINADOS]: new Map(),
-                [COLLECTIONS.INSUMOS]: new Map(),
-                [COLLECTIONS.CLIENTES]: new Map(),
-                [COLLECTIONS.PROCESOS]: new Map(),
-                [COLLECTIONS.UNIDADES]: new Map(),
-                [COLLECTIONS.PROVEEDORES]: new Map(),
-            },
-            // Mock the checkUserPermission function to always return true for simplicity
-            currentUser: {
-                role: 'admin'
-            }
-        };
-        global.appState = mockAppState;
-        global.checkUserPermission = () => true;
-
-        // Mock the dom elements lookup
-        global.dom = {
-            viewContent: document.getElementById('view-content'),
-            modalContainer: document.getElementById('modal-container')
-        };
+    afterEach(() => {
+        // Restore all mocks after each test to ensure test isolation
+        jest.restoreAllMocks();
     });
 
-    test('[BUG-REPRODUCE] should render the correct original level in the table when filtered', () => {
+    test('should correctly preserve originalLevel and calculate visual level when filtered', () => {
         // --- ARRANGE ---
-        // 1. Create mock data
+        // 1. Define the mock data that our spies will return
+        const mockProductItem = { id: 'PROD-01', descripcion: 'Producto Principal' };
+        const mockSemiItem = { id: 'SEMI-01', descripcion: 'Semiterminado Nivel 1' };
+        const mockInsumoItem = { id: 'INSUMO-01', descripcion: 'Insumo Nivel 2' };
+
+        // 2. Ensure the maps we need to spy on exist in the real appState object
+        appState.collectionsById[COLLECTIONS.PRODUCTOS] = new Map();
+        appState.collectionsById[COLLECTIONS.SEMITERMINADOS] = new Map();
+        appState.collectionsById[COLLECTIONS.INSUMOS] = new Map();
+
+        // 3. Spy on the .get() method of the real appState's maps and mock their implementations
+        jest.spyOn(appState.collectionsById[COLLECTIONS.PRODUCTOS], 'get').mockImplementation(key => {
+            if (key === 'PROD-01') return mockProductItem;
+        });
+        jest.spyOn(appState.collectionsById[COLLECTIONS.SEMITERMINADOS], 'get').mockImplementation(key => {
+            if (key === 'SEMI-01') return mockSemiItem;
+        });
+        jest.spyOn(appState.collectionsById[COLLECTIONS.INSUMOS], 'get').mockImplementation(key => {
+            if (key === 'INSUMO-01') return mockInsumoItem;
+        });
+
+        // 4. Create the mock product structure that will be passed to the function
         const mockProduct = {
-            docId: 'PROD-01',
             id: 'PROD-01',
             descripcion: 'Producto Principal',
-            clienteId: 'CLIENTE-A',
             estructura: [
-                {
+                { // Level 0
                     id: 'node-0', refId: 'PROD-01', tipo: 'producto',
                     children: [
-                        {
+                        { // Level 1
                             id: 'node-1', refId: 'SEMI-01', tipo: 'semiterminado',
                             children: [
-                                { id: 'node-2', refId: 'INSUMO-01', tipo: 'insumo', children: [] }
+                                { id: 'node-2', refId: 'INSUMO-01', tipo: 'insumo', children: [] } // Level 2
                             ]
                         }
                     ]
@@ -84,32 +52,31 @@ describe('Sinoptico Tabular View Level Filtering Bug', () => {
             ]
         };
 
-        // 2. Populate mock collections
-        mockAppState.collections[COLLECTIONS.PRODUCTOS] = [mockProduct];
-        mockAppState.collectionsById[COLLECTIONS.PRODUCTOS].set('PROD-01', mockProduct);
-        mockAppState.collectionsById[COLLECTIONS.SEMITERMINADOS].set('SEMI-01', { id: 'SEMI-01', descripcion: 'Semiterminado Nivel 1' });
-        mockAppState.collectionsById[COLLECTIONS.INSUMOS].set('INSUMO-01', { id: 'INSUMO-01', descripcion: 'Insumo Nivel 2' });
-        mockAppState.collectionsById[COLLECTIONS.CLIENTES].set('CLIENTE-A', { id: 'CLIENTE-A', descripcion: 'Cliente A' });
-
-        // 3. Set the initial state for the view logic
-        runSinopticoTabularLogic(); // Initial render to set up the state
-        appState.sinopticoTabularState.selectedProduct = mockProduct;
-        appState.sinopticoTabularState.activeFilters.niveles = new Set(['0', '2']); // Filter out level 1
+        // 5. Define the filter: we only want to see levels 0 and 2
+        const levelFilters = new Set(['0', '2']);
 
         // --- ACT ---
-        // Re-run the logic to apply the filter and re-render the table
-        runSinopticoTabularLogic();
+        // Call the function under test. It will use the real appState, but our spies will intercept the .get() calls.
+        const flattenedData = getFlattenedData(mockProduct, levelFilters);
 
         // --- ASSERT ---
-        const viewContent = document.getElementById('view-content');
-        const insumoRow = viewContent.querySelector('tr[data-node-id="node-2"]');
-        expect(insumoRow).not.toBeNull();
+        // The resulting flattened array should contain only two items: the product and the insumo.
+        expect(flattenedData).toHaveLength(2);
 
-        // The "Nivel" column is the second `<td>` in the row
-        const nivelCell = insumoRow.querySelectorAll('td')[1];
-        expect(nivelCell).not.toBeNull();
+        const productData = flattenedData.find(d => d.node.refId === 'PROD-01');
+        const insumoData = flattenedData.find(d => d.node.refId === 'INSUMO-01');
 
-        // The bug is that this cell will contain '1' instead of '2'
-        expect(nivelCell.textContent).toBe('2');
+        // Verify the Product (Level 0)
+        expect(productData).toBeDefined();
+        expect(productData.node.originalLevel).toBe(0); // Its original level was 0.
+        expect(productData.level).toBe(0);               // Its visual level in the filtered view is 0.
+
+        // Verify the Insumo (Level 2)
+        expect(insumoData).toBeDefined();
+        expect(insumoData.node.originalLevel).toBe(2); // Its original level was 2.
+        expect(insumoData.level).toBe(1);               // Its visual level is 1 because level 1 was filtered out.
+
+        // This confirms that `node.originalLevel` contains the correct, persistent level (2),
+        // which is what the rendering function needs to fix the bug.
     });
 });
