@@ -9458,100 +9458,70 @@ function runSinopticoLogic() {
     // that first loads the necessary data.
 }
 
-const getFlattenedData = (product, levelFilters) => {
-    // Helper to flatten a tree structure for display.
-    // This helper now assumes the nodes passed to it may already have an 'originalLevel'.
-    // The 'level' parameter here is the *display* level after filtering.
-    const flattenTree = (nodes, level, lineage) => {
-        const result = [];
+export const getFlattenedData = (product, levelFilters) => {
+    if (!product || !product.estructura) return [];
+
+    // Pass 1: Traverse the original tree and tag every node with its original level.
+    const tagLevels = (nodes, level) => {
+        if (!nodes) return [];
+        return nodes.map(node => {
+            const newNode = { ...node, originalLevel: level };
+            if (node.children) {
+                newNode.children = tagLevels(node.children, level + 1);
+            }
+            return newNode;
+        });
+    };
+    const taggedStructure = tagLevels(product.estructura, 0);
+
+    // Pass 2: Filter the tagged tree if a filter is active.
+    const filterTree = (nodes) => {
+        if (!nodes) return [];
+        return nodes.reduce((acc, node) => {
+            // A node is kept if its level is in the filter set.
+            if (levelFilters.has(node.originalLevel.toString())) {
+                const newNode = { ...node };
+                if (node.children) {
+                    // Its children are the result of filtering its original children.
+                    newNode.children = filterTree(node.children);
+                }
+                acc.push(newNode);
+            } else {
+                // If the node itself is filtered out, its children might not be.
+                // So we filter its children and add them to the current accumulator,
+                // effectively "promoting" them.
+                if (node.children) {
+                    acc.push(...filterTree(node.children));
+                }
+            }
+            return acc;
+        }, []);
+    };
+
+    const finalStructure = (!levelFilters || levelFilters.size === 0)
+        ? taggedStructure
+        : filterTree(taggedStructure);
+
+    // Pass 3: Flatten the final (potentially filtered) tree for rendering.
+    const flatten = (nodes, displayLevel, lineage) => {
+        if (!nodes) return [];
+        let result = [];
         nodes.forEach((node, index) => {
             const isLast = index === nodes.length - 1;
             const collectionName = node.tipo + 's';
             const item = appState.collectionsById[collectionName]?.get(node.refId);
-            if (!item) return;
-
-            // The node is pushed as is. If it has originalLevel, it will be preserved.
-            result.push({ node, item, level, isLast, lineage });
-            if (node.children && node.children.length > 0) {
-                result.push(...flattenTree(node.children, level + 1, [...lineage, !isLast]));
-            }
-        });
-        return result;
-    };
-
-    if (!product || !product.estructura) return [];
-
-    // If no filter is applied, we still need to add originalLevel.
-    if (!levelFilters || levelFilters.size === 0) {
-        const addOriginalLevel = (nodes, level) => {
-            return nodes.map(node => {
-                const newNode = { ...node, originalLevel: level };
-                if (newNode.children && newNode.children.length > 0) {
-                    newNode.children = addOriginalLevel(newNode.children, level + 1);
-                }
-                return newNode;
-            });
-        };
-        const structureWithLevels = addOriginalLevel(product.estructura, 0);
-        return flattenTree(structureWithLevels, 0, []);
-    }
-
-    // --- New, robust logic for filtered levels ---
-    const sortedSelectedLevels = [...levelFilters].map(Number).sort((a, b) => a - b);
-
-    // Recursively finds the next set of visible descendants for a given node.
-    // It receives the absolute parentLevel.
-    const findVisibleDescendants = (parentNode, parentLevel) => {
-        const results = [];
-        if (!parentNode.children) return results;
-
-        // Find the next level to show from the sorted list of selected levels.
-        const nextTargetLevel = sortedSelectedLevels.find(l => l > parentLevel);
-        if (nextTargetLevel === undefined) return []; // No more levels to show below this one.
-
-        // Search through descendants to find nodes at the target level.
-        function search(nodes, currentLevel) {
-            nodes.forEach(node => {
-                if (currentLevel === nextTargetLevel) {
-                    // Found a visible node. Attach its original level and find its visible children.
-                    const newNode = { ...node, originalLevel: currentLevel };
-                    newNode.children = findVisibleDescendants(node, currentLevel);
-                    results.push(newNode);
-                } else if (currentLevel < nextTargetLevel && node.children) {
-                    // This node is not visible, but its children might be. Keep searching deeper.
-                    search(node.children, currentLevel + 1);
-                }
-            });
-        }
-
-        search(parentNode.children, parentLevel + 1);
-        return results;
-    };
-
-    // Builds the initial filtered tree, starting from the original structure.
-    const buildFilteredTree = (nodes, currentLevel) => {
-        const result = [];
-        nodes.forEach(node => {
-            if (sortedSelectedLevels.includes(currentLevel)) {
-                // This node is visible. Keep it, attach its original level, and find its filtered children.
-                const newNode = { ...node, originalLevel: currentLevel };
-                newNode.children = findVisibleDescendants(node, currentLevel);
-                result.push(newNode);
-            } else {
-                // This node is not visible. Skip it, but check its children to see if they should be promoted.
+            if (item) {
+                // `level` is the visual display level, `node.originalLevel` is the true level.
+                result.push({ node, item, level: displayLevel, isLast, lineage });
                 if (node.children) {
-                    result.push(...buildFilteredTree(node.children, currentLevel + 1));
+                    result.push(...flatten(node.children, displayLevel + 1, [...lineage, !isLast]));
                 }
             }
         });
         return result;
     };
 
-    const filteredEstructura = buildFilteredTree(product.estructura, 0);
-
-    // Pass 2: Flatten the newly created filtered tree for display.
-    // The 'level' passed to flattenTree (0) is the starting *display* level.
-    return flattenTree(filteredEstructura, 0, []);
+    return flatten(finalStructure, 0, []);
 };
 
 export function runSinopticoTabularLogic() {
