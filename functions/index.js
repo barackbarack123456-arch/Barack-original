@@ -1,6 +1,7 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const cors = require('cors')({origin: true});
+const axios = require("axios");
 
 admin.initializeApp();
 
@@ -69,7 +70,6 @@ exports.saveFormWithValidation = functions.https.onRequest((req, res) => {
       // --- Firestore Write Logic ---
       const db = admin.firestore();
       const collectionName = formType === 'ecr' ? 'ecr_forms' : 'eco_forms';
-      let docId = formData.id;
 
       // ECR number is now generated client-side.
       // The function now assumes the 'id' field is always present.
@@ -142,3 +142,59 @@ exports.updateCollectionCounts = functions.firestore
         [collectionId]: count
     }, { merge: true });
 });
+
+exports.enviarRecordatoriosDiarios = functions.pubsub.schedule("every day 09:00")
+  .timeZone("America/Argentina/Buenos_Aires") // Ajusta a tu zona horaria
+  .onRun(async (context) => {
+    console.log("Ejecutando la revisión de recordatorios diarios.");
+
+    const telegramToken = functions.config().telegram.token;
+    const chatId = functions.config().telegram.chat_id;
+
+    if (!telegramToken || !chatId) {
+        console.log("Telegram token or chat ID not set.");
+        return null;
+    }
+
+    const db = admin.firestore();
+    const recordatoriosRef = db.collection("recordatorios");
+
+    // Obtenemos la fecha de hoy para comparar
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0); // Inicio del día
+
+    const manana = new Date(hoy);
+    manana.setDate(hoy.getDate() + 1); // Fin del día (inicio de mañana)
+
+    try {
+      // Buscamos recordatorios cuya fecha de vencimiento sea hoy
+      const snapshot = await recordatoriosRef
+        .where("fechaVencimiento", ">=", hoy)
+        .where("fechaVencimiento", "<", manana)
+        .get();
+
+      if (snapshot.empty) {
+        console.log("No se encontraron recordatorios para hoy.");
+        return null;
+      }
+
+      // Para cada recordatorio encontrado, enviamos un mensaje
+      for (const doc of snapshot.docs) {
+        const recordatorio = doc.data();
+        const mensaje = `🔔 ¡Recordatorio! Hoy vence: ${recordatorio.descripcion}`;
+
+        const url = `https://api.telegram.org/bot${telegramToken}/sendMessage`;
+        await axios.post(url, {
+          chat_id: chatId,
+          text: mensaje,
+        });
+        console.log(`Mensaje enviado para: ${recordatorio.descripcion}`);
+      }
+
+      return null;
+
+    } catch (error) {
+      console.error("Error al procesar recordatorios:", error);
+      return null;
+    }
+  });
