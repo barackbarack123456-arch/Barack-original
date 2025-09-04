@@ -1965,10 +1965,10 @@ async function runEcoFormLogic(params = null) {
         // Add event listener to save on any input
         formElement.addEventListener('input', saveEcoFormToLocalStorage);
 
-        formElement.addEventListener('click', (e) => {
+        formElement.addEventListener('click', async (e) => {
             const button = e.target.closest('button[data-action="open-ecr-search-for-eco"]');
             if (button) {
-                openEcrSearchModalForEcoForm();
+                await openEcrSearchModalForEcoForm();
             }
         });
 
@@ -4174,7 +4174,15 @@ function openEcrProductSearchModal() {
     searchHandler(); // Initial render
 }
 
-function openEcrSearchModalForEcoForm() {
+async function openEcrSearchModalForEcoForm() {
+    // Ensure the ECR collection is loaded before proceeding.
+    try {
+        await ensureCollectionsAreLoaded([COLLECTIONS.ECR_FORMS]);
+    } catch (error) {
+        showToast('Error al cargar la lista de ECRs. Intente de nuevo.', 'error');
+        return;
+    }
+
     const modalId = `ecr-search-for-eco-modal-${Date.now()}`;
     const modalHTML = `
         <div id="${modalId}" class="fixed inset-0 z-[60] flex items-center justify-center modal-backdrop animate-fade-in">
