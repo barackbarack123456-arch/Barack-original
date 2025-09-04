@@ -6,7 +6,7 @@ import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWith
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, query, where, onSnapshot, writeBatch, runTransaction, orderBy, limit, startAfter, or, getCountFromServer } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-functions.js";
 import { COLLECTIONS, getUniqueKeyForCollection, createHelpTooltip, shouldRequirePpapConfirmation, validateField, saveEcrFormToLocalStorage, loadEcrFormFromLocalStorage } from './utils.js';
-import { deleteProductAndOrphanedSubProducts, registerEcrApproval } from './data_logic.js';
+import { deleteProductAndOrphanedSubProducts, registerEcrApproval, getEcrFormData } from './data_logic.js';
 import tutorial from './tutorial.js';
 import newControlPanelTutorial from './new-control-panel-tutorial.js';
 
@@ -4867,13 +4867,7 @@ async function runEcrFormLogic(params = null) {
     });
 
     const saveEcrForm = async (status = 'in-progress') => {
-        const isEditing = !!ecrId;
-        const formData = new FormData(formContainer);
-        const dataToSave = Object.fromEntries(formData.entries());
-        formContainer.querySelectorAll('input[type="checkbox"]:not(:disabled)').forEach(cb => {
-            dataToSave[cb.name] = cb.checked;
-        });
-
+        const dataToSave = getEcrFormData(formContainer);
         dataToSave.status = status;
         dataToSave.lastModified = new Date();
         dataToSave.modifiedBy = appState.currentUser.email;
