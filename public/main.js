@@ -10965,7 +10965,29 @@ function exportSinopticoPdf(activeFilters) {
 // --- LÓGICA DE CLONACIÓN Y MODALES ESPECIALES ---
 // =================================================================================
 
-async function cloneProduct() {
+/**
+ * Recursively traverses a node tree and assigns new, unique IDs to each node.
+ * This function is exported for testing purposes.
+ * @param {Array} nodes - The array of root nodes of the structure to process.
+ * @returns {void} - The function modifies the nodes in place.
+ */
+export function regenerateNodeIds(nodes) {
+    if (!nodes) return;
+    let counter = 0;
+    const timestamp = Date.now();
+
+    function processNodes(nodeArray) {
+        nodeArray.forEach(node => {
+            node.id = `comp_${timestamp}_${counter++}`;
+            if (node.children) {
+                processNodes(node.children);
+            }
+        });
+    }
+    processNodes(nodes);
+}
+
+export async function cloneProduct() {
     const productToClone = appState.sinopticoTabularState.selectedProduct;
     if (!productToClone) {
         showToast('No hay un producto seleccionado para clonar.', 'error');
@@ -10995,17 +11017,6 @@ async function cloneProduct() {
     delete newProduct.reviewedBy;
     newProduct.id = newId;
     newProduct.createdAt = new Date();
-
-    // Generate new unique IDs for all nodes in the structure
-    function regenerateNodeIds(nodes) {
-        if (!nodes) return;
-        nodes.forEach(node => {
-            node.id = `comp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            if (node.children) {
-                regenerateNodeIds(node.children);
-            }
-        });
-    }
 
     if (newProduct.estructura) {
         regenerateNodeIds(newProduct.estructura);
