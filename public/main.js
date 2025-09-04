@@ -6462,7 +6462,7 @@ function renderDashboardKpis(kpiData, allTasks) {
     const overdueTasks = allTasks.filter(t => t.status !== 'done' && t.dueDate && new Date(t.dueDate) < new Date()).length;
 
     const kpis = [
-        { label: 'Proyectos Activos', value: kpiData['Proyectos'] || 0, icon: 'kanban-square-stack', color: 'blue' },
+        { label: 'Proyectos Activos', value: kpiData['Proyectos'] || 0, icon: 'square-stack', color: 'blue' },
         { label: 'Productos Totales', value: kpiData['Productos'] || 0, icon: 'package', color: 'indigo' },
         { label: 'Tareas Vencidas', value: overdueTasks, icon: 'siren', color: 'red' },
         { label: 'Usuarios Activos', value: kpiData['Usuarios'] || 0, icon: 'users', color: 'emerald' }
