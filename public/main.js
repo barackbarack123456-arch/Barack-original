@@ -640,9 +640,9 @@ async function clearOtherUsers() {
 }
 
 async function seedEcos(batch, users, generatedData) {
-    showToast('Generando 25 ECOs de prueba detallados...', 'info');
+    showToast('Generando 10 ECOs de prueba detallados...', 'info');
     const ecoFormsRef = collection(db, COLLECTIONS.ECO_FORMS);
-    const TOTAL_ECOS = 25;
+    const TOTAL_ECOS = 10;
     const currentYear = new Date().getFullYear();
 
     const getRandomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -679,20 +679,19 @@ async function seedEcos(batch, users, generatedData) {
             action_plan: []
         };
 
-        if (Math.random() > 0.4) { // 60% chance to have an action plan
-            const taskCount = Math.floor(Math.random() * 4) + 1;
-            for(let j = 0; j < taskCount; j++) {
-                const assignee = getRandomItem(users);
-                ecoData.action_plan.push({
-                    id: `task_${Date.now()}_${j}`,
-                    description: `Tarea de implementación de ejemplo ${j+1} para ${ecrId}`,
-                    assignee: assignee ? assignee.name : 'Sin asignar',
-                    assigneeUid: assignee ? assignee.docId : null,
-                    dueDate: getRandomDate(new Date(), new Date(new Date().getTime() + 30 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
-                    status: Math.random() > 0.5 ? 'completed' : 'pending'
-                });
-            }
+        const taskCount = Math.floor(Math.random() * 4) + 2; // Always add 2 to 5 tasks
+        for (let j = 0; j < taskCount; j++) {
+            const assignee = getRandomItem(users);
+            ecoData.action_plan.push({
+                id: `task_${Date.now()}_${j}`,
+                description: `Tarea de implementación de ejemplo ${j + 1} para ${ecrId}`,
+                assignee: assignee ? assignee.name : 'Sin asignar',
+                assigneeUid: assignee ? assignee.docId : null,
+                dueDate: getRandomDate(new Date(), new Date(new Date().getTime() + 30 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
+                status: Math.random() > 0.5 ? 'completed' : 'pending'
+            });
         }
+
 
         formSectionsData.forEach(section => {
             if (section.checklist) {
@@ -704,48 +703,24 @@ async function seedEcos(batch, users, generatedData) {
                 });
             }
 
-            if (Math.random() < 0.7) { // 70% chance of having a comment
-                ecoData.comments[section.id] = getRandomItem(sampleComments);
+            ecoData.comments[section.id] = getRandomItem(sampleComments);
+
+            const approver = getRandomItem([user1, user2]);
+            const reviewDate = getRandomDate(new Date(2023, 6, 1), new Date());
+            let sectionStatus = 'ok';
+
+            if (status === 'rejected') {
+                sectionStatus = (Math.random() < 0.4) ? 'nok' : 'ok';
+            } else if (status === 'in-progress') {
+                sectionStatus = (Math.random() < 0.3) ? null : 'ok';
             }
 
-            let sectionFullySigned = false;
-            if (Math.random() < 0.8) { // 80% chance of being signed
-                const approver = getRandomItem([user1, user2]);
-                const reviewDate = getRandomDate(new Date(2023, 6, 1), new Date());
-                let sectionStatus = 'ok';
-
-                // If the whole ECO is rejected, some sections might be NOK
-                if (status === 'rejected' && Math.random() < 0.4) {
-                    sectionStatus = 'nok';
-                }
-                // If the ECO is approved, all signed sections must be OK
-                else if (status === 'approved') {
-                    sectionStatus = 'ok';
-                }
-                // If in-progress, it can be null
-                else if (status === 'in-progress' && Math.random() < 0.3) {
-                    sectionStatus = null;
-                }
-
-                if (sectionStatus) sectionFullySigned = true;
-
-                ecoData.signatures[section.id] = {
-                    date_review: reviewDate.toISOString().split('T')[0],
-                    name: approver.name,
-                    visto: approver.name.split(' ').map(n => n[0]).join('').toUpperCase(),
-                    status: section.checklist ? sectionStatus : null
-                };
-            }
-            // If the whole ECO is approved, every section must be signed and OK
-            if (status === 'approved' && !sectionFullySigned) {
-                 const approver = getRandomItem([user1, user2]);
-                 ecoData.signatures[section.id] = {
-                    date_review: getRandomDate(new Date(2023, 6, 1), new Date()).toISOString().split('T')[0],
-                    name: approver.name,
-                    visto: approver.name.split(' ').map(n => n[0]).join('').toUpperCase(),
-                    status: section.checklist ? 'ok' : null
-                };
-            }
+            ecoData.signatures[section.id] = {
+                date_review: reviewDate.toISOString().split('T')[0],
+                name: approver.name,
+                visto: approver.name.split(' ').map(n => n[0]).join('').toUpperCase(),
+                status: section.checklist ? sectionStatus : null
+            };
         });
 
         const docRef = doc(ecoFormsRef, ecrId);
@@ -756,9 +731,9 @@ async function seedEcos(batch, users, generatedData) {
 }
 
 async function seedEcrs(batch, users, generatedData) {
-    showToast('Generando 15 ECRs de prueba detallados...', 'info');
+    showToast('Generando 10 ECRs de prueba detallados...', 'info');
     const ecrFormsRef = collection(db, COLLECTIONS.ECR_FORMS);
-    const TOTAL_ECRS = 15;
+    const TOTAL_ECRS = 10;
     const currentYear = new Date().getFullYear();
     const getRandomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
     const getRandomDate = (start, end) => new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime())).toISOString().split('T')[0];
@@ -815,19 +790,16 @@ async function seedEcrs(batch, users, generatedData) {
             let hasBeenRejected = false;
             ALL_DEPARTMENTS.forEach(dept => {
                 const randomValue = Math.random();
-                if (randomValue < 0.7) { // 70% chance of being decided
-                    const isApproved = ecrData.status === 'rejected' ? randomValue > 0.15 : randomValue > 0.05; // Lower chance of approval if final is rejected
-                    if (!isApproved) hasBeenRejected = true;
+                const isApproved = ecrData.status === 'rejected' ? randomValue > 0.15 : randomValue > 0.05;
+                if (!isApproved) hasBeenRejected = true;
 
-                    ecrData.approvals[dept] = {
-                        status: isApproved ? 'approved' : 'rejected',
-                        user: getRandomItem(users).name,
-                        date: getRandomDate(new Date(currentYear, 0, 1), new Date()),
-                        comment: getRandomItem(sampleComments)
-                    };
-                }
+                ecrData.approvals[dept] = {
+                    status: isApproved ? 'approved' : 'rejected',
+                    user: getRandomItem(users).name,
+                    date: getRandomDate(new Date(currentYear, 0, 1), new Date()),
+                    comment: getRandomItem(sampleComments)
+                };
             });
-            // If the status is 'rejected' but no department rejected it, force one.
             if (ecrData.status === 'rejected' && !hasBeenRejected) {
                 const randomDept = getRandomItem(ALL_DEPARTMENTS);
                 ecrData.approvals[randomDept] = {
@@ -1553,12 +1525,12 @@ async function runEcoFormLogic(params = null) {
         formElement.id = 'eco-form';
         formElement.className = 'max-w-7xl mx-auto bg-white shadow-lg rounded-lg p-8';
         formElement.innerHTML = `
-            <header class="flex justify-between items-center border-b-2 pb-4 mb-6">
+            <header class="flex items-center border-b-2 pb-4 mb-6">
                 <div class="flex items-center gap-2">
                     <img src="/barack_logo.png" alt="Logo" class="h-12">
                     ${createHelpTooltip('ECO (Engineering Change Order): Este formulario se usa para implementar y documentar el cierre de un cambio de ingeniería ya aprobado. Cada sección debe ser revisada y firmada por el departamento correspondiente.')}
                 </div>
-                <div class="form-field">
+                <div class="form-field ml-auto">
                     <label for="ecr_no_display" class="text-lg font-semibold">ECR Asociado:</label>
                     <div class="flex items-center gap-2 mt-1">
                         <input type="text" id="ecr_no_display" class="border-2 border-gray-300 rounded-md p-2 w-64 bg-gray-100" readonly placeholder="Seleccionar ECR...">
