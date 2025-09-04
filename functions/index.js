@@ -148,10 +148,10 @@ exports.enviarRecordatoriosDiarios = functions.pubsub.schedule("every day 09:00"
   .onRun(async (context) => {
     console.log("Ejecutando la revisión de recordatorios diarios.");
 
-    const telegramToken = process.env.TELEGRAM_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
+    const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
+    const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
-    if (!telegramToken || !chatId) {
+    if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT_ID) {
         console.log("Telegram token or chat ID not set.");
         return null;
     }
@@ -183,9 +183,9 @@ exports.enviarRecordatoriosDiarios = functions.pubsub.schedule("every day 09:00"
         const recordatorio = doc.data();
         const mensaje = `🔔 ¡Recordatorio! Hoy vence: ${recordatorio.descripcion}`;
 
-        const url = `https://api.telegram.org/bot${telegramToken}/sendMessage`;
+        const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
         await axios.post(url, {
-          chat_id: chatId,
+          chat_id: TELEGRAM_CHAT_ID,
           text: mensaje,
         });
         console.log(`Mensaje enviado para: ${recordatorio.descripcion}`);
