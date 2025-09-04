@@ -1525,17 +1525,18 @@ async function runEcoFormLogic(params = null) {
         formElement.id = 'eco-form';
         formElement.className = 'max-w-7xl mx-auto bg-white shadow-lg rounded-lg p-8';
         formElement.innerHTML = `
-            <header class="flex items-center border-b-2 pb-4 mb-6">
-                <div class="flex items-center gap-2">
+            <header class="flex justify-between items-center border-b-2 pb-4 mb-6">
+                <div class="flex-shrink-0">
                     <img src="/barack_logo.png" alt="Logo" class="h-12">
-                    ${createHelpTooltip('ECO (Engineering Change Order): Este formulario se usa para implementar y documentar el cierre de un cambio de ingeniería ya aprobado. Cada sección debe ser revisada y firmada por el departamento correspondiente.')}
                 </div>
-                <div class="form-field ml-auto">
-                    <label for="ecr_no_display" class="text-lg font-semibold">ECR Asociado:</label>
-                    <div class="flex items-center gap-2 mt-1">
-                        <input type="text" id="ecr_no_display" class="border-2 border-gray-300 rounded-md p-2 w-64 bg-gray-100" readonly placeholder="Seleccionar ECR...">
-                        <input type="hidden" name="ecr_no" id="ecr_no">
-                        <button type="button" data-action="open-ecr-search-for-eco" class="bg-blue-500 text-white p-2.5 rounded-md hover:bg-blue-600"><i data-lucide="search" class="h-5 w-5 pointer-events-none"></i></button>
+                <div class="flex-grow flex justify-end">
+                    <div class="form-field">
+                        <label for="ecr_no_display" class="text-lg font-semibold">ECR Asociado:</label>
+                        <div class="flex items-center gap-2 mt-1">
+                            <input type="text" id="ecr_no_display" class="border-2 border-gray-300 rounded-md p-2 w-64 bg-gray-100" readonly placeholder="Seleccionar ECR...">
+                            <input type="hidden" name="ecr_no" id="ecr_no">
+                            <button type="button" data-action="open-ecr-search-for-eco" class="bg-blue-500 text-white p-2.5 rounded-md hover:bg-blue-600"><i data-lucide="search" class="h-5 w-5 pointer-events-none"></i></button>
+                        </div>
                     </div>
                 </div>
             </header>
