@@ -56,7 +56,7 @@ describe('registerEcrApproval State Machine', () => {
         });
     });
 
-    test('[BUG-REPRO] should transition ECR status to "approved" when the last required department approves', async () => {
+    test('should transition ECR status to "approved" when the last required department approves', async () => {
         // --- 1. ARRANGE ---
         const ecrId = 'ECR-BUG-001';
         const initialEcrData = {
@@ -94,7 +94,7 @@ describe('registerEcrApproval State Machine', () => {
 
         expect(updateCallArgs['approvals.compras'].status).toBe('approved');
 
-        // This is the assertion that is expected to fail.
+        // The overall status should now be 'approved' as all required departments have approved.
         expect(updateCallArgs.status).toBe('approved');
     });
 

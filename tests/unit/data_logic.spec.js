@@ -299,7 +299,7 @@ describe('deleteProductAndOrphanedSubProducts', () => {
         expect(mockUiCallbacks.runTableLogic).toHaveBeenCalled();
     });
 
-    test('[New Failing Test] should correctly identify and delete an orphan when it is only used by the product being deleted', async () => {
+    test('should correctly identify and delete an orphan when it is only used by the product being deleted', async () => {
         // Arrange
         const productToDeleteId = 'PROD_A';
         const productToDeleteData = {
@@ -338,9 +338,7 @@ describe('deleteProductAndOrphanedSubProducts', () => {
         await deleteProductAndOrphanedSubProducts(productToDeleteId, mockDb, mockFirestore, COLLECTIONS, mockUiCallbacks);
 
         // Assert
-        // The bug is that `deleteDoc` is only called once (for the main product) because it incorrectly
-        // finds the orphan in use by the product being deleted.
-        // A correct implementation should call it TWICE.
+        // A correct implementation should call deleteDoc twice: once for the product, once for the orphan.
         expect(mockFirestore.deleteDoc).toHaveBeenCalledTimes(2);
 
         // Verify it was called for the orphan
