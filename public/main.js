@@ -1964,57 +1964,58 @@ async function runEcoFormLogic(params = null) {
         });
 
         const getFormData = () => {
-            const formData = new FormData(formElement);
             const data = {
                 checklists: {},
                 comments: {},
                 signatures: {},
-                action_plan: actionPlan // Include the action plan array
+                action_plan: actionPlan,
             };
 
-            for (let [key, value] of formData.entries()) {
+            const formSectionsData = [
+                { id: 'eng_producto' }, { id: 'calidad' }, { id: 'eng_proceso' },
+                { id: 'doc_calidad' }, { id: 'compras' }, { id: 'logistica' },
+                { id: 'implementacion' }, { id: 'aprobacion_final' }
+            ];
+
+            for (const element of formElement.elements) {
+                if (element.disabled || !element.name || element.tagName === 'BUTTON') {
+                    continue;
+                }
+
+                const key = element.name;
+
                 if (key.startsWith('check_')) {
                     const [, section, index, type] = key.split('_');
                     if (!data.checklists[section]) data.checklists[section] = [];
-                    if (!data.checklists[section][index]) data.checklists[section][index] = {};
-                    data.checklists[section][index][type] = value === 'on';
+                    if (!data.checklists[section][index]) data.checklists[section][index] = { si: false, na: false };
+                    data.checklists[section][index][type] = element.checked;
                 } else if (key.startsWith('comments_')) {
                     const [, section] = key.split('_');
-                    data.comments[section] = value;
+                    data.comments[section] = element.value;
                 } else if (key.startsWith('date_review_') || key.startsWith('status_') || key.startsWith('name_') || key.startsWith('visto_')) {
                     let fieldType, sectionId;
                     const knownSectionIds = formSectionsData.map(s => s.id);
-
                     for (const id of knownSectionIds) {
-                        // Check if the key ends with a known section ID, preceded by an underscore.
                         if (key.endsWith(`_${id}`)) {
                             sectionId = id;
-                            fieldType = key.substring(0, key.length - id.length - 1); // -1 for the underscore
+                            fieldType = key.substring(0, key.length - id.length - 1);
                             break;
                         }
                     }
-
                     if (sectionId && fieldType) {
                         if (!data.signatures[sectionId]) data.signatures[sectionId] = {};
-                        data.signatures[sectionId][fieldType] = value;
-                    } else {
-                        // Fallback for keys that might not match the pattern but passed the check.
-                        data[key] = value;
+                        if (element.type === 'radio') {
+                            if (element.checked) {
+                                data.signatures[sectionId][fieldType] = element.value;
+                            }
+                        } else {
+                            data.signatures[sectionId][fieldType] = element.value;
+                        }
                     }
                 } else {
-                    data[key] = value;
+                    data[key] = element.value;
                 }
             }
-             // Handle checkboxes correctly
-            formElement.querySelectorAll('input[type="checkbox"]:not(:disabled)').forEach(cb => {
-                const key = cb.name;
-                 if (key.startsWith('check_')) {
-                    const [, section, index, type] = key.split('_');
-                    if (!data.checklists[section]) data.checklists[section] = [];
-                    if (!data.checklists[section][index]) data.checklists[section][index] = { si: false, na: false };
-                    data.checklists[section][index][type] = cb.checked;
-                }
-            });
 
             return data;
         };
