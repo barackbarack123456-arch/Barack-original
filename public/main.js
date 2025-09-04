@@ -1471,22 +1471,40 @@ async function runEcoFormLogic(params = null) {
     const saveEcoFormToLocalStorage = () => {
         const form = dom.viewContent.querySelector('#eco-form');
         if (!form) return;
-        const formData = new FormData(form);
+
         const data = {};
-        for (const [key, value] of formData.entries()) {
-            if (data[key]) {
-                if (!Array.isArray(data[key])) {
-                    data[key] = [data[key]];
-                }
-                data[key].push(value);
-            } else {
-                data[key] = value;
+        // Iterate over all form elements to build the data object manually.
+        // This is more robust than using `new FormData()` because it allows us
+        // to explicitly ignore disabled fields, which is the core of the fix.
+        for (const element of form.elements) {
+            // Skip disabled elements, elements without a name, or buttons.
+            if (element.disabled || !element.name || element.tagName === 'BUTTON') {
+                continue;
+            }
+
+            switch (element.type) {
+                case 'checkbox':
+                    // For checkboxes, we always store the boolean `checked` state.
+                    data[element.name] = element.checked;
+                    break;
+                case 'radio':
+                    // For radio buttons, only save the value of the selected one.
+                    if (element.checked) {
+                        data[element.name] = element.value;
+                    }
+                    break;
+                case 'select-multiple':
+                    // For multi-select, gather all selected options.
+                    data[element.name] = Array.from(element.options)
+                        .filter(option => option.selected)
+                        .map(option => option.value);
+                    break;
+                default:
+                    // For all other input types (text, date, select-one, etc.).
+                    data[element.name] = element.value;
+                    break;
             }
         }
-        // Also handle checkboxes, but ignore disabled ones which are used for derived state.
-        form.querySelectorAll('input[type="checkbox"]:not(:disabled)').forEach(cb => {
-            data[cb.name] = cb.checked;
-        });
 
         localStorage.setItem(ECO_FORM_STORAGE_KEY, JSON.stringify(data));
     };

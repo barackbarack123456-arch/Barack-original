@@ -8,4 +8,5 @@ export default {
   testEnvironment: 'jsdom',
   testMatch: ['<rootDir>/tests/unit/**/*.spec.js'],
   transform: {},
+  setupFilesAfterEnv: ['<rootDir>/tests/jest.setup.js'],
 };
