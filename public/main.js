@@ -1525,11 +1525,11 @@ async function runEcoFormLogic(params = null) {
         formElement.id = 'eco-form';
         formElement.className = 'max-w-7xl mx-auto bg-white shadow-lg rounded-lg p-8';
         formElement.innerHTML = `
-            <header class="flex justify-between items-center border-b-2 pb-4 mb-6">
+            <header class="flex justify-between items-center border-b-2 pb-4 mb-6" style="background-color: #eee;">
                 <div class="flex-shrink-0">
                     <img src="/barack_logo.png" alt="Logo" class="h-12">
                 </div>
-                <div class="flex-grow flex justify-end">
+                <div style="margin-left: auto; border: 2px solid red; padding: 5px;">
                     <div class="form-field">
                         <label for="ecr_no_display" class="text-lg font-semibold">ECR Asociado:</label>
                         <div class="flex items-center gap-2 mt-1">
